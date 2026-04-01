@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator';
 
 export default defineConfig({
+  base: './',
   publicDir: 'Public',
   plugins: [
     obfuscatorPlugin({
@@ -18,7 +19,8 @@ export default defineConfig({
     })
   ],
   build: {
-    sourcemap: false
+    sourcemap: false,
+    outDir: '../JazzProgressionTrainerDemo'
   },
   server: {
     host: true,

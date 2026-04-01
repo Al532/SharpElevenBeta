@@ -2075,7 +2075,8 @@ function restoreDefaultPresets() {
 // ---- Persistence (localStorage) ----
 
 const STORAGE_KEY = 'jazzTrainerSettings';
-const PATTERN_HELP_URL = 'pattern-suffixes.txt';
+const APP_BASE_URL = (import.meta?.env?.BASE_URL) || './';
+const PATTERN_HELP_URL = `${APP_BASE_URL}pattern-suffixes.txt`;
 const PATTERN_HELP_VERSION = APP_VERSION;
 const DISPLAY_MODE_SHOW_BOTH = 'show-both';
 const DISPLAY_MODE_CHORDS_ONLY = 'chords-only';
