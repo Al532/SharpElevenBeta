@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jazz Progression Trainer</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="shortcut icon" href="/favicon.svg">
+  <script>
+    window.JAZZ_TRAINER_VERSION = '8';
+  </script>
+  <script type="module" crossorigin src="/assets/index-Cq42X0uW.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-bU0-yr2F.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div id="app-version"></div>
+      <h1>Jazz Progression Trainer</h1>
+    </header>
+
+    <main class="app-layout">
+      <section class="surface-block surface-display" aria-label="Current progression">
+        <div class="section-heading">
+          <span class="section-kicker">Display</span>
+        </div>
+        <div id="display">
+          <div id="display-columns">
+            <div id="current-header" class="col-header"></div>
+            <div id="next-header" class="col-header hidden">Next</div>
+            <div id="key-display"></div>
+            <div id="next-key-display" class="hidden"></div>
+            <div id="chord-display"></div>
+            <div id="next-chord-display" class="hidden"></div>
+          </div>
+          <div id="beat-indicator">
+            <span class="beat-dot" data-beat="0"></span>
+            <span class="beat-dot" data-beat="1"></span>
+            <span class="beat-dot" data-beat="2"></span>
+            <span class="beat-dot" data-beat="3"></span>
+          </div>
+        </div>
+      </section>
+
+      <div id="transport-buttons" aria-label="Playback controls">
+        <button id="start-stop">Start</button>
+        <button id="pause" class="hidden">Pause</button>
+      </div>
+
+      <section id="controls" class="controls-layout" aria-label="Trainer settings">
+        <div class="control-panel">
+          <div class="section-heading">
+            <span class="section-kicker">Progression</span>
+          </div>
+
+          <div class="control-row">
+            <label for="pattern-select">Pattern</label>
+            <select id="pattern-select"></select>
+          </div>
+
+          <div class="control-row mode-row">
+            <label for="major-minor">Mode</label>
+            <label class="mode-toggle" for="major-minor">
+              <input type="checkbox" id="major-minor">
+              <span class="mode-toggle-track" aria-hidden="true">
+                <span class="mode-option mode-option-major">Major</span>
+                <span class="mode-option mode-option-minor">Minor</span>
+              </span>
+            </label>
+          </div>
+
+          <details class="control-row custom-pattern-panel" id="custom-pattern-panel">
+            <summary class="key-picker-summary">
+              <span>Custom pattern</span>
+            </summary>
+
+            <div class="custom-pattern-body">
+              <div class="control-row">
+                <label for="custom-pattern">Custom pattern</label>
+                <input type="text" id="custom-pattern" placeholder="e.g. bVI V I, Dm7 G7 Cmaj7, or key=Eb: Fm7 Bb7 Ebmaj7" spellcheck="false">
+                <div id="pattern-error" class="error hidden"></div>
+              </div>
+
+              <div class="control-row">
+                <label for="pattern-mode">This pattern works in</label>
+                <select id="pattern-mode">
+                  <option value="major">Major</option>
+                  <option value="minor">Minor</option>
+                  <option value="both" selected>Both</option>
+                </select>
+              </div>
+
+              <div class="control-row preset-manager-row">
+                <label>Presets</label>
+                <div class="preset-manager-grid">
+                  <button type="button" id="save-preset">Save preset</button>
+                  <button type="button" id="delete-preset" class="danger-button">Delete selected preset</button>
+                  <button type="button" id="restore-default-presets">Restore default presets</button>
+                </div>
+                <div id="preset-feedback" class="hint"></div>
+              </div>
+
+              <div id="pattern-help" class="pattern-help pattern-help-static">
+                <div class="pattern-help-title">Pattern syntax</div>
+                <div class="pattern-help-body">
+                  <p>Loading pattern help...</p>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="control-panel">
+          <div class="section-heading">
+            <span class="section-kicker">Playback</span>
+          </div>
+
+          <div class="control-row">
+            <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
+            <input type="range" id="tempo-slider" min="40" max="300" value="120">
+          </div>
+
+          <div class="control-row toggles">
+            <div class="toggle-row">
+              <label class="toggle-label">
+                <input type="checkbox" id="double-time">
+                <span>Double time</span>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label">
+                <input type="checkbox" id="chord-mode" checked>
+                <span>Play chords</span>
+              </label>
+              <label class="toggle-label toggle-select-label" for="drums-select">
+                <span>Drums</span>
+                <select id="drums-select">
+                  <option value="off">Off</option>
+                  <option value="metronome_2_4">Metronome 2 &amp; 4</option>
+                  <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
+                  <option value="full_swing" selected>Full swing drum pattern</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <details class="control-row" id="mixer-panel">
+            <summary class="key-picker-summary">
+              <span>Mixer</span>
+            </summary>
+            <div class="mixer-controls">
+              <label class="mixer-slider" for="bass-volume">
+                <span>Bass</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="bass-volume" min="0" max="100" value="100">
+                  <output id="bass-volume-value" for="bass-volume">100%</output>
+                </div>
+              </label>
+              <label class="mixer-slider" for="strings-volume">
+                <span>Strings</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="strings-volume" min="0" max="100" value="100">
+                  <output id="strings-volume-value" for="strings-volume">100%</output>
+                </div>
+              </label>
+              <label class="mixer-slider" for="drums-volume">
+                <span>Metronome / Drums</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="drums-volume" min="0" max="100" value="100">
+                  <output id="drums-volume-value" for="drums-volume">100%</output>
+                </div>
+              </label>
+            </div>
+          </details>
+        </div>
+
+        <div class="control-panel control-panel-compact">
+          <div class="section-heading">
+            <span class="section-kicker">Advanced</span>
+          </div>
+
+          <div class="control-row">
+            <label for="transposition-select">Display transposition</label>
+            <select id="transposition-select">
+              <option value="0" selected>Concert (C)</option>
+              <option value="2">Bb instruments</option>
+              <option value="9">Eb instruments</option>
+              <option value="7">F instruments</option>
+            </select>
+          </div>
+
+          <div class="control-row toggles">
+            <div class="toggle-row">
+              <label class="toggle-label toggle-select-label" for="display-mode">
+                <span>Display</span>
+                <select id="display-mode">
+                  <option value="show-both" selected>Show key and chord</option>
+                  <option value="chords-only">Show chords only</option>
+                  <option value="key-only">Show key only</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <details class="control-row" id="key-picker">
+            <summary class="key-picker-summary">
+              <span>Keys</span>
+            </summary>
+            <div id="key-checkboxes"></div>
+          </details>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
