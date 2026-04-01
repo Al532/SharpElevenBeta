@@ -1,4 +1,4 @@
-6, maj7, m6, m7, 7, lyd
+6, maj7, m6, m7, 7, lyd // m7 is promoted internally to m9 except on III
 m7b5, dim7
 7mixo // Mixolydian; default major dominant
 7b9 // b9/b13; default minor dominant

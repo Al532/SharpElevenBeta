@@ -30,11 +30,12 @@ const SEMITONE_TO_ROMAN_TOKEN = {
   11: { roman: 'VII', modifier: '' }
 };
 const INTERVAL_SEMITONES = {
+  '1': 0,
   b9: 1, '9': 2, '#9': 3,
   b3: 3, '3': 4,
   '4': 5,
   '#11': 6, b5: 6, '5': 7,
-  b13: 8, '6': 9, '13': 9, bb7: 9,
+  '#5': 8, b13: 8, '6': 9, '13': 9, bb7: 9,
   b7: 10, '7': 11
 };
 
@@ -54,6 +55,8 @@ const {
   COLOR_TONES,
   DOMINANT_COLOR_TONES,
   DOMINANT_GUIDE_TONES = {},
+  DOMINANT_DEFAULT_SUBTYPE_MAJOR = {},
+  DOMINANT_DEFAULT_SUBTYPE_MINOR = {},
   QUALITY_CATEGORY_ALIASES = {},
   DOMINANT_SUBTYPE_SUFFIXES = {}
 } = voicingConfig;
@@ -185,6 +188,7 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
   let qualityMinor;
 
   if (customQuality) {
+    if (!isAcceptedCustomQuality(customQuality)) return null;
     qualityMajor = customQuality;
     qualityMinor = customQuality;
   } else if (modifier) {
@@ -195,6 +199,9 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
     qualityMinor = DEGREE_QUALITY_MINOR[roman] || 'm7';
   }
 
+  qualityMajor = normalizeParsedQuality(qualityMajor, roman);
+  qualityMinor = normalizeParsedQuality(qualityMinor, roman);
+
   return {
     label,
     roman,
@@ -204,6 +211,17 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
     qualityMinor,
     inputType
   };
+}
+
+function isAcceptedCustomQuality(quality) {
+  return String(quality).toLowerCase() !== 'm9';
+}
+
+function normalizeParsedQuality(quality, roman) {
+  const normalizedQuality = String(quality).toLowerCase();
+  if (normalizedQuality === 'm9') return roman === 'III' ? 'm7' : 'm9';
+  if (normalizedQuality === 'm7' && roman !== 'III') return 'm9';
+  return quality;
 }
 
 function parseDegreeToken(token) {
@@ -329,8 +347,13 @@ function analyzePattern(str) {
     }
 
     const parsed = parseToken(t, base.basePitchClass);
-    if (parsed) chords.push(parsed);
-    else invalidTokens.push(t);
+    if (parsed) {
+      chords.push(parsed);
+    } else if (containsRejectedQuality(t)) {
+      invalidTokens.push(`${t} (use m7; m9 is applied automatically except on III)`);
+    } else {
+      invalidTokens.push(t);
+    }
   }
 
   return {
@@ -344,6 +367,10 @@ function analyzePattern(str) {
 
 function parsePattern(str) {
   return analyzePattern(str).chords;
+}
+
+function containsRejectedQuality(token) {
+  return /m9/i.test(token);
 }
 
 function padProgression(chords, doubleTime) {
@@ -458,8 +485,8 @@ async function preloadSamples() {
   for (let midi = stringRanges.cello.low; midi <= stringRanges.cello.high; midi++) {
     promises.push(loadSample('cello', 'Cellos', midi));
   }
-  // Violin samples limited to reachable color tones from the current voicing rules.
-  for (let midi = stringRanges.violin.low; midi <= stringRanges.violin.high; midi++) {
+  // Violin samples are fully preloaded so voicing optimization is never preload-bound.
+  for (let midi = VIOLIN_LOW; midi <= VIOLIN_HIGH; midi++) {
     promises.push(loadSample('violin', 'Violins', midi));
   }
   promises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
@@ -765,14 +792,17 @@ function getNextDifferentChord(chords, startIdx) {
 function getVoicingAtIndex(chords, key, chordIdx, isMinor) {
   const chord = chords[chordIdx];
   if (!chord) return null;
-  return getVoicing(key, chord, getNextDifferentChord(chords, chordIdx), isMinor);
+  const plannedVoicing = getVoicingPlanForProgression(chords, key, isMinor)?.[chordIdx];
+  if (plannedVoicing) return plannedVoicing;
+  return getVoicing(key, chord, isMinor);
 }
 
 function getPreparedNextProgression() {
-  if (nextKeyValue === null) return null;
+  if (nextKeyValue === null || !nextPaddedChords) return null;
   return {
     key: nextKeyValue,
-    chords: padProgression(buildProgression(), dom.doubleTime.checked),
+    chords: nextPaddedChords,
+    voicingPlan: nextVoicingPlan,
   };
 }
 
@@ -1059,13 +1089,11 @@ function getDominantSubtype(quality) {
   return 'auto';
 }
 
-function resolveDominantSubtype(chord, quality, nextQuality) {
+function resolveDominantSubtype(chord, quality, isMinor) {
   const sub = getDominantSubtype(quality);
   if (sub !== 'auto') return sub;
-  if (chord.roman === 'II' && chord.modifier === '') return 'lyd';
-  // Auto: 'b9' if next chord is minor, else 'mixo'
-  if (classifyQuality(nextQuality) === 'm7' || classifyQuality(nextQuality) === 'm6') return 'b9';
-  return 'mixo';
+  const defaults = isMinor ? DOMINANT_DEFAULT_SUBTYPE_MINOR : DOMINANT_DEFAULT_SUBTYPE_MAJOR;
+  return defaults[chord.roman] || 'mixo';
 }
 
 function resolveIntervalValue(interval) {
@@ -1099,7 +1127,7 @@ function getBassPreloadRange() {
   return { low, high };
 }
 
-function computeChordVoicing(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
+function buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
   // Fundamental: lowest cello note matching root pitch class
   let fundamental = rootPitchClass;
   while (fundamental < CELLO_LOW) fundamental += 12;
@@ -1114,37 +1142,188 @@ function computeChordVoicing(rootPitchClass, qualityCategory, colorToneIntervals
   // Top guide tone = highest MIDI among guide tones
   const topGuide = Math.max(...guideTones);
 
-  // Color tones: lowest MIDI strictly above topGuide, in violin range
-  const colorTones = [];
-  for (const interval of colorToneIntervals) {
-    const pc = (rootPitchClass + interval) % 12;
-    let midi = pc;
-    while (midi <= topGuide) midi += 12;
-    if (midi >= VIOLIN_LOW && midi <= VIOLIN_HIGH) {
-      colorTones.push(midi);
+  const colorPitchClasses = colorToneIntervals.map(interval => (rootPitchClass + interval) % 12);
+
+  return {
+    fundamental,
+    guideTones,
+    colorPitchClasses,
+    topGuide,
+  };
+}
+
+function getCandidateMidisForPitchClass(pitchClass, minExclusive, low = VIOLIN_LOW, high = VIOLIN_HIGH) {
+  const midis = [];
+  let midi = pitchClass;
+  while (midi <= minExclusive || midi < low) midi += 12;
+  while (midi <= high) {
+    midis.push(midi);
+    midi += 12;
+  }
+  return midis;
+}
+
+function enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
+  const base = buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals);
+  const { fundamental, guideTones, colorPitchClasses, topGuide } = base;
+  if (colorPitchClasses.length === 0) {
+    return [{ fundamental, guideTones, colorTones: [] }];
+  }
+
+  const colorToneOptions = colorPitchClasses.map(pc => getCandidateMidisForPitchClass(pc, topGuide));
+  if (colorToneOptions.some(options => options.length === 0)) {
+    return [];
+  }
+
+  const candidateMap = new Map();
+  const current = new Array(colorToneOptions.length);
+
+  function visitOption(optionIndex) {
+    if (optionIndex >= colorToneOptions.length) {
+      const colorTones = [...current].sort((a, b) => a - b);
+      const key = colorTones.join(',');
+      if (!candidateMap.has(key)) {
+        candidateMap.set(key, { fundamental, guideTones, colorTones });
+      }
+      return;
+    }
+
+    for (const midi of colorToneOptions[optionIndex]) {
+      current[optionIndex] = midi;
+      visitOption(optionIndex + 1);
     }
   }
-  colorTones.sort((a, b) => a - b);
 
-  return { fundamental, guideTones, colorTones };
+  visitOption(0);
+
+  return [...candidateMap.values()].sort((a, b) => {
+    const topDiff = getVoicingTopNote(a) - getVoicingTopNote(b);
+    if (topDiff !== 0) return topDiff;
+    const sumDiff = sumNotes(a.colorTones) - sumNotes(b.colorTones);
+    if (sumDiff !== 0) return sumDiff;
+    return a.colorTones.join(',').localeCompare(b.colorTones.join(','));
+  });
+}
+
+function computeChordVoicing(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
+  return enumerateChordVoicingCandidates(
+    rootPitchClass,
+    qualityCategory,
+    colorToneIntervals,
+    guideToneIntervals
+  )[0] || null;
+}
+
+function sumNotes(notes) {
+  return notes.reduce((total, note) => total + note, 0);
+}
+
+function getVoicingTopNote(voicing) {
+  if (!voicing?.colorTones?.length) {
+    return Math.max(voicing?.fundamental || -Infinity, ...(voicing?.guideTones || []));
+  }
+  return voicing.colorTones[voicing.colorTones.length - 1];
+}
+
+function compareVoicingPathScores(left, right) {
+  if (!left) return 1;
+  if (!right) return -1;
+  if (left.totalTopMovement !== right.totalTopMovement) {
+    return left.totalTopMovement - right.totalTopMovement;
+  }
+  if (left.totalTopSum !== right.totalTopSum) {
+    return left.totalTopSum - right.totalTopSum;
+  }
+  return left.signature.localeCompare(right.signature);
+}
+
+function buildVoicingPlan(chords, key, isMinor) {
+  if (!Array.isArray(chords) || chords.length === 0) return [];
+
+  const candidatesByIndex = chords.map((chord, chordIdx) => {
+    if (!chord) return [null];
+    const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
+    const cat = classifyQuality(quality);
+    if (!cat) return [null];
+
+    const rootPitchClass = (key + chord.semitones) % 12;
+    let colorIntervals;
+    let guideIntervals = null;
+    if (cat === 'dom') {
+      const subtype = resolveDominantSubtype(chord, quality, isMinor);
+      colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[subtype] || DOMINANT_COLOR_TONES.mixo);
+      guideIntervals = DOMINANT_GUIDE_TONES[subtype] || null;
+    } else {
+      colorIntervals = resolveIntervalList(COLOR_TONES[cat] || []);
+    }
+
+    const candidates = enumerateChordVoicingCandidates(rootPitchClass, cat, colorIntervals, guideIntervals);
+    return candidates.length > 0 ? candidates : [null];
+  });
+
+  let previousScores = candidatesByIndex[0].map(candidate => ({
+    candidate,
+    totalTopMovement: 0,
+    totalTopSum: candidate ? getVoicingTopNote(candidate) : 0,
+    prevIndex: -1,
+    signature: candidate?.colorTones?.join(',') || '',
+  }));
+
+  const scoreRows = [previousScores];
+
+  for (let rowIndex = 1; rowIndex < candidatesByIndex.length; rowIndex++) {
+    const rowCandidates = candidatesByIndex[rowIndex];
+    const nextScores = rowCandidates.map(candidate => {
+      let bestScore = null;
+      for (let prevIndex = 0; prevIndex < previousScores.length; prevIndex++) {
+        const prevScore = previousScores[prevIndex];
+        const topMovement = candidate && prevScore.candidate
+          ? Math.abs(getVoicingTopNote(candidate) - getVoicingTopNote(prevScore.candidate))
+          : 0;
+        const candidateScore = {
+          candidate,
+          totalTopMovement: prevScore.totalTopMovement + topMovement,
+          totalTopSum: prevScore.totalTopSum + (candidate ? getVoicingTopNote(candidate) : 0),
+          prevIndex,
+          signature: `${prevScore.signature}|${candidate?.colorTones?.join(',') || ''}`,
+        };
+        if (!bestScore || compareVoicingPathScores(candidateScore, bestScore) < 0) {
+          bestScore = candidateScore;
+        }
+      }
+      return bestScore;
+    });
+
+    scoreRows.push(nextScores);
+    previousScores = nextScores;
+  }
+
+  let bestFinalIndex = 0;
+  for (let i = 1; i < previousScores.length; i++) {
+    if (compareVoicingPathScores(previousScores[i], previousScores[bestFinalIndex]) < 0) {
+      bestFinalIndex = i;
+    }
+  }
+
+  const plan = new Array(chords.length);
+  for (let rowIndex = scoreRows.length - 1, candidateIndex = bestFinalIndex; rowIndex >= 0; rowIndex--) {
+    const score = scoreRows[rowIndex][candidateIndex];
+    plan[rowIndex] = score.candidate;
+    candidateIndex = score.prevIndex;
+  }
+
+  return plan;
 }
 
 function getStringPreloadRanges() {
   let celloLow = Infinity;
   let celloHigh = -Infinity;
-  let violinLow = Infinity;
-  let violinHigh = -Infinity;
 
   const registerVoicing = (voicing) => {
     if (!voicing) return;
 
     celloLow = Math.min(celloLow, voicing.fundamental, ...voicing.guideTones);
     celloHigh = Math.max(celloHigh, voicing.fundamental, ...voicing.guideTones);
-
-    if (voicing.colorTones.length > 0) {
-      violinLow = Math.min(violinLow, ...voicing.colorTones);
-      violinHigh = Math.max(violinHigh, ...voicing.colorTones);
-    }
   };
 
   for (let rootPitchClass = 0; rootPitchClass < 12; rootPitchClass++) {
@@ -1168,11 +1347,11 @@ function getStringPreloadRanges() {
 
   return {
     cello: { low: celloLow, high: celloHigh },
-    violin: { low: violinLow, high: violinHigh }
+    violin: { low: VIOLIN_LOW, high: VIOLIN_HIGH }
   };
 }
 
-function getVoicing(key, chord, nextChord, isMinor) {
+function getVoicing(key, chord, isMinor) {
   const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
   const cat = classifyQuality(quality);
   if (!cat) return null;
@@ -1182,10 +1361,7 @@ function getVoicing(key, chord, nextChord, isMinor) {
   let colorIntervals;
   let guideIntervals = null;
   if (cat === 'dom') {
-    const nextQuality = nextChord
-      ? (isMinor ? nextChord.qualityMinor : nextChord.qualityMajor)
-      : null;
-    const subtype = resolveDominantSubtype(chord, quality, nextQuality);
+    const subtype = resolveDominantSubtype(chord, quality, isMinor);
     colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[subtype] || DOMINANT_COLOR_TONES.mixo);
     guideIntervals = DOMINANT_GUIDE_TONES[subtype] || null;
   } else {
@@ -1193,6 +1369,16 @@ function getVoicing(key, chord, nextChord, isMinor) {
   }
 
   return computeChordVoicing(rootPitchClass, cat, colorIntervals, guideIntervals);
+}
+
+function getVoicingPlanForProgression(chords, key, isMinor) {
+  if (chords === paddedChords && key === currentKey) {
+    return currentVoicingPlan;
+  }
+  if (chords === nextPaddedChords && key === nextKeyValue) {
+    return nextVoicingPlan;
+  }
+  return null;
 }
 
 // ---- Key Pool ----
@@ -1246,10 +1432,18 @@ function keyName(key) {
   return name + suffix;
 }
 
+function getDisplayedQuality(chord, isMinor) {
+  const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
+  if (classifyQuality(quality) !== 'dom') return quality;
+
+  const subtype = resolveDominantSubtype(chord, quality, isMinor);
+  return `7${subtype}`;
+}
+
 function chordSymbol(key, chord) {
   const isMinor = dom.majorMinor.checked;
   const rootName = degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor);
-  const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
+  const quality = getDisplayedQuality(chord, isMinor);
   return rootName + quality;
 }
 
@@ -1313,6 +1507,9 @@ let isIntro = true;      // true during count-in measure
 let currentKey = 0;
 let nextKeyValue = null;
 let paddedChords = [];
+let currentVoicingPlan = [];
+let nextPaddedChords = [];
+let nextVoicingPlan = [];
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
 
 function getSecondsPerBeat() {
@@ -1397,10 +1594,16 @@ function buildProgression() {
 }
 
 function prepareNextProgression() {
+  const isMinor = dom.majorMinor.checked;
   currentKey = nextKeyValue !== null ? nextKeyValue : nextKey();
-  nextKeyValue = nextKey();
   const raw = buildProgression();
   paddedChords = padProgression(raw, dom.doubleTime.checked);
+  currentVoicingPlan = buildVoicingPlan(paddedChords, currentKey, isMinor);
+
+  nextKeyValue = nextKey();
+  nextPaddedChords = padProgression(raw, dom.doubleTime.checked);
+  nextVoicingPlan = buildVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
+
   currentChordIdx = 0;
   lastPlayedChordIdx = -1;
 }

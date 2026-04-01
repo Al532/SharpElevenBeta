@@ -1,7 +1,7 @@
 const JAZZ_TRAINER_CONFIG = {
   // Default chord quality per diatonic degree (major scale context)
   DEGREE_QUALITY_MAJOR: {
-    I: '6', II: 'm9', III: 'm7', IV: '△7',
+    I: '6', II: 'm7', III: 'm7', IV: '△7',
     V: '7', VI: 'm7', VII: 'ø7'
   },
 
@@ -34,7 +34,6 @@ const JAZZ_TRAINER_CONFIG = {
     dom: ['3', 'b7'],
     m7: ['b3', 'b7'],
     m9: ['b3', 'b7'],
-    m11: ['b7'],
     m6: ['b3', '6'],
     maj7: ['3', '7'],
     '6': ['3', '6'],
@@ -47,7 +46,6 @@ const JAZZ_TRAINER_CONFIG = {
   COLOR_TONES: {
     m7: ['5', 'b7'],
     m9: ['5', '9'],
-    m11: ['b3','4','5','9'],
     m6: ['5', '9'],
     maj7: ['5', '9'],
     '6': ['5', '9'],
@@ -63,6 +61,7 @@ const JAZZ_TRAINER_CONFIG = {
     alt: ['b9', '#9', 'b13'],
     oct: ['b9', '13'],
     lyd: ['9', '6', '#11'],
+    '#5': ['9','#5'],
     sus: ['9', '13'],
     b9sus: ['4', '5', 'b9']
   },
@@ -73,11 +72,25 @@ const JAZZ_TRAINER_CONFIG = {
     b9sus: ['b7']
   },
 
+  // Default dominant subtype for a bare "7" quality, by degree and mode
+  DOMINANT_DEFAULT_SUBTYPE_MAJOR: {
+    II: 'lyd',
+    III: 'b9',
+    VI: 'b9',
+    VII: '#5'
+  },
+
+  DOMINANT_DEFAULT_SUBTYPE_MINOR: {
+    II: 'lyd',
+    III: 'b9',
+    V: 'b9',
+    VII: 'b9'
+  },
+
   // Accepted textual aliases for quality families
   QUALITY_CATEGORY_ALIASES: {
     m7: ['m7'],
     m9: ['m9'],
-    m11: ['m11'],
     m6: ['m6'],
     maj7: ['△7', 'maj7', '△9'],
     '6': ['6'],
@@ -93,6 +106,7 @@ const JAZZ_TRAINER_CONFIG = {
     alt: ['alt'],
     oct: ['oct'],
     lyd: ['lyd'],
+    '#5': ['#5'],
     sus: ['sus'],
     b9sus: ['b9sus']
   }
