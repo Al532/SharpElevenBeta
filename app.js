@@ -111,6 +111,7 @@ const dom = {
   doubleTime:      document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
+  voiceLeadingV2:  document.getElementById('voice-leading-v2'),
   startStop:       document.getElementById('start-stop'),
   pause:           document.getElementById('pause'),
   beatDots:        document.querySelectorAll('.beat-dot'),
@@ -1225,7 +1226,174 @@ function getVoicingTopNote(voicing) {
   return voicing.colorTones[voicing.colorTones.length - 1];
 }
 
+const VOICING_RANDOMIZATION_CHANCE = 0.3;
+const VOICING_RANDOM_TOP_SLACK = 1;
+const VOICING_RANDOM_BOUNDARY_SLACK = 2;
+const VOICING_RANDOM_CENTER_SLACK = 5;
+const VOICING_RANDOM_SUM_SLACK = 10;
+const VOICING_RANDOM_INNER_SLACK = 6;
+
+function isVoiceLeadingV2Enabled() {
+  return dom.voiceLeadingV2?.checked !== false;
+}
+
+function getVoicingInnerMovement(fromVoicing, toVoicing) {
+  if (!fromVoicing?.colorTones?.length || !toVoicing?.colorTones?.length) return 0;
+
+  const fromNotes = [...fromVoicing.colorTones].sort((a, b) => a - b);
+  const toNotes = [...toVoicing.colorTones].sort((a, b) => a - b);
+  const limit = Math.min(fromNotes.length, toNotes.length);
+  let movement = 0;
+
+  for (let i = 0; i < limit; i++) {
+    movement += Math.abs(toNotes[i] - fromNotes[i]);
+  }
+
+  if (fromNotes.length === toNotes.length) return movement;
+
+  const longerNotes = fromNotes.length > toNotes.length ? fromNotes : toNotes;
+  const shorterNotes = fromNotes.length > toNotes.length ? toNotes : fromNotes;
+  const fallbackNote = shorterNotes.length > 0
+    ? shorterNotes[shorterNotes.length - 1]
+    : getVoicingTopNote(fromNotes.length > toNotes.length ? toVoicing : fromVoicing);
+
+  for (let i = limit; i < longerNotes.length; i++) {
+    movement += Math.abs(longerNotes[i] - fallbackNote);
+  }
+
+  return movement;
+}
+
+function createVoicingSlot(chord, key, isMinor, segment = 'current') {
+  if (!chord) {
+    return { chord: null, key, segment, candidateSet: [null] };
+  }
+
+  const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
+  const qualityCategory = classifyQuality(quality);
+  if (!qualityCategory) {
+    return { chord, key, segment, candidateSet: [null] };
+  }
+
+  const rootPitchClass = (key + chord.semitones) % 12;
+  let colorIntervals;
+  let guideIntervals = null;
+  if (qualityCategory === 'dom') {
+    const subtype = resolveDominantSubtype(chord, quality, isMinor);
+    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[subtype] || DOMINANT_COLOR_TONES.mixo);
+    guideIntervals = DOMINANT_GUIDE_TONES[subtype] || null;
+  } else {
+    colorIntervals = resolveIntervalList(COLOR_TONES[qualityCategory] || []);
+  }
+
+  const candidateSet = enumerateChordVoicingCandidates(
+    rootPitchClass,
+    qualityCategory,
+    colorIntervals,
+    guideIntervals
+  );
+
+  return {
+    chord,
+    key,
+    segment,
+    candidateSet: candidateSet.length > 0 ? candidateSet : [null],
+  };
+}
+
+function buildVoicingPlanForSlots(slots) {
+  if (!Array.isArray(slots) || slots.length === 0) return [];
+
+  const candidatesByIndex = slots.map(slot => slot?.candidateSet?.length ? slot.candidateSet : [null]);
+  const topCenter = Math.round((VIOLIN_LOW + VIOLIN_HIGH) / 2);
+
+  let previousScores = candidatesByIndex[0].map(candidate => ({
+    candidate,
+    totalTopMovement: 0,
+    totalBoundaryTopMovement: 0,
+    totalBoundaryCenterDistance: candidate ? Math.abs(getVoicingTopNote(candidate) - topCenter) : 0,
+    totalTopSum: candidate ? getVoicingTopNote(candidate) : 0,
+    totalInnerMovement: 0,
+    prevIndex: -1,
+    signature: candidate?.colorTones?.join(',') || '',
+  }));
+
+  const scoreRows = [previousScores];
+
+  for (let rowIndex = 1; rowIndex < candidatesByIndex.length; rowIndex++) {
+    const rowCandidates = candidatesByIndex[rowIndex];
+    const crossesBoundary = slots[rowIndex - 1]?.segment !== slots[rowIndex]?.segment;
+    const nextScores = rowCandidates.map(candidate => {
+      const candidateScores = [];
+      for (let prevIndex = 0; prevIndex < previousScores.length; prevIndex++) {
+        const prevScore = previousScores[prevIndex];
+        const prevCandidate = prevScore.candidate;
+        const rawTopMovement = candidate && prevCandidate
+          ? Math.abs(getVoicingTopNote(candidate) - getVoicingTopNote(prevCandidate))
+          : 0;
+        const inPatternTopMovement = crossesBoundary ? 0 : rawTopMovement;
+        const boundaryTopMovement = crossesBoundary ? rawTopMovement : 0;
+        const boundaryCenterDistance = crossesBoundary && candidate
+          ? Math.abs(getVoicingTopNote(candidate) - topCenter)
+          : 0;
+        const innerMovement = candidate && prevCandidate
+          ? getVoicingInnerMovement(prevCandidate, candidate)
+          : 0;
+        const candidateScore = {
+          candidate,
+          totalTopMovement: prevScore.totalTopMovement + inPatternTopMovement,
+          totalBoundaryTopMovement: prevScore.totalBoundaryTopMovement + boundaryTopMovement,
+          totalBoundaryCenterDistance: prevScore.totalBoundaryCenterDistance + boundaryCenterDistance,
+          totalTopSum: prevScore.totalTopSum + (candidate ? getVoicingTopNote(candidate) : 0),
+          totalInnerMovement: prevScore.totalInnerMovement + innerMovement,
+          prevIndex,
+          signature: `${prevScore.signature}|${candidate?.colorTones?.join(',') || ''}`,
+        };
+        candidateScores.push(candidateScore);
+      }
+      return pickVoicingScore(candidateScores);
+    });
+
+    scoreRows.push(nextScores);
+    previousScores = nextScores;
+  }
+
+  let bestFinalIndex = 0;
+  const bestFinalScore = pickVoicingScore(previousScores);
+  bestFinalIndex = previousScores.findIndex(score => score === bestFinalScore);
+
+  const plan = new Array(slots.length);
+  for (let rowIndex = scoreRows.length - 1, candidateIndex = bestFinalIndex; rowIndex >= 0; rowIndex--) {
+    const score = scoreRows[rowIndex][candidateIndex];
+    plan[rowIndex] = score.candidate;
+    candidateIndex = score.prevIndex;
+  }
+
+  return plan;
+}
+
 function compareVoicingPathScores(left, right) {
+  if (!left) return 1;
+  if (!right) return -1;
+  if (left.totalTopMovement !== right.totalTopMovement) {
+    return left.totalTopMovement - right.totalTopMovement;
+  }
+  if (left.totalBoundaryCenterDistance !== right.totalBoundaryCenterDistance) {
+    return left.totalBoundaryCenterDistance - right.totalBoundaryCenterDistance;
+  }
+  if (left.totalBoundaryTopMovement !== right.totalBoundaryTopMovement) {
+    return left.totalBoundaryTopMovement - right.totalBoundaryTopMovement;
+  }
+  if (left.totalTopSum !== right.totalTopSum) {
+    return left.totalTopSum - right.totalTopSum;
+  }
+  if (left.totalInnerMovement !== right.totalInnerMovement) {
+    return left.totalInnerMovement - right.totalInnerMovement;
+  }
+  return left.signature.localeCompare(right.signature);
+}
+
+function compareLegacyVoicingPathScores(left, right) {
   if (!left) return 1;
   if (!right) return -1;
   if (left.totalTopMovement !== right.totalTopMovement) {
@@ -1237,29 +1405,67 @@ function compareVoicingPathScores(left, right) {
   return left.signature.localeCompare(right.signature);
 }
 
-function buildVoicingPlan(chords, key, isMinor) {
+function isVoicingScoreNearBest(score, bestScore) {
+  if (!score || !bestScore) return false;
+  return score.totalTopMovement <= bestScore.totalTopMovement + VOICING_RANDOM_TOP_SLACK
+    && score.totalBoundaryCenterDistance <= bestScore.totalBoundaryCenterDistance + VOICING_RANDOM_CENTER_SLACK
+    && score.totalBoundaryTopMovement <= bestScore.totalBoundaryTopMovement + VOICING_RANDOM_BOUNDARY_SLACK
+    && score.totalTopSum <= bestScore.totalTopSum + VOICING_RANDOM_SUM_SLACK
+    && score.totalInnerMovement <= bestScore.totalInnerMovement + VOICING_RANDOM_INNER_SLACK;
+}
+
+function getVoicingScorePenalty(score, bestScore) {
+  if (!score || !bestScore) return Infinity;
+  return (score.totalTopMovement - bestScore.totalTopMovement) * 6
+    + (score.totalBoundaryCenterDistance - bestScore.totalBoundaryCenterDistance) * 2
+    + (score.totalBoundaryTopMovement - bestScore.totalBoundaryTopMovement) * 4
+    + (score.totalTopSum - bestScore.totalTopSum) * 0.25
+    + (score.totalInnerMovement - bestScore.totalInnerMovement) * 0.5;
+}
+
+function pickWeightedRandomScore(scores, bestScore) {
+  let totalWeight = 0;
+  const weightedScores = scores.map(score => {
+    const penalty = Math.max(0, getVoicingScorePenalty(score, bestScore));
+    const weight = 1 / (1 + penalty);
+    totalWeight += weight;
+    return { score, weight };
+  });
+
+  if (totalWeight <= 0) return bestScore;
+
+  let cursor = Math.random() * totalWeight;
+  for (const entry of weightedScores) {
+    cursor -= entry.weight;
+    if (cursor <= 0) return entry.score;
+  }
+
+  return weightedScores[weightedScores.length - 1]?.score || bestScore;
+}
+
+function pickVoicingScore(scores) {
+  const availableScores = scores.filter(Boolean);
+  if (availableScores.length === 0) return null;
+
+  let bestScore = availableScores[0];
+  for (let i = 1; i < availableScores.length; i++) {
+    if (compareVoicingPathScores(availableScores[i], bestScore) < 0) {
+      bestScore = availableScores[i];
+    }
+  }
+
+  const shortlist = availableScores.filter(score => isVoicingScoreNearBest(score, bestScore));
+  if (shortlist.length <= 1 || Math.random() >= VOICING_RANDOMIZATION_CHANCE) {
+    return bestScore;
+  }
+
+  return pickWeightedRandomScore(shortlist, bestScore);
+}
+
+function buildLegacyVoicingPlan(chords, key, isMinor) {
   if (!Array.isArray(chords) || chords.length === 0) return [];
 
-  const candidatesByIndex = chords.map((chord, chordIdx) => {
-    if (!chord) return [null];
-    const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
-    const cat = classifyQuality(quality);
-    if (!cat) return [null];
-
-    const rootPitchClass = (key + chord.semitones) % 12;
-    let colorIntervals;
-    let guideIntervals = null;
-    if (cat === 'dom') {
-      const subtype = resolveDominantSubtype(chord, quality, isMinor);
-      colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[subtype] || DOMINANT_COLOR_TONES.mixo);
-      guideIntervals = DOMINANT_GUIDE_TONES[subtype] || null;
-    } else {
-      colorIntervals = resolveIntervalList(COLOR_TONES[cat] || []);
-    }
-
-    const candidates = enumerateChordVoicingCandidates(rootPitchClass, cat, colorIntervals, guideIntervals);
-    return candidates.length > 0 ? candidates : [null];
-  });
+  const candidatesByIndex = chords.map(chord => createVoicingSlot(chord, key, isMinor, 'current').candidateSet);
 
   let previousScores = candidatesByIndex[0].map(candidate => ({
     candidate,
@@ -1287,7 +1493,7 @@ function buildVoicingPlan(chords, key, isMinor) {
           prevIndex,
           signature: `${prevScore.signature}|${candidate?.colorTones?.join(',') || ''}`,
         };
-        if (!bestScore || compareVoicingPathScores(candidateScore, bestScore) < 0) {
+        if (!bestScore || compareLegacyVoicingPathScores(candidateScore, bestScore) < 0) {
           bestScore = candidateScore;
         }
       }
@@ -1300,7 +1506,7 @@ function buildVoicingPlan(chords, key, isMinor) {
 
   let bestFinalIndex = 0;
   for (let i = 1; i < previousScores.length; i++) {
-    if (compareVoicingPathScores(previousScores[i], previousScores[bestFinalIndex]) < 0) {
+    if (compareLegacyVoicingPathScores(previousScores[i], previousScores[bestFinalIndex]) < 0) {
       bestFinalIndex = i;
     }
   }
@@ -1313,6 +1519,15 @@ function buildVoicingPlan(chords, key, isMinor) {
   }
 
   return plan;
+}
+
+function buildVoicingPlan(chords, key, isMinor) {
+  if (!Array.isArray(chords) || chords.length === 0) return [];
+  if (!isVoiceLeadingV2Enabled()) {
+    return buildLegacyVoicingPlan(chords, key, isMinor);
+  }
+  const slots = chords.map(chord => createVoicingSlot(chord, key, isMinor, 'current'));
+  return buildVoicingPlanForSlots(slots);
 }
 
 function getStringPreloadRanges() {
@@ -1598,11 +1813,19 @@ function prepareNextProgression() {
   currentKey = nextKeyValue !== null ? nextKeyValue : nextKey();
   const raw = buildProgression();
   paddedChords = padProgression(raw, dom.doubleTime.checked);
-  currentVoicingPlan = buildVoicingPlan(paddedChords, currentKey, isMinor);
 
   nextKeyValue = nextKey();
   nextPaddedChords = padProgression(raw, dom.doubleTime.checked);
-  nextVoicingPlan = buildVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
+  if (isVoiceLeadingV2Enabled()) {
+    const currentSlots = paddedChords.map(chord => createVoicingSlot(chord, currentKey, isMinor, 'current'));
+    const nextSlots = nextPaddedChords.map(chord => createVoicingSlot(chord, nextKeyValue, isMinor, 'next'));
+    const combinedPlan = buildVoicingPlanForSlots([...currentSlots, ...nextSlots]);
+    currentVoicingPlan = combinedPlan.slice(0, currentSlots.length);
+    nextVoicingPlan = combinedPlan.slice(currentSlots.length);
+  } else {
+    currentVoicingPlan = buildLegacyVoicingPlan(paddedChords, currentKey, isMinor);
+    nextVoicingPlan = buildLegacyVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
+  }
 
   currentChordIdx = 0;
   lastPlayedChordIdx = -1;
@@ -2103,6 +2326,7 @@ function saveSettings() {
     doubleTime: dom.doubleTime.checked,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
+    voiceLeadingV2: isVoiceLeadingV2Enabled(),
     chordMode: dom.chordMode.checked,
     drumsMode: getDrumsMode(),
     bassVolume: dom.bassVolume?.value,
@@ -2142,6 +2366,9 @@ function loadSettings() {
         dom.displayMode.value = normalizeDisplayMode(s.displayMode);
       } else if (s.hideChords !== undefined && dom.displayMode) {
         dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
+      }
+      if (s.voiceLeadingV2 !== undefined && dom.voiceLeadingV2) {
+        dom.voiceLeadingV2.checked = s.voiceLeadingV2;
       }
       if (s.chordMode !== undefined) dom.chordMode.checked = s.chordMode;
       if (s.drumsMode !== undefined && dom.drumsSelect) {
@@ -2233,6 +2460,7 @@ dom.customPattern.addEventListener('change', saveSettings);
 dom.patternMode.addEventListener('change', saveSettings);
 dom.doubleTime.addEventListener('change', saveSettings);
 dom.majorMinor.addEventListener('change', saveSettings);
+dom.voiceLeadingV2?.addEventListener('change', saveSettings);
 dom.chordMode.addEventListener('change', saveSettings);
 dom.drumsSelect.addEventListener('change', saveSettings);
 dom.displayMode.addEventListener('change', () => { applyDisplayMode(); saveSettings(); });
