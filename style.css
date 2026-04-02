@@ -257,6 +257,13 @@ h1 {
   margin-bottom: 0.3rem;
 }
 
+.control-row legend {
+  display: block;
+  font-size: 0.85rem;
+  color: #8888aa;
+  margin-bottom: 0.3rem;
+}
+
 select, input[type="text"] {
   width: 100%;
   padding: 0.5rem 0.65rem;
@@ -311,8 +318,15 @@ input[type="range"] {
 }
 
 .custom-pattern-panel .key-picker-summary,
-.custom-pattern-panel label {
+.custom-pattern-panel label,
+.custom-pattern-panel legend {
   color: #b5c9df;
+}
+
+.preset-manager-row {
+  border: 0;
+  min-width: 0;
+  padding: 0;
 }
 
 .preset-manager-grid {

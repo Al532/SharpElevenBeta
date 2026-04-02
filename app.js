@@ -88,6 +88,7 @@ const SCHEDULE_INTERVAL = 25; // ms
 // ---- DOM refs ----
 
 const dom = {
+  appVersion:      document.getElementById('app-version'),
   keyDisplay:      document.getElementById('key-display'),
   chordDisplay:    document.getElementById('chord-display'),
   nextHeader:      document.getElementById('next-header'),
@@ -123,6 +124,10 @@ const dom = {
   drumsVolume:     document.getElementById('drums-volume'),
   drumsVolumeValue: document.getElementById('drums-volume-value')
 };
+
+if (dom.appVersion) {
+  dom.appVersion.textContent = `Version ${APP_VERSION}`;
+}
 
 let presets = { ...DEFAULT_PRESETS };
 
@@ -399,6 +404,13 @@ function padProgression(chords, doubleTime) {
 let audioCtx = null;
 let mixerNodes = null;
 const sampleBuffers = { bass: {}, cello: {}, violin: {}, drums: {} };
+const sampleLoadPromises = {
+  bass: new Map(),
+  cello: new Map(),
+  violin: new Map(),
+  drums: new Map()
+};
+let backgroundSamplePreloadPromise = null;
 const DRUM_MODE_OFF = 'off';
 const DRUM_MODE_METRONOME_24 = 'metronome_2_4';
 const DRUM_MODE_HIHATS_24 = 'hihats_2_4';
@@ -497,17 +509,44 @@ async function preloadSamples() {
   await Promise.all(promises);
 }
 
+function loadTrackedSample(category, key, loader) {
+  if (sampleBuffers[category][key]) {
+    return Promise.resolve(sampleBuffers[category][key]);
+  }
+
+  const pendingLoad = sampleLoadPromises[category].get(key);
+  if (pendingLoad) return pendingLoad;
+
+  const loadPromise = loader().finally(() => {
+    sampleLoadPromises[category].delete(key);
+  });
+  sampleLoadPromises[category].set(key, loadPromise);
+  return loadPromise;
+}
+
 function loadSample(category, folder, midi) {
   const baseUrl = `assets/MP3/${folder}/${midi}.mp3`;
-  return loadBufferFromUrl(baseUrl)
-    .then(decoded => { sampleBuffers[category][midi] = decoded; })
-    .catch(err => { console.warn('Sample load failed:', err); });
+  return loadTrackedSample(category, midi, () => loadBufferFromUrl(baseUrl)
+    .then(decoded => {
+      sampleBuffers[category][midi] = decoded;
+      return decoded;
+    })
+    .catch(err => {
+      console.warn('Sample load failed:', err);
+      return null;
+    }));
 }
 
 function loadFileSample(category, key, baseUrl) {
-  return loadBufferFromUrl(baseUrl)
-    .then(decoded => { sampleBuffers[category][key] = decoded; })
-    .catch(err => { console.warn('Sample load failed:', err); });
+  return loadTrackedSample(category, key, () => loadBufferFromUrl(baseUrl)
+    .then(decoded => {
+      sampleBuffers[category][key] = decoded;
+      return decoded;
+    })
+    .catch(err => {
+      console.warn('Sample load failed:', err);
+      return null;
+    }));
 }
 
 function loadBufferFromUrl(baseUrl) {
@@ -541,6 +580,47 @@ const STRING_LEGATO_FADE_TIME = 0.2; // seconds
 const AUTOMATION_CURVE_STEPS = 32;
 let activeNoteGain = null; // current bass note's GainNode for early cutoff
 let activeChordVoices = new Map(); // active string voices by "instrument:midi"
+const scheduledAudioSources = new Set();
+const pendingDisplayTimeouts = new Set();
+
+function trackScheduledSource(source, gainNodes = []) {
+  const entry = { source, gainNodes };
+  scheduledAudioSources.add(entry);
+  source.addEventListener('ended', () => {
+    scheduledAudioSources.delete(entry);
+  }, { once: true });
+  return entry;
+}
+
+function clearScheduledDisplays() {
+  for (const timeoutId of pendingDisplayTimeouts) {
+    clearTimeout(timeoutId);
+  }
+  pendingDisplayTimeouts.clear();
+}
+
+function stopScheduledAudio(stopTime = audioCtx?.currentTime ?? 0) {
+  for (const entry of scheduledAudioSources) {
+    for (const gainNode of entry.gainNodes) {
+      try {
+        const currentValue = gainNode.gain.value;
+        gainNode.gain.cancelScheduledValues(stopTime);
+        gainNode.gain.setValueAtTime(currentValue, stopTime);
+        gainNode.gain.linearRampToValueAtTime(0, stopTime + 0.02);
+      } catch (err) {
+        // Ignore nodes that have already been disconnected or stopped.
+      }
+    }
+
+    try {
+      entry.source.stop(stopTime + 0.02);
+    } catch (err) {
+      // Source may already be stopped; ignore duplicate stop scheduling.
+    }
+  }
+
+  scheduledAudioSources.clear();
+}
 
 function playNote(midi, time, maxDuration) {
   const buf = sampleBuffers.bass[midi];
@@ -568,6 +648,7 @@ function playNote(midi, time, maxDuration) {
 
   src.connect(gain).connect(getMixerDestination('bass'));
   src.start(time);
+  trackScheduledSource(src, [gain]);
   activeNoteGain = gain;
 }
 
@@ -592,6 +673,7 @@ function scheduleSampleSegment(buf, destination, startTime, offset, duration, fa
   src.connect(segmentGain).connect(destination);
   src.start(startTime, offset, duration);
   src.stop(segmentEnd);
+  trackScheduledSource(src, [segmentGain]);
   return src;
 }
 
@@ -692,6 +774,7 @@ function playSample(category, midi, time, maxDuration, volume) {
     gain.gain.linearRampToValueAtTime(0, fadeEnd);
     src.connect(gain).connect(getMixerDestination(category === 'bass' ? 'bass' : 'strings'));
     src.start(time);
+    trackScheduledSource(src, [gain]);
     return {
       detuneParams: [src.detune],
       gain,
@@ -717,6 +800,7 @@ function playSample(category, midi, time, maxDuration, volume) {
   gain.gain.setValueAtTime(volume, time);
   src.connect(gain).connect(getMixerDestination(category === 'bass' ? 'bass' : 'strings'));
   src.start(time);
+  trackScheduledSource(src, [gain]);
   return {
     detuneParams: [src.detune],
     gain,
@@ -994,6 +1078,7 @@ function playClick(time, accent) {
   osc.connect(gain).connect(getMixerDestination('drums'));
   osc.start(time);
   osc.stop(time + 0.05);
+  trackScheduledSource(osc, [gain]);
 }
 
 function playDrumSample(name, time, gainValue = 1, playbackRate = 1) {
@@ -1009,6 +1094,7 @@ function playDrumSample(name, time, gainValue = 1, playbackRate = 1) {
 
   src.connect(gain).connect(getMixerDestination('drums'));
   src.start(time);
+  trackScheduledSource(src, [gain]);
 }
 
 function playHiHat(time, accent = false) {
@@ -1126,6 +1212,69 @@ function getBassPreloadRange() {
   }
 
   return { low, high };
+}
+
+function collectRequiredSampleNotes() {
+  const bassNotes = new Set();
+  const celloNotes = new Set();
+  const violinNotes = new Set();
+
+  const registerProgression = (chords, key, voicingPlan) => {
+    if (!Array.isArray(chords) || key === null || key === undefined) return;
+
+    for (const chord of chords) {
+      bassNotes.add(getBassMidi(key, chord.semitones));
+    }
+
+    for (const voicing of voicingPlan || []) {
+      if (!voicing) continue;
+      celloNotes.add(voicing.fundamental);
+      for (const midi of voicing.guideTones || []) celloNotes.add(midi);
+      for (const midi of voicing.colorTones || []) violinNotes.add(midi);
+    }
+  };
+
+  registerProgression(paddedChords, currentKey, currentVoicingPlan);
+  registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan);
+
+  return { bassNotes, celloNotes, violinNotes };
+}
+
+async function preloadStartupSamples() {
+  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes();
+  const promises = [];
+
+  bassNotes.forEach((midi) => {
+    promises.push(loadSample('bass', 'Bass', midi));
+  });
+  celloNotes.forEach((midi) => {
+    promises.push(loadSample('cello', 'Cellos', midi));
+  });
+  violinNotes.forEach((midi) => {
+    promises.push(loadSample('violin', 'Violins', midi));
+  });
+
+  const drumsMode = getDrumsMode();
+  if (drumsMode === DRUM_MODE_HIHATS_24 || drumsMode === DRUM_MODE_FULL_SWING) {
+    promises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
+  }
+  if (drumsMode === DRUM_MODE_FULL_SWING) {
+    promises.push(loadFileSample('drums', 'ride_0', DRUM_RIDE_SAMPLE_URLS[0]));
+  }
+
+  await Promise.all(promises);
+}
+
+function ensureBackgroundSamplePreload() {
+  if (backgroundSamplePreloadPromise) return backgroundSamplePreloadPromise;
+
+  backgroundSamplePreloadPromise = preloadSamples()
+    .catch((err) => {
+      console.warn('Background sample preload failed:', err);
+      return null;
+    });
+
+  return backgroundSamplePreloadPromise;
 }
 
 function buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
@@ -1963,8 +2112,17 @@ function scheduleBeat() {
 // Rough display sync: use setTimeout offset from audioCtx time
 function scheduleDisplay(audioTime, fn) {
   const delay = (audioTime - audioCtx.currentTime) * 1000;
-  if (delay <= 0) { fn(); return; }
-  setTimeout(fn, delay);
+  if (delay <= 0) {
+    if (isPlaying && !isPaused) fn();
+    return;
+  }
+  const timeoutId = setTimeout(() => {
+    pendingDisplayTimeouts.delete(timeoutId);
+    if (isPlaying && !isPaused) {
+      fn();
+    }
+  }, delay);
+  pendingDisplayTimeouts.add(timeoutId);
 }
 
 // ---- Start / Stop ----
@@ -1972,7 +2130,6 @@ function scheduleDisplay(audioTime, fn) {
 async function start() {
   initAudio();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
-  if (Object.keys(sampleBuffers.bass).length === 0) await preloadSamples();
 
   isPlaying = true;
   isPaused = false;
@@ -1988,6 +2145,8 @@ async function start() {
   keyPool = [];
   nextKeyValue = null;
   prepareNextProgression();
+  await preloadStartupSamples();
+  ensureBackgroundSamplePreload();
 
   // 300ms delay, then start scheduling
   nextBeatTime = audioCtx.currentTime + 0.3;
@@ -2005,6 +2164,8 @@ function stop() {
     clearInterval(schedulerTimer);
     schedulerTimer = null;
   }
+  clearScheduledDisplays();
+  stopScheduledAudio();
   // Fade out any active bass note
   if (activeNoteGain) {
     activeNoteGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + NOTE_FADEOUT);
@@ -2047,6 +2208,10 @@ dom.pause.addEventListener('click', () => {
       clearInterval(schedulerTimer);
       schedulerTimer = null;
     }
+    clearScheduledDisplays();
+    stopScheduledAudio();
+    activeNoteGain = null;
+    activeChordVoices.clear();
     audioCtx.suspend();
   }
 });
