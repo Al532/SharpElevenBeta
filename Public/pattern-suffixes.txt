@@ -1,9 +1,9 @@
-6, maj7, m6, m7, 7, lyd // m7 is promoted internally to m9 except on III
+6, maj7, m6, m7, 7, lyd
 m7b5, dim7
-7mixo // Mixolydian; default major dominant
+7mixo // mixolydian (13); default major dominant
 7b9 // b9/b13; default minor dominant
 7alt // altered dominant
 7oct // octatonic, whole-step/half-step
-7lyd // Lydian dominant
+7lyd // lydian dominant; default dominant on II7
 7sus // 13sus4
-7b9sus
+7b9sus // a must for Michel Legrand

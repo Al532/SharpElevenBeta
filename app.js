@@ -61,16 +61,10 @@ const {
   DOMINANT_SUBTYPE_SUFFIXES = {}
 } = voicingConfig;
 
-const DEFAULT_PRESETS = {
-  'II V I': { pattern: 'II V I', mode: 'both' },
-  'I VI7 II V I': { pattern: 'I VI7 II V I', mode: 'major' },
-  'I VI II V I': { pattern: 'I VI II V I', mode: 'minor' },
-  'I bIIIdim7 II V I': { pattern: 'I bIIIdim7 II V I', mode: 'major' },
-  'V7sus % Ilyd': { pattern: 'V7sus % Ilyd', mode: 'major' }
-};
 const PATTERN_MODE_BOTH = 'both';
 const PATTERN_MODE_MAJOR = 'major';
 const PATTERN_MODE_MINOR = 'minor';
+const DEFAULT_PRESETS_URL = './default-presets.json';
 
 const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
 const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
@@ -97,14 +91,24 @@ const dom = {
   chordMode:       document.getElementById('chord-mode'),
   drumsSelect:     document.getElementById('drums-select'),
   patternHelp:     document.getElementById('pattern-help'),
+  patternPicker:   document.getElementById('pattern-picker'),
   patternSelect:   document.getElementById('pattern-select'),
+  patternPickerCustom: document.getElementById('pattern-picker-custom'),
   customPatternPanel: document.getElementById('custom-pattern-panel'),
   customPattern:   document.getElementById('custom-pattern'),
   patternMode:     document.getElementById('pattern-mode'),
   patternError:    document.getElementById('pattern-error'),
   savePreset:      document.getElementById('save-preset'),
+  cancelPresetEdit: document.getElementById('cancel-preset-edit'),
+  newPreset:       document.getElementById('new-preset'),
+  editPreset:      document.getElementById('edit-preset'),
   deletePreset:    document.getElementById('delete-preset'),
+  managePresets:   document.getElementById('manage-presets'),
+  presetManagerPanel: document.getElementById('preset-manager-panel'),
+  presetManagerList: document.getElementById('preset-manager-list'),
+  closePresetManager: document.getElementById('close-preset-manager'),
   restoreDefaultPresets: document.getElementById('restore-default-presets'),
+  clearAllPresets: document.getElementById('clear-all-presets'),
   presetFeedback:  document.getElementById('preset-feedback'),
   tempoSlider:     document.getElementById('tempo-slider'),
   tempoValue:      document.getElementById('tempo-value'),
@@ -112,7 +116,6 @@ const dom = {
   doubleTime:      document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
-  voiceLeadingV2:  document.getElementById('voice-leading-v2'),
   startStop:       document.getElementById('start-stop'),
   pause:           document.getElementById('pause'),
   beatDots:        document.querySelectorAll('.beat-dot'),
@@ -129,9 +132,19 @@ if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
 }
 
-let presets = { ...DEFAULT_PRESETS };
+let DEFAULT_PRESETS = {};
+let presets = {};
+let editingPresetName = '';
+let editingPresetSnapshot = null;
+let lastStandaloneCustomPattern = '';
+let lastStandaloneCustomMode = PATTERN_MODE_BOTH;
+let isManagingPresets = false;
+let draggedPresetName = '';
+let savedPatternSelection = null;
+let pendingPresetDeletion = null;
 
 function normalizePatternMode(mode) {
+  if (mode === 'major/minor') return PATTERN_MODE_BOTH;
   return [PATTERN_MODE_MAJOR, PATTERN_MODE_MINOR, PATTERN_MODE_BOTH].includes(mode)
     ? mode
     : PATTERN_MODE_BOTH;
@@ -159,21 +172,41 @@ function normalizePresetEntry(name, entry) {
   return createPresetEntry(name, PATTERN_MODE_BOTH);
 }
 
-function normalizePresetsMap(source) {
-  const normalizedEntries = Object.entries(source || {})
-    .map(([name, entry]) => normalizePresetEntry(name, entry))
-    .filter(entry => entry.pattern);
+function normalizeDefaultPresetsSource(source) {
+  if (Array.isArray(source)) {
+    return Object.fromEntries(
+      source
+        .map(entry => normalizePresetEntry(entry?.pattern ?? '', entry))
+        .filter(entry => entry.pattern)
+        .map(entry => [entry.pattern, entry])
+    );
+  }
 
-  if (normalizedEntries.length === 0) {
+  if (source && typeof source === 'object') {
+    return Object.fromEntries(
+      Object.entries(source)
+        .map(([name, entry]) => normalizePresetEntry(name, entry))
+        .filter(entry => entry.pattern)
+        .map(entry => [entry.pattern, entry])
+    );
+  }
+
+  return {};
+}
+
+function normalizePresetsMap(source) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
     return Object.fromEntries(
       Object.entries(DEFAULT_PRESETS).map(([name, entry]) => [name, normalizePresetEntry(name, entry)])
     );
   }
 
+  const normalizedEntries = Object.entries(source || {})
+    .map(([name, entry]) => normalizePresetEntry(name, entry))
+    .filter(entry => entry.pattern);
+
   return Object.fromEntries(normalizedEntries.map(entry => [entry.pattern, entry]));
 }
-
-presets = normalizePresetsMap(presets);
 
 // ---- Pattern Parser ----
 
@@ -622,6 +655,27 @@ function stopScheduledAudio(stopTime = audioCtx?.currentTime ?? 0) {
   scheduledAudioSources.clear();
 }
 
+function stopActiveChordVoices(stopTime = audioCtx?.currentTime ?? 0, fadeDuration = NOTE_FADEOUT) {
+  const fadeEnd = stopTime + fadeDuration;
+
+  for (const voice of activeChordVoices.values()) {
+    try {
+      voice.gain.gain.cancelScheduledValues(stopTime);
+      voice.gain.gain.setValueAtTime(voice.gain.gain.value, stopTime);
+      voice.gain.gain.linearRampToValueAtTime(0, fadeEnd);
+    } catch (err) {
+      // Ignore nodes that have already been disconnected or stopped.
+    }
+
+    if (voice.stop) {
+      voice.stop(fadeEnd);
+    }
+    voice.audibleUntil = Math.min(voice.audibleUntil, fadeEnd);
+  }
+
+  activeChordVoices.clear();
+}
+
 function playNote(midi, time, maxDuration) {
   const buf = sampleBuffers.bass[midi];
   if (!buf) return;
@@ -851,7 +905,7 @@ function getChordVoiceEntries(voicing) {
       category: 'violin',
       midi,
       role: 'color',
-      volume: 9.0 * CHORD_VOLUME_MULTIPLIER,
+      volume: 6.5 * CHORD_VOLUME_MULTIPLIER,
     });
   }
 
@@ -1383,7 +1437,7 @@ const VOICING_RANDOM_SUM_SLACK = 10;
 const VOICING_RANDOM_INNER_SLACK = 6;
 
 function isVoiceLeadingV2Enabled() {
-  return dom.voiceLeadingV2?.checked !== false;
+  return true;
 }
 
 function getVoicingInnerMovement(fromVoicing, toVoicing) {
@@ -1841,11 +1895,46 @@ function showNextCol() {
   dom.nextHeader.classList.remove('hidden');
   dom.nextKeyDisplay.classList.remove('hidden');
   dom.nextChordDisplay.classList.remove('hidden');
+  fitHarmonyDisplay();
 }
 function hideNextCol() {
   dom.nextHeader.classList.add('hidden');
   dom.nextKeyDisplay.classList.add('hidden');
   dom.nextChordDisplay.classList.add('hidden');
+  fitHarmonyDisplay();
+}
+
+function fitChordDisplay(element, baseRem) {
+  if (!element) return;
+
+  element.style.fontSize = `${baseRem}rem`;
+  if (!element.textContent?.trim()) return;
+
+  const availableWidth = element.clientWidth;
+  const contentWidth = element.scrollWidth;
+  if (!availableWidth || !contentWidth || contentWidth <= availableWidth) return;
+
+  const scale = availableWidth / contentWidth;
+  const adjustedRem = Math.max(1.25, Number((baseRem * scale).toFixed(3)));
+  element.style.fontSize = `${adjustedRem}rem`;
+}
+
+function getBaseChordDisplaySize() {
+  const mode = normalizeDisplayMode(dom.displayMode?.value);
+  const isMobile = window.matchMedia('(max-width: 720px)').matches;
+
+  if (mode === DISPLAY_MODE_CHORDS_ONLY) {
+    return isMobile ? 2.8 : 3.6;
+  }
+  return isMobile ? 2.5 : 3.2;
+}
+
+function fitHarmonyDisplay() {
+  window.requestAnimationFrame(() => {
+    const baseRem = getBaseChordDisplaySize();
+    fitChordDisplay(dom.chordDisplay, baseRem);
+    fitChordDisplay(dom.nextChordDisplay, baseRem);
+  });
 }
 
 function updateBeatDots(beat, isIntro) {
@@ -1875,6 +1964,7 @@ let currentVoicingPlan = [];
 let nextPaddedChords = [];
 let nextVoicingPlan = [];
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
+const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 
 function getSecondsPerBeat() {
   return 60 / Number(dom.tempoSlider.value);
@@ -1888,6 +1978,29 @@ function hasSelectedPreset() {
   return Boolean(getPresetEntry());
 }
 
+function isEditingPreset() {
+  return Boolean(editingPresetName);
+}
+
+function clearPresetEditingState() {
+  editingPresetName = '';
+  editingPresetSnapshot = null;
+}
+
+function closePresetManager() {
+  isManagingPresets = false;
+}
+
+function rememberStandaloneCustomDraft() {
+  if (isEditingPreset()) return;
+  lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
+  lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
+}
+
+function isCustomPatternSelected() {
+  return dom.patternSelect.value === CUSTOM_PATTERN_OPTION_VALUE;
+}
+
 function getSelectedPresetPattern() {
   return getPresetEntry()?.pattern || '';
 }
@@ -1897,6 +2010,7 @@ function getSelectedPresetMode() {
 }
 
 function getCurrentPatternMode() {
+  if (hasSelectedPreset()) return getSelectedPresetMode();
   return normalizePatternMode(dom.patternMode?.value);
 }
 
@@ -1912,12 +2026,226 @@ function getPatternModeLabel(mode) {
 }
 
 function getCurrentPatternString() {
-  return normalizePatternString(dom.customPattern.value) || getSelectedPresetPattern();
+  if (hasSelectedPreset()) return getSelectedPresetPattern();
+  return normalizePatternString(dom.customPattern.value);
+}
+
+function syncCustomPatternUI() {
+  const customSelected = isCustomPatternSelected();
+  dom.patternPicker?.classList.toggle('custom-active', customSelected);
+  dom.patternPickerCustom?.classList.toggle('hidden', !customSelected);
+  dom.customPatternPanel?.classList.toggle('hidden', !customSelected);
+  if (!customSelected) {
+    dom.patternError.classList.add('hidden');
+  }
+}
+
+function getPresetNames() {
+  return Object.keys(presets);
+}
+
+function rebuildPresetsFromNames(names) {
+  presets = Object.fromEntries(
+    names
+      .filter(name => Object.prototype.hasOwnProperty.call(presets, name))
+      .map(name => [name, presets[name]])
+  );
+}
+
+function clearPresetManagerDropMarkers() {
+  dom.presetManagerList?.querySelectorAll('.preset-manager-item').forEach(item => {
+    item.classList.remove('drop-before', 'drop-after');
+  });
+}
+
+function renderPresetManagerList() {
+  if (!dom.presetManagerList) return;
+  dom.presetManagerList.innerHTML = '';
+
+  const presetNames = getPresetNames();
+  if (presetNames.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'hint';
+    empty.textContent = 'No presets saved.';
+    dom.presetManagerList.appendChild(empty);
+    return;
+  }
+
+  for (const name of presetNames) {
+    const item = document.createElement('div');
+    item.className = 'preset-manager-item';
+    item.draggable = true;
+    item.dataset.name = name;
+    if (dom.patternSelect.value === name) {
+      item.classList.add('is-selected');
+    }
+
+    item.addEventListener('dragstart', () => {
+      draggedPresetName = name;
+      item.classList.add('is-dragging');
+    });
+    item.addEventListener('dragend', () => {
+      draggedPresetName = '';
+      item.classList.remove('is-dragging');
+      clearPresetManagerDropMarkers();
+    });
+    item.addEventListener('dragover', event => {
+      event.preventDefault();
+      if (!draggedPresetName || draggedPresetName === name) return;
+      clearPresetManagerDropMarkers();
+      const bounds = item.getBoundingClientRect();
+      const insertAfter = event.clientY - bounds.top > bounds.height / 2;
+      item.classList.add(insertAfter ? 'drop-after' : 'drop-before');
+    });
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drop-before', 'drop-after');
+    });
+    item.addEventListener('drop', event => {
+      event.preventDefault();
+      if (!draggedPresetName || draggedPresetName === name) return;
+      const names = getPresetNames().filter(entry => entry !== draggedPresetName);
+      const targetIndex = names.indexOf(name);
+      const bounds = item.getBoundingClientRect();
+      const insertAfter = event.clientY - bounds.top > bounds.height / 2;
+      names.splice(targetIndex + (insertAfter ? 1 : 0), 0, draggedPresetName);
+      rebuildPresetsFromNames(names);
+      renderPresetOptions(dom.patternSelect.value);
+      renderPresetManagerList();
+      saveSettings();
+    });
+
+    const handle = document.createElement('span');
+    handle.className = 'preset-manager-handle';
+    handle.textContent = '::';
+
+    const label = document.createElement('div');
+    label.className = 'preset-manager-item-name';
+    label.appendChild(document.createTextNode(`${name} `));
+    const mode = document.createElement('span');
+    mode.className = 'preset-manager-item-mode';
+    mode.textContent = `(${getPatternModeLabel(presets[name].mode)})`;
+    label.appendChild(mode);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'preset-manager-item-delete';
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', () => {
+      deletePresetByName(name, {
+        offerUndo: true,
+        successMessage: `Preset deleted: ${name}`
+      });
+    });
+
+    item.appendChild(handle);
+    item.appendChild(label);
+    item.appendChild(deleteButton);
+    dom.presetManagerList.appendChild(item);
+  }
+}
+
+function syncPresetManagerPanel() {
+  if (!dom.presetManagerPanel) return;
+  const shouldShow = isManagingPresets;
+  dom.presetManagerPanel.classList.toggle('hidden', !shouldShow);
+  if (shouldShow) {
+    renderPresetManagerList();
+  }
+}
+
+function deletePresetByName(name, {
+  requireConfirmation = false,
+  confirmationMessage = `Delete preset "${name}"?`,
+  successMessage = `Preset deleted: ${name}`,
+  offerUndo = false
+} = {}) {
+  if (!Object.prototype.hasOwnProperty.call(presets, name)) {
+    setPresetFeedback('Preset not found.', true);
+    return false;
+  }
+  if (requireConfirmation && !window.confirm(confirmationMessage)) {
+    return false;
+  }
+
+  if (editingPresetName === name) {
+    clearPresetEditingState();
+  }
+  const presetNamesBeforeDeletion = getPresetNames();
+  const deletedEntry = presets[name];
+  const deletedIndex = presetNamesBeforeDeletion.indexOf(name);
+  const wasSelected = dom.patternSelect.value === name;
+  const fallbackSelection = wasSelected
+    ? presetNamesBeforeDeletion[deletedIndex + 1] || presetNamesBeforeDeletion[deletedIndex - 1] || ''
+    : dom.patternSelect.value;
+  delete presets[name];
+  renderPresetOptions(fallbackSelection);
+  if (Object.prototype.hasOwnProperty.call(presets, fallbackSelection)) {
+    dom.patternSelect.value = fallbackSelection;
+    dom.customPattern.value = getSelectedPresetPattern();
+    dom.patternMode.value = getSelectedPresetMode();
+    syncCustomPatternUI();
+  } else {
+    syncPatternSelectionFromInput();
+  }
+  syncPresetManagerState();
+  syncPresetManagerPanel();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  if (offerUndo) {
+    pendingPresetDeletion = {
+      name,
+      entry: deletedEntry,
+      index: deletedIndex,
+      wasSelected
+    };
+    setPresetFeedback(successMessage, false, {
+      label: 'Undo',
+      onClick: undoPresetDeletion
+    });
+  } else {
+    pendingPresetDeletion = null;
+    setPresetFeedback(successMessage);
+  }
+  saveSettings();
+  return true;
+}
+
+function undoPresetDeletion() {
+  if (!pendingPresetDeletion) return;
+
+  const { name, entry, index, wasSelected } = pendingPresetDeletion;
+  pendingPresetDeletion = null;
+  presets[name] = normalizePresetEntry(name, entry);
+
+  const names = getPresetNames().filter(presetName => presetName !== name);
+  names.splice(Math.max(0, Math.min(index, names.length)), 0, name);
+  rebuildPresetsFromNames(names);
+
+  renderPresetOptions(wasSelected ? name : dom.patternSelect.value);
+  if (wasSelected) {
+    dom.patternSelect.value = name;
+    dom.customPattern.value = getSelectedPresetPattern();
+    dom.patternMode.value = getSelectedPresetMode();
+    syncCustomPatternUI();
+  } else {
+    syncPatternSelectionFromInput();
+  }
+  syncPresetManagerState();
+  syncPresetManagerPanel();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  setPresetFeedback(`Restored preset: ${name}`);
+  saveSettings();
 }
 
 function syncPatternSelectionFromInput() {
   const pattern = normalizePatternString(dom.customPattern.value);
   const mode = getCurrentPatternMode();
+  if (isEditingPreset()) {
+    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+    syncCustomPatternUI();
+    return;
+  }
   const matchingPreset = Object.keys(presets).find(name => {
     const entry = presets[name];
     return entry.pattern === pattern && entry.mode === mode;
@@ -1925,8 +2253,9 @@ function syncPatternSelectionFromInput() {
   if (matchingPreset) {
     dom.patternSelect.value = matchingPreset;
   } else {
-    dom.patternSelect.selectedIndex = -1;
+    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
   }
+  syncCustomPatternUI();
 }
 
 function applyPatternModeAvailability() {
@@ -2003,6 +2332,7 @@ function scheduleBeat() {
         showNextCol();
         dom.nextKeyDisplay.textContent = keyName(introKey);
         dom.nextChordDisplay.textContent = introFirstChord ? chordSymbol(introKey, introFirstChord) : '';
+        fitHarmonyDisplay();
         updateBeatDots(introB, true);
       });
 
@@ -2080,6 +2410,7 @@ function scheduleBeat() {
       } else {
         hideNextCol();
       }
+      fitHarmonyDisplay();
       updateBeatDots(dispBeat, false);
     });
 
@@ -2171,14 +2502,11 @@ function stop() {
     activeNoteGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + NOTE_FADEOUT);
     activeNoteGain = null;
   }
-  // Fade out any active chord voices
-  for (const voice of activeChordVoices.values()) {
-    voice.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + NOTE_FADEOUT);
-  }
-  activeChordVoices.clear();
+  stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
   dom.keyDisplay.textContent = '';
   dom.chordDisplay.textContent = '';
   hideNextCol();
+  fitHarmonyDisplay();
   clearBeatDots();
 }
 
@@ -2221,8 +2549,13 @@ dom.tempoSlider.addEventListener('input', () => {
 });
 
 dom.patternSelect.addEventListener('change', () => {
-  dom.customPattern.value = getSelectedPresetPattern();
-  dom.patternMode.value = getSelectedPresetMode();
+  if (!isCustomPatternSelected()) {
+    clearPresetEditingState();
+  }
+  if (isCustomPatternSelected() && !isEditingPreset()) {
+    rememberStandaloneCustomDraft();
+  }
+  syncCustomPatternUI();
   syncPresetManagerState();
   setPresetFeedback('');
   validateCustomPattern();
@@ -2230,6 +2563,7 @@ dom.patternSelect.addEventListener('change', () => {
 });
 
 dom.customPattern.addEventListener('input', () => {
+  rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   setPresetFeedback('');
@@ -2238,6 +2572,7 @@ dom.customPattern.addEventListener('input', () => {
 
 dom.customPattern.addEventListener('change', () => {
   dom.customPattern.value = normalizePatternString(dom.customPattern.value);
+  rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   validateCustomPattern();
@@ -2245,6 +2580,7 @@ dom.customPattern.addEventListener('change', () => {
 
 dom.patternMode.addEventListener('change', () => {
   dom.patternMode.value = normalizePatternMode(dom.patternMode.value);
+  rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   setPresetFeedback('');
@@ -2301,6 +2637,7 @@ function refreshDisplayedHarmony() {
     showNextCol();
     dom.nextKeyDisplay.textContent = keyName(currentKey);
     dom.nextChordDisplay.textContent = firstChord ? chordSymbol(currentKey, firstChord) : '';
+    fitHarmonyDisplay();
     return;
   }
 
@@ -2324,6 +2661,7 @@ function refreshDisplayedHarmony() {
   } else {
     hideNextCol();
   }
+  fitHarmonyDisplay();
 }
 
 dom.majorMinor.addEventListener('change', () => {
@@ -2339,6 +2677,11 @@ dom.transpositionSelect.addEventListener('change', () => {
 });
 
 function validateCustomPattern() {
+  if (!isCustomPatternSelected()) {
+    dom.patternError.classList.add('hidden');
+    return true;
+  }
+
   const str = normalizePatternString(dom.customPattern.value);
   if (!str) {
     dom.patternError.classList.add('hidden');
@@ -2356,22 +2699,66 @@ function validateCustomPattern() {
   return true;
 }
 
-function setPresetFeedback(message, isError = false) {
+function setPresetFeedback(message, isError = false, action = null) {
   if (!dom.presetFeedback) return;
-  dom.presetFeedback.textContent = message || '';
+  dom.presetFeedback.textContent = '';
+  if (message) {
+    const text = document.createElement('span');
+    text.textContent = message;
+    dom.presetFeedback.appendChild(text);
+  }
+  if (action?.label && typeof action.onClick === 'function') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'preset-feedback-action';
+    button.textContent = action.label;
+    button.addEventListener('click', action.onClick, { once: true });
+    dom.presetFeedback.appendChild(button);
+  }
   dom.presetFeedback.classList.toggle('error-text', Boolean(isError && message));
 }
 
 function syncPresetManagerState() {
+  const customSelected = isCustomPatternSelected();
+  if (dom.savePreset) {
+    dom.savePreset.classList.toggle('hidden', !customSelected);
+    dom.savePreset.textContent = isEditingPreset() ? 'Overwrite preset' : 'Save preset';
+  }
+  if (dom.cancelPresetEdit) {
+    dom.cancelPresetEdit.classList.toggle('hidden', !isEditingPreset());
+  }
+  if (dom.newPreset) {
+    dom.newPreset.classList.toggle('hidden', customSelected);
+  }
+  if (dom.editPreset) {
+    dom.editPreset.disabled = !hasSelectedPreset();
+    dom.editPreset.classList.toggle('hidden', customSelected);
+  }
   if (dom.deletePreset) {
     dom.deletePreset.disabled = !hasSelectedPreset();
+    dom.deletePreset.classList.toggle('hidden', customSelected);
   }
+  if (dom.managePresets) {
+    dom.managePresets.classList.toggle('hidden', customSelected);
+  }
+  if (dom.restoreDefaultPresets) {
+    dom.restoreDefaultPresets.classList.toggle('hidden', false);
+  }
+  if (dom.clearAllPresets) {
+    dom.clearAllPresets.classList.toggle('hidden', false);
+  }
+  syncPresetManagerPanel();
 }
 
 function renderPresetOptions(selectedValue = dom.patternSelect.value) {
   if (!dom.patternSelect) return;
 
   dom.patternSelect.innerHTML = '';
+
+  const customOption = document.createElement('option');
+  customOption.value = CUSTOM_PATTERN_OPTION_VALUE;
+  customOption.textContent = 'Custom...';
+  dom.patternSelect.appendChild(customOption);
 
   for (const name of Object.keys(presets)) {
     const opt = document.createElement('option');
@@ -2383,15 +2770,19 @@ function renderPresetOptions(selectedValue = dom.patternSelect.value) {
 
   if (Object.prototype.hasOwnProperty.call(presets, selectedValue)) {
     dom.patternSelect.value = selectedValue;
+  } else if (selectedValue === CUSTOM_PATTERN_OPTION_VALUE) {
+    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
   } else {
-    dom.patternSelect.selectedIndex = -1;
+    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
   }
+  syncCustomPatternUI();
   syncPresetManagerState();
 }
 
 function saveCurrentPreset() {
   const pattern = normalizePatternString(dom.customPattern.value);
   const mode = getCurrentPatternMode();
+  const presetNameToReplace = editingPresetName;
 
   if (!pattern) {
     setPresetFeedback('Enter a pattern before saving.', true);
@@ -2402,15 +2793,80 @@ function saveCurrentPreset() {
     return;
   }
 
+  if (presetNameToReplace && presetNameToReplace !== pattern) {
+    delete presets[presetNameToReplace];
+  }
   presets[pattern] = createPresetEntry(pattern, mode);
   renderPresetOptions(pattern);
   dom.customPattern.value = pattern;
   dom.patternMode.value = mode;
+  clearPresetEditingState();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   applyPatternModeAvailability();
-  setPresetFeedback('Preset saved.');
+  setPresetFeedback(presetNameToReplace ? `Preset updated: ${pattern}` : 'Preset saved.');
   saveSettings();
+}
+
+function editSelectedPreset() {
+  if (!hasSelectedPreset()) {
+    setPresetFeedback('Select a preset to edit it.', true);
+    return;
+  }
+
+  const selectedName = dom.patternSelect.value;
+  const selectedEntry = getPresetEntry();
+  if (!selectedEntry) {
+    setPresetFeedback('Select a preset to edit it.', true);
+    return;
+  }
+
+  editingPresetName = selectedName;
+  editingPresetSnapshot = {
+    name: selectedName,
+    pattern: selectedEntry.pattern,
+    mode: selectedEntry.mode
+  };
+  dom.customPattern.value = selectedEntry.pattern;
+  dom.patternMode.value = selectedEntry.mode;
+  dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+  syncCustomPatternUI();
+  syncPresetManagerState();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  setPresetFeedback(`Editing preset: ${selectedName}`);
+}
+
+function cancelPresetEdit() {
+  if (!isEditingPreset() || !editingPresetSnapshot) {
+    clearPresetEditingState();
+    syncPresetManagerState();
+    return;
+  }
+
+  const { name, pattern, mode } = editingPresetSnapshot;
+  clearPresetEditingState();
+  dom.patternSelect.value = name;
+  dom.customPattern.value = pattern;
+  dom.patternMode.value = mode;
+  syncCustomPatternUI();
+  syncPresetManagerState();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  setPresetFeedback('');
+}
+
+function startNewPreset() {
+  clearPresetEditingState();
+  dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+  dom.customPattern.value = lastStandaloneCustomPattern || '';
+  dom.patternMode.value = normalizePatternMode(lastStandaloneCustomMode);
+  syncCustomPatternUI();
+  syncPresetManagerState();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  setPresetFeedback(dom.customPattern.value ? 'New preset from your last custom pattern.' : 'New preset.');
+  dom.customPattern.focus();
 }
 
 function deleteSelectedPreset() {
@@ -2418,19 +2874,16 @@ function deleteSelectedPreset() {
     setPresetFeedback('Select a preset to delete it.', true);
     return;
   }
-
-  const selectedName = dom.patternSelect.value;
-  delete presets[selectedName];
-  renderPresetOptions('');
-  syncPatternSelectionFromInput();
-  syncPresetManagerState();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  setPresetFeedback(`Preset deleted: ${selectedName}`);
-  saveSettings();
+  deletePresetByName(dom.patternSelect.value, {
+    offerUndo: true
+  });
 }
 
 function restoreDefaultPresets() {
+  if (!window.confirm('Restore the default presets? Existing presets will be kept.')) {
+    return;
+  }
+  const wasManagingPresets = isManagingPresets;
   const currentSelection = dom.patternSelect.value;
   let restoredCount = 0;
 
@@ -2447,8 +2900,17 @@ function restoreDefaultPresets() {
       || '';
 
   renderPresetOptions(nextSelection);
-  syncPatternSelectionFromInput();
+  if (Object.prototype.hasOwnProperty.call(presets, nextSelection)) {
+    dom.patternSelect.value = nextSelection;
+    dom.customPattern.value = getSelectedPresetPattern();
+    dom.patternMode.value = getSelectedPresetMode();
+    syncCustomPatternUI();
+  } else {
+    syncPatternSelectionFromInput();
+  }
+  isManagingPresets = wasManagingPresets;
   syncPresetManagerState();
+  syncPresetManagerPanel();
   validateCustomPattern();
   applyPatternModeAvailability();
 
@@ -2458,6 +2920,28 @@ function restoreDefaultPresets() {
     setPresetFeedback(`Restored ${restoredCount} default preset${restoredCount > 1 ? 's' : ''}.`);
     saveSettings();
   }
+}
+
+function clearAllPresets() {
+  if (!window.confirm('Clear all presets? This cannot be undone.')) {
+    return;
+  }
+  const wasManagingPresets = isManagingPresets;
+  presets = {};
+  clearPresetEditingState();
+  renderPresetOptions('');
+  syncPatternSelectionFromInput();
+  isManagingPresets = wasManagingPresets;
+  syncPresetManagerState();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  setPresetFeedback('All presets cleared.');
+  saveSettings();
+}
+
+function togglePresetManager() {
+  isManagingPresets = !isManagingPresets;
+  syncPresetManagerState();
 }
 
 // ---- Persistence (localStorage) ----
@@ -2491,7 +2975,6 @@ function saveSettings() {
     doubleTime: dom.doubleTime.checked,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
-    voiceLeadingV2: isVoiceLeadingV2Enabled(),
     chordMode: dom.chordMode.checked,
     drumsMode: getDrumsMode(),
     bassVolume: dom.bassVolume?.value,
@@ -2507,6 +2990,7 @@ function loadSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
+      savedPatternSelection = typeof s.patternSelect === 'string' ? s.patternSelect : null;
       if (s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets)) {
         presets = normalizePresetsMap(s.presets);
       }
@@ -2532,9 +3016,6 @@ function loadSettings() {
       } else if (s.hideChords !== undefined && dom.displayMode) {
         dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
       }
-      if (s.voiceLeadingV2 !== undefined && dom.voiceLeadingV2) {
-        dom.voiceLeadingV2.checked = s.voiceLeadingV2;
-      }
       if (s.chordMode !== undefined) dom.chordMode.checked = s.chordMode;
       if (s.drumsMode !== undefined && dom.drumsSelect) {
         dom.drumsSelect.value = s.drumsMode;
@@ -2551,6 +3032,8 @@ function loadSettings() {
   } catch(e) {}
 
   applyMixerSettings();
+  lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
+  lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
   syncPresetManagerState();
   applyPatternModeAvailability();
 }
@@ -2585,7 +3068,7 @@ async function loadPatternHelp() {
       .join('');
 
     dom.patternHelp.innerHTML = `
-      <div class="pattern-help-title">Pattern syntax</div>
+      <summary class="pattern-help-title">Pattern syntax</summary>
       <div class="pattern-help-body">
         <p>Use degrees <code>I II III IV V VI VII</code> with an optional <code>b</code> or <code>#</code> prefix, or use note roots such as <code>C D Eb F#</code>. Separate chords with spaces or dashes.</p>
         <p>Note roots are interpreted relative to <code>C</code> by default. Override that reference with <code>key=Eb:</code>, for example <code>key=Eb: Fm7 Bb7 Ebmaj7</code>.</p>
@@ -2599,24 +3082,57 @@ async function loadPatternHelp() {
   }
 }
 
-// Load saved settings, then fill custom pattern if still default
-loadPatternHelp();
-renderPresetOptions(Object.keys(presets)[0] || '');
-loadSettings();
-buildKeyCheckboxes();
-updateKeyPickerLabels();
-applyDisplayMode();
-if (!dom.customPattern.value) {
-  dom.customPattern.value = getSelectedPresetPattern();
+async function loadDefaultPresets() {
+  try {
+    const versionedUrl = `${DEFAULT_PRESETS_URL}?v=${encodeURIComponent(APP_VERSION)}`;
+    let response = await fetch(versionedUrl);
+    if (!response.ok) {
+      response = await fetch(DEFAULT_PRESETS_URL);
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    DEFAULT_PRESETS = normalizeDefaultPresetsSource(payload);
+  } catch (err) {
+    DEFAULT_PRESETS = {};
+    console.warn('Default presets load failed:', err);
+  }
+  presets = normalizePresetsMap(DEFAULT_PRESETS);
 }
-if (hasSelectedPreset()) {
-  dom.patternMode.value = getSelectedPresetMode();
-} else {
-  dom.patternMode.value = normalizePatternMode(dom.patternMode.value);
+
+async function initializeApp() {
+  await Promise.all([
+    loadDefaultPresets(),
+    loadPatternHelp()
+  ]);
+
+  renderPresetOptions(Object.keys(presets)[0] || '');
+  loadSettings();
+  buildKeyCheckboxes();
+  updateKeyPickerLabels();
+  applyDisplayMode();
+  if (!dom.customPattern.value) {
+    dom.customPattern.value = getSelectedPresetPattern();
+  }
+  if (hasSelectedPreset()) {
+    dom.patternMode.value = getSelectedPresetMode();
+  } else {
+    dom.patternMode.value = normalizePatternMode(dom.patternMode.value);
+  }
+  if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE) {
+    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+  } else if (savedPatternSelection && Object.prototype.hasOwnProperty.call(presets, savedPatternSelection)) {
+    dom.patternSelect.value = savedPatternSelection;
+  } else {
+    syncPatternSelectionFromInput();
+  }
+  syncPresetManagerState();
+  syncCustomPatternUI();
+  applyPatternModeAvailability();
 }
-syncPatternSelectionFromInput();
-syncPresetManagerState();
-applyPatternModeAvailability();
+
+initializeApp();
 
 // Save on every change
 dom.tempoSlider.addEventListener('change', saveSettings);
@@ -2625,8 +3141,12 @@ dom.customPattern.addEventListener('change', saveSettings);
 dom.patternMode.addEventListener('change', saveSettings);
 dom.doubleTime.addEventListener('change', saveSettings);
 dom.majorMinor.addEventListener('change', saveSettings);
-dom.voiceLeadingV2?.addEventListener('change', saveSettings);
-dom.chordMode.addEventListener('change', saveSettings);
+dom.chordMode.addEventListener('change', () => {
+  saveSettings();
+  if (!dom.chordMode.checked && isPlaying && audioCtx) {
+    stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
+  }
+});
 dom.drumsSelect.addEventListener('change', saveSettings);
 dom.displayMode.addEventListener('change', () => { applyDisplayMode(); saveSettings(); });
 dom.bassVolume.addEventListener('input', applyMixerSettings);
@@ -2636,8 +3156,17 @@ dom.bassVolume.addEventListener('change', saveSettings);
 dom.stringsVolume.addEventListener('change', saveSettings);
 dom.drumsVolume.addEventListener('change', saveSettings);
 dom.savePreset?.addEventListener('click', saveCurrentPreset);
+dom.cancelPresetEdit?.addEventListener('click', cancelPresetEdit);
+dom.newPreset?.addEventListener('click', startNewPreset);
+dom.editPreset?.addEventListener('click', editSelectedPreset);
 dom.deletePreset?.addEventListener('click', deleteSelectedPreset);
+dom.managePresets?.addEventListener('click', togglePresetManager);
+dom.closePresetManager?.addEventListener('click', () => {
+  closePresetManager();
+  syncPresetManagerState();
+});
 dom.restoreDefaultPresets?.addEventListener('click', restoreDefaultPresets);
+dom.clearAllPresets?.addEventListener('click', clearAllPresets);
 
 function applyDisplayMode() {
   const display = document.getElementById('display');
@@ -2645,12 +3174,17 @@ function applyDisplayMode() {
   display.classList.remove('display-show-both', 'display-chords-only', 'display-key-only');
   if (mode === DISPLAY_MODE_CHORDS_ONLY) {
     display.classList.add('display-chords-only');
+    fitHarmonyDisplay();
     return;
   }
   if (mode === DISPLAY_MODE_KEY_ONLY) {
     display.classList.add('display-key-only');
+    fitHarmonyDisplay();
     return;
   }
   display.classList.add('display-show-both');
+  fitHarmonyDisplay();
 }
+
+window.addEventListener('resize', fitHarmonyDisplay);
 import './voicing-config.js';

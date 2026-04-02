@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/sync-public-files.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
