@@ -72,7 +72,8 @@ const JAZZ_TRAINER_CONFIG = {
     b9sus: ['b7']
   },
 
-  // Default dominant subtype for a bare "7" quality, by degree and mode
+  // Default dominant subtype for a bare "7" quality, by strict diatonic degree and mode
+  // These mappings apply only to unaltered degrees (II, III, etc.), not to bII / #IV / etc.
   DOMINANT_DEFAULT_SUBTYPE_MAJOR: {
     II: 'lyd',
     III: 'b9',

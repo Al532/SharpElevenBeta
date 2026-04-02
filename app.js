@@ -1234,6 +1234,7 @@ function resolveDominantSubtype(chord, quality, isMinor) {
   const sub = getDominantSubtype(quality);
   if (sub !== 'auto') return sub;
   const defaults = isMinor ? DOMINANT_DEFAULT_SUBTYPE_MINOR : DOMINANT_DEFAULT_SUBTYPE_MAJOR;
+  if (chord.modifier) return 'mixo';
   return defaults[chord.roman] || 'mixo';
 }
 

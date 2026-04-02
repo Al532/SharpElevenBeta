@@ -1,9 +1,10 @@
 6, maj7, m6, m7, 7, lyd
 m7b5, dim7
-7mixo // mixolydian (13); default major dominant
+7mixo // Mixolydian (13); default major dominant
 7b9 // b9/b13; default minor dominant
 7alt // altered dominant
-7oct // octatonic, whole-step/half-step
+7oct // octatonic (half-whole)
 7lyd // lydian dominant; default dominant on II7
+#5 // whole-tone scale or mixolydian b6
 7sus // 13sus4
-7b9sus // a must for Michel Legrand
+7b9sus // a must for Michel Legrand!
