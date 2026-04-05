@@ -731,6 +731,8 @@ const sampleLoadPromises = {
 const sampleFileFetchPromises = new Map();
 let backgroundSamplePreloadPromise = null;
 let pageSampleWarmupPromise = null;
+let nearTermSamplePreloadPromise = null;
+let startupSamplePreloadInProgress = false;
 const DRUM_MODE_OFF = 'off';
 const DRUM_MODE_METRONOME_24 = 'metronome_2_4';
 const DRUM_MODE_HIHATS_24 = 'hihats_2_4';
@@ -738,6 +740,7 @@ const DRUM_MODE_FULL_SWING = 'full_swing';
 const PORTAMENTO_ALWAYS_ON = true;
 const METRONOME_GAIN_MULTIPLIER = 2.4;
 const DRUMS_GAIN_MULTIPLIER = 1.18;
+const SAFE_PRELOAD_MEASURES = 4;
 const DRUM_HIHAT_SAMPLE_URL = 'assets/13_heavy_hi-hat_chick.mp3';
 const DRUM_RIDE_SAMPLE_URLS = [
   'assets/ride/20_bright_ride_body.mp3',
@@ -1589,9 +1592,6 @@ function buildAllSampleFetchDescriptors() {
   const bassRange = getBassPreloadRange();
   const stringRanges = getStringPreloadRanges();
 
-  for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
-    descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
-  }
   descriptors.push(DRUM_HIHAT_SAMPLE_URL);
   DRUM_RIDE_SAMPLE_URLS.forEach(url => descriptors.push(url));
   for (let midi = stringRanges.cello.low; midi <= stringRanges.cello.high; midi++) {
@@ -1600,22 +1600,28 @@ function buildAllSampleFetchDescriptors() {
   for (let midi = VIOLIN_LOW; midi <= VIOLIN_HIGH; midi++) {
     descriptors.push(`assets/MP3/Violins/${midi}.mp3`);
   }
+  for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
+    descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
+  }
   return descriptors;
 }
 
-function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true } = {}) {
+function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true, currentChordLimit = null, nextChordLimit = null } = {}) {
   const bassNotes = new Set();
   const celloNotes = new Set();
   const violinNotes = new Set();
 
-  const registerProgression = (chords, key, voicingPlan) => {
+  const registerProgression = (chords, key, voicingPlan, chordLimit = null) => {
     if (!Array.isArray(chords) || key === null || key === undefined) return;
+    const limitedChords = Number.isInteger(chordLimit) && chordLimit >= 0
+      ? chords.slice(0, chordLimit)
+      : chords;
 
-    for (const chord of chords) {
+    for (const chord of limitedChords) {
       bassNotes.add(getBassMidi(key, chord.semitones));
     }
 
-    for (const voicing of voicingPlan || []) {
+    for (const voicing of (voicingPlan || []).slice(0, limitedChords.length)) {
       if (!voicing) continue;
       celloNotes.add(voicing.fundamental);
       for (const midi of voicing.guideTones || []) celloNotes.add(midi);
@@ -1624,17 +1630,22 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true 
   };
 
   if (includeCurrent) {
-    registerProgression(paddedChords, currentKey, currentVoicingPlan);
+    registerProgression(paddedChords, currentKey, currentVoicingPlan, currentChordLimit);
   }
   if (includeNext) {
-    registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan);
+    registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan, nextChordLimit);
   }
 
   return { bassNotes, celloNotes, violinNotes };
 }
 
 async function preloadStartupSamples() {
-  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes({ includeCurrent: true, includeNext: false });
+  const startupChordLimit = dom.doubleTime.checked ? 2 : 1;
+  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes({
+    includeCurrent: true,
+    includeNext: false,
+    currentChordLimit: startupChordLimit
+  });
   await loadSampleList('bass', 'Bass', bassNotes);
 
   const drumsMode = getDrumsMode();
@@ -1643,7 +1654,10 @@ async function preloadStartupSamples() {
     drumPromises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
   }
   if (drumsMode === DRUM_MODE_FULL_SWING) {
-    drumPromises.push(loadFileSample('drums', 'ride_0', DRUM_RIDE_SAMPLE_URLS[0]));
+    const startupRideCount = Math.min(3, DRUM_RIDE_SAMPLE_URLS.length);
+    for (let i = 0; i < startupRideCount; i++) {
+      drumPromises.push(loadFileSample('drums', `ride_${i}`, DRUM_RIDE_SAMPLE_URLS[i]));
+    }
   }
 
   await Promise.all(drumPromises);
@@ -1651,9 +1665,49 @@ async function preloadStartupSamples() {
   await loadSampleList('violin', 'Violins', violinNotes);
 }
 
+function getSafetyLeadChordCount() {
+  const chordsPerMeasure = dom.doubleTime.checked ? 2 : 1;
+  return SAFE_PRELOAD_MEASURES * chordsPerMeasure;
+}
+
+async function preloadNearTermSamples() {
+  const targetChordCount = getSafetyLeadChordCount();
+  const currentChordLimit = Math.min(paddedChords.length, targetChordCount);
+  const remainingChordCount = Math.max(0, targetChordCount - currentChordLimit);
+  const nextChordLimit = Math.min(nextPaddedChords.length, remainingChordCount);
+  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes({
+    includeCurrent: currentChordLimit > 0,
+    includeNext: nextChordLimit > 0,
+    currentChordLimit,
+    nextChordLimit
+  });
+
+  await loadSampleList('cello', 'Cellos', celloNotes);
+  await loadSampleList('violin', 'Violins', violinNotes);
+  await loadSampleList('bass', 'Bass', bassNotes);
+}
+
+function ensureNearTermSamplePreload() {
+  if (nearTermSamplePreloadPromise) return nearTermSamplePreloadPromise;
+
+  nearTermSamplePreloadPromise = preloadNearTermSamples()
+    .catch((err) => {
+      console.warn('Near-term sample preload failed:', err);
+      return null;
+    })
+    .finally(() => {
+      ensureBackgroundSamplePreload();
+    });
+
+  return nearTermSamplePreloadPromise;
+}
+
 async function warmPageSampleCache() {
   const descriptors = buildAllSampleFetchDescriptors();
   for (const baseUrl of descriptors) {
+    if (startupSamplePreloadInProgress) {
+      break;
+    }
     try {
       await fetchArrayBufferFromUrl(baseUrl);
     } catch (err) {
@@ -3232,13 +3286,19 @@ async function start() {
   nextKeyValue = null;
   currentKeyRepetition = 0;
   loopVoicingTemplate = null;
+  nearTermSamplePreloadPromise = null;
   prepareNextProgression();
   applyDisplaySideLayout(getIntroDisplaySide());
   dom.keyDisplay.textContent = '';
   dom.chordDisplay.textContent = '';
   hideNextCol();
-  await preloadStartupSamples();
-  ensureBackgroundSamplePreload();
+  startupSamplePreloadInProgress = true;
+  try {
+    await preloadStartupSamples();
+  } finally {
+    startupSamplePreloadInProgress = false;
+  }
+  ensureNearTermSamplePreload();
 
   // 300ms delay, then start scheduling
   nextBeatTime = audioCtx.currentTime + 0.3;
