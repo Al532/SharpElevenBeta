@@ -721,13 +721,16 @@ function buildLoopRepVoicings(template, paddedLength, isFirstRep) {
 let audioCtx = null;
 let mixerNodes = null;
 const sampleBuffers = { bass: {}, cello: {}, violin: {}, drums: {} };
+const sampleFileBuffers = new Map();
 const sampleLoadPromises = {
   bass: new Map(),
   cello: new Map(),
   violin: new Map(),
   drums: new Map()
 };
+const sampleFileFetchPromises = new Map();
 let backgroundSamplePreloadPromise = null;
+let pageSampleWarmupPromise = null;
 const DRUM_MODE_OFF = 'off';
 const DRUM_MODE_METRONOME_24 = 'metronome_2_4';
 const DRUM_MODE_HIHATS_24 = 'hihats_2_4';
@@ -807,27 +810,17 @@ function applyMixerSettings() {
 }
 
 async function preloadSamples() {
-  const promises = [];
   const bassRange = getBassPreloadRange();
   const stringRanges = getStringPreloadRanges();
 
-  // Bass samples
-  for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
-    promises.push(loadSample('bass', 'Bass', midi));
-  }
-  // Cello samples limited to fundamentals and guide tones that can actually be voiced.
-  for (let midi = stringRanges.cello.low; midi <= stringRanges.cello.high; midi++) {
-    promises.push(loadSample('cello', 'Cellos', midi));
-  }
-  // Violin samples are fully preloaded so voicing optimization is never preload-bound.
-  for (let midi = VIOLIN_LOW; midi <= VIOLIN_HIGH; midi++) {
-    promises.push(loadSample('violin', 'Violins', midi));
-  }
-  promises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
+  await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
+  const drumPromises = [loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL)];
   DRUM_RIDE_SAMPLE_URLS.forEach((url, index) => {
-    promises.push(loadFileSample('drums', `ride_${index}`, url));
+    drumPromises.push(loadFileSample('drums', `ride_${index}`, url));
   });
-  await Promise.all(promises);
+  await Promise.all(drumPromises);
+  await loadSampleRange('cello', 'Cellos', stringRanges.cello.low, stringRanges.cello.high);
+  await loadSampleRange('violin', 'Violins', VIOLIN_LOW, VIOLIN_HIGH);
 }
 
 function loadTrackedSample(category, key, loader) {
@@ -870,9 +863,16 @@ function loadFileSample(category, key, baseUrl) {
     }));
 }
 
-function loadBufferFromUrl(baseUrl) {
+function fetchArrayBufferFromUrl(baseUrl) {
+  if (sampleFileBuffers.has(baseUrl)) {
+    return Promise.resolve(sampleFileBuffers.get(baseUrl));
+  }
+
+  const pendingFetch = sampleFileFetchPromises.get(baseUrl);
+  if (pendingFetch) return pendingFetch;
+
   const versionedUrl = `${baseUrl}?v=${encodeURIComponent(APP_VERSION)}`;
-  return fetch(versionedUrl)
+  const fetchPromise = fetch(versionedUrl)
     .then(r => {
       if (r.ok) return r.arrayBuffer();
       return fetch(baseUrl).then(r2 => {
@@ -880,7 +880,21 @@ function loadBufferFromUrl(baseUrl) {
         return r2.arrayBuffer();
       });
     })
-    .then(buf => audioCtx.decodeAudioData(buf));
+    .then(buf => {
+      sampleFileBuffers.set(baseUrl, buf);
+      return buf;
+    })
+    .finally(() => {
+      sampleFileFetchPromises.delete(baseUrl);
+    });
+
+  sampleFileFetchPromises.set(baseUrl, fetchPromise);
+  return fetchPromise;
+}
+
+function loadBufferFromUrl(baseUrl) {
+  return fetchArrayBufferFromUrl(baseUrl)
+    .then(buf => audioCtx.decodeAudioData(buf.slice(0)));
 }
 
 const NOTE_FADEOUT = 0.3;  // seconds — bass fadeout before next note
@@ -1557,7 +1571,39 @@ function getBassPreloadRange() {
   return { low, high };
 }
 
-function collectRequiredSampleNotes() {
+async function loadSampleRange(category, folder, low, high) {
+  for (let midi = low; midi <= high; midi++) {
+    await loadSample(category, folder, midi);
+  }
+}
+
+async function loadSampleList(category, folder, midiValues) {
+  const sortedMidiValues = [...midiValues].sort((a, b) => a - b);
+  for (const midi of sortedMidiValues) {
+    await loadSample(category, folder, midi);
+  }
+}
+
+function buildAllSampleFetchDescriptors() {
+  const descriptors = [];
+  const bassRange = getBassPreloadRange();
+  const stringRanges = getStringPreloadRanges();
+
+  for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
+    descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
+  }
+  descriptors.push(DRUM_HIHAT_SAMPLE_URL);
+  DRUM_RIDE_SAMPLE_URLS.forEach(url => descriptors.push(url));
+  for (let midi = stringRanges.cello.low; midi <= stringRanges.cello.high; midi++) {
+    descriptors.push(`assets/MP3/Cellos/${midi}.mp3`);
+  }
+  for (let midi = VIOLIN_LOW; midi <= VIOLIN_HIGH; midi++) {
+    descriptors.push(`assets/MP3/Violins/${midi}.mp3`);
+  }
+  return descriptors;
+}
+
+function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true } = {}) {
   const bassNotes = new Set();
   const celloNotes = new Set();
   const violinNotes = new Set();
@@ -1577,35 +1623,55 @@ function collectRequiredSampleNotes() {
     }
   };
 
-  registerProgression(paddedChords, currentKey, currentVoicingPlan);
-  registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan);
+  if (includeCurrent) {
+    registerProgression(paddedChords, currentKey, currentVoicingPlan);
+  }
+  if (includeNext) {
+    registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan);
+  }
 
   return { bassNotes, celloNotes, violinNotes };
 }
 
 async function preloadStartupSamples() {
-  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes();
-  const promises = [];
-
-  bassNotes.forEach((midi) => {
-    promises.push(loadSample('bass', 'Bass', midi));
-  });
-  celloNotes.forEach((midi) => {
-    promises.push(loadSample('cello', 'Cellos', midi));
-  });
-  violinNotes.forEach((midi) => {
-    promises.push(loadSample('violin', 'Violins', midi));
-  });
+  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes({ includeCurrent: true, includeNext: false });
+  await loadSampleList('bass', 'Bass', bassNotes);
 
   const drumsMode = getDrumsMode();
+  const drumPromises = [];
   if (drumsMode === DRUM_MODE_HIHATS_24 || drumsMode === DRUM_MODE_FULL_SWING) {
-    promises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
+    drumPromises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
   }
   if (drumsMode === DRUM_MODE_FULL_SWING) {
-    promises.push(loadFileSample('drums', 'ride_0', DRUM_RIDE_SAMPLE_URLS[0]));
+    drumPromises.push(loadFileSample('drums', 'ride_0', DRUM_RIDE_SAMPLE_URLS[0]));
   }
 
-  await Promise.all(promises);
+  await Promise.all(drumPromises);
+  await loadSampleList('cello', 'Cellos', celloNotes);
+  await loadSampleList('violin', 'Violins', violinNotes);
+}
+
+async function warmPageSampleCache() {
+  const descriptors = buildAllSampleFetchDescriptors();
+  for (const baseUrl of descriptors) {
+    try {
+      await fetchArrayBufferFromUrl(baseUrl);
+    } catch (err) {
+      console.warn('Sample warmup fetch failed:', err);
+    }
+  }
+}
+
+function ensurePageSampleWarmup() {
+  if (pageSampleWarmupPromise) return pageSampleWarmupPromise;
+
+  pageSampleWarmupPromise = warmPageSampleCache()
+    .catch((err) => {
+      console.warn('Page sample warmup failed:', err);
+      return null;
+    });
+
+  return pageSampleWarmupPromise;
 }
 
 function ensureBackgroundSamplePreload() {
@@ -4169,6 +4235,8 @@ async function initializeApp() {
   } else if (!appliedDefaultPresetsFingerprint) {
     appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
   }
+
+  ensurePageSampleWarmup();
 }
 
 initializeApp();
