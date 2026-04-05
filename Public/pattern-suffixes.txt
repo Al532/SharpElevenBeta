@@ -6,5 +6,6 @@ m7b5, dim7
 7oct // octatonic (half-whole)
 7lyd // lydian dominant; default dominant on II7
 #5 // whole-tone scale or mixolydian b6
+#9 // #9 only, no other extension
 7sus // 13sus4
 7b9sus // a must for Michel Legrand!

@@ -62,6 +62,7 @@ const JAZZ_TRAINER_CONFIG = {
     oct: ['b9', '13'],
     lyd: ['9', '6', '#11'],
     '#5': ['9','#5'],
+    '#9': ['#9', 'b7'],
     sus: ['9', '13'],
     b9sus: ['4', '5', 'b9']
   },
@@ -82,9 +83,10 @@ const JAZZ_TRAINER_CONFIG = {
   },
 
   DOMINANT_DEFAULT_SUBTYPE_MINOR: {
-    II: 'lyd',
+    II: 'b9',
     III: 'b9',
     V: 'b9',
+    VI: 'b9',
     VII: 'b9'
   },
 
@@ -108,11 +110,10 @@ const JAZZ_TRAINER_CONFIG = {
     oct: ['oct'],
     lyd: ['lyd'],
     '#5': ['#5'],
+    '#9': ['#9'],
     sus: ['sus'],
     b9sus: ['b9sus']
   }
 };
-
-window.JAZZ_TRAINER_CONFIG = JAZZ_TRAINER_CONFIG;
 
 export default JAZZ_TRAINER_CONFIG;

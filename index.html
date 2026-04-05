@@ -4,18 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jazz Progression Trainer</title>
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg
-  ">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="shortcut icon" href="./favicon.svg">
-  <script>
-    window.JAZZ_TRAINER_VERSION = '8';
-  </script>
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./app.js"></script>
 </head>
 <body>
   <div id="app">
     <header class="app-header">
+      <div class="feedback-banner">
+        <a href="mailto:alcibiade.minel@gmail.com">Share your feedback!</a>
+      </div>
       <div id="app-version"></div>
       <h1>Jazz Progression Trainer</h1>
     </header>
@@ -56,14 +55,21 @@
 
           <div class="control-row">
             <div class="pattern-picker" id="pattern-picker">
-              <select id="pattern-select" class="pattern-picker-select" aria-label="Pattern"></select>
+              <select id="pattern-select" class="pattern-picker-select" aria-label="Progression"></select>
               <div class="pattern-picker-custom hidden" id="pattern-picker-custom">
-                <input type="text" id="custom-pattern" aria-label="Custom pattern" placeholder="e.g. bVI V I, Dm7 G7 Cmaj7, or key=Eb: Fm7 Bb7 Ebmaj7" spellcheck="false">
+                <input type="text" id="custom-pattern" aria-label="Custom progression" placeholder="e.g. Dm7 G7 Cmaj7" spellcheck="false">
                 <span class="pattern-picker-arrow" aria-hidden="true"></span>
               </div>
             </div>
             <div id="pattern-error" class="error hidden"></div>
           </div>
+
+          <details id="pattern-help" class="pattern-help pattern-help-static hidden">
+            <summary class="pattern-help-title">Progression syntax</summary>
+            <div class="pattern-help-body">
+              <p>Loading progression help...</p>
+            </div>
+          </details>
 
           <div class="control-row mode-row">
             <label class="mode-toggle" for="major-minor">
@@ -77,43 +83,52 @@
 
           <div class="control-row custom-pattern-panel" id="custom-pattern-panel">
             <div class="custom-pattern-body">
-              <details id="pattern-help" class="pattern-help pattern-help-static">
-                <summary class="pattern-help-title">Pattern syntax</summary>
-                <div class="pattern-help-body">
-                  <p>Loading pattern help...</p>
-                </div>
-              </details>
-
               <div class="control-row">
-                <label for="pattern-mode">This pattern works in</label>
-                <select id="pattern-mode">
+                <label class="toggle-label" for="pattern-mode-both">
+                  <input type="checkbox" id="pattern-mode-both">
+                  <span>This pattern works in both major and minor</span>
+                </label>
+                <select id="pattern-mode" hidden aria-hidden="true" tabindex="-1">
                   <option value="major">Major</option>
                   <option value="minor">Minor</option>
                   <option value="both" selected>Major/minor</option>
                 </select>
               </div>
+
+              <div id="pattern-preview-edit-anchor"></div>
+
+              <div class="control-row">
+                <label for="pattern-name">Name (optional)</label>
+                <input type="text" id="pattern-name" aria-label="Progression name" placeholder="e.g. Jazz turnaround" spellcheck="false">
+              </div>
             </div>
           </div>
 
+          <div id="pattern-preview-default-anchor"></div>
+          <div class="control-row pattern-preview-row">
+            <label for="pattern-preview">Progression preview</label>
+            <div id="pattern-preview" class="pattern-preview-field" aria-live="polite"></div>
+          </div>
+
           <fieldset class="control-row preset-manager-row">
-            <legend>Presets</legend>
             <div class="preset-manager-grid">
-              <button type="button" id="save-preset">Save preset</button>
-              <button type="button" id="cancel-preset-edit">Cancel</button>
-              <button type="button" id="new-preset">New preset</button>
-              <button type="button" id="edit-preset">Edit preset</button>
-              <button type="button" id="delete-preset" class="danger-button">Delete preset</button>
-              <button type="button" id="manage-presets">Manage presets</button>
+              <button type="button" id="save-preset">Save</button>
+              <button type="button" id="cancel-preset-edit">Back</button>
+              <button type="button" id="manage-presets">Manage progressions</button>
             </div>
-            <div id="preset-manager-panel" class="preset-manager-panel hidden">
-              <div class="preset-manager-panel-header">
-                <span>Drag presets to reorder them.</span>
-                <button type="button" id="close-preset-manager" class="preset-manager-back-button">Back</button>
-              </div>
+             <div id="preset-manager-panel" class="preset-manager-panel hidden">
+               <div class="preset-manager-panel-header">
+                <div class="preset-manager-panel-heading">
+                  <span class="preset-manager-panel-title">Progression manager</span>
+                  <span class="preset-manager-panel-hint">Drag progressions to reorder them.</span>
+                </div>
+                <button type="button" id="close-preset-manager" class="preset-manager-back-button">Close</button>
+               </div>
               <div id="preset-manager-list" class="preset-manager-list"></div>
               <div class="preset-manager-actions">
-                <button type="button" id="restore-default-presets">Restore default presets</button>
-                <button type="button" id="clear-all-presets" class="danger-button">Clear all presets</button>
+                <button type="button" id="new-preset">New progression</button>
+                <button type="button" id="restore-default-presets">Restore default progressions</button>
+                <button type="button" id="clear-all-presets" class="danger-button">Clear all progressions</button>
               </div>
             </div>
             <div id="preset-feedback" class="hint"></div>
@@ -130,25 +145,36 @@
             <input type="range" id="tempo-slider" min="40" max="300" value="120">
           </div>
 
+          <div class="control-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="double-time">
+              <span>Double time</span>
+            </label>
+          </div>
+
+          <div class="control-row inline-select-row">
+            <label for="repetitions-per-key">Repetitions per key</label>
+            <select id="repetitions-per-key">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+
           <div class="control-row toggles">
             <div class="toggle-row">
-              <label class="toggle-label">
-                <input type="checkbox" id="double-time">
-                <span>Double time</span>
-              </label>
-            </div>
-            <div class="toggle-row">
-              <label class="toggle-label">
-                <input type="checkbox" id="chord-mode" checked>
-                <span>Play chords</span>
-              </label>
               <label class="toggle-label toggle-select-label" for="drums-select">
                 <span>Drums</span>
                 <select id="drums-select">
                   <option value="off">Off</option>
                   <option value="metronome_2_4">Metronome 2 &amp; 4</option>
                   <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
-                  <option value="full_swing" selected>Full swing drum pattern</option>
+                  <option value="full_swing" selected>Full swing drum progression</option>
                 </select>
               </label>
             </div>
@@ -189,8 +215,8 @@
             <span class="section-kicker">Advanced</span>
           </div>
 
-          <div class="control-row">
-            <label for="transposition-select">Display transposition</label>
+          <div class="control-row inline-select-row transposition-row">
+            <label for="transposition-select">Transposition</label>
             <select id="transposition-select">
               <option value="0" selected>Concert (C)</option>
               <option value="2">Bb instruments</option>
@@ -199,28 +225,50 @@
             </select>
           </div>
 
+          <details class="control-row" id="key-picker">
+            <summary class="key-picker-summary">
+              <span>Keys</span>
+            </summary>
+            <div class="key-picker-actions">
+              <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
+              <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
+            </div>
+            <div id="key-checkboxes"></div>
+          </details>
+
           <div class="control-row toggles">
             <div class="toggle-row">
               <label class="toggle-label toggle-select-label" for="display-mode">
-                <span>Display</span>
-                <select id="display-mode">
+                <select id="display-mode" aria-label="Display mode">
                   <option value="show-both" selected>Show key and chord</option>
                   <option value="chords-only">Show chords only</option>
                   <option value="key-only">Show key only</option>
                 </select>
               </label>
             </div>
+            <div class="toggle-row">
+              <label class="toggle-label">
+                <input type="checkbox" id="alternate-display-sides">
+                <span>Alternate current / next sides</span>
+              </label>
+            </div>
           </div>
 
-          <details class="control-row" id="key-picker">
-            <summary class="key-picker-summary">
-              <span>Keys</span>
-            </summary>
-            <div id="key-checkboxes"></div>
-          </details>
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="preset-update-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="preset-update-title">
+      <h2 id="preset-update-title">Default Progressions Updated</h2>
+      <p id="preset-update-message">A new default progression list is available. What would you like to do?</p>
+      <div class="modal-actions">
+        <button type="button" id="preset-update-replace" class="modal-button modal-button-primary">Replace list (recommended)</button>
+        <button type="button" id="preset-update-merge" class="modal-button modal-button-secondary">Add new entries only</button>
+        <button type="button" id="preset-update-keep" class="modal-button modal-button-tertiary">Keep current list</button>
+      </div>
+    </div>
   </div>
 </body>
 </html>

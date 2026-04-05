@@ -1,11 +1,12 @@
 {
   "name": "ii-v-i",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.3",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/sync-public-files.mjs",
+    "prebuild": "node scripts/sync-public-files.mjs public",
     "build": "vite build",
+    "postbuild": "node scripts/sync-public-files.mjs build",
     "preview": "vite preview"
   },
   "devDependencies": {

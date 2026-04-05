@@ -1,3 +1,5 @@
+import voicingConfig from './voicing-config.js';
+
 /* ============================================================
    Jazz Progression Trainer — app.js
    ============================================================ */
@@ -39,11 +41,7 @@ const INTERVAL_SEMITONES = {
   b7: 10, '7': 11
 };
 
-const voicingConfig = window.JAZZ_TRAINER_CONFIG;
-if (!voicingConfig) {
-  throw new Error('Missing voicing-config.js: window.JAZZ_TRAINER_CONFIG is required.');
-}
-const APP_VERSION = window.JAZZ_TRAINER_VERSION || 'dev';
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
 // Centralized voicing/chord defaults loaded from voicing-config.js
 const {
@@ -64,7 +62,8 @@ const {
 const PATTERN_MODE_BOTH = 'both';
 const PATTERN_MODE_MAJOR = 'major';
 const PATTERN_MODE_MINOR = 'minor';
-const DEFAULT_PRESETS_URL = './default-presets.json';
+const DEFAULT_PRESETS_URL = './default-presets.txt';
+const DEFAULT_REPETITIONS_PER_KEY = 1;
 
 const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
 const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
@@ -88,15 +87,20 @@ const dom = {
   nextHeader:      document.getElementById('next-header'),
   nextKeyDisplay:  document.getElementById('next-key-display'),
   nextChordDisplay:document.getElementById('next-chord-display'),
-  chordMode:       document.getElementById('chord-mode'),
   drumsSelect:     document.getElementById('drums-select'),
   patternHelp:     document.getElementById('pattern-help'),
   patternPicker:   document.getElementById('pattern-picker'),
   patternSelect:   document.getElementById('pattern-select'),
   patternPickerCustom: document.getElementById('pattern-picker-custom'),
+  patternPreview:  document.getElementById('pattern-preview'),
+  patternPreviewRow: document.querySelector('.pattern-preview-row'),
+  patternPreviewDefaultAnchor: document.getElementById('pattern-preview-default-anchor'),
+  patternPreviewEditAnchor: document.getElementById('pattern-preview-edit-anchor'),
   customPatternPanel: document.getElementById('custom-pattern-panel'),
   customPattern:   document.getElementById('custom-pattern'),
+  patternName:     document.getElementById('pattern-name'),
   patternMode:     document.getElementById('pattern-mode'),
+  patternModeBoth: document.getElementById('pattern-mode-both'),
   patternError:    document.getElementById('pattern-error'),
   savePreset:      document.getElementById('save-preset'),
   cancelPresetEdit: document.getElementById('cancel-preset-edit'),
@@ -110,15 +114,24 @@ const dom = {
   restoreDefaultPresets: document.getElementById('restore-default-presets'),
   clearAllPresets: document.getElementById('clear-all-presets'),
   presetFeedback:  document.getElementById('preset-feedback'),
+  presetUpdateModal: document.getElementById('preset-update-modal'),
+  presetUpdateMessage: document.getElementById('preset-update-message'),
+  presetUpdateReplace: document.getElementById('preset-update-replace'),
+  presetUpdateMerge: document.getElementById('preset-update-merge'),
+  presetUpdateKeep: document.getElementById('preset-update-keep'),
   tempoSlider:     document.getElementById('tempo-slider'),
   tempoValue:      document.getElementById('tempo-value'),
+  repetitionsPerKey: document.getElementById('repetitions-per-key'),
   transpositionSelect: document.getElementById('transposition-select'),
   doubleTime:      document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
+  alternateDisplaySides: document.getElementById('alternate-display-sides'),
   startStop:       document.getElementById('start-stop'),
   pause:           document.getElementById('pause'),
   beatDots:        document.querySelectorAll('.beat-dot'),
+  selectAllKeys:   document.getElementById('select-all-keys'),
+  clearAllKeys:    document.getElementById('clear-all-keys'),
   keyCheckboxes:   document.getElementById('key-checkboxes'),
   bassVolume:      document.getElementById('bass-volume'),
   bassVolumeValue: document.getElementById('bass-volume-value'),
@@ -136,18 +149,42 @@ let DEFAULT_PRESETS = {};
 let presets = {};
 let editingPresetName = '';
 let editingPresetSnapshot = null;
+let presetSelectionBeforeEditing = '';
+let isCreatingPreset = false;
+let suppressPatternSelectChange = false;
+let lastStandaloneCustomName = '';
 let lastStandaloneCustomPattern = '';
 let lastStandaloneCustomMode = PATTERN_MODE_BOTH;
 let isManagingPresets = false;
+let suppressListRender = false;
 let draggedPresetName = '';
 let savedPatternSelection = null;
+let lastPatternSelectValue = '';
 let pendingPresetDeletion = null;
+let currentDisplaySide = 'left';
+let currentRawChords = [];
+let nextRawChords = [];
+let oneChordQualityPool = [];
+let oneChordQualityPoolSignature = '';
+let currentOneChordQualityValue = '';
+let nextOneChordQualityValue = '';
+let appliedDefaultPresetsFingerprint = '';
+let hadStoredPresets = false;
+let shouldPromptForDefaultPresetsUpdate = false;
+let defaultPresetsVersion = '1';
+let acknowledgedDefaultPresetsVersion = '';
 
 function normalizePatternMode(mode) {
   if (mode === 'major/minor') return PATTERN_MODE_BOTH;
   return [PATTERN_MODE_MAJOR, PATTERN_MODE_MINOR, PATTERN_MODE_BOTH].includes(mode)
     ? mode
-    : PATTERN_MODE_BOTH;
+    : PATTERN_MODE_MAJOR;
+}
+
+function normalizePresetName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 function normalizePatternString(pattern) {
@@ -157,41 +194,30 @@ function normalizePatternString(pattern) {
     .replace(/\s+/g, ' ');
 }
 
-function createPresetEntry(pattern, mode = PATTERN_MODE_BOTH) {
+function normalizeRepetitionsPerKey(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_REPETITIONS_PER_KEY;
+  return Math.min(8, Math.max(1, parsed));
+}
+
+function getRepetitionsPerKey() {
+  return normalizeRepetitionsPerKey(dom.repetitionsPerKey?.value);
+}
+
+function createPresetEntry(pattern, mode = PATTERN_MODE_MAJOR, name = '') {
   return {
     pattern: normalizePatternString(pattern),
-    mode: normalizePatternMode(mode)
+    mode: normalizePatternMode(mode),
+    name: normalizePresetName(name)
   };
 }
 
 function normalizePresetEntry(name, entry) {
-  if (typeof entry === 'string') return createPresetEntry(entry, PATTERN_MODE_BOTH);
+  if (typeof entry === 'string') return createPresetEntry(entry, PATTERN_MODE_MAJOR, '');
   if (entry && typeof entry === 'object') {
-    return createPresetEntry(entry.pattern ?? name, entry.mode);
+    return createPresetEntry(entry.pattern ?? name, entry.mode, entry.name);
   }
-  return createPresetEntry(name, PATTERN_MODE_BOTH);
-}
-
-function normalizeDefaultPresetsSource(source) {
-  if (Array.isArray(source)) {
-    return Object.fromEntries(
-      source
-        .map(entry => normalizePresetEntry(entry?.pattern ?? '', entry))
-        .filter(entry => entry.pattern)
-        .map(entry => [entry.pattern, entry])
-    );
-  }
-
-  if (source && typeof source === 'object') {
-    return Object.fromEntries(
-      Object.entries(source)
-        .map(([name, entry]) => normalizePresetEntry(name, entry))
-        .filter(entry => entry.pattern)
-        .map(entry => [entry.pattern, entry])
-    );
-  }
-
-  return {};
+  return createPresetEntry(name, PATTERN_MODE_MAJOR, '');
 }
 
 function normalizePresetsMap(source) {
@@ -202,10 +228,227 @@ function normalizePresetsMap(source) {
   }
 
   const normalizedEntries = Object.entries(source || {})
-    .map(([name, entry]) => normalizePresetEntry(name, entry))
-    .filter(entry => entry.pattern);
+    .map(([key, entry]) => [key, normalizePresetEntry(key, entry)])
+    .filter(([, entry]) => entry.pattern);
 
-  return Object.fromEntries(normalizedEntries.map(entry => [entry.pattern, entry]));
+  return Object.fromEntries(normalizedEntries);
+}
+
+function isPresetModeToken(value) {
+  return ['major', 'minor', 'both', 'major/minor'].includes(String(value || '').trim().toLowerCase());
+}
+
+function parseDefaultPresetsText(source) {
+  const lines = String(source || '')
+    .split(/\r?\n/)
+    .map(line => line.trim());
+
+  let version = '1';
+  const presets = Object.fromEntries(
+    lines
+      .filter(line => {
+        if (!line) return false;
+        if (line.startsWith('# presets-version:')) {
+          version = line.slice('# presets-version:'.length).trim() || '1';
+          return false;
+        }
+        return !line.startsWith('#') && !line.startsWith('//');
+      })
+      .map(line => {
+        const parts = line.split('|').map(part => part.trim());
+
+        if (parts.length === 1) {
+          return createPresetEntry(parts[0], PATTERN_MODE_MAJOR, '');
+        }
+
+        if (isPresetModeToken(parts[0])) {
+          return createPresetEntry(parts.slice(1).join(' | '), parts[0], '');
+        }
+
+        if (parts.length >= 3 && isPresetModeToken(parts[1])) {
+          return createPresetEntry(parts.slice(2).join(' | '), parts[1], parts[0]);
+        }
+
+        return createPresetEntry(parts.slice(1).join(' | '), PATTERN_MODE_MAJOR, parts[0]);
+      })
+      .filter(entry => entry.pattern)
+      .map(entry => [entry.pattern, entry])
+  );
+
+  return { version, presets };
+}
+
+const ONE_CHORD_TAG = 'one:';
+const ONE_CHORD_DEFAULT_QUALITIES = [
+  '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'm7b5', 'dim7',
+  '7mixo', '7b9', '7alt', '7oct', '7lyd', '7#5', '7sus', '7b9sus'
+];
+const ONE_CHORD_DOMINANT_QUALITIES = [
+  '7mixo', '7b9', '7alt', '7oct', '7lyd', '7#5', '7sus', '7b9sus'
+];
+const ONE_CHORD_QUALITY_ALIASES = {
+  '6': '6',
+  maj7: 'maj7',
+  '△7': 'maj7',
+  '△9': 'maj7',
+  lyd: 'lyd',
+  m7: 'm7',
+  m9: 'm9',
+  m6: 'm6',
+  'ø7': 'm7b5',
+  m7b5: 'm7b5',
+  dim7: 'dim7',
+  '°7': 'dim7',
+  '7mixo': '7mixo',
+  '7b9': '7b9',
+  '7alt': '7alt',
+  '7oct': '7oct',
+  '7lyd': '7lyd',
+  '7#5': '7#5',
+  '7sus': '7sus',
+  '7b9sus': '7b9sus'
+};
+
+function clearOneChordCycleState() {
+  currentRawChords = [];
+  nextRawChords = [];
+  oneChordQualityPool = [];
+  oneChordQualityPoolSignature = '';
+  currentOneChordQualityValue = '';
+  nextOneChordQualityValue = '';
+}
+
+function getDefaultPresetsFingerprint(source = DEFAULT_PRESETS) {
+  return JSON.stringify(
+    Object.entries(source || {}).map(([name, entry]) => {
+      const normalized = normalizePresetEntry(name, entry);
+      return [name, normalized.name || '', normalized.mode || PATTERN_MODE_MAJOR];
+    })
+  );
+}
+
+function normalizeOneChordQualityToken(token) {
+  const normalized = String(token || '').trim().toLowerCase();
+  return ONE_CHORD_QUALITY_ALIASES[normalized] || null;
+}
+
+function parseOneChordSpec(str) {
+  const normalized = String(str || '').trim();
+  if (!normalized.toLowerCase().startsWith(ONE_CHORD_TAG)) {
+    return {
+      active: false,
+      qualities: [],
+      invalidTokens: [],
+      errorMessage: null
+    };
+  }
+
+  const body = normalized.slice(ONE_CHORD_TAG.length).trim();
+  if (!body) {
+    return {
+      active: true,
+      qualities: [...ONE_CHORD_DEFAULT_QUALITIES],
+      invalidTokens: [],
+      errorMessage: null
+    };
+  }
+
+  const rawTokens = body
+    .split(',')
+    .map(token => token.trim())
+    .filter(Boolean);
+
+  const qualities = [];
+  const invalidTokens = [];
+  for (const token of rawTokens) {
+    const normalizedToken = token.toLowerCase();
+    if (['all', 'all chords'].includes(normalizedToken)) {
+      qualities.push(...ONE_CHORD_DEFAULT_QUALITIES);
+      continue;
+    }
+    if (['dominant', 'dominants', 'all dominant', 'all dominants'].includes(normalizedToken)) {
+      qualities.push(...ONE_CHORD_DOMINANT_QUALITIES);
+      continue;
+    }
+
+    const canonicalQuality = normalizeOneChordQualityToken(token);
+    if (canonicalQuality) {
+      qualities.push(canonicalQuality);
+    } else {
+      invalidTokens.push(token);
+    }
+  }
+
+  const uniqueQualities = [...new Set(qualities)];
+  return {
+    active: true,
+    qualities: uniqueQualities.length > 0 ? uniqueQualities : [...ONE_CHORD_DEFAULT_QUALITIES],
+    invalidTokens,
+    errorMessage: invalidTokens.length > 0
+      ? `Unknown one-chord quality(ies): ${invalidTokens.join(', ')}`
+      : null
+  };
+}
+
+function isOneChordModeActive(pattern = getCurrentPatternString()) {
+  return parseOneChordSpec(pattern).active;
+}
+
+function createOneChordToken(quality) {
+  return {
+    label: quality,
+    roman: 'I',
+    modifier: '',
+    semitones: 0,
+    qualityMajor: quality,
+    qualityMinor: quality,
+    inputType: 'one-chord'
+  };
+}
+
+function getOneChordQualitySignature(qualities) {
+  return (qualities || []).join('|');
+}
+
+function matchesOneChordQualitySet(qualities, reference) {
+  if (!Array.isArray(qualities) || !Array.isArray(reference)) return false;
+  if (qualities.length !== reference.length) return false;
+  return qualities.every((quality, index) => quality === reference[index]);
+}
+
+function takeNextOneChordQuality(qualities, excludedQuality = null) {
+  const availableQualities = Array.isArray(qualities) && qualities.length > 0
+    ? qualities
+    : ONE_CHORD_DEFAULT_QUALITIES;
+  const signature = getOneChordQualitySignature(availableQualities);
+  if (oneChordQualityPoolSignature !== signature) {
+    oneChordQualityPoolSignature = signature;
+    oneChordQualityPool = [];
+  }
+
+  if (availableQualities.length <= 1 || excludedQuality === null) {
+    if (oneChordQualityPool.length === 0) {
+      oneChordQualityPool = shuffleArray(availableQualities.slice());
+    }
+    return oneChordQualityPool.pop();
+  }
+
+  if (oneChordQualityPool.length === 0) {
+    oneChordQualityPool = shuffleArray(availableQualities.slice());
+  }
+
+  let candidateIndex = oneChordQualityPool.findIndex(quality => quality !== excludedQuality);
+  if (candidateIndex === -1) {
+    oneChordQualityPool = shuffleArray(availableQualities.slice());
+    candidateIndex = oneChordQualityPool.findIndex(quality => quality !== excludedQuality);
+  }
+
+  if (candidateIndex === -1) {
+    return oneChordQualityPool.pop();
+  }
+
+  const [candidate] = oneChordQualityPool.splice(candidateIndex, 1);
+  return candidate;
 }
 
 // ---- Pattern Parser ----
@@ -284,22 +527,6 @@ function parseDegreeToken(token) {
     customQuality,
     inputType: 'degree'
   });
-
-  let qualityMajor, qualityMinor;
-  if (customQuality) {
-    // Custom quality overrides both modes
-    qualityMajor = customQuality;
-    qualityMinor = customQuality;
-  } else if (modifier) {
-    // Altered degree: look up by resulting semitone for enharmonic consistency
-    qualityMajor = ALTERED_SEMITONE_QUALITY_MAJOR[semitones] || '△7';
-    qualityMinor = ALTERED_SEMITONE_QUALITY_MINOR[semitones] || 'm7';
-  } else {
-    // Natural diatonic degree
-    qualityMajor = DEGREE_QUALITY_MAJOR[roman] || '△7';
-    qualityMinor = DEGREE_QUALITY_MINOR[roman] || 'm7';
-  }
-  return { label: modifier + roman, roman, modifier, semitones, qualityMajor, qualityMinor };
 }
 
 function parseNoteToken(token, basePitchClass = 0) {
@@ -370,6 +597,20 @@ function parseToken(token, basePitchClass = 0) {
 }
 
 function analyzePattern(str) {
+  const oneChordSpec = parseOneChordSpec(str);
+  if (oneChordSpec.active) {
+    return {
+      body: String(str || '').trim(),
+      basePitchClass: 0,
+      hasOverride: false,
+      overrideToken: null,
+      tokens: oneChordSpec.qualities,
+      chords: oneChordSpec.qualities.length > 0 ? [createOneChordToken(oneChordSpec.qualities[0])] : [],
+      invalidTokens: oneChordSpec.invalidTokens,
+      errorMessage: oneChordSpec.errorMessage
+    };
+  }
+
   const base = extractPatternBase(str);
   if (base.error) {
     return { ...base, tokens: [], chords: [], invalidTokens: [], errorMessage: base.error };
@@ -430,6 +671,49 @@ function padProgression(chords, doubleTime) {
     measures = result.length / chordsPerMeasure;
   }
   return result;
+}
+
+// Check if a progression can be loop-trimmed: last chord == first chord
+// and removing it leaves an even number of measures.
+function canLoopTrimProgression(rawChords, doubleTime) {
+  if (rawChords.length < 3) return false;
+  const first = rawChords[0];
+  const last = rawChords[rawChords.length - 1];
+  if (first.semitones !== last.semitones
+      || first.qualityMajor !== last.qualityMajor
+      || first.qualityMinor !== last.qualityMinor) return false;
+  const trimmedLength = rawChords.length - 1;
+  const chordsPerMeasure = doubleTime ? 2 : 1;
+  if (trimmedLength % chordsPerMeasure !== 0) return false;
+  const measures = trimmedLength / chordsPerMeasure;
+  return measures % 2 === 0;
+}
+
+// Build voicing plan for a loop rep from the template computed on the full raw
+// sequence (e.g. 5 voicings for C A7 D G C).
+// - isFirstRep=true  → [v0, v1, v2, v3] (trim resolution voicing)
+// - isFirstRep=false → [v4, v1, v2, v3, (v4, v4, ...)] (resolution first, body, pad)
+function buildLoopRepVoicings(template, paddedLength, isFirstRep) {
+  const N = template.length; // number of raw chords (e.g. 5)
+  const plan = [];
+  if (isFirstRep) {
+    // Use voicings 0..N-2, pad with voicing N-2 if needed
+    for (let i = 0; i < paddedLength; i++) {
+      plan.push(template[Math.min(i, N - 2)]);
+    }
+  } else {
+    // Start with resolution voicing (last in template), then body voicings 1..N-2
+    const resolve = template[N - 1];
+    plan.push(resolve);
+    for (let i = 1; i < paddedLength; i++) {
+      if (i < N - 1) {
+        plan.push(template[i]); // body voicings v1, v2, v3
+      } else {
+        plan.push(resolve); // pad with resolution voicing
+      }
+    }
+  }
+  return plan;
 }
 
 // ---- Audio Engine ----
@@ -497,6 +781,10 @@ function getMixerDestination(channel) {
 function sliderValueToGain(slider) {
   const percent = Number(slider?.value ?? 100);
   return Math.max(0, Math.min(1, percent / 100));
+}
+
+function isChordsEnabled() {
+  return sliderValueToGain(dom.stringsVolume) > 0;
 }
 
 function updateMixerValueLabel(slider, output) {
@@ -690,7 +978,7 @@ function playNote(midi, time, maxDuration) {
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
   const gain = audioCtx.createGain();
-  const bassGain = dom.chordMode.checked ? BASS_GAIN_WITH_CHORDS : BASS_GAIN;
+  const bassGain = isChordsEnabled() ? BASS_GAIN_WITH_CHORDS : BASS_GAIN;
   gain.gain.setValueAtTime(bassGain, time);
 
   // If the sample is longer than allowed, schedule a fadeout at the end
@@ -1814,24 +2102,42 @@ function shuffleArray(arr) {
 }
 
 function getEffectiveKeyPool() {
-  // Get enabled major key indices
   let pool = [];
   for (let i = 0; i < 12; i++) {
     if (enabledKeys[i]) pool.push(i);
   }
   if (pool.length === 0) pool = [0]; // fallback to C
-  // If minor mode, transpose each key -3 semitones (relative minor)
-  if (dom.majorMinor.checked) {
+  if (dom.majorMinor.checked && !isOneChordModeActive()) {
     pool = pool.map(k => (k - 3 + 12) % 12);
   }
   return pool;
 }
 
-function nextKey() {
-  if (keyPool.length === 0) {
-    keyPool = shuffleArray(getEffectiveKeyPool().slice());
+function nextKey(excludedKey = null) {
+  const effectivePool = getEffectiveKeyPool();
+  if (effectivePool.length <= 1 || excludedKey === null) {
+    if (keyPool.length === 0) {
+      keyPool = shuffleArray(effectivePool.slice());
+    }
+    return keyPool.pop();
   }
-  return keyPool.pop();
+
+  if (keyPool.length === 0) {
+    keyPool = shuffleArray(effectivePool.slice());
+  }
+
+  let candidateIndex = keyPool.findIndex(key => key !== excludedKey);
+  if (candidateIndex === -1) {
+    keyPool = shuffleArray(effectivePool.slice());
+    candidateIndex = keyPool.findIndex(key => key !== excludedKey);
+  }
+
+  if (candidateIndex === -1) {
+    return keyPool.pop();
+  }
+
+  const [candidate] = keyPool.splice(candidateIndex, 1);
+  return candidate;
 }
 
 // ---- Display helpers ----
@@ -1846,6 +2152,9 @@ function transposeDisplayPitchClass(pitchClass) {
 
 function keyName(key) {
   const displayKey = transposeDisplayPitchClass(key);
+  if (isOneChordModeActive()) {
+    return KEY_NAMES_MAJOR[displayKey];
+  }
   const name = dom.majorMinor.checked ? KEY_NAMES_MINOR[displayKey] : KEY_NAMES_MAJOR[displayKey];
   const suffix = dom.majorMinor.checked ? ' min' : ' maj';
   return name + suffix;
@@ -1859,9 +2168,29 @@ function getDisplayedQuality(chord, isMinor) {
   return `7${subtype}`;
 }
 
-function chordSymbol(key, chord) {
-  const isMinor = dom.majorMinor.checked;
-  const rootName = degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor);
+function normalizeDisplayedRootName(rootName) {
+  const enharmonicMap = {
+    'F♭': 'E',
+    'E♯': 'F',
+    'C♭': 'B',
+    'B♯': 'C',
+    Fb: 'E',
+    'E#': 'F',
+    Cb: 'B',
+    'B#': 'C'
+  };
+  return enharmonicMap[rootName] || rootName;
+}
+
+function chordSymbol(key, chord, isMinorOverride = null) {
+  if (chord?.inputType === 'one-chord') {
+    const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
+    return rootName + (chord.qualityMajor || '');
+  }
+  const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
+  const rootName = normalizeDisplayedRootName(
+    degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
+  );
   const quality = getDisplayedQuality(chord, isMinor);
   return rootName + quality;
 }
@@ -1880,44 +2209,75 @@ function degreeRootName(keyIndex, roman, semitoneOffset, isMinor) {
   // Use the parsed semitone offset so the displayed chord root matches the sounding pitch.
   const expectedSemi = (keyIndex + semitoneOffset + 12) % 12;
 
-  // Accidental needed to reach expected semitone from the natural letter
+  // Accidental needed to reach expected semitone from the natural letter.
+  // When that would require a double accidental, prefer the simple enharmonic display name.
   let acc = (expectedSemi - NATURAL_SEMITONES[degLetterIdx] + 12) % 12;
   if (acc > 6) acc -= 12;
 
   if (acc === 0) return degLetter;
-  if (acc === 1) return degLetter + '♯';
-  if (acc === -1) return degLetter + '♭';
-  if (acc === 2) return degLetter + '𝄪';
-  if (acc === -2) return degLetter + '𝄫';
-  return degLetter;
+  if (acc === 1) return degLetter + '\u266F';
+  if (acc === -1) return degLetter + '\u266D';
+  return names[expectedSemi] || degLetter;
 }
 
 function showNextCol() {
+  dom.nextHeader.textContent = 'Next';
   dom.nextHeader.classList.remove('hidden');
   dom.nextKeyDisplay.classList.remove('hidden');
   dom.nextChordDisplay.classList.remove('hidden');
   fitHarmonyDisplay();
 }
 function hideNextCol() {
+  dom.nextHeader.textContent = '';
   dom.nextHeader.classList.add('hidden');
   dom.nextKeyDisplay.classList.add('hidden');
   dom.nextChordDisplay.classList.add('hidden');
   fitHarmonyDisplay();
 }
 
+function shouldAlternateDisplaySides() {
+  return Boolean(dom.alternateDisplaySides?.checked);
+}
+
+function toggleCurrentDisplaySide() {
+  currentDisplaySide = currentDisplaySide === 'left' ? 'right' : 'left';
+}
+
+function getIntroDisplaySide() {
+  if (!shouldAlternateDisplaySides()) return currentDisplaySide;
+  return currentDisplaySide === 'left' ? 'right' : 'left';
+}
+
+function applyDisplaySideLayout(side = currentDisplaySide) {
+  const display = document.getElementById('display');
+  if (!display) return;
+
+  display.classList.toggle('alternate-display-sides', shouldAlternateDisplaySides());
+  display.classList.toggle('display-current-right', shouldAlternateDisplaySides() && side === 'right');
+
+  // Legacy fixed layout kept here for quick rollback:
+  // display.classList.remove('alternate-display-sides', 'display-current-right');
+}
+
 function fitChordDisplay(element, baseRem) {
   if (!element) return;
 
+  // Always set the desired large font size
   element.style.fontSize = `${baseRem}rem`;
+  element.style.transform = '';
+  element.style.transformOrigin = 'center center';
   if (!element.textContent?.trim()) return;
 
-  const availableWidth = element.clientWidth;
-  const contentWidth = element.scrollWidth;
-  if (!availableWidth || !contentWidth || contentWidth <= availableWidth) return;
+  // Let the browser lay out at full size, then scale down if needed
+  const parentWidth = element.parentElement
+    ? element.parentElement.clientWidth / 2 - 10
+    : element.clientWidth;
+  const textWidth = element.scrollWidth;
 
-  const scale = availableWidth / contentWidth;
-  const adjustedRem = Math.max(1.25, Number((baseRem * scale).toFixed(3)));
-  element.style.fontSize = `${adjustedRem}rem`;
+  if (textWidth > parentWidth && parentWidth > 0) {
+    const scale = parentWidth / textWidth;
+    element.style.transform = `scale(${scale.toFixed(4)})`;
+  }
 }
 
 function getBaseChordDisplaySize() {
@@ -1925,9 +2285,9 @@ function getBaseChordDisplaySize() {
   const isMobile = window.matchMedia('(max-width: 720px)').matches;
 
   if (mode === DISPLAY_MODE_CHORDS_ONLY) {
-    return isMobile ? 2.8 : 3.6;
+    return isMobile ? 3.5 : 6;
   }
-  return isMobile ? 2.5 : 3.2;
+  return isMobile ? 3.0 : 5;
 }
 
 function fitHarmonyDisplay() {
@@ -1960,10 +2320,12 @@ let currentChordIdx = 0; // index in padded progression
 let isIntro = true;      // true during count-in measure
 let currentKey = 0;
 let nextKeyValue = null;
+let currentKeyRepetition = 0;
 let paddedChords = [];
 let currentVoicingPlan = [];
 let nextPaddedChords = [];
 let nextVoicingPlan = [];
+let loopVoicingTemplate = null; // saved voicing plan from first loop iteration
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
 const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 
@@ -1986,6 +2348,8 @@ function isEditingPreset() {
 function clearPresetEditingState() {
   editingPresetName = '';
   editingPresetSnapshot = null;
+  presetSelectionBeforeEditing = '';
+  isCreatingPreset = false;
 }
 
 function closePresetManager() {
@@ -1994,8 +2358,48 @@ function closePresetManager() {
 
 function rememberStandaloneCustomDraft() {
   if (isEditingPreset()) return;
+  lastStandaloneCustomName = normalizePresetName(dom.patternName?.value);
   lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
   lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
+}
+
+function resetStandaloneCustomDraft() {
+  lastStandaloneCustomName = '';
+  lastStandaloneCustomPattern = '';
+  lastStandaloneCustomMode = PATTERN_MODE_MAJOR;
+}
+
+function hasStandaloneCustomDraft() {
+  return Boolean(
+    lastStandaloneCustomName
+    || lastStandaloneCustomPattern
+    || normalizePatternMode(lastStandaloneCustomMode) !== PATTERN_MODE_MAJOR
+  );
+}
+
+function setEditorPatternMode(mode, { syncMajorMinor = true } = {}) {
+  const normalizedMode = normalizePatternMode(mode);
+  if (dom.patternMode) {
+    dom.patternMode.value = normalizedMode;
+  }
+  if (dom.patternModeBoth) {
+    dom.patternModeBoth.checked = normalizedMode === PATTERN_MODE_BOTH;
+  }
+  if (syncMajorMinor && normalizedMode !== PATTERN_MODE_BOTH && dom.majorMinor) {
+    dom.majorMinor.checked = normalizedMode === PATTERN_MODE_MINOR;
+  }
+  return normalizedMode;
+}
+
+function setPatternSelectValue(value, { suppressChange = false } = {}) {
+  if (!dom.patternSelect) return;
+  suppressPatternSelectChange = suppressChange;
+  dom.patternSelect.value = value;
+  if (suppressChange) {
+    queueMicrotask(() => {
+      suppressPatternSelectChange = false;
+    });
+  }
 }
 
 function isCustomPatternSelected() {
@@ -2007,12 +2411,21 @@ function getSelectedPresetPattern() {
 }
 
 function getSelectedPresetMode() {
-  return getPresetEntry()?.mode || PATTERN_MODE_BOTH;
+  return getPresetEntry()?.mode || PATTERN_MODE_MAJOR;
+}
+
+function getSelectedPresetName() {
+  return getPresetEntry()?.name || '';
 }
 
 function getCurrentPatternMode() {
   if (hasSelectedPreset()) return getSelectedPresetMode();
   return normalizePatternMode(dom.patternMode?.value);
+}
+
+function getCurrentPatternName() {
+  if (hasSelectedPreset()) return getSelectedPresetName();
+  return normalizePresetName(dom.patternName?.value);
 }
 
 function getPatternModeLabel(mode) {
@@ -2031,14 +2444,82 @@ function getCurrentPatternString() {
   return normalizePatternString(dom.customPattern.value);
 }
 
+function getEffectivePreviewMinorMode(patternString = getCurrentPatternString()) {
+  if (isOneChordModeActive(patternString)) return false;
+
+  const patternMode = getCurrentPatternMode();
+  if (patternMode === PATTERN_MODE_MAJOR) return false;
+  if (patternMode === PATTERN_MODE_MINOR) return true;
+  return dom.majorMinor.checked;
+}
+
+function getResolvedPatternPreviewText(patternString = getCurrentPatternString()) {
+  const normalizedPattern = normalizePatternString(patternString);
+  if (!normalizedPattern) return 'No progression selected.';
+
+  const oneChordSpec = parseOneChordSpec(normalizedPattern);
+  if (oneChordSpec.active) {
+    if (matchesOneChordQualitySet(oneChordSpec.qualities, ONE_CHORD_DEFAULT_QUALITIES)) {
+      return 'One-chord mode: all chords';
+    }
+    if (matchesOneChordQualitySet(oneChordSpec.qualities, ONE_CHORD_DOMINANT_QUALITIES)) {
+      return 'One-chord mode: all dominant chords';
+    }
+    return 'One-chord mode: custom chord set';
+  }
+
+  const analysis = analyzePattern(normalizedPattern);
+  if (analysis.errorMessage || !analysis.chords.length) {
+    return normalizedPattern;
+  }
+
+  // Counteract the display transposition so the preview always shows
+  // in the pattern's native key (usually C).
+  const rawKey = analysis.basePitchClass ?? 0;
+  const previewKey = ((rawKey - getDisplayTranspositionSemitones()) % 12 + 12) % 12;
+  const previewIsMinor = getEffectivePreviewMinorMode(normalizedPattern);
+  let previousSymbol = '';
+  return analysis.chords
+    .map(chord => {
+      const symbol = chordSymbol(previewKey, chord, previewIsMinor);
+      const nextSymbol = symbol === previousSymbol ? '%' : symbol;
+      previousSymbol = symbol;
+      return nextSymbol;
+    })
+    .join('  |  ');
+}
+
+function getPatternPreviewText() {
+  return getResolvedPatternPreviewText(getCurrentPatternString());
+}
+
+function syncPatternPreview() {
+  if (!dom.patternPreview) return;
+  dom.patternPreview.textContent = getPatternPreviewText();
+}
+
+function getPresetDisplayLabel(name) {
+  const entry = getPresetEntry(name);
+  if (!entry) return name;
+  return entry.name || entry.pattern || name;
+}
+
 function syncCustomPatternUI() {
   const customSelected = isCustomPatternSelected();
   dom.patternPicker?.classList.toggle('custom-active', customSelected);
   dom.patternPickerCustom?.classList.toggle('hidden', !customSelected);
   dom.customPatternPanel?.classList.toggle('hidden', !customSelected);
+  dom.patternHelp?.classList.toggle('hidden', !customSelected);
+  const previewTarget = customSelected
+    ? dom.patternPreviewEditAnchor
+    : dom.patternPreviewDefaultAnchor;
+  if (previewTarget && dom.patternPreviewRow && dom.patternPreviewRow.parentElement !== previewTarget.parentElement) {
+    previewTarget.insertAdjacentElement('afterend', dom.patternPreviewRow);
+  }
   if (!customSelected) {
     dom.patternError.classList.add('hidden');
   }
+  syncPatternPreview();
 }
 
 function getPresetNames() {
@@ -2067,7 +2548,7 @@ function renderPresetManagerList() {
   if (presetNames.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'hint';
-    empty.textContent = 'No presets saved.';
+    empty.textContent = 'No progressions saved.';
     dom.presetManagerList.appendChild(empty);
     return;
   }
@@ -2121,47 +2602,66 @@ function renderPresetManagerList() {
 
     const label = document.createElement('div');
     label.className = 'preset-manager-item-name';
-    label.appendChild(document.createTextNode(`${name} `));
-    const mode = document.createElement('span');
-    mode.className = 'preset-manager-item-mode';
-    mode.textContent = `(${getPatternModeLabel(presets[name].mode)})`;
-    label.appendChild(mode);
+    label.textContent = getPresetDisplayLabel(name);
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
     deleteButton.className = 'preset-manager-item-delete';
     deleteButton.textContent = 'Delete';
     deleteButton.addEventListener('click', () => {
-      deletePresetByName(name, {
-        offerUndo: true,
-        successMessage: `Preset deleted: ${name}`
-      });
+      const itemElement = deleteButton.closest('.preset-manager-item');
+      deletePresetInline(name, itemElement);
     });
+
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'preset-manager-item-edit';
+    editButton.textContent = 'Edit';
+    editButton.addEventListener('click', () => {
+      dom.patternSelect.value = name;
+      syncCustomPatternUI();
+      editSelectedPreset();
+      dom.customPattern.focus();
+    });
+
+    const copyButton = document.createElement('button');
+    copyButton.type = 'button';
+    copyButton.className = 'preset-manager-item-copy';
+    copyButton.textContent = 'Copy';
+    copyButton.addEventListener('click', () => {
+      duplicatePreset(name);
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'preset-manager-item-actions';
+    actions.appendChild(editButton);
+    actions.appendChild(copyButton);
+    actions.appendChild(deleteButton);
 
     item.appendChild(handle);
     item.appendChild(label);
-    item.appendChild(deleteButton);
+    item.appendChild(actions);
     dom.presetManagerList.appendChild(item);
   }
 }
 
-function syncPresetManagerPanel() {
+function syncPresetManagerPanel(skipListRender = false) {
   if (!dom.presetManagerPanel) return;
   const shouldShow = isManagingPresets;
   dom.presetManagerPanel.classList.toggle('hidden', !shouldShow);
-  if (shouldShow) {
+  if (shouldShow && !skipListRender && !suppressListRender) {
     renderPresetManagerList();
   }
 }
 
 function deletePresetByName(name, {
   requireConfirmation = false,
-  confirmationMessage = `Delete preset "${name}"?`,
-  successMessage = `Preset deleted: ${name}`,
+  confirmationMessage = `Delete progression "${name}"?`,
+  successMessage = `Progression deleted: ${name}`,
   offerUndo = false
 } = {}) {
   if (!Object.prototype.hasOwnProperty.call(presets, name)) {
-    setPresetFeedback('Preset not found.', true);
+    setPresetFeedback('Progression not found.', true);
     return false;
   }
   if (requireConfirmation && !window.confirm(confirmationMessage)) {
@@ -2182,8 +2682,9 @@ function deletePresetByName(name, {
   renderPresetOptions(fallbackSelection);
   if (Object.prototype.hasOwnProperty.call(presets, fallbackSelection)) {
     dom.patternSelect.value = fallbackSelection;
+    dom.patternName.value = getSelectedPresetName();
     dom.customPattern.value = getSelectedPresetPattern();
-    dom.patternMode.value = getSelectedPresetMode();
+    setEditorPatternMode(getSelectedPresetMode());
     syncCustomPatternUI();
   } else {
     syncPatternSelectionFromInput();
@@ -2211,6 +2712,76 @@ function deletePresetByName(name, {
   return true;
 }
 
+function deletePresetInline(name, itemElement) {
+  const entry = presets[name];
+  if (!entry) return;
+
+  const presetNamesBeforeDeletion = getPresetNames();
+  const deletedIndex = presetNamesBeforeDeletion.indexOf(name);
+  const wasSelected = dom.patternSelect.value === name;
+  const fallbackSelection = wasSelected
+    ? presetNamesBeforeDeletion[deletedIndex + 1] || presetNamesBeforeDeletion[deletedIndex - 1] || ''
+    : dom.patternSelect.value;
+
+  if (editingPresetName === name) {
+    clearPresetEditingState();
+  }
+  const deletedEntry = { ...entry };
+  delete presets[name];
+  suppressListRender = true;
+  renderPresetOptions(fallbackSelection);
+  if (Object.prototype.hasOwnProperty.call(presets, fallbackSelection)) {
+    dom.patternSelect.value = fallbackSelection;
+    dom.patternName.value = getSelectedPresetName();
+    dom.customPattern.value = getSelectedPresetPattern();
+    setEditorPatternMode(getSelectedPresetMode());
+    syncCustomPatternUI();
+  } else {
+    syncPatternSelectionFromInput();
+  }
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  saveSettings();
+  suppressListRender = false;
+
+  // Remove any previous undo placeholder
+  dom.presetManagerList?.querySelectorAll('.preset-manager-undo-placeholder').forEach(el => el.remove());
+
+  // Replace the item in the list with an inline undo placeholder
+  const placeholder = document.createElement('div');
+  placeholder.className = 'preset-manager-undo-placeholder';
+  const message = document.createElement('span');
+  message.className = 'preset-manager-undo-message';
+  message.textContent = `Deleted progression: ${getPresetDisplayLabel(name) || name}`;
+  const undoButton = document.createElement('button');
+  undoButton.type = 'button';
+  undoButton.className = 'preset-manager-undo-button';
+  undoButton.textContent = 'Undo';
+  undoButton.addEventListener('click', () => {
+    presets[name] = normalizePresetEntry(name, deletedEntry);
+    const names = getPresetNames().filter(n => n !== name);
+    names.splice(Math.max(0, Math.min(deletedIndex, names.length)), 0, name);
+    rebuildPresetsFromNames(names);
+    renderPresetOptions(wasSelected ? name : dom.patternSelect.value);
+    if (wasSelected) {
+      dom.patternSelect.value = name;
+      dom.patternName.value = getSelectedPresetName();
+      dom.customPattern.value = getSelectedPresetPattern();
+      setEditorPatternMode(getSelectedPresetMode());
+      syncCustomPatternUI();
+    }
+    syncPresetManagerState();
+    renderPresetManagerList();
+    validateCustomPattern();
+    applyPatternModeAvailability();
+    saveSettings();
+    setPresetFeedback(`Restored progression: ${getPresetDisplayLabel(name) || name}`);
+  }, { once: true });
+  placeholder.appendChild(message);
+  placeholder.appendChild(undoButton);
+  itemElement.replaceWith(placeholder);
+}
+
 function undoPresetDeletion() {
   if (!pendingPresetDeletion) return;
 
@@ -2225,8 +2796,9 @@ function undoPresetDeletion() {
   renderPresetOptions(wasSelected ? name : dom.patternSelect.value);
   if (wasSelected) {
     dom.patternSelect.value = name;
+    dom.patternName.value = getSelectedPresetName();
     dom.customPattern.value = getSelectedPresetPattern();
-    dom.patternMode.value = getSelectedPresetMode();
+    setEditorPatternMode(getSelectedPresetMode());
     syncCustomPatternUI();
   } else {
     syncPatternSelectionFromInput();
@@ -2235,15 +2807,15 @@ function undoPresetDeletion() {
   syncPresetManagerPanel();
   validateCustomPattern();
   applyPatternModeAvailability();
-  setPresetFeedback(`Restored preset: ${name}`);
+  setPresetFeedback(`Restored progression: ${name}`);
   saveSettings();
 }
 
 function syncPatternSelectionFromInput() {
   const pattern = normalizePatternString(dom.customPattern.value);
   const mode = getCurrentPatternMode();
-  if (isEditingPreset()) {
-    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+  if (isEditingPreset() || isCreatingPreset) {
+    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE, { suppressChange: true });
     syncCustomPatternUI();
     return;
   }
@@ -2252,16 +2824,30 @@ function syncPatternSelectionFromInput() {
     return entry.pattern === pattern && entry.mode === mode;
   }) || '';
   if (matchingPreset) {
-    dom.patternSelect.value = matchingPreset;
+    setPatternSelectValue(matchingPreset);
+    dom.patternName.value = getPresetEntry(matchingPreset)?.name || '';
   } else {
-    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
   }
   syncCustomPatternUI();
 }
 
 function applyPatternModeAvailability() {
+  if (isOneChordModeActive()) {
+    const modeChanged = dom.majorMinor.checked !== false;
+    const disabledChanged = dom.majorMinor.disabled !== true;
+    dom.majorMinor.disabled = true;
+    dom.majorMinor.checked = false;
+    if (modeChanged || disabledChanged) {
+      updateKeyPickerLabels();
+      keyPool = [];
+    }
+    refreshDisplayedHarmony();
+    return;
+  }
+
   const patternMode = getCurrentPatternMode();
-  const allowBothModes = patternMode === PATTERN_MODE_BOTH;
+  const allowBothModes = patternMode === PATTERN_MODE_BOTH || isCustomPatternSelected();
   const shouldBeMinor = patternMode === PATTERN_MODE_MINOR;
   const modeChanged = dom.majorMinor.checked !== shouldBeMinor;
   const disabledChanged = dom.majorMinor.disabled !== !allowBothModes;
@@ -2282,28 +2868,122 @@ function applyPatternModeAvailability() {
 }
 
 function buildProgression() {
+  if (currentRawChords.length > 0) return currentRawChords;
+
+  const oneChordSpec = parseOneChordSpec(getCurrentPatternString());
+  if (oneChordSpec.active) {
+    const fallbackQuality = oneChordSpec.qualities[0] || ONE_CHORD_DEFAULT_QUALITIES[0];
+    return [createOneChordToken(fallbackQuality)];
+  }
+
   const raw = parsePattern(getCurrentPatternString());
   if (raw.length === 0) return parsePattern('II-V-I'); // fallback
   return raw;
 }
 
 function prepareNextProgression() {
-  const isMinor = dom.majorMinor.checked;
-  currentKey = nextKeyValue !== null ? nextKeyValue : nextKey();
-  const raw = buildProgression();
-  paddedChords = padProgression(raw, dom.doubleTime.checked);
+  const previousKey = currentKey;
+  if (nextKeyValue !== null && shouldAlternateDisplaySides()) {
+    toggleCurrentDisplaySide();
+  }
 
-  nextKeyValue = nextKey();
-  nextPaddedChords = padProgression(raw, dom.doubleTime.checked);
-  if (isVoiceLeadingV2Enabled()) {
-    const currentSlots = paddedChords.map(chord => createVoicingSlot(chord, currentKey, isMinor, 'current'));
-    const nextSlots = nextPaddedChords.map(chord => createVoicingSlot(chord, nextKeyValue, isMinor, 'next'));
-    const combinedPlan = buildVoicingPlanForSlots([...currentSlots, ...nextSlots]);
-    currentVoicingPlan = combinedPlan.slice(0, currentSlots.length);
-    nextVoicingPlan = combinedPlan.slice(currentSlots.length);
+  if (nextKeyValue !== null) {
+    currentKey = nextKeyValue;
+    currentKeyRepetition = currentKey === previousKey ? currentKeyRepetition + 1 : 1;
   } else {
-    currentVoicingPlan = buildLegacyVoicingPlan(paddedChords, currentKey, isMinor);
-    nextVoicingPlan = buildLegacyVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
+    currentKey = nextKey();
+    currentKeyRepetition = 1;
+  }
+
+  const oneChordSpec = parseOneChordSpec(getCurrentPatternString());
+  if (oneChordSpec.active) {
+    currentOneChordQualityValue = nextOneChordQualityValue || takeNextOneChordQuality(oneChordSpec.qualities);
+    currentRawChords = [createOneChordToken(currentOneChordQualityValue)];
+  } else {
+    currentOneChordQualityValue = '';
+    currentRawChords = parsePattern(getCurrentPatternString());
+    if (currentRawChords.length === 0) {
+      currentRawChords = parsePattern('II-V-I');
+    }
+  }
+
+  const doubleTime = dom.doubleTime.checked;
+  const reps = getRepetitionsPerKey();
+  const loopTrim = !oneChordSpec.active && reps > 1 && canLoopTrimProgression(currentRawChords, doubleTime);
+  // Non-final reps: trim last chord → e.g. C A7 D G (4 bars)
+  // Final rep: full padded → e.g. C A7 D G C C (6 bars, resolution held 2 bars)
+  const isLastRep = currentKeyRepetition >= reps;
+  paddedChords = padProgression(
+    loopTrim && !isLastRep ? currentRawChords.slice(0, -1) : currentRawChords,
+    doubleTime
+  );
+
+  const shouldRepeatCurrentKey = oneChordSpec.active ? false : currentKeyRepetition < reps;
+  nextKeyValue = shouldRepeatCurrentKey ? currentKey : nextKey(currentKey);
+  if (oneChordSpec.active) {
+    nextOneChordQualityValue = takeNextOneChordQuality(oneChordSpec.qualities, currentOneChordQualityValue);
+    nextRawChords = [createOneChordToken(nextOneChordQualityValue)];
+  } else {
+    nextOneChordQualityValue = '';
+    nextRawChords = currentRawChords;
+  }
+  const nextLoopTrim = !oneChordSpec.active && reps > 1 && canLoopTrimProgression(nextRawChords, doubleTime);
+  const nextRepetition = shouldRepeatCurrentKey ? currentKeyRepetition + 1 : 1;
+  const nextIsLastRep = nextRepetition >= reps;
+  nextPaddedChords = padProgression(
+    nextLoopTrim && !nextIsLastRep ? nextRawChords.slice(0, -1) : nextRawChords,
+    doubleTime
+  );
+
+  const isMinor = oneChordSpec.active ? false : dom.majorMinor.checked;
+
+  // --- Voicing plan for loop-trimmed progressions ---
+  // Template = voicings computed on the FULL raw sequence (e.g. C A7 D G C = 5 voicings).
+  // Rep 1 plays C A7 D G → voicings template[0..3]
+  // Rep 2+ plays C A7 D G → voicings [template[4], template[1], template[2], template[3]]
+  //   (C gets the "resolution" voicing connecting from G, body A7/D/G identical to rep 1)
+  // Last rep plays C A7 D G C C → [v4, v1, v2, v3, v4, v4] (or v0..v3,v4,v4 if rep 1 is last)
+
+  if (loopTrim) {
+    // Compute template once on rep 1
+    if (currentKeyRepetition === 1) {
+      const rawSlots = currentRawChords.map(chord => createVoicingSlot(chord, currentKey, isMinor, 'current'));
+      if (isVoiceLeadingV2Enabled()) {
+        loopVoicingTemplate = buildVoicingPlanForSlots(rawSlots);
+      } else {
+        loopVoicingTemplate = buildLegacyVoicingPlan(currentRawChords, currentKey, isMinor);
+      }
+    }
+    // Derive currentVoicingPlan from template
+    currentVoicingPlan = buildLoopRepVoicings(loopVoicingTemplate, paddedChords.length, currentKeyRepetition === 1);
+    // Derive nextVoicingPlan
+    if (shouldRepeatCurrentKey) {
+      nextVoicingPlan = buildLoopRepVoicings(loopVoicingTemplate, nextPaddedChords.length, false);
+    } else {
+      // Next is new key: compute fresh voicings optimized against current tail
+      if (isVoiceLeadingV2Enabled()) {
+        const fixedSlots = currentVoicingPlan.map(v => ({ candidateSet: [v], segment: 'current' }));
+        const nextSlots = nextPaddedChords.map(chord => createVoicingSlot(chord, nextKeyValue, isMinor, 'next'));
+        const transitionPlan = buildVoicingPlanForSlots([...fixedSlots, ...nextSlots]);
+        nextVoicingPlan = transitionPlan.slice(fixedSlots.length);
+      } else {
+        nextVoicingPlan = buildLegacyVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
+      }
+      loopVoicingTemplate = null;
+    }
+  } else {
+    // No loop trim: normal behavior
+    loopVoicingTemplate = null;
+    if (isVoiceLeadingV2Enabled()) {
+      const currentSlots = paddedChords.map(chord => createVoicingSlot(chord, currentKey, isMinor, 'current'));
+      const nextSlots = nextPaddedChords.map(chord => createVoicingSlot(chord, nextKeyValue, isMinor, 'next'));
+      const combinedPlan = buildVoicingPlanForSlots([...currentSlots, ...nextSlots]);
+      currentVoicingPlan = combinedPlan.slice(0, currentSlots.length);
+      nextVoicingPlan = combinedPlan.slice(currentSlots.length);
+    } else {
+      currentVoicingPlan = buildLegacyVoicingPlan(paddedChords, currentKey, isMinor);
+      nextVoicingPlan = buildLegacyVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
+    }
   }
 
   currentChordIdx = 0;
@@ -2326,7 +3006,9 @@ function scheduleBeat() {
       const introKey = currentKey;
       const introNextKey = nextKeyValue;
       const introFirstChord = paddedChords[0];
+      const introDisplaySide = getIntroDisplaySide();
       scheduleDisplay(nextBeatTime, () => {
+        applyDisplaySideLayout(introDisplaySide);
         dom.keyDisplay.textContent = '';
         dom.chordDisplay.textContent = '';
         // Show next column during intro with the upcoming first chord
@@ -2381,7 +3063,7 @@ function scheduleBeat() {
         playNote(midi, nextBeatTime, sustainDuration);
 
         // Chord voicing (cello + violin)
-        if (dom.chordMode.checked) {
+        if (isChordsEnabled()) {
           const isMinor = dom.majorMinor.checked;
           playChord(paddedChords, currentKey, currentChordIdx, isMinor, nextBeatTime, noteDuration);
         }
@@ -2400,16 +3082,21 @@ function scheduleBeat() {
     const dispKey = currentKey;
     const dispNextKey = nextKeyValue;
     const dispLastMeas = onLastMeasure;
-    const dispNextFirstChord = onLastMeasure ? buildProgression()[0] || null : null;
+    const dispNextFirstChord = onLastMeasure ? nextRawChords[0] || null : null;
+    const dispCurrentSide = currentDisplaySide;
     scheduleDisplay(nextBeatTime, () => {
+      if (!dispLastMeas) {
+        dom.nextKeyDisplay.textContent = '';
+        dom.nextChordDisplay.textContent = '';
+        hideNextCol();
+      }
+      applyDisplaySideLayout(dispCurrentSide);
       dom.keyDisplay.textContent = keyName(dispKey);
       dom.chordDisplay.textContent = chordSymbol(dispKey, dispChord);
       if (dispLastMeas) {
         showNextCol();
         dom.nextKeyDisplay.textContent = keyName(dispNextKey);
         dom.nextChordDisplay.textContent = dispNextFirstChord ? chordSymbol(dispNextKey, dispNextFirstChord) : '';
-      } else {
-        hideNextCol();
       }
       fitHarmonyDisplay();
       updateBeatDots(dispBeat, false);
@@ -2474,9 +3161,16 @@ async function start() {
   isIntro = true;
   currentBeat = 0;
   currentChordIdx = 0;
+  currentDisplaySide = 'left';
   keyPool = [];
   nextKeyValue = null;
+  currentKeyRepetition = 0;
+  loopVoicingTemplate = null;
   prepareNextProgression();
+  applyDisplaySideLayout(getIntroDisplaySide());
+  dom.keyDisplay.textContent = '';
+  dom.chordDisplay.textContent = '';
+  hideNextCol();
   await preloadStartupSamples();
   ensureBackgroundSamplePreload();
 
@@ -2550,8 +3244,22 @@ dom.tempoSlider.addEventListener('input', () => {
 });
 
 dom.patternSelect.addEventListener('change', () => {
+  if (suppressPatternSelectChange) {
+    lastPatternSelectValue = dom.patternSelect.value;
+    return;
+  }
+  const previousPatternSelection = lastPatternSelectValue;
+  clearOneChordCycleState();
+  if (isCustomPatternSelected() && !isEditingPreset()) {
+    startNewPreset(previousPatternSelection);
+    lastPatternSelectValue = dom.patternSelect.value;
+    return;
+  }
   if (!isCustomPatternSelected()) {
     clearPresetEditingState();
+    dom.patternName.value = getSelectedPresetName();
+    dom.customPattern.value = getSelectedPresetPattern();
+    setEditorPatternMode(getSelectedPresetMode());
   }
   if (isCustomPatternSelected() && !isEditingPreset()) {
     rememberStandaloneCustomDraft();
@@ -2561,31 +3269,57 @@ dom.patternSelect.addEventListener('change', () => {
   setPresetFeedback('');
   validateCustomPattern();
   applyPatternModeAvailability();
+  lastPatternSelectValue = dom.patternSelect.value;
 });
 
 dom.customPattern.addEventListener('input', () => {
+  clearOneChordCycleState();
   rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   setPresetFeedback('');
   validateCustomPattern();
+  applyPatternModeAvailability();
+  syncPatternPreview();
 });
 
 dom.customPattern.addEventListener('change', () => {
   dom.customPattern.value = normalizePatternString(dom.customPattern.value);
+  clearOneChordCycleState();
   rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   validateCustomPattern();
+  applyPatternModeAvailability();
+  syncPatternPreview();
 });
 
 dom.patternMode.addEventListener('change', () => {
-  dom.patternMode.value = normalizePatternMode(dom.patternMode.value);
+  setEditorPatternMode(dom.patternMode.value);
   rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   setPresetFeedback('');
   applyPatternModeAvailability();
+});
+
+dom.patternModeBoth?.addEventListener('change', () => {
+  const nextMode = dom.patternModeBoth.checked
+    ? PATTERN_MODE_BOTH
+    : (dom.majorMinor.checked ? PATTERN_MODE_MINOR : PATTERN_MODE_MAJOR);
+  setEditorPatternMode(nextMode, { syncMajorMinor: false });
+  rememberStandaloneCustomDraft();
+  syncPatternSelectionFromInput();
+  syncPresetManagerState();
+  setPresetFeedback('');
+  applyPatternModeAvailability();
+});
+
+dom.patternName.addEventListener('input', () => {
+  dom.patternName.value = normalizePresetName(dom.patternName.value);
+  rememberStandaloneCustomDraft();
+  syncPresetManagerState();
+  setPresetFeedback('');
 });
 
 // ---- Key Picker ----
@@ -2612,7 +3346,19 @@ function buildKeyCheckboxes() {
   }
 }
 
+function setAllKeysEnabled(isEnabled) {
+  enabledKeys = enabledKeys.map(() => isEnabled);
+  dom.keyCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
+    checkbox.checked = enabledKeys[index];
+  });
+  keyPool = [];
+  saveSettings();
+}
+
 function keyLabelForPicker(majorIndex) {
+  if (isOneChordModeActive()) {
+    return KEY_NAMES_MAJOR[transposeDisplayPitchClass(majorIndex)];
+  }
   if (dom.majorMinor.checked) {
     // Show relative minor name
     const minorIndex = (majorIndex - 3 + 12) % 12;
@@ -2630,6 +3376,7 @@ function updateKeyPickerLabels() {
 
 function refreshDisplayedHarmony() {
   if (!isPlaying) return;
+  applyDisplaySideLayout(currentDisplaySide);
 
   if (isIntro) {
     dom.keyDisplay.textContent = '';
@@ -2656,7 +3403,7 @@ function refreshDisplayedHarmony() {
 
   if (onLastMeasure) {
     showNextCol();
-    const nextFirstChord = buildProgression()[0] || null;
+    const nextFirstChord = nextRawChords[0] || null;
     dom.nextKeyDisplay.textContent = keyName(nextKeyValue);
     dom.nextChordDisplay.textContent = nextFirstChord ? chordSymbol(nextKeyValue, nextFirstChord) : '';
   } else {
@@ -2666,9 +3413,26 @@ function refreshDisplayedHarmony() {
 }
 
 dom.majorMinor.addEventListener('change', () => {
+  if (isCustomPatternSelected() && !dom.patternModeBoth?.checked && !isOneChordModeActive()) {
+    setEditorPatternMode(dom.majorMinor.checked ? PATTERN_MODE_MINOR : PATTERN_MODE_MAJOR, { syncMajorMinor: false });
+    rememberStandaloneCustomDraft();
+    syncPatternSelectionFromInput();
+    syncPresetManagerState();
+    setPresetFeedback('');
+    applyPatternModeAvailability();
+  }
   updateKeyPickerLabels();
   keyPool = [];
   refreshDisplayedHarmony();
+  syncPatternPreview();
+});
+
+dom.selectAllKeys?.addEventListener('click', () => {
+  setAllKeysEnabled(true);
+});
+
+dom.clearAllKeys?.addEventListener('click', () => {
+  setAllKeysEnabled(false);
 });
 
 dom.transpositionSelect.addEventListener('change', () => {
@@ -2703,44 +3467,36 @@ function validateCustomPattern() {
 function setPresetFeedback(message, isError = false, action = null) {
   if (!dom.presetFeedback) return;
   dom.presetFeedback.textContent = '';
+  const actions = Array.isArray(action)
+    ? action.filter(entry => entry?.label && typeof entry.onClick === 'function')
+    : (action?.label && typeof action.onClick === 'function' ? [action] : []);
   if (message) {
     const text = document.createElement('span');
     text.textContent = message;
     dom.presetFeedback.appendChild(text);
   }
-  if (action?.label && typeof action.onClick === 'function') {
+  for (const entry of actions) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'preset-feedback-action';
-    button.textContent = action.label;
-    button.addEventListener('click', action.onClick, { once: true });
+    button.textContent = entry.label;
+    button.addEventListener('click', entry.onClick, { once: true });
     dom.presetFeedback.appendChild(button);
   }
   dom.presetFeedback.classList.toggle('error-text', Boolean(isError && message));
 }
 
-function syncPresetManagerState() {
+function syncPresetManagerState({ skipListRender = false } = {}) {
   const customSelected = isCustomPatternSelected();
   if (dom.savePreset) {
     dom.savePreset.classList.toggle('hidden', !customSelected);
-    dom.savePreset.textContent = isEditingPreset() ? 'Overwrite preset' : 'Save preset';
+    dom.savePreset.textContent = 'Save';
   }
   if (dom.cancelPresetEdit) {
-    dom.cancelPresetEdit.classList.toggle('hidden', !isEditingPreset());
-  }
-  if (dom.newPreset) {
-    dom.newPreset.classList.toggle('hidden', customSelected);
-  }
-  if (dom.editPreset) {
-    dom.editPreset.disabled = !hasSelectedPreset();
-    dom.editPreset.classList.toggle('hidden', customSelected);
-  }
-  if (dom.deletePreset) {
-    dom.deletePreset.disabled = !hasSelectedPreset();
-    dom.deletePreset.classList.toggle('hidden', customSelected);
+    dom.cancelPresetEdit.classList.toggle('hidden', !(isEditingPreset() || isCreatingPreset));
   }
   if (dom.managePresets) {
-    dom.managePresets.classList.toggle('hidden', customSelected);
+    dom.managePresets.classList.toggle('hidden', customSelected || isManagingPresets);
   }
   if (dom.restoreDefaultPresets) {
     dom.restoreDefaultPresets.classList.toggle('hidden', false);
@@ -2748,7 +3504,7 @@ function syncPresetManagerState() {
   if (dom.clearAllPresets) {
     dom.clearAllPresets.classList.toggle('hidden', false);
   }
-  syncPresetManagerPanel();
+  syncPresetManagerPanel(skipListRender);
 }
 
 function renderPresetOptions(selectedValue = dom.patternSelect.value) {
@@ -2756,18 +3512,18 @@ function renderPresetOptions(selectedValue = dom.patternSelect.value) {
 
   dom.patternSelect.innerHTML = '';
 
-  const customOption = document.createElement('option');
-  customOption.value = CUSTOM_PATTERN_OPTION_VALUE;
-  customOption.textContent = 'Custom...';
-  dom.patternSelect.appendChild(customOption);
-
   for (const name of Object.keys(presets)) {
     const opt = document.createElement('option');
     opt.value = name;
-    opt.textContent = `${name} (${getPatternModeLabel(presets[name].mode)})`;
+    opt.textContent = getPresetDisplayLabel(name);
     opt.dataset.patternMode = presets[name].mode;
     dom.patternSelect.appendChild(opt);
   }
+
+  const customOption = document.createElement('option');
+  customOption.value = CUSTOM_PATTERN_OPTION_VALUE;
+  customOption.textContent = 'Custom progression...';
+  dom.patternSelect.appendChild(customOption);
 
   if (Object.prototype.hasOwnProperty.call(presets, selectedValue)) {
     dom.patternSelect.value = selectedValue;
@@ -2781,98 +3537,151 @@ function renderPresetOptions(selectedValue = dom.patternSelect.value) {
 }
 
 function saveCurrentPreset() {
+  const name = getCurrentPatternName();
   const pattern = normalizePatternString(dom.customPattern.value);
   const mode = getCurrentPatternMode();
   const presetNameToReplace = editingPresetName;
 
   if (!pattern) {
-    setPresetFeedback('Enter a pattern before saving.', true);
+    setPresetFeedback('Enter a progression before saving.', true);
     return;
   }
   if (!validateCustomPattern()) {
-    setPresetFeedback('Fix the pattern syntax before saving.', true);
+    setPresetFeedback('Fix the progression syntax before saving.', true);
     return;
   }
 
   if (presetNameToReplace && presetNameToReplace !== pattern) {
     delete presets[presetNameToReplace];
   }
-  presets[pattern] = createPresetEntry(pattern, mode);
+  presets[pattern] = createPresetEntry(pattern, mode, name);
   renderPresetOptions(pattern);
+  dom.patternName.value = name;
   dom.customPattern.value = pattern;
-  dom.patternMode.value = mode;
+  setEditorPatternMode(mode);
+  resetStandaloneCustomDraft();
   clearPresetEditingState();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
   applyPatternModeAvailability();
-  setPresetFeedback(presetNameToReplace ? `Preset updated: ${pattern}` : 'Preset saved.');
+  setPresetFeedback(
+    presetNameToReplace
+      ? `Progression updated: ${getPresetDisplayLabel(pattern)}`
+      : `Progression saved: ${getPresetDisplayLabel(pattern)}`
+  );
   saveSettings();
 }
 
 function editSelectedPreset() {
   if (!hasSelectedPreset()) {
-    setPresetFeedback('Select a preset to edit it.', true);
+    setPresetFeedback('Select a progression to edit it.', true);
     return;
   }
 
   const selectedName = dom.patternSelect.value;
   const selectedEntry = getPresetEntry();
   if (!selectedEntry) {
-    setPresetFeedback('Select a preset to edit it.', true);
+    setPresetFeedback('Select a progression to edit it.', true);
     return;
   }
 
+  presetSelectionBeforeEditing = selectedName;
+  isCreatingPreset = false;
   editingPresetName = selectedName;
   editingPresetSnapshot = {
     name: selectedName,
+    label: selectedEntry.name,
     pattern: selectedEntry.pattern,
     mode: selectedEntry.mode
   };
+  dom.patternName.value = selectedEntry.name || '';
   dom.customPattern.value = selectedEntry.pattern;
-  dom.patternMode.value = selectedEntry.mode;
+  setEditorPatternMode(selectedEntry.mode);
   dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
   syncCustomPatternUI();
   syncPresetManagerState();
   validateCustomPattern();
   applyPatternModeAvailability();
-  setPresetFeedback(`Editing preset: ${selectedName}`);
+  setPresetFeedback(`Editing progression: ${getPresetDisplayLabel(selectedName)}`);
 }
 
 function cancelPresetEdit() {
-  if (!isEditingPreset() || !editingPresetSnapshot) {
+  if (!isEditingPreset() && !isCreatingPreset) {
     clearPresetEditingState();
     syncPresetManagerState();
+    saveSettings();
     return;
   }
 
-  const { name, pattern, mode } = editingPresetSnapshot;
+  if (!isEditingPreset() || !editingPresetSnapshot) {
+    const previousSelection = presetSelectionBeforeEditing;
+    clearPresetEditingState();
+    if (
+      previousSelection
+      && previousSelection !== CUSTOM_PATTERN_OPTION_VALUE
+      && Object.prototype.hasOwnProperty.call(presets, previousSelection)
+    ) {
+      dom.patternSelect.value = previousSelection;
+      const previousEntry = getPresetEntry(previousSelection);
+      if (previousEntry) {
+        dom.patternName.value = previousEntry.name || '';
+        dom.customPattern.value = previousEntry.pattern;
+        setEditorPatternMode(previousEntry.mode);
+      }
+    } else {
+      dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+      dom.patternName.value = lastStandaloneCustomName || '';
+      dom.customPattern.value = lastStandaloneCustomPattern || '';
+      setEditorPatternMode(normalizePatternMode(lastStandaloneCustomMode));
+    }
+    syncCustomPatternUI();
+    syncPresetManagerState();
+    validateCustomPattern();
+    applyPatternModeAvailability();
+    setPresetFeedback('');
+    saveSettings();
+    return;
+  }
+
+  const { name, label, pattern, mode } = editingPresetSnapshot;
   clearPresetEditingState();
   dom.patternSelect.value = name;
+  dom.patternName.value = label || '';
   dom.customPattern.value = pattern;
-  dom.patternMode.value = mode;
+  setEditorPatternMode(mode);
   syncCustomPatternUI();
   syncPresetManagerState();
   validateCustomPattern();
   applyPatternModeAvailability();
   setPresetFeedback('');
+  saveSettings();
 }
 
-function startNewPreset() {
+function startNewPreset(previousSelection = hasSelectedPreset() ? dom.patternSelect.value : '') {
   clearPresetEditingState();
+  presetSelectionBeforeEditing = previousSelection;
+  isCreatingPreset = true;
   dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  dom.customPattern.value = lastStandaloneCustomPattern || '';
-  dom.patternMode.value = normalizePatternMode(lastStandaloneCustomMode);
+  if (hasStandaloneCustomDraft()) {
+    dom.patternName.value = lastStandaloneCustomName || '';
+    dom.customPattern.value = lastStandaloneCustomPattern || '';
+    setEditorPatternMode(normalizePatternMode(lastStandaloneCustomMode));
+  } else {
+    dom.patternName.value = '';
+    dom.customPattern.value = '';
+    setEditorPatternMode(PATTERN_MODE_MAJOR);
+  }
   syncCustomPatternUI();
   syncPresetManagerState();
   validateCustomPattern();
   applyPatternModeAvailability();
-  setPresetFeedback(dom.customPattern.value ? 'New preset from your last custom pattern.' : 'New preset.');
+  setPresetFeedback(hasStandaloneCustomDraft() ? 'Back to your draft progression.' : 'New progression.');
   dom.customPattern.focus();
 }
 
 function deleteSelectedPreset() {
   if (!hasSelectedPreset()) {
-    setPresetFeedback('Select a preset to delete it.', true);
+    setPresetFeedback('Select a progression to delete it.', true);
     return;
   }
   deletePresetByName(dom.patternSelect.value, {
@@ -2880,8 +3689,46 @@ function deleteSelectedPreset() {
   });
 }
 
+function duplicatePreset(name) {
+  const entry = presets[name];
+  if (!entry) {
+    setPresetFeedback('Progression not found.', true);
+    return;
+  }
+  const baseName = (entry.name || entry.pattern).replace(/\s*\(\d+\)$/, '');
+  let copyIndex = 2;
+  const existingNames = new Set(Object.values(presets).map(e => e.name || e.pattern));
+  while (existingNames.has(`${baseName} (${copyIndex})`)) {
+    copyIndex++;
+  }
+  const newDisplayName = `${baseName} (${copyIndex})`;
+  const newPattern = entry.pattern;
+  const newEntry = createPresetEntry(newPattern, entry.mode, newDisplayName);
+
+  // Presets are keyed by pattern. Two presets can share the same pattern
+  // (only the display name differs), so we need a unique key.
+  const newKey = `${newPattern}#${copyIndex}`;
+  newEntry.pattern = newPattern; // actual pattern stays the same
+
+  const names = getPresetNames();
+  const sourceIndex = names.indexOf(name);
+  const before = names.slice(0, sourceIndex + 1);
+  const after = names.slice(sourceIndex + 1);
+  presets[newKey] = newEntry;
+  const reordered = [...before, newKey, ...after];
+  presets = Object.fromEntries(
+    reordered
+      .filter(n => Object.prototype.hasOwnProperty.call(presets, n))
+      .map(n => [n, presets[n]])
+  );
+  renderPresetOptions(dom.patternSelect.value);
+  renderPresetManagerList();
+  saveSettings();
+  setPresetFeedback(`Progression copied: ${newDisplayName}`);
+}
+
 function restoreDefaultPresets() {
-  if (!window.confirm('Restore the default presets? Existing presets will be kept.')) {
+  if (!window.confirm('Restore the default progressions? Existing progressions will be kept.')) {
     return;
   }
   const wasManagingPresets = isManagingPresets;
@@ -2903,8 +3750,9 @@ function restoreDefaultPresets() {
   renderPresetOptions(nextSelection);
   if (Object.prototype.hasOwnProperty.call(presets, nextSelection)) {
     dom.patternSelect.value = nextSelection;
+    dom.patternName.value = getSelectedPresetName();
     dom.customPattern.value = getSelectedPresetPattern();
-    dom.patternMode.value = getSelectedPresetMode();
+    setEditorPatternMode(getSelectedPresetMode());
     syncCustomPatternUI();
   } else {
     syncPatternSelectionFromInput();
@@ -2916,15 +3764,18 @@ function restoreDefaultPresets() {
   applyPatternModeAvailability();
 
   if (restoredCount === 0) {
-    setPresetFeedback('Default presets are already present.');
+    setPresetFeedback('Default progressions are already present.');
   } else {
-    setPresetFeedback(`Restored ${restoredCount} default preset${restoredCount > 1 ? 's' : ''}.`);
+    appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
+    acknowledgedDefaultPresetsVersion = defaultPresetsVersion;
+    shouldPromptForDefaultPresetsUpdate = false;
+    setPresetFeedback(`Restored ${restoredCount} default progression${restoredCount > 1 ? 's' : ''}.`);
     saveSettings();
   }
 }
 
 function clearAllPresets() {
-  if (!window.confirm('Clear all presets? This cannot be undone.')) {
+  if (!window.confirm('Clear all progressions? This cannot be undone.')) {
     return;
   }
   const wasManagingPresets = isManagingPresets;
@@ -2936,13 +3787,88 @@ function clearAllPresets() {
   syncPresetManagerState();
   validateCustomPattern();
   applyPatternModeAvailability();
-  setPresetFeedback('All presets cleared.');
+  setPresetFeedback('All progressions cleared.');
   saveSettings();
 }
 
 function togglePresetManager() {
   isManagingPresets = !isManagingPresets;
   syncPresetManagerState();
+}
+
+function refreshPresetUIAfterChange(preferredSelection = dom.patternSelect.value) {
+  renderPresetOptions(preferredSelection);
+  if (Object.prototype.hasOwnProperty.call(presets, preferredSelection)) {
+    dom.patternSelect.value = preferredSelection;
+    dom.patternName.value = getSelectedPresetName();
+    dom.customPattern.value = getSelectedPresetPattern();
+    setEditorPatternMode(getSelectedPresetMode());
+    syncCustomPatternUI();
+  } else {
+    syncPatternSelectionFromInput();
+  }
+  syncPresetManagerState();
+  syncPresetManagerPanel();
+  validateCustomPattern();
+  applyPatternModeAvailability();
+  lastPatternSelectValue = dom.patternSelect.value;
+}
+
+function setPresetUpdateModalVisibility(isVisible) {
+  dom.presetUpdateModal?.classList.toggle('hidden', !isVisible);
+  dom.presetUpdateModal?.setAttribute('aria-hidden', String(!isVisible));
+}
+
+function markDefaultPresetsPromptHandled() {
+  const fingerprint = getDefaultPresetsFingerprint();
+  appliedDefaultPresetsFingerprint = fingerprint;
+  acknowledgedDefaultPresetsVersion = defaultPresetsVersion;
+  shouldPromptForDefaultPresetsUpdate = false;
+  setPresetUpdateModalVisibility(false);
+  saveSettings();
+}
+
+function replacePresetsWithDefaultList() {
+  const currentSelection = dom.patternSelect.value;
+  presets = normalizePresetsMap(DEFAULT_PRESETS);
+  const nextSelection = Object.prototype.hasOwnProperty.call(presets, currentSelection)
+    ? currentSelection
+    : Object.keys(DEFAULT_PRESETS)[0] || Object.keys(presets)[0] || '';
+  refreshPresetUIAfterChange(nextSelection);
+  markDefaultPresetsPromptHandled();
+  setPresetFeedback('Default progressions replaced with the updated list.');
+}
+
+function mergeUpdatedDefaultPresets() {
+  const currentSelection = dom.patternSelect.value;
+  let addedCount = 0;
+  let updatedCount = 0;
+
+  for (const [name, entry] of Object.entries(DEFAULT_PRESETS)) {
+    const normalizedEntry = normalizePresetEntry(name, entry);
+    if (Object.prototype.hasOwnProperty.call(presets, name)) {
+      const previousEntry = presets[name];
+      const changed = previousEntry.name !== normalizedEntry.name || previousEntry.mode !== normalizedEntry.mode;
+      presets[name] = normalizedEntry;
+      if (changed) updatedCount++;
+      continue;
+    }
+    presets[name] = normalizedEntry;
+    addedCount++;
+  }
+
+  refreshPresetUIAfterChange(currentSelection);
+  markDefaultPresetsPromptHandled();
+  setPresetFeedback(
+    `Updated default progressions: ${addedCount} added, ${updatedCount} renamed/updated.`
+  );
+}
+
+function promptForUpdatedDefaultPresets() {
+  if (dom.presetUpdateMessage) {
+    dom.presetUpdateMessage.textContent = 'The default progression list was updated. Replace your full list, or only add the new entries?';
+  }
+  setPresetUpdateModalVisibility(true);
 }
 
 // ---- Persistence (localStorage) ----
@@ -2966,17 +3892,38 @@ function normalizeDisplayMode(mode) {
 }
 
 function saveSettings() {
+  const editingState = isEditingPreset()
+    ? {
+        type: 'edit',
+        editingPresetName,
+        presetSelectionBeforeEditing,
+        snapshot: editingPresetSnapshot ? {
+          ...editingPresetSnapshot
+        } : null
+      }
+    : (isCreatingPreset
+        ? {
+            type: 'create',
+            presetSelectionBeforeEditing
+          }
+        : null);
   const settings = {
     presets,
+    defaultPresetsFingerprintApplied: appliedDefaultPresetsFingerprint || getDefaultPresetsFingerprint(),
+    defaultPresetsVersionAcknowledged: acknowledgedDefaultPresetsVersion || '',
+    editingState,
     patternSelect: dom.patternSelect.value,
+    customPatternName: getCurrentPatternName(),
     customPattern: normalizePatternString(dom.customPattern.value),
     patternMode: getCurrentPatternMode(),
     tempo: dom.tempoSlider.value,
+    repetitionsPerKey: getRepetitionsPerKey(),
     transposition: dom.transpositionSelect.value,
     doubleTime: dom.doubleTime.checked,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
-    chordMode: dom.chordMode.checked,
+    alternateDisplaySides: shouldAlternateDisplaySides(),
+    chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
     bassVolume: dom.bassVolume?.value,
     stringsVolume: dom.stringsVolume?.value,
@@ -2991,19 +3938,34 @@ function loadSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
+      hadStoredPresets = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets) && Object.keys(s.presets).length > 0);
+      const storedDefaultPresetsFingerprint = typeof s.defaultPresetsFingerprintApplied === 'string'
+        ? s.defaultPresetsFingerprintApplied
+        : '';
+      const storedAcknowledgedVersion = typeof s.defaultPresetsVersionAcknowledged === 'string'
+        ? s.defaultPresetsVersionAcknowledged
+        : '';
+      appliedDefaultPresetsFingerprint = storedDefaultPresetsFingerprint;
+      acknowledgedDefaultPresetsVersion = storedAcknowledgedVersion;
       savedPatternSelection = typeof s.patternSelect === 'string' ? s.patternSelect : null;
       if (s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets)) {
         presets = normalizePresetsMap(s.presets);
       }
       renderPresetOptions(s.patternSelect);
       if (s.patternSelect !== undefined) dom.patternSelect.value = s.patternSelect;
+      if (s.customPatternName !== undefined && dom.patternName) {
+        dom.patternName.value = normalizePresetName(s.customPatternName);
+      }
       if (s.customPattern !== undefined) dom.customPattern.value = normalizePatternString(s.customPattern);
       if (s.patternMode !== undefined && dom.patternMode) {
-        dom.patternMode.value = normalizePatternMode(s.patternMode);
+        setEditorPatternMode(normalizePatternMode(s.patternMode));
       }
       if (s.tempo !== undefined) {
         dom.tempoSlider.value = s.tempo;
         dom.tempoValue.textContent = s.tempo;
+      }
+      if (s.repetitionsPerKey !== undefined && dom.repetitionsPerKey) {
+        dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(s.repetitionsPerKey));
       }
       if (s.transposition !== undefined && dom.transpositionSelect) {
         dom.transpositionSelect.value = String(s.transposition);
@@ -3017,7 +3979,12 @@ function loadSettings() {
       } else if (s.hideChords !== undefined && dom.displayMode) {
         dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
       }
-      if (s.chordMode !== undefined) dom.chordMode.checked = s.chordMode;
+      if (s.alternateDisplaySides !== undefined && dom.alternateDisplaySides) {
+        dom.alternateDisplaySides.checked = Boolean(s.alternateDisplaySides);
+      }
+      if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
+        dom.stringsVolume.value = 0;
+      }
       if (s.drumsMode !== undefined && dom.drumsSelect) {
         dom.drumsSelect.value = s.drumsMode;
       } else if (s.metronome !== undefined && dom.drumsSelect) {
@@ -3029,12 +3996,70 @@ function loadSettings() {
       if (s.enabledKeys !== undefined && Array.isArray(s.enabledKeys) && s.enabledKeys.length === 12) {
         enabledKeys = s.enabledKeys;
       }
+
+      const storedEditingState = s.editingState && typeof s.editingState === 'object'
+        ? s.editingState
+        : null;
+      if (storedEditingState?.type === 'edit') {
+        const storedEditingName = typeof storedEditingState.editingPresetName === 'string'
+          ? storedEditingState.editingPresetName
+          : '';
+        if (storedEditingName && Object.prototype.hasOwnProperty.call(presets, storedEditingName)) {
+          editingPresetName = storedEditingName;
+          presetSelectionBeforeEditing = typeof storedEditingState.presetSelectionBeforeEditing === 'string'
+            ? storedEditingState.presetSelectionBeforeEditing
+            : storedEditingName;
+          const snapshot = storedEditingState.snapshot && typeof storedEditingState.snapshot === 'object'
+            ? storedEditingState.snapshot
+            : null;
+          editingPresetSnapshot = snapshot ? {
+            name: typeof snapshot.name === 'string' ? snapshot.name : storedEditingName,
+            label: typeof snapshot.label === 'string' ? snapshot.label : (getPresetEntry(storedEditingName)?.name || ''),
+            pattern: typeof snapshot.pattern === 'string' ? snapshot.pattern : (getPresetEntry(storedEditingName)?.pattern || ''),
+            mode: normalizePatternMode(snapshot.mode)
+          } : {
+            name: storedEditingName,
+            label: getPresetEntry(storedEditingName)?.name || '',
+            pattern: getPresetEntry(storedEditingName)?.pattern || '',
+            mode: normalizePatternMode(getPresetEntry(storedEditingName)?.mode)
+          };
+          isCreatingPreset = false;
+          savedPatternSelection = CUSTOM_PATTERN_OPTION_VALUE;
+          if (dom.patternSelect) {
+            dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+          }
+        }
+      } else if (storedEditingState?.type === 'create') {
+        isCreatingPreset = true;
+        presetSelectionBeforeEditing = typeof storedEditingState.presetSelectionBeforeEditing === 'string'
+          ? storedEditingState.presetSelectionBeforeEditing
+          : '';
+        savedPatternSelection = CUSTOM_PATTERN_OPTION_VALUE;
+        if (dom.patternSelect) {
+          dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+        }
+      }
+
+      shouldPromptForDefaultPresetsUpdate = hadStoredPresets
+        && acknowledgedDefaultPresetsVersion !== defaultPresetsVersion;
     }
   } catch(e) {}
 
+  if (!appliedDefaultPresetsFingerprint && !hadStoredPresets) {
+    appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
+  }
+
   applyMixerSettings();
-  lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
-  lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
+  if (dom.repetitionsPerKey) {
+    dom.repetitionsPerKey.value = String(getRepetitionsPerKey());
+  }
+  if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE || isCreatingPreset) {
+    lastStandaloneCustomName = normalizePresetName(dom.patternName?.value);
+    lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
+    lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
+  } else {
+    resetStandaloneCustomDraft();
+  }
   syncPresetManagerState();
   applyPatternModeAvailability();
 }
@@ -3069,13 +4094,15 @@ async function loadPatternHelp() {
       .join('');
 
     dom.patternHelp.innerHTML = `
-      <summary class="pattern-help-title">Pattern syntax</summary>
+      <summary class="pattern-help-title">Progression syntax</summary>
       <div class="pattern-help-body">
-        <p>Use degrees <code>I II III IV V VI VII</code> with an optional <code>b</code> or <code>#</code> prefix, or use note roots such as <code>C D Eb F#</code>. Separate chords with spaces or dashes.</p>
-        <p>Note roots are interpreted relative to <code>C</code> by default. Override that reference with <code>key=Eb:</code>, for example <code>key=Eb: Fm7 Bb7 Ebmaj7</code>.</p>
+        <p>Use note roots such as <code>C Dm7 G7</code> or <code>F# B7 Emaj7</code>. Notes are interpreted relative to <code>C</code> by default. Separate chords with spaces.</p>
+        <p>You can also use functions such as <code>IIm7 V I</code>, with optional <code>b</code> or <code>#</code> like <code>bVI</code> or <code>#IV</code>.</p>
+        <p>If you omit the chord quality, a default one is chosen from the context. For example, <code>D</code> or <code>II</code> in minor will default to <code>m7b5</code>. Check with the <code>Progression preview</code>.</p>
         <p>Available suffixes:</p>
         <ul>${items}</ul>
-        <p><code>%</code> repeats the previous chord, and note and degree tokens can be mixed in the same pattern.</p>
+        <p><code>%</code> repeats the previous chord.</p>
+        <p>You can also use <code>one:</code> for one-chord mode, for example <code>one:</code>, <code>one: all dominants</code>, or <code>one: maj7, m9, 7alt, dim7</code>.</p>
       </div>
     `;
   } catch (err) {
@@ -3093,9 +4120,11 @@ async function loadDefaultPresets() {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    const payload = await response.json();
-    DEFAULT_PRESETS = normalizeDefaultPresetsSource(payload);
+    const parsed = parseDefaultPresetsText(await response.text());
+    defaultPresetsVersion = parsed.version || '1';
+    DEFAULT_PRESETS = parsed.presets;
   } catch (err) {
+    defaultPresetsVersion = '1';
     DEFAULT_PRESETS = {};
     console.warn('Default presets load failed:', err);
   }
@@ -3117,9 +4146,11 @@ async function initializeApp() {
     dom.customPattern.value = getSelectedPresetPattern();
   }
   if (hasSelectedPreset()) {
-    dom.patternMode.value = getSelectedPresetMode();
+    dom.patternName.value = getSelectedPresetName();
+    setEditorPatternMode(getSelectedPresetMode());
   } else {
-    dom.patternMode.value = normalizePatternMode(dom.patternMode.value);
+    dom.patternName.value = normalizePresetName(dom.patternName.value);
+    setEditorPatternMode(normalizePatternMode(dom.patternMode.value));
   }
   if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE) {
     dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
@@ -3131,36 +4162,49 @@ async function initializeApp() {
   syncPresetManagerState();
   syncCustomPatternUI();
   applyPatternModeAvailability();
+  lastPatternSelectValue = dom.patternSelect.value;
+
+  if (shouldPromptForDefaultPresetsUpdate) {
+    promptForUpdatedDefaultPresets();
+  } else if (!appliedDefaultPresetsFingerprint) {
+    appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
+  }
 }
 
 initializeApp();
 
 // Save on every change
 dom.tempoSlider.addEventListener('change', saveSettings);
+dom.repetitionsPerKey?.addEventListener('change', saveSettings);
 dom.patternSelect.addEventListener('change', saveSettings);
+dom.patternName.addEventListener('change', saveSettings);
 dom.customPattern.addEventListener('change', saveSettings);
 dom.patternMode.addEventListener('change', saveSettings);
+dom.patternModeBoth?.addEventListener('change', saveSettings);
 dom.doubleTime.addEventListener('change', saveSettings);
 dom.majorMinor.addEventListener('change', saveSettings);
-dom.chordMode.addEventListener('change', () => {
-  saveSettings();
-  if (!dom.chordMode.checked && isPlaying && audioCtx) {
+dom.stringsVolume.addEventListener('input', () => {
+  applyMixerSettings();
+  if (!isChordsEnabled() && isPlaying && audioCtx) {
     stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
   }
 });
 dom.drumsSelect.addEventListener('change', saveSettings);
 dom.displayMode.addEventListener('change', () => { applyDisplayMode(); saveSettings(); });
+dom.transpositionSelect?.addEventListener('change', syncPatternPreview);
+dom.alternateDisplaySides?.addEventListener('change', () => {
+  applyDisplaySideLayout();
+  refreshDisplayedHarmony();
+  saveSettings();
+});
 dom.bassVolume.addEventListener('input', applyMixerSettings);
-dom.stringsVolume.addEventListener('input', applyMixerSettings);
 dom.drumsVolume.addEventListener('input', applyMixerSettings);
 dom.bassVolume.addEventListener('change', saveSettings);
 dom.stringsVolume.addEventListener('change', saveSettings);
 dom.drumsVolume.addEventListener('change', saveSettings);
 dom.savePreset?.addEventListener('click', saveCurrentPreset);
 dom.cancelPresetEdit?.addEventListener('click', cancelPresetEdit);
-dom.newPreset?.addEventListener('click', startNewPreset);
-dom.editPreset?.addEventListener('click', editSelectedPreset);
-dom.deletePreset?.addEventListener('click', deleteSelectedPreset);
+dom.newPreset?.addEventListener('click', () => startNewPreset());
 dom.managePresets?.addEventListener('click', togglePresetManager);
 dom.closePresetManager?.addEventListener('click', () => {
   closePresetManager();
@@ -3168,6 +4212,12 @@ dom.closePresetManager?.addEventListener('click', () => {
 });
 dom.restoreDefaultPresets?.addEventListener('click', restoreDefaultPresets);
 dom.clearAllPresets?.addEventListener('click', clearAllPresets);
+dom.presetUpdateReplace?.addEventListener('click', replacePresetsWithDefaultList);
+dom.presetUpdateMerge?.addEventListener('click', mergeUpdatedDefaultPresets);
+dom.presetUpdateKeep?.addEventListener('click', () => {
+  markDefaultPresetsPromptHandled();
+  setPresetFeedback('Kept your current progression list.');
+});
 
 function applyDisplayMode() {
   const display = document.getElementById('display');
@@ -3175,17 +4225,33 @@ function applyDisplayMode() {
   display.classList.remove('display-show-both', 'display-chords-only', 'display-key-only');
   if (mode === DISPLAY_MODE_CHORDS_ONLY) {
     display.classList.add('display-chords-only');
+    applyDisplaySideLayout();
     fitHarmonyDisplay();
     return;
   }
   if (mode === DISPLAY_MODE_KEY_ONLY) {
     display.classList.add('display-key-only');
+    applyDisplaySideLayout();
     fitHarmonyDisplay();
     return;
   }
   display.classList.add('display-show-both');
+  applyDisplaySideLayout();
   fitHarmonyDisplay();
 }
 
 window.addEventListener('resize', fitHarmonyDisplay);
-import './voicing-config.js';
+
+if (typeof ResizeObserver !== 'undefined') {
+  const harmonyDisplayResizeObserver = new ResizeObserver(() => {
+    fitHarmonyDisplay();
+  });
+
+  [dom.chordDisplay, dom.nextChordDisplay, document.getElementById('display-columns')]
+    .filter(Boolean)
+    .forEach(element => harmonyDisplayResizeObserver.observe(element));
+}
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitHarmonyDisplay);
+}
