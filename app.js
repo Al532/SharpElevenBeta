@@ -101,6 +101,7 @@ const dom = {
   appVersion:      document.getElementById('app-version'),
   selectedKeysSummary: document.getElementById('selected-keys-summary'),
   displayPlaceholder: document.getElementById('display-placeholder'),
+  displayPlaceholderMessage: document.getElementById('display-placeholder-message'),
   keyDisplay:      document.getElementById('key-display'),
   chordDisplay:    document.getElementById('chord-display'),
   nextHeader:      document.getElementById('next-header'),
@@ -200,6 +201,7 @@ let acknowledgedDefaultProgressionsVersion = '';
 let sessionStartedAt = Date.now();
 let sessionStartTracked = false;
 let firstPlayStartTracked = false;
+let playStopSuggestionCount = 0;
 let sessionEngagedTracked = false;
 let sessionDurationTracked = false;
 let sessionActionCount = 0;
@@ -2351,6 +2353,11 @@ function setDisplayPlaceholderVisible(visible) {
   dom.displayPlaceholder?.classList.toggle('hidden', !visible);
 }
 
+function setDisplayPlaceholderMessage(message = 'Choose a progression, then press Start.') {
+  if (!dom.displayPlaceholderMessage) return;
+  dom.displayPlaceholderMessage.textContent = message;
+}
+
 function getRemainingBeatsUntilNextProgression(chordIndex = currentChordIdx, beatInMeasure = currentBeat, chordCount = paddedChords.length) {
   if (!Number.isFinite(chordCount) || chordCount <= 0) return 0;
   const doubleTime = dom.doubleTime.checked;
@@ -3031,6 +3038,8 @@ const playbackTransportState = {
   set currentKeyRepetition(value) { currentKeyRepetition = value; },
   get firstPlayStartTracked() { return firstPlayStartTracked; },
   set firstPlayStartTracked(value) { firstPlayStartTracked = value; },
+  get playStopSuggestionCount() { return playStopSuggestionCount; },
+  set playStopSuggestionCount(value) { playStopSuggestionCount = value; },
   get isIntro() { return isIntro; },
   set isIntro(value) { isIntro = value; },
   get isPaused() { return isPaused; },
@@ -3079,6 +3088,7 @@ const { start, stop, togglePause } = createPlaybackTransport({
     prepareNextProgression: prepareNextProgressionPlayback,
     registerSessionAction,
     scheduleBeat: scheduleBeatPlayback,
+    setDisplayPlaceholderMessage,
     setDisplayPlaceholderVisible,
     stopActiveChordVoices,
     stopScheduledAudio,

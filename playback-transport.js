@@ -1,5 +1,10 @@
 export function createPlaybackTransport({ dom, state, constants, helpers }) {
   const { NOTE_FADEOUT, SCHEDULE_INTERVAL } = constants;
+  const STOP_SUGGESTION_MESSAGES = [
+    'Want to try another progression from the list?',
+    'Some progressions also work in minor. Have you tried?',
+    'You can create custom patterns in Custom progression or Manage progressions > New progression.'
+  ];
   const {
     applyDisplaySideLayout,
     clearBeatDots,
@@ -19,6 +24,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     prepareNextProgression,
     registerSessionAction,
     scheduleBeat,
+    setDisplayPlaceholderMessage,
     setDisplayPlaceholderVisible,
     stopActiveChordVoices,
     stopScheduledAudio,
@@ -34,6 +40,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.isPlaying = true;
     state.isPaused = false;
     setDisplayPlaceholderVisible(false);
+    setDisplayPlaceholderMessage('Choose a progression, then press Start.');
     dom.startStop.textContent = 'Stop';
     dom.startStop.classList.add('running');
     dom.pause.classList.remove('hidden', 'paused');
@@ -83,6 +90,8 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
   }
 
   function stop() {
+    const shouldShowStopSuggestion = state.firstPlayStartTracked;
+
     trackProgressionEvent('play_stop', {
       tempo_bucket: getTempoBucket(),
       enabled_keys: getEnabledKeyCount()
@@ -110,6 +119,12 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     hideNextCol();
     fitHarmonyDisplay();
     clearBeatDots();
+
+    if (shouldShowStopSuggestion) {
+      const suggestionIndex = state.playStopSuggestionCount % STOP_SUGGESTION_MESSAGES.length;
+      setDisplayPlaceholderMessage(STOP_SUGGESTION_MESSAGES[suggestionIndex]);
+      state.playStopSuggestionCount += 1;
+    }
   }
 
   function togglePause() {
