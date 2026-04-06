@@ -29,7 +29,9 @@ export default defineConfig({
   build: {
     sourcemap: false,
     outDir: '../JazzProgressionTrainerDemo',
-    emptyOutDir: true
+    // Keep previous hashed assets so a cached index.html on GitHub Pages
+    // does not break while clients or the CDN still reference older bundles.
+    emptyOutDir: false
   },
   server: {
     host: true,
