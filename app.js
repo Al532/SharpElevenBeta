@@ -1,3 +1,4 @@
+import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './analytics.js';
 import voicingConfig from './voicing-config.js';
 
 /* ============================================================
@@ -127,10 +128,12 @@ const dom = {
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
   alternateDisplaySides: document.getElementById('alternate-display-sides'),
+  debugToggle:     document.getElementById('debug-toggle'),
   startStop:       document.getElementById('start-stop'),
   pause:           document.getElementById('pause'),
   beatDots:        document.querySelectorAll('.beat-dot'),
   selectAllKeys:   document.getElementById('select-all-keys'),
+  invertKeys:      document.getElementById('invert-keys'),
   clearAllKeys:    document.getElementById('clear-all-keys'),
   keyCheckboxes:   document.getElementById('key-checkboxes'),
   bassVolume:      document.getElementById('bass-volume'),
@@ -173,6 +176,12 @@ let hadStoredPresets = false;
 let shouldPromptForDefaultPresetsUpdate = false;
 let defaultPresetsVersion = '1';
 let acknowledgedDefaultPresetsVersion = '';
+let sessionStartedAt = Date.now();
+let sessionStartTracked = false;
+let firstPlayStartTracked = false;
+let sessionEngagedTracked = false;
+let sessionDurationTracked = false;
+let sessionActionCount = 0;
 
 function normalizePatternMode(mode) {
   if (mode === 'major/minor') return PATTERN_MODE_BOTH;
@@ -185,6 +194,11 @@ function normalizePresetName(name) {
   return String(name || '')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function normalizePresetNameForInput(name) {
+  return String(name || '')
+    .replace(/\s{2,}/g, ' ');
 }
 
 function normalizePatternString(pattern) {
@@ -2355,6 +2369,10 @@ function hideNextCol() {
   fitHarmonyDisplay();
 }
 
+function shouldShowNextPreview(currentKeyValue, upcomingKeyValue) {
+  return upcomingKeyValue !== null && upcomingKeyValue !== currentKeyValue;
+}
+
 function shouldAlternateDisplaySides() {
   return Boolean(dom.alternateDisplaySides?.checked);
 }
@@ -2562,6 +2580,109 @@ function getPatternModeLabel(mode) {
 function getCurrentPatternString() {
   if (hasSelectedPreset()) return getSelectedPresetPattern();
   return normalizePatternString(dom.customPattern.value);
+}
+
+function toAnalyticsToken(value, fallback = 'unknown') {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || fallback;
+}
+
+function getEnabledKeyCount() {
+  return enabledKeys.filter(Boolean).length;
+}
+
+function getTempoBucket() {
+  const tempo = Number(dom.tempoSlider?.value || 0);
+  if (tempo < 90) return 'slow';
+  if (tempo <= 140) return 'medium';
+  if (tempo <= 200) return 'fast';
+  return 'very_fast';
+}
+
+function getSessionDurationBucket() {
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - sessionStartedAt) / 1000));
+  if (elapsedSeconds < 10) return 'lt_10s';
+  if (elapsedSeconds < 30) return '10_30s';
+  if (elapsedSeconds < 120) return '30_120s';
+  return 'gt_120s';
+}
+
+function ensureSessionStarted(entrypoint = 'unknown') {
+  if (sessionStartTracked) return;
+  sessionStartTracked = true;
+  trackEvent('session_start', { entrypoint });
+}
+
+function registerSessionAction(actionName, extraProps = {}) {
+  ensureSessionStarted(actionName);
+  sessionActionCount += 1;
+  if (sessionEngagedTracked || sessionActionCount < 3) return;
+  sessionEngagedTracked = true;
+  trackEvent('session_engaged', {
+    action_count: sessionActionCount,
+    last_action: actionName,
+    ...extraProps
+  });
+}
+
+function trackSessionDuration() {
+  if (sessionDurationTracked || !sessionStartTracked) return;
+  sessionDurationTracked = true;
+  trackEvent('session_duration_bucket', {
+    duration_bucket: getSessionDurationBucket(),
+    action_count: sessionActionCount
+  });
+}
+
+function getProgressionAnalyticsProps() {
+  const patternString = getCurrentPatternString();
+  const oneChordSpec = parseOneChordSpec(patternString);
+  const patternMode = getPatternModeLabel(getCurrentPatternMode());
+  const source = hasSelectedPreset() ? 'preset' : 'custom';
+
+  if (oneChordSpec.active) {
+    let customId = 'custom_one_chord';
+    if (matchesOneChordQualitySet(oneChordSpec.qualities, ONE_CHORD_DEFAULT_QUALITIES)) {
+      customId = 'one_chord_all';
+    } else if (matchesOneChordQualitySet(oneChordSpec.qualities, ONE_CHORD_DOMINANT_QUALITIES)) {
+      customId = 'one_chord_dominant';
+    }
+    return {
+      progression_source: source,
+      progression_mode: patternMode,
+      progression_kind: 'one_chord',
+      progression_id: hasSelectedPreset() ? `preset_${toAnalyticsToken(dom.patternSelect.value)}` : customId,
+      chord_count: 1,
+      quality_count: oneChordSpec.qualities.length || 0
+    };
+  }
+
+  const analysis = analyzePattern(patternString);
+  const chordCount = analysis.chords.length || (analysis.tokens?.length ?? 0);
+  const progressionShape = chordCount > 0 ? `${chordCount}_chords` : 'empty';
+
+  return {
+    progression_source: source,
+    progression_mode: patternMode,
+    progression_kind: 'sequence',
+    progression_id: hasSelectedPreset()
+      ? `preset_${toAnalyticsToken(dom.patternSelect.value)}`
+      : `custom_${progressionShape}`,
+    progression_shape: progressionShape,
+    chord_count: chordCount,
+    has_key_override: analysis.hasOverride ? 'yes' : 'no'
+  };
+}
+
+function trackProgressionEvent(name, extraProps = {}) {
+  trackEvent(name, {
+    ...getProgressionAnalyticsProps(),
+    ...extraProps
+  });
 }
 
 function getEffectivePreviewMinorMode(patternString = getCurrentPatternString()) {
@@ -3213,10 +3334,14 @@ function scheduleBeat() {
       applyDisplaySideLayout(dispCurrentSide);
       dom.keyDisplay.textContent = keyName(dispKey);
       dom.chordDisplay.textContent = chordSymbol(dispKey, dispChord);
-      if (dispLastMeas) {
+      if (dispLastMeas && shouldShowNextPreview(dispKey, dispNextKey)) {
         showNextCol();
         dom.nextKeyDisplay.textContent = keyName(dispNextKey);
         dom.nextChordDisplay.textContent = dispNextFirstChord ? chordSymbol(dispNextKey, dispNextFirstChord) : '';
+      } else if (dispLastMeas) {
+        dom.nextKeyDisplay.textContent = '';
+        dom.nextChordDisplay.textContent = '';
+        hideNextCol();
       }
       fitHarmonyDisplay();
       updateBeatDots(dispBeat, false);
@@ -3267,6 +3392,7 @@ function scheduleDisplay(audioTime, fn) {
 // ---- Start / Stop ----
 
 async function start() {
+  ensureSessionStarted('play_start');
   initAudio();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
 
@@ -3299,6 +3425,23 @@ async function start() {
     startupSamplePreloadInProgress = false;
   }
   ensureNearTermSamplePreload();
+  if (!firstPlayStartTracked) {
+    firstPlayStartTracked = true;
+    const progressionProps = getProgressionAnalyticsProps();
+    trackEvent('first_play_start', {
+      progression_source: progressionProps.progression_source,
+      progression_kind: progressionProps.progression_kind
+    });
+    registerSessionAction('first_play_start');
+  }
+  trackProgressionEvent('play_start', {
+    tempo_bucket: getTempoBucket(),
+    repetitions_per_key: getRepetitionsPerKey(),
+    drums_mode: dom.drumsSelect?.value || DRUM_MODE_OFF,
+    display_mode: normalizeDisplayMode(dom.displayMode?.value),
+    transposition: dom.transpositionSelect?.value || '0',
+    enabled_keys: getEnabledKeyCount()
+  });
 
   // 300ms delay, then start scheduling
   nextBeatTime = audioCtx.currentTime + 0.3;
@@ -3306,6 +3449,10 @@ async function start() {
 }
 
 function stop() {
+  trackProgressionEvent('play_stop', {
+    tempo_bucket: getTempoBucket(),
+    enabled_keys: getEnabledKeyCount()
+  });
   isPlaying = false;
   isPaused = false;
   dom.startStop.textContent = 'Start';
@@ -3345,6 +3492,9 @@ dom.pause.addEventListener('click', () => {
     dom.pause.textContent = 'Pause';
     dom.pause.classList.remove('paused');
     audioCtx.resume();
+    trackProgressionEvent('play_resume', {
+      tempo_bucket: getTempoBucket()
+    });
     // Re-anchor timing so scheduler picks up from now
     nextBeatTime = audioCtx.currentTime + 0.05;
     schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
@@ -3362,6 +3512,9 @@ dom.pause.addEventListener('click', () => {
     activeNoteGain = null;
     activeChordVoices.clear();
     audioCtx.suspend();
+    trackProgressionEvent('play_pause', {
+      tempo_bucket: getTempoBucket()
+    });
   }
 });
 
@@ -3370,6 +3523,7 @@ dom.tempoSlider.addEventListener('input', () => {
 });
 
 dom.patternSelect.addEventListener('change', () => {
+  ensureSessionStarted('pattern_select');
   if (suppressPatternSelectChange) {
     lastPatternSelectValue = dom.patternSelect.value;
     return;
@@ -3378,6 +3532,10 @@ dom.patternSelect.addEventListener('change', () => {
   clearOneChordCycleState();
   if (isCustomPatternSelected() && !isEditingPreset()) {
     startNewPreset(previousPatternSelection);
+    trackEvent('custom_progression_started', {
+      previous_selection: previousPatternSelection ? toAnalyticsToken(previousPatternSelection) : 'none'
+    });
+    registerSessionAction('custom_progression_started');
     lastPatternSelectValue = dom.patternSelect.value;
     return;
   }
@@ -3395,6 +3553,16 @@ dom.patternSelect.addEventListener('change', () => {
   setPresetFeedback('');
   validateCustomPattern();
   applyPatternModeAvailability();
+  if (!isCustomPatternSelected()) {
+    trackProgressionEvent('progression_selected');
+    if (previousPatternSelection !== dom.patternSelect.value) {
+      trackEvent('preset_changed', {
+        progression_id: `preset_${toAnalyticsToken(dom.patternSelect.value)}`,
+        previous_progression_id: previousPatternSelection ? `preset_${toAnalyticsToken(previousPatternSelection)}` : 'none'
+      });
+    }
+    registerSessionAction('preset_changed');
+  }
   lastPatternSelectValue = dom.patternSelect.value;
 });
 
@@ -3410,14 +3578,24 @@ dom.customPattern.addEventListener('input', () => {
 });
 
 dom.customPattern.addEventListener('change', () => {
+  ensureSessionStarted('custom_progression');
   dom.customPattern.value = normalizePatternString(dom.customPattern.value);
   clearOneChordCycleState();
   rememberStandaloneCustomDraft();
   syncPatternSelectionFromInput();
   syncPresetManagerState();
-  validateCustomPattern();
+  const isValid = validateCustomPattern();
   applyPatternModeAvailability();
   syncPatternPreview();
+  if (dom.customPattern.value && isValid) {
+    trackProgressionEvent('custom_progression_committed');
+    const progressionProps = getProgressionAnalyticsProps();
+    trackEvent('custom_progression_used', {
+      progression_mode: progressionProps.progression_mode,
+      progression_kind: progressionProps.progression_kind
+    });
+    registerSessionAction('custom_progression_used');
+  }
 });
 
 dom.patternMode.addEventListener('change', () => {
@@ -3427,6 +3605,7 @@ dom.patternMode.addEventListener('change', () => {
   syncPresetManagerState();
   setPresetFeedback('');
   applyPatternModeAvailability();
+  trackProgressionEvent('pattern_mode_changed');
 });
 
 dom.patternModeBoth?.addEventListener('change', () => {
@@ -3439,13 +3618,18 @@ dom.patternModeBoth?.addEventListener('change', () => {
   syncPresetManagerState();
   setPresetFeedback('');
   applyPatternModeAvailability();
+  trackProgressionEvent('pattern_mode_changed');
 });
 
 dom.patternName.addEventListener('input', () => {
-  dom.patternName.value = normalizePresetName(dom.patternName.value);
+  dom.patternName.value = normalizePresetNameForInput(dom.patternName.value);
   rememberStandaloneCustomDraft();
   syncPresetManagerState();
   setPresetFeedback('');
+});
+
+dom.patternName.addEventListener('change', () => {
+  dom.patternName.value = normalizePresetName(dom.patternName.value);
 });
 
 // ---- Key Picker ----
@@ -3463,6 +3647,11 @@ function buildKeyCheckboxes() {
       enabledKeys[i] = cb.checked;
       keyPool = []; // reset pool
       saveSettings();
+      trackEvent('key_selection_changed', {
+        enabled_keys: getEnabledKeyCount(),
+        key_index: i,
+        key_state: cb.checked ? 'enabled' : 'disabled'
+      });
     });
     const span = document.createElement('span');
     span.textContent = keyLabelForPicker(i);
@@ -3474,6 +3663,15 @@ function buildKeyCheckboxes() {
 
 function setAllKeysEnabled(isEnabled) {
   enabledKeys = enabledKeys.map(() => isEnabled);
+  dom.keyCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
+    checkbox.checked = enabledKeys[index];
+  });
+  keyPool = [];
+  saveSettings();
+}
+
+function invertKeysEnabled() {
+  enabledKeys = enabledKeys.map(isEnabled => !isEnabled);
   dom.keyCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
     checkbox.checked = enabledKeys[index];
   });
@@ -3527,7 +3725,7 @@ function refreshDisplayedHarmony() {
   const currentMeasure = Math.floor(currentChordIdx / chordsPerMeasure);
   const onLastMeasure = currentMeasure === totalMeasures - 1;
 
-  if (onLastMeasure) {
+  if (onLastMeasure && shouldShowNextPreview(currentKey, nextKeyValue)) {
     showNextCol();
     const nextFirstChord = nextRawChords[0] || null;
     dom.nextKeyDisplay.textContent = keyName(nextKeyValue);
@@ -3551,20 +3749,39 @@ dom.majorMinor.addEventListener('change', () => {
   keyPool = [];
   refreshDisplayedHarmony();
   syncPatternPreview();
+  trackProgressionEvent('major_minor_toggled', {
+    tonal_mode: dom.majorMinor.checked ? 'minor' : 'major'
+  });
 });
 
 dom.selectAllKeys?.addEventListener('click', () => {
   setAllKeysEnabled(true);
+  trackEvent('all_keys_selected', {
+    enabled_keys: getEnabledKeyCount()
+  });
+});
+
+dom.invertKeys?.addEventListener('click', () => {
+  invertKeysEnabled();
+  trackEvent('key_selection_inverted', {
+    enabled_keys: getEnabledKeyCount()
+  });
 });
 
 dom.clearAllKeys?.addEventListener('click', () => {
   setAllKeysEnabled(false);
+  trackEvent('all_keys_cleared', {
+    enabled_keys: getEnabledKeyCount()
+  });
 });
 
 dom.transpositionSelect.addEventListener('change', () => {
   updateKeyPickerLabels();
   refreshDisplayedHarmony();
   saveSettings();
+  trackEvent('display_transposition_changed', {
+    transposition: dom.transpositionSelect.value
+  });
 });
 
 function validateCustomPattern() {
@@ -3696,6 +3913,7 @@ function saveCurrentPreset() {
       : `Progression saved: ${getPresetDisplayLabel(pattern)}`
   );
   saveSettings();
+  trackProgressionEvent(presetNameToReplace ? 'preset_updated' : 'preset_saved');
 }
 
 function editSelectedPreset() {
@@ -3897,6 +4115,9 @@ function restoreDefaultPresets() {
     shouldPromptForDefaultPresetsUpdate = false;
     setPresetFeedback(`Restored ${restoredCount} default progression${restoredCount > 1 ? 's' : ''}.`);
     saveSettings();
+    trackEvent('default_presets_restored', {
+      restored_count: restoredCount
+    });
   }
 }
 
@@ -3915,11 +4136,17 @@ function clearAllPresets() {
   applyPatternModeAvailability();
   setPresetFeedback('All progressions cleared.');
   saveSettings();
+  trackEvent('all_presets_cleared');
 }
 
 function togglePresetManager() {
   isManagingPresets = !isManagingPresets;
   syncPresetManagerState();
+  if (isManagingPresets) {
+    trackEvent('preset_manager_opened', {
+      preset_count: getPresetNames().length
+    });
+  }
 }
 
 function refreshPresetUIAfterChange(preferredSelection = dom.patternSelect.value) {
@@ -4186,6 +4413,9 @@ function loadSettings() {
   } else {
     resetStandaloneCustomDraft();
   }
+  if (dom.debugToggle) {
+    dom.debugToggle.checked = getAnalyticsDebugEnabled();
+  }
   syncPresetManagerState();
   applyPatternModeAvailability();
 }
@@ -4311,6 +4541,22 @@ dom.patternMode.addEventListener('change', saveSettings);
 dom.patternModeBoth?.addEventListener('change', saveSettings);
 dom.doubleTime.addEventListener('change', saveSettings);
 dom.majorMinor.addEventListener('change', saveSettings);
+dom.tempoSlider.addEventListener('change', () => {
+  trackEvent('tempo_changed', {
+    tempo: Number(dom.tempoSlider.value),
+    tempo_bucket: getTempoBucket()
+  });
+});
+dom.repetitionsPerKey?.addEventListener('change', () => {
+  trackEvent('repetitions_changed', {
+    repetitions_per_key: getRepetitionsPerKey()
+  });
+});
+dom.doubleTime.addEventListener('change', () => {
+  trackEvent('double_time_toggled', {
+    double_time: dom.doubleTime.checked ? 'on' : 'off'
+  });
+});
 dom.stringsVolume.addEventListener('input', () => {
   applyMixerSettings();
   if (!isChordsEnabled() && isPlaying && audioCtx) {
@@ -4318,22 +4564,58 @@ dom.stringsVolume.addEventListener('input', () => {
   }
 });
 dom.drumsSelect.addEventListener('change', saveSettings);
-dom.displayMode.addEventListener('change', () => { applyDisplayMode(); saveSettings(); });
+dom.drumsSelect.addEventListener('change', () => {
+  trackEvent('drums_mode_changed', {
+    drums_mode: dom.drumsSelect.value
+  });
+});
+dom.displayMode.addEventListener('change', () => {
+  applyDisplayMode();
+  saveSettings();
+  trackEvent('display_mode_changed', {
+    display_mode: normalizeDisplayMode(dom.displayMode.value)
+  });
+});
 dom.transpositionSelect?.addEventListener('change', syncPatternPreview);
 dom.alternateDisplaySides?.addEventListener('change', () => {
   applyDisplaySideLayout();
   refreshDisplayedHarmony();
   saveSettings();
+  trackEvent('alternate_display_toggled', {
+    alternate_display: dom.alternateDisplaySides.checked ? 'on' : 'off'
+  });
+});
+dom.debugToggle?.addEventListener('change', () => {
+  setAnalyticsDebugEnabled(dom.debugToggle.checked);
 });
 dom.bassVolume.addEventListener('input', applyMixerSettings);
 dom.drumsVolume.addEventListener('input', applyMixerSettings);
-dom.bassVolume.addEventListener('change', saveSettings);
-dom.stringsVolume.addEventListener('change', saveSettings);
-dom.drumsVolume.addEventListener('change', saveSettings);
+dom.bassVolume.addEventListener('change', () => {
+  saveSettings();
+  trackEvent('bass_volume_changed', {
+    volume_percent: Number(dom.bassVolume.value)
+  });
+});
+dom.stringsVolume.addEventListener('change', () => {
+  saveSettings();
+  trackEvent('strings_volume_changed', {
+    volume_percent: Number(dom.stringsVolume.value)
+  });
+});
+dom.drumsVolume.addEventListener('change', () => {
+  saveSettings();
+  trackEvent('drums_volume_changed', {
+    volume_percent: Number(dom.drumsVolume.value)
+  });
+});
 dom.savePreset?.addEventListener('click', saveCurrentPreset);
 dom.cancelPresetEdit?.addEventListener('click', cancelPresetEdit);
 dom.newPreset?.addEventListener('click', () => startNewPreset());
-dom.managePresets?.addEventListener('click', togglePresetManager);
+dom.managePresets?.addEventListener('click', () => {
+  ensureSessionStarted('preset_manager');
+  registerSessionAction('preset_manager_opened');
+  togglePresetManager();
+});
 dom.closePresetManager?.addEventListener('click', () => {
   closePresetManager();
   syncPresetManagerState();
@@ -4369,6 +4651,7 @@ function applyDisplayMode() {
 }
 
 window.addEventListener('resize', fitHarmonyDisplay);
+window.addEventListener('pagehide', trackSessionDuration);
 
 if (typeof ResizeObserver !== 'undefined') {
   const harmonyDisplayResizeObserver = new ResizeObserver(() => {

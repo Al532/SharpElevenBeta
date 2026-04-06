@@ -7,6 +7,9 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="shortcut icon" href="./favicon.svg">
   <link rel="stylesheet" href="./style.css">
+  <script>
+    window.JAZZ_TRAINER_GOATCOUNTER_ENDPOINT = 'https://aminel.goatcounter.com/count';
+  </script>
   <script type="module" src="./app.js"></script>
 </head>
 <body>
@@ -231,6 +234,7 @@
             </summary>
             <div class="key-picker-actions">
               <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
+              <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
               <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
             </div>
             <div id="key-checkboxes"></div>
@@ -252,6 +256,13 @@
                 <span>Alternate current / next sides</span>
               </label>
             </div>
+          </div>
+
+          <div class="control-row">
+            <label class="toggle-label" for="debug-toggle">
+              <input type="checkbox" id="debug-toggle">
+              <span>Debug</span>
+            </label>
           </div>
 
         </div>

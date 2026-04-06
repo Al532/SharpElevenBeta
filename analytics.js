@@ -1,0 +1,187 @@
+const ANALYTICS_DISABLED_STORAGE_KEY = 'jazzTrainerAnalyticsDisabled';
+const ANALYTICS_FLAG_QUERY_PARAM = 'internal';
+const GOATCOUNTER_SCRIPT_SRC = '//gc.zgo.at/count.js';
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const GOATCOUNTER_CONFIG_KEY = 'JAZZ_TRAINER_GOATCOUNTER_ENDPOINT';
+const TRACKING_KEY_PRIORITY = [
+  'progression_id',
+  'progression_source',
+  'progression_mode',
+  'progression_kind',
+  'progression_shape',
+  'tempo_bucket',
+  'display_mode',
+  'drums_mode',
+  'tonal_mode',
+  'transposition',
+  'repetitions_per_key',
+  'double_time',
+  'alternate_display',
+  'enabled_keys',
+  'volume_percent',
+  'restored_count',
+  'preset_count',
+  'key_state',
+  'key_index'
+];
+
+let analyticsBootstrapped = false;
+
+function isBrowser() {
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+function getHostname() {
+  if (!isBrowser()) return '';
+  return window.location.hostname || '';
+}
+
+function shouldDisableForLocalHost() {
+  return LOCAL_HOSTS.has(getHostname());
+}
+
+function persistDisabledState(disabled) {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.setItem(ANALYTICS_DISABLED_STORAGE_KEY, disabled ? '1' : '0');
+  } catch {
+    // Ignore storage failures; analytics will simply use the in-memory default.
+  }
+}
+
+function readStoredDisabledState() {
+  if (!isBrowser()) return false;
+  try {
+    return window.localStorage.getItem(ANALYTICS_DISABLED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function syncDisabledStateFromQueryParam() {
+  if (!isBrowser()) return;
+  const params = new URLSearchParams(window.location.search);
+  const flag = params.get(ANALYTICS_FLAG_QUERY_PARAM);
+  if (flag === '1') {
+    persistDisabledState(true);
+  } else if (flag === '0') {
+    persistDisabledState(false);
+  }
+}
+
+function isAnalyticsDisabled() {
+  return shouldDisableForLocalHost() || readStoredDisabledState();
+}
+
+export function getAnalyticsDebugEnabled() {
+  return isAnalyticsDisabled();
+}
+
+export function setAnalyticsDebugEnabled(enabled) {
+  persistDisabledState(Boolean(enabled));
+  if (!enabled) {
+    ensureGoatCounterScript();
+  }
+}
+
+function getGoatCounterEndpoint() {
+  if (!isBrowser()) return;
+  const raw = window[GOATCOUNTER_CONFIG_KEY];
+  if (typeof raw !== 'string') return '';
+  return raw.trim();
+}
+
+function ensureGoatCounterStub() {
+  if (!isBrowser()) return false;
+  if (typeof window.goatcounter?.count === 'function') return true;
+  if (!window.goatcounter || typeof window.goatcounter !== 'object') {
+    window.goatcounter = {};
+  }
+  if (typeof window.goatcounter.count !== 'function') {
+    window.goatcounter.count = function goatCounterProxy(vars) {
+      (window.goatcounter.q = window.goatcounter.q || []).push(vars);
+    };
+  }
+  return true;
+}
+
+function ensureGoatCounterScript() {
+  if (!isBrowser()) return false;
+  if (document.querySelector('script[data-jazz-goatcounter="true"]')) return true;
+
+  const endpoint = getGoatCounterEndpoint();
+  if (!endpoint || isAnalyticsDisabled()) return false;
+
+  ensureGoatCounterStub();
+
+  const script = document.createElement('script');
+  script.defer = true;
+  script.dataset.noOnload = 'true';
+  script.dataset.goatcounter = endpoint;
+  script.dataset.jazzGoatcounter = 'true';
+  script.src = GOATCOUNTER_SCRIPT_SRC;
+  document.head.appendChild(script);
+  return true;
+}
+
+export function initAnalytics() {
+  if (!isBrowser() || analyticsBootstrapped) return;
+  analyticsBootstrapped = true;
+  syncDisabledStateFromQueryParam();
+  ensureGoatCounterScript();
+}
+
+function normalizeProps(props = {}) {
+  return Object.fromEntries(
+    Object.entries(props).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  );
+}
+
+function toToken(value) {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+function getTrackingSegments(props) {
+  const normalizedProps = normalizeProps(props);
+  return TRACKING_KEY_PRIORITY
+    .filter(key => Object.prototype.hasOwnProperty.call(normalizedProps, key))
+    .map(key => {
+      const token = toToken(normalizedProps[key]);
+      return token ? `${key}:${token}` : '';
+    })
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function buildEventPath(name, props) {
+  const base = `/event/${toToken(name) || 'unknown'}`;
+  const segments = getTrackingSegments(props);
+  return segments.length > 0 ? `${base}/${segments.join('/')}` : base;
+}
+
+function buildEventTitle(name, props) {
+  const normalizedProps = normalizeProps(props);
+  const summary = Object.entries(normalizedProps)
+    .slice(0, 6)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(', ');
+  return summary ? `${name} (${summary})` : name;
+}
+
+export function trackEvent(name, props = {}) {
+  if (!name || isAnalyticsDisabled()) return;
+  const loaded = ensureGoatCounterScript();
+  if (!loaded || !ensureGoatCounterStub()) return;
+  window.goatcounter.count({
+    path: () => buildEventPath(name, props),
+    title: buildEventTitle(name, props),
+    event: true
+  });
+}
+
+initAnalytics();
