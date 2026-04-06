@@ -1,0 +1,149 @@
+export function createPlaybackTransport({ dom, state, constants, helpers }) {
+  const { NOTE_FADEOUT, SCHEDULE_INTERVAL } = constants;
+  const {
+    applyDisplaySideLayout,
+    clearBeatDots,
+    clearScheduledDisplays,
+    ensureNearTermSamplePreload,
+    ensureSessionStarted,
+    fitHarmonyDisplay,
+    getEnabledKeyCount,
+    getIntroDisplaySide,
+    getProgressionAnalyticsProps,
+    getRepetitionsPerKey,
+    getTempoBucket,
+    hideNextCol,
+    initAudio,
+    normalizeDisplayMode,
+    preloadStartupSamples,
+    prepareNextProgression,
+    registerSessionAction,
+    scheduleBeat,
+    stopActiveChordVoices,
+    stopScheduledAudio,
+    trackEvent,
+    trackProgressionEvent
+  } = helpers;
+
+  async function start() {
+    ensureSessionStarted('play_start');
+    initAudio();
+    if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+
+    state.isPlaying = true;
+    state.isPaused = false;
+    dom.startStop.textContent = 'Stop';
+    dom.startStop.classList.add('running');
+    dom.pause.classList.remove('hidden', 'paused');
+    dom.pause.textContent = 'Pause';
+
+    state.isIntro = true;
+    state.currentBeat = 0;
+    state.currentChordIdx = 0;
+    state.currentDisplaySide = 'left';
+    state.keyPool = [];
+    state.nextKeyValue = null;
+    state.currentKeyRepetition = 0;
+    state.loopVoicingTemplate = null;
+    state.nearTermSamplePreloadPromise = null;
+    prepareNextProgression();
+    applyDisplaySideLayout(getIntroDisplaySide());
+    dom.keyDisplay.textContent = '';
+    dom.chordDisplay.textContent = '';
+    hideNextCol();
+    state.startupSamplePreloadInProgress = true;
+    try {
+      await preloadStartupSamples();
+    } finally {
+      state.startupSamplePreloadInProgress = false;
+    }
+    ensureNearTermSamplePreload();
+    if (!state.firstPlayStartTracked) {
+      state.firstPlayStartTracked = true;
+      const progressionProps = getProgressionAnalyticsProps();
+      trackEvent('first_play_start', {
+        progression_source: progressionProps.progression_source,
+        progression_kind: progressionProps.progression_kind
+      });
+      registerSessionAction('first_play_start');
+    }
+    trackProgressionEvent('play_start', {
+      tempo_bucket: getTempoBucket(),
+      repetitions_per_key: getRepetitionsPerKey(),
+      drums_mode: dom.drumsSelect?.value || 'off',
+      display_mode: normalizeDisplayMode(dom.displayMode?.value),
+      transposition: dom.transpositionSelect?.value || '0',
+      enabled_keys: getEnabledKeyCount()
+    });
+
+    state.nextBeatTime = state.audioCtx.currentTime + 0.3;
+    state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
+  }
+
+  function stop() {
+    trackProgressionEvent('play_stop', {
+      tempo_bucket: getTempoBucket(),
+      enabled_keys: getEnabledKeyCount()
+    });
+    state.isPlaying = false;
+    state.isPaused = false;
+    dom.startStop.textContent = 'Start';
+    dom.startStop.classList.remove('running');
+    dom.pause.classList.add('hidden');
+    dom.pause.classList.remove('paused');
+    if (state.schedulerTimer) {
+      clearInterval(state.schedulerTimer);
+      state.schedulerTimer = null;
+    }
+    clearScheduledDisplays();
+    stopScheduledAudio();
+    if (state.activeNoteGain) {
+      state.activeNoteGain.gain.linearRampToValueAtTime(0, state.audioCtx.currentTime + NOTE_FADEOUT);
+      state.activeNoteGain = null;
+    }
+    stopActiveChordVoices(state.audioCtx.currentTime, NOTE_FADEOUT);
+    dom.keyDisplay.textContent = '';
+    dom.chordDisplay.textContent = '';
+    hideNextCol();
+    fitHarmonyDisplay();
+    clearBeatDots();
+  }
+
+  function togglePause() {
+    if (!state.isPlaying) return;
+    if (state.isPaused) {
+      state.isPaused = false;
+      dom.pause.textContent = 'Pause';
+      dom.pause.classList.remove('paused');
+      state.audioCtx.resume();
+      trackProgressionEvent('play_resume', {
+        tempo_bucket: getTempoBucket()
+      });
+      state.nextBeatTime = state.audioCtx.currentTime + 0.05;
+      state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
+      return;
+    }
+
+    state.isPaused = true;
+    dom.pause.textContent = 'Resume';
+    dom.pause.classList.add('paused');
+    if (state.schedulerTimer) {
+      clearInterval(state.schedulerTimer);
+      state.schedulerTimer = null;
+    }
+    clearScheduledDisplays();
+    stopScheduledAudio();
+    state.activeNoteGain = null;
+    state.activeChordVoices.clear();
+    state.audioCtx.suspend();
+    trackProgressionEvent('play_pause', {
+      tempo_bucket: getTempoBucket()
+    });
+  }
+
+  return {
+    start,
+    stop,
+    togglePause
+  };
+}

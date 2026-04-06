@@ -113,28 +113,28 @@
             <div id="pattern-preview" class="pattern-preview-field" aria-live="polite"></div>
           </div>
 
-          <fieldset class="control-row preset-manager-row">
-            <div class="preset-manager-grid">
-              <button type="button" id="save-preset">Save</button>
-              <button type="button" id="cancel-preset-edit">Back</button>
-              <button type="button" id="manage-presets">Manage progressions</button>
+          <fieldset class="control-row progression-manager-row">
+            <div class="progression-manager-grid">
+              <button type="button" id="save-progression">Save</button>
+              <button type="button" id="cancel-progression-edit">Back</button>
+              <button type="button" id="manage-progressions">Manage progressions</button>
             </div>
-             <div id="preset-manager-panel" class="preset-manager-panel hidden">
-               <div class="preset-manager-panel-header">
-                <div class="preset-manager-panel-heading">
-                  <span class="preset-manager-panel-title">Progression manager</span>
-                  <span class="preset-manager-panel-hint">Drag progressions to reorder them.</span>
+             <div id="progression-manager-panel" class="progression-manager-panel hidden">
+               <div class="progression-manager-panel-header">
+                <div class="progression-manager-panel-heading">
+                  <span class="progression-manager-panel-title">Progression manager</span>
+                  <span class="progression-manager-panel-hint">Drag progressions to reorder them.</span>
                 </div>
-                <button type="button" id="close-preset-manager" class="preset-manager-back-button">Close</button>
+                <button type="button" id="close-progression-manager" class="progression-manager-back-button">Close</button>
                </div>
-              <div id="preset-manager-list" class="preset-manager-list"></div>
-              <div class="preset-manager-actions">
-                <button type="button" id="new-preset">New progression</button>
-                <button type="button" id="restore-default-presets">Restore default progressions</button>
-                <button type="button" id="clear-all-presets" class="danger-button">Clear all progressions</button>
+              <div id="progression-manager-list" class="progression-manager-list"></div>
+              <div class="progression-manager-actions">
+                <button type="button" id="new-progression">New progression</button>
+                <button type="button" id="restore-default-progressions">Restore default progressions</button>
+                <button type="button" id="clear-all-progressions" class="danger-button">Clear all progressions</button>
               </div>
             </div>
-            <div id="preset-feedback" class="hint"></div>
+            <div id="progression-feedback" class="hint"></div>
           </fieldset>
         </div>
 
@@ -270,14 +270,14 @@
     </main>
   </div>
 
-  <div id="preset-update-modal" class="modal-overlay hidden" aria-hidden="true">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="preset-update-title">
-      <h2 id="preset-update-title">Default Progressions Updated</h2>
-      <p id="preset-update-message">A new default progression list is available. What would you like to do?</p>
+  <div id="progression-update-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="progression-update-title">
+      <h2 id="progression-update-title">Default Progressions Updated</h2>
+      <p id="progression-update-message">A new default progression list is available. What would you like to do?</p>
       <div class="modal-actions">
-        <button type="button" id="preset-update-replace" class="modal-button modal-button-primary">Replace list (recommended)</button>
-        <button type="button" id="preset-update-merge" class="modal-button modal-button-secondary">Add new entries only</button>
-        <button type="button" id="preset-update-keep" class="modal-button modal-button-tertiary">Keep current list</button>
+        <button type="button" id="progression-update-replace" class="modal-button modal-button-primary">Replace list (recommended)</button>
+        <button type="button" id="progression-update-merge" class="modal-button modal-button-secondary">Add new entries only</button>
+        <button type="button" id="progression-update-keep" class="modal-button modal-button-tertiary">Keep current list</button>
       </div>
     </div>
   </div>

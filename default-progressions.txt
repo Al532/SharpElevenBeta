@@ -1,4 +1,4 @@
-# presets-version: 4.3
+# progressions-version: 4.3
 # Format:
 # pattern
 # mode | pattern

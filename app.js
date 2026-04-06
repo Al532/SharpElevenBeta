@@ -1,4 +1,17 @@
 import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './analytics.js';
+import {
+  createProgressionEntry as createProgressionEntryBase,
+  isProgressionModeToken,
+  normalizeProgressionEntry as normalizeProgressionEntryBase,
+  normalizeProgressionsMap as normalizeProgressionsMapBase,
+  parseDefaultProgressionsText as parseDefaultProgressionsTextBase
+} from './progression-library.js';
+import { bindProgressionControls } from './progression-bindings.js';
+import { createPlaybackScheduler } from './playback-scheduler.js';
+import { createPlaybackTransport } from './playback-transport.js';
+import { createProgressionEditor } from './progression-editor.js';
+import { createProgressionManager } from './progression-manager.js';
+import { loadStoredProgressionSettings, saveStoredProgressionSettings } from './progression-storage.js';
 import voicingConfig from './voicing-config.js';
 
 /* ============================================================
@@ -63,7 +76,7 @@ const {
 const PATTERN_MODE_BOTH = 'both';
 const PATTERN_MODE_MAJOR = 'major';
 const PATTERN_MODE_MINOR = 'minor';
-const DEFAULT_PRESETS_URL = './default-presets.txt';
+const DEFAULT_PROGRESSIONS_URL = './default-progressions.txt';
 const DEFAULT_REPETITIONS_PER_KEY = 1;
 
 const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
@@ -103,23 +116,23 @@ const dom = {
   patternMode:     document.getElementById('pattern-mode'),
   patternModeBoth: document.getElementById('pattern-mode-both'),
   patternError:    document.getElementById('pattern-error'),
-  savePreset:      document.getElementById('save-preset'),
-  cancelPresetEdit: document.getElementById('cancel-preset-edit'),
-  newPreset:       document.getElementById('new-preset'),
-  editPreset:      document.getElementById('edit-preset'),
-  deletePreset:    document.getElementById('delete-preset'),
-  managePresets:   document.getElementById('manage-presets'),
-  presetManagerPanel: document.getElementById('preset-manager-panel'),
-  presetManagerList: document.getElementById('preset-manager-list'),
-  closePresetManager: document.getElementById('close-preset-manager'),
-  restoreDefaultPresets: document.getElementById('restore-default-presets'),
-  clearAllPresets: document.getElementById('clear-all-presets'),
-  presetFeedback:  document.getElementById('preset-feedback'),
-  presetUpdateModal: document.getElementById('preset-update-modal'),
-  presetUpdateMessage: document.getElementById('preset-update-message'),
-  presetUpdateReplace: document.getElementById('preset-update-replace'),
-  presetUpdateMerge: document.getElementById('preset-update-merge'),
-  presetUpdateKeep: document.getElementById('preset-update-keep'),
+  saveProgression:      document.getElementById('save-progression'),
+  cancelProgressionEdit: document.getElementById('cancel-progression-edit'),
+  newProgression:       document.getElementById('new-progression'),
+  editProgression:      document.getElementById('edit-progression'),
+  deleteProgression:    document.getElementById('delete-progression'),
+  manageProgressions:   document.getElementById('manage-progressions'),
+  progressionManagerPanel: document.getElementById('progression-manager-panel'),
+  progressionManagerList: document.getElementById('progression-manager-list'),
+  closeProgressionManager: document.getElementById('close-progression-manager'),
+  restoreDefaultProgressions: document.getElementById('restore-default-progressions'),
+  clearAllProgressions: document.getElementById('clear-all-progressions'),
+  progressionFeedback:  document.getElementById('progression-feedback'),
+  progressionUpdateModal: document.getElementById('progression-update-modal'),
+  progressionUpdateMessage: document.getElementById('progression-update-message'),
+  progressionUpdateReplace: document.getElementById('progression-update-replace'),
+  progressionUpdateMerge: document.getElementById('progression-update-merge'),
+  progressionUpdateKeep: document.getElementById('progression-update-keep'),
   tempoSlider:     document.getElementById('tempo-slider'),
   tempoValue:      document.getElementById('tempo-value'),
   repetitionsPerKey: document.getElementById('repetitions-per-key'),
@@ -148,12 +161,12 @@ if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
 }
 
-let DEFAULT_PRESETS = {};
-let presets = {};
-let editingPresetName = '';
-let editingPresetSnapshot = null;
-let presetSelectionBeforeEditing = '';
-let isCreatingPreset = false;
+let DEFAULT_PROGRESSIONS = {};
+let progressions = {};
+let editingProgressionName = '';
+let editingProgressionSnapshot = null;
+let progressionSelectionBeforeEditing = '';
+let isCreatingProgression = false;
 let suppressPatternSelectChange = false;
 let lastStandaloneCustomName = '';
 let lastStandaloneCustomPattern = '';
@@ -171,11 +184,11 @@ let oneChordQualityPool = [];
 let oneChordQualityPoolSignature = '';
 let currentOneChordQualityValue = '';
 let nextOneChordQualityValue = '';
-let appliedDefaultPresetsFingerprint = '';
-let hadStoredPresets = false;
-let shouldPromptForDefaultPresetsUpdate = false;
-let defaultPresetsVersion = '1';
-let acknowledgedDefaultPresetsVersion = '';
+let appliedDefaultProgressionsFingerprint = '';
+let hadStoredProgressions = false;
+let shouldPromptForDefaultProgressionsUpdate = false;
+let defaultProgressionsVersion = '1';
+let acknowledgedDefaultProgressionsVersion = '';
 let sessionStartedAt = Date.now();
 let sessionStartTracked = false;
 let firstPlayStartTracked = false;
@@ -218,78 +231,33 @@ function getRepetitionsPerKey() {
   return normalizeRepetitionsPerKey(dom.repetitionsPerKey?.value);
 }
 
-function createPresetEntry(pattern, mode = PATTERN_MODE_MAJOR, name = '') {
-  return {
-    pattern: normalizePatternString(pattern),
-    mode: normalizePatternMode(mode),
-    name: normalizePresetName(name)
-  };
-}
-
-function normalizePresetEntry(name, entry) {
-  if (typeof entry === 'string') return createPresetEntry(entry, PATTERN_MODE_MAJOR, '');
-  if (entry && typeof entry === 'object') {
-    return createPresetEntry(entry.pattern ?? name, entry.mode, entry.name);
-  }
-  return createPresetEntry(name, PATTERN_MODE_MAJOR, '');
-}
-
-function normalizePresetsMap(source) {
-  if (!source || typeof source !== 'object' || Array.isArray(source)) {
-    return Object.fromEntries(
-      Object.entries(DEFAULT_PRESETS).map(([name, entry]) => [name, normalizePresetEntry(name, entry)])
-    );
-  }
-
-  const normalizedEntries = Object.entries(source || {})
-    .map(([key, entry]) => [key, normalizePresetEntry(key, entry)])
-    .filter(([, entry]) => entry.pattern);
-
-  return Object.fromEntries(normalizedEntries);
-}
-
-function isPresetModeToken(value) {
-  return ['major', 'minor', 'both', 'major/minor'].includes(String(value || '').trim().toLowerCase());
-}
-
-function parseDefaultPresetsText(source) {
-  const lines = String(source || '')
-    .split(/\r?\n/)
-    .map(line => line.trim());
-
-  let version = '1';
-  const presets = Object.fromEntries(
-    lines
-      .filter(line => {
-        if (!line) return false;
-        if (line.startsWith('# presets-version:')) {
-          version = line.slice('# presets-version:'.length).trim() || '1';
-          return false;
-        }
-        return !line.startsWith('#') && !line.startsWith('//');
-      })
-      .map(line => {
-        const parts = line.split('|').map(part => part.trim());
-
-        if (parts.length === 1) {
-          return createPresetEntry(parts[0], PATTERN_MODE_MAJOR, '');
-        }
-
-        if (isPresetModeToken(parts[0])) {
-          return createPresetEntry(parts.slice(1).join(' | '), parts[0], '');
-        }
-
-        if (parts.length >= 3 && isPresetModeToken(parts[1])) {
-          return createPresetEntry(parts.slice(2).join(' | '), parts[1], parts[0]);
-        }
-
-        return createPresetEntry(parts.slice(1).join(' | '), PATTERN_MODE_MAJOR, parts[0]);
-      })
-      .filter(entry => entry.pattern)
-      .map(entry => [entry.pattern, entry])
+function createProgressionEntry(pattern, mode = PATTERN_MODE_MAJOR, name = '') {
+  return createProgressionEntryBase(
+    pattern,
+    normalizePatternMode,
+    normalizePatternString,
+    mode,
+    name,
+    normalizePresetName
   );
+}
 
-  return { version, presets };
+function normalizeProgressionEntry(name, entry) {
+  return normalizeProgressionEntryBase(name, entry, {
+    createEntry: createProgressionEntry,
+    defaultMode: PATTERN_MODE_MAJOR
+  });
+}
+
+function normalizeProgressionsMap(source) {
+  return normalizeProgressionsMapBase(source, DEFAULT_PROGRESSIONS, normalizeProgressionEntry);
+}
+
+function parseDefaultProgressionsText(source) {
+  return parseDefaultProgressionsTextBase(source, {
+    createEntry: createProgressionEntry,
+    isModeToken: isProgressionModeToken
+  });
 }
 
 const ONE_CHORD_TAG = 'one:';
@@ -332,10 +300,10 @@ function clearOneChordCycleState() {
   nextOneChordQualityValue = '';
 }
 
-function getDefaultPresetsFingerprint(source = DEFAULT_PRESETS) {
+function getDefaultProgressionsFingerprint(source = DEFAULT_PROGRESSIONS) {
   return JSON.stringify(
     Object.entries(source || {}).map(([name, entry]) => {
-      const normalized = normalizePresetEntry(name, entry);
+      const normalized = normalizeProgressionEntry(name, entry);
       return [name, normalized.name || '', normalized.mode || PATTERN_MODE_MAJOR];
     })
   );
@@ -2471,117 +2439,6 @@ function getSecondsPerBeat() {
   return 60 / Number(dom.tempoSlider.value);
 }
 
-function getPresetEntry(name = dom.patternSelect.value) {
-  return Object.prototype.hasOwnProperty.call(presets, name) ? presets[name] : null;
-}
-
-function hasSelectedPreset() {
-  return Boolean(getPresetEntry());
-}
-
-function isEditingPreset() {
-  return Boolean(editingPresetName);
-}
-
-function clearPresetEditingState() {
-  editingPresetName = '';
-  editingPresetSnapshot = null;
-  presetSelectionBeforeEditing = '';
-  isCreatingPreset = false;
-}
-
-function closePresetManager() {
-  isManagingPresets = false;
-}
-
-function rememberStandaloneCustomDraft() {
-  if (isEditingPreset()) return;
-  lastStandaloneCustomName = normalizePresetName(dom.patternName?.value);
-  lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
-  lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
-}
-
-function resetStandaloneCustomDraft() {
-  lastStandaloneCustomName = '';
-  lastStandaloneCustomPattern = '';
-  lastStandaloneCustomMode = PATTERN_MODE_MAJOR;
-}
-
-function hasStandaloneCustomDraft() {
-  return Boolean(
-    lastStandaloneCustomName
-    || lastStandaloneCustomPattern
-    || normalizePatternMode(lastStandaloneCustomMode) !== PATTERN_MODE_MAJOR
-  );
-}
-
-function setEditorPatternMode(mode, { syncMajorMinor = true } = {}) {
-  const normalizedMode = normalizePatternMode(mode);
-  if (dom.patternMode) {
-    dom.patternMode.value = normalizedMode;
-  }
-  if (dom.patternModeBoth) {
-    dom.patternModeBoth.checked = normalizedMode === PATTERN_MODE_BOTH;
-  }
-  if (syncMajorMinor && normalizedMode !== PATTERN_MODE_BOTH && dom.majorMinor) {
-    dom.majorMinor.checked = normalizedMode === PATTERN_MODE_MINOR;
-  }
-  return normalizedMode;
-}
-
-function setPatternSelectValue(value, { suppressChange = false } = {}) {
-  if (!dom.patternSelect) return;
-  suppressPatternSelectChange = suppressChange;
-  dom.patternSelect.value = value;
-  if (suppressChange) {
-    queueMicrotask(() => {
-      suppressPatternSelectChange = false;
-    });
-  }
-}
-
-function isCustomPatternSelected() {
-  return dom.patternSelect.value === CUSTOM_PATTERN_OPTION_VALUE;
-}
-
-function getSelectedPresetPattern() {
-  return getPresetEntry()?.pattern || '';
-}
-
-function getSelectedPresetMode() {
-  return getPresetEntry()?.mode || PATTERN_MODE_MAJOR;
-}
-
-function getSelectedPresetName() {
-  return getPresetEntry()?.name || '';
-}
-
-function getCurrentPatternMode() {
-  if (hasSelectedPreset()) return getSelectedPresetMode();
-  return normalizePatternMode(dom.patternMode?.value);
-}
-
-function getCurrentPatternName() {
-  if (hasSelectedPreset()) return getSelectedPresetName();
-  return normalizePresetName(dom.patternName?.value);
-}
-
-function getPatternModeLabel(mode) {
-  switch (normalizePatternMode(mode)) {
-    case PATTERN_MODE_MAJOR:
-      return 'major';
-    case PATTERN_MODE_MINOR:
-      return 'minor';
-    default:
-      return 'major/minor';
-  }
-}
-
-function getCurrentPatternString() {
-  if (hasSelectedPreset()) return getSelectedPresetPattern();
-  return normalizePatternString(dom.customPattern.value);
-}
-
 function toAnalyticsToken(value, fallback = 'unknown') {
   const normalized = String(value || '')
     .trim()
@@ -2642,7 +2499,7 @@ function getProgressionAnalyticsProps() {
   const patternString = getCurrentPatternString();
   const oneChordSpec = parseOneChordSpec(patternString);
   const patternMode = getPatternModeLabel(getCurrentPatternMode());
-  const source = hasSelectedPreset() ? 'preset' : 'custom';
+  const source = hasSelectedProgression() ? 'preset' : 'custom';
 
   if (oneChordSpec.active) {
     let customId = 'custom_one_chord';
@@ -2655,7 +2512,7 @@ function getProgressionAnalyticsProps() {
       progression_source: source,
       progression_mode: patternMode,
       progression_kind: 'one_chord',
-      progression_id: hasSelectedPreset() ? `preset_${toAnalyticsToken(dom.patternSelect.value)}` : customId,
+      progression_id: hasSelectedProgression() ? `preset_${toAnalyticsToken(dom.patternSelect.value)}` : customId,
       chord_count: 1,
       quality_count: oneChordSpec.qualities.length || 0
     };
@@ -2669,7 +2526,7 @@ function getProgressionAnalyticsProps() {
     progression_source: source,
     progression_mode: patternMode,
     progression_kind: 'sequence',
-    progression_id: hasSelectedPreset()
+    progression_id: hasSelectedProgression()
       ? `preset_${toAnalyticsToken(dom.patternSelect.value)}`
       : `custom_${progressionShape}`,
     progression_shape: progressionShape,
@@ -2685,428 +2542,240 @@ function trackProgressionEvent(name, extraProps = {}) {
   });
 }
 
-function getEffectivePreviewMinorMode(patternString = getCurrentPatternString()) {
-  if (isOneChordModeActive(patternString)) return false;
 
-  const patternMode = getCurrentPatternMode();
-  if (patternMode === PATTERN_MODE_MAJOR) return false;
-  if (patternMode === PATTERN_MODE_MINOR) return true;
-  return dom.majorMinor.checked;
-}
+const progressionEditorState = {
+  get progressions() { return progressions; },
+  set progressions(value) { progressions = value; },
+  get editingProgressionName() { return editingProgressionName; },
+  set editingProgressionName(value) { editingProgressionName = value; },
+  get editingProgressionSnapshot() { return editingProgressionSnapshot; },
+  set editingProgressionSnapshot(value) { editingProgressionSnapshot = value; },
+  get progressionSelectionBeforeEditing() { return progressionSelectionBeforeEditing; },
+  set progressionSelectionBeforeEditing(value) { progressionSelectionBeforeEditing = value; },
+  get isCreatingProgression() { return isCreatingProgression; },
+  set isCreatingProgression(value) { isCreatingProgression = value; },
+  get isManagingProgressions() { return isManagingPresets; },
+  set isManagingProgressions(value) { isManagingPresets = value; },
+  get lastStandaloneCustomName() { return lastStandaloneCustomName; },
+  set lastStandaloneCustomName(value) { lastStandaloneCustomName = value; },
+  get lastStandaloneCustomPattern() { return lastStandaloneCustomPattern; },
+  set lastStandaloneCustomPattern(value) { lastStandaloneCustomPattern = value; },
+  get lastStandaloneCustomMode() { return lastStandaloneCustomMode; },
+  set lastStandaloneCustomMode(value) { lastStandaloneCustomMode = value; },
+  get suppressPatternSelectChange() { return suppressPatternSelectChange; },
+  set suppressPatternSelectChange(value) { suppressPatternSelectChange = value; },
+  get keyPool() { return keyPool; },
+  set keyPool(value) { keyPool = value; }
+};
 
-function getResolvedPatternPreviewText(patternString = getCurrentPatternString()) {
-  const normalizedPattern = normalizePatternString(patternString);
-  if (!normalizedPattern) return 'No progression selected.';
-
-  const oneChordSpec = parseOneChordSpec(normalizedPattern);
-  if (oneChordSpec.active) {
-    if (matchesOneChordQualitySet(oneChordSpec.qualities, ONE_CHORD_DEFAULT_QUALITIES)) {
-      return 'One-chord mode: all chords';
-    }
-    if (matchesOneChordQualitySet(oneChordSpec.qualities, ONE_CHORD_DOMINANT_QUALITIES)) {
-      return 'One-chord mode: all dominant chords';
-    }
-    return 'One-chord mode: custom chord set';
+const {
+  applyPatternModeAvailability,
+  clearProgressionEditingState,
+  closeProgressionManager,
+  getCurrentPatternMode,
+  getCurrentPatternName,
+  getCurrentPatternString,
+  getPatternModeLabel,
+  getProgressionEntry,
+  getProgressionLabel,
+  getSelectedProgressionMode,
+  getSelectedProgressionName,
+  getSelectedProgressionPattern,
+  hasSelectedProgression,
+  hasStandaloneCustomDraft,
+  isCustomPatternSelected,
+  isEditingProgression: isEditingPreset,
+  rememberStandaloneCustomDraft,
+  resetStandaloneCustomDraft,
+  setEditorPatternMode,
+  setPatternSelectValue,
+  syncCustomPatternUI,
+  syncPatternPreview,
+  syncPatternSelectionFromInput
+} = createProgressionEditor({
+  dom,
+  state: progressionEditorState,
+  constants: {
+    CUSTOM_PATTERN_OPTION_VALUE,
+    PATTERN_MODE_BOTH,
+    PATTERN_MODE_MAJOR,
+    PATTERN_MODE_MINOR,
+    ONE_CHORD_DEFAULT_QUALITIES,
+    ONE_CHORD_DOMINANT_QUALITIES
+  },
+  helpers: {
+    analyzePattern,
+    chordSymbol,
+    getDisplayTranspositionSemitones,
+    isOneChordModeActive,
+    matchesOneChordQualitySet,
+    normalizePatternMode,
+    normalizePatternString,
+    normalizePresetName,
+    parseOneChordSpec,
+    refreshDisplayedHarmony,
+    updateKeyPickerLabels
   }
+});
 
-  const analysis = analyzePattern(normalizedPattern);
-  if (analysis.errorMessage || !analysis.chords.length) {
-    return normalizedPattern;
+const progressionManagerState = {
+  get progressions() { return progressions; },
+  set progressions(value) { progressions = value; },
+  get isManagingProgressions() { return isManagingPresets; },
+  set isManagingProgressions(value) { isManagingPresets = value; },
+  get suppressListRender() { return suppressListRender; },
+  set suppressListRender(value) { suppressListRender = value; },
+  get draggedProgressionName() { return draggedPresetName; },
+  set draggedProgressionName(value) { draggedPresetName = value; },
+  get pendingProgressionDeletion() { return pendingPresetDeletion; },
+  set pendingProgressionDeletion(value) { pendingPresetDeletion = value; },
+  get editingProgressionName() { return editingProgressionName; },
+  set editingProgressionName(value) { editingProgressionName = value; },
+  get editingProgressionSnapshot() { return editingProgressionSnapshot; },
+  set editingProgressionSnapshot(value) { editingProgressionSnapshot = value; },
+  get progressionSelectionBeforeEditing() { return progressionSelectionBeforeEditing; },
+  set progressionSelectionBeforeEditing(value) { progressionSelectionBeforeEditing = value; },
+  get isCreatingProgression() { return isCreatingProgression; },
+  set isCreatingProgression(value) { isCreatingProgression = value; },
+  get appliedDefaultProgressionsFingerprint() { return appliedDefaultProgressionsFingerprint; },
+  set appliedDefaultProgressionsFingerprint(value) { appliedDefaultProgressionsFingerprint = value; },
+  get acknowledgedDefaultProgressionsVersion() { return acknowledgedDefaultProgressionsVersion; },
+  set acknowledgedDefaultProgressionsVersion(value) { acknowledgedDefaultProgressionsVersion = value; },
+  get shouldPromptForDefaultProgressionsUpdate() { return shouldPromptForDefaultProgressionsUpdate; },
+  set shouldPromptForDefaultProgressionsUpdate(value) { shouldPromptForDefaultProgressionsUpdate = value; },
+  get defaultProgressionsVersion() { return defaultProgressionsVersion; },
+  set defaultProgressionsVersion(value) { defaultProgressionsVersion = value; },
+  get defaultProgressions() { return DEFAULT_PROGRESSIONS; },
+  set defaultProgressions(value) { DEFAULT_PROGRESSIONS = value; },
+  get lastStandaloneCustomName() { return lastStandaloneCustomName; },
+  set lastStandaloneCustomName(value) { lastStandaloneCustomName = value; },
+  get lastStandaloneCustomPattern() { return lastStandaloneCustomPattern; },
+  set lastStandaloneCustomPattern(value) { lastStandaloneCustomPattern = value; },
+  get lastStandaloneCustomMode() { return lastStandaloneCustomMode; },
+  set lastStandaloneCustomMode(value) { lastStandaloneCustomMode = value; },
+  get lastPatternSelectValue() { return lastPatternSelectValue; },
+  set lastPatternSelectValue(value) { lastPatternSelectValue = value; }
+};
+
+const {
+  cancelProgressionEdit,
+  clearAllProgressions,
+  clearProgressionManagerDropMarkers,
+  deleteProgressionByName,
+  deleteProgressionInline,
+  deleteSelectedProgression,
+  duplicateProgression,
+  editSelectedProgression,
+  getProgressionNames,
+  markDefaultProgressionsPromptHandled,
+  mergeUpdatedDefaultProgressions,
+  promptForUpdatedDefaultProgressions,
+  refreshProgressionUIAfterChange,
+  renderProgressionManagerList,
+  renderProgressionOptions,
+  replaceProgressionsWithDefaultList,
+  restoreDefaultProgressions,
+  saveCurrentProgression,
+  setProgressionFeedback,
+  setProgressionUpdateModalVisibility,
+  startNewProgression,
+  syncProgressionManagerPanel,
+  syncProgressionManagerState,
+  toggleProgressionManager,
+  undoProgressionDeletion
+} = createProgressionManager({
+  dom,
+  state: progressionManagerState,
+  constants: {
+    CUSTOM_PATTERN_OPTION_VALUE
+  },
+  helpers: {
+    applyPatternModeAvailability,
+    clearProgressionEditingState,
+    createProgressionEntry,
+    getCurrentPatternMode,
+    getCurrentPatternName,
+    getDefaultProgressionsFingerprint,
+    getProgressionEntry,
+    getProgressionLabel,
+    getSelectedProgressionMode,
+    getSelectedProgressionName,
+    getSelectedProgressionPattern,
+    hasSelectedProgression,
+    hasStandaloneCustomDraft,
+    isEditingProgression: isEditingPreset,
+    normalizePatternMode,
+    normalizePatternString,
+    normalizeProgressionEntry,
+    normalizeProgressionsMap,
+    resetStandaloneCustomDraft,
+    saveSettings,
+    setEditorPatternMode,
+    setPatternSelectValue,
+    syncCustomPatternUI,
+    syncPatternSelectionFromInput,
+    trackEvent,
+    trackProgressionEvent,
+    validateCustomPattern
   }
+});
 
-  // Counteract the display transposition so the preview always shows
-  // in the pattern's native key (usually C).
-  const rawKey = analysis.basePitchClass ?? 0;
-  const previewKey = ((rawKey - getDisplayTranspositionSemitones()) % 12 + 12) % 12;
-  const previewIsMinor = getEffectivePreviewMinorMode(normalizedPattern);
-  let previousSymbol = '';
-  return analysis.chords
-    .map(chord => {
-      const symbol = chordSymbol(previewKey, chord, previewIsMinor);
-      const nextSymbol = symbol === previousSymbol ? '%' : symbol;
-      previousSymbol = symbol;
-      return nextSymbol;
-    })
-    .join('  |  ');
-}
-
-function getPatternPreviewText() {
-  return getResolvedPatternPreviewText(getCurrentPatternString());
-}
-
-function syncPatternPreview() {
-  if (!dom.patternPreview) return;
-  dom.patternPreview.textContent = getPatternPreviewText();
-}
-
-function getPresetDisplayLabel(name) {
-  const entry = getPresetEntry(name);
-  if (!entry) return name;
-  return entry.name || entry.pattern || name;
-}
-
-function syncCustomPatternUI() {
-  const customSelected = isCustomPatternSelected();
-  dom.patternPicker?.classList.toggle('custom-active', customSelected);
-  dom.patternPickerCustom?.classList.toggle('hidden', !customSelected);
-  dom.customPatternPanel?.classList.toggle('hidden', !customSelected);
-  dom.patternHelp?.classList.toggle('hidden', !customSelected);
-  const previewTarget = customSelected
-    ? dom.patternPreviewEditAnchor
-    : dom.patternPreviewDefaultAnchor;
-  if (previewTarget && dom.patternPreviewRow && dom.patternPreviewRow.parentElement !== previewTarget.parentElement) {
-    previewTarget.insertAdjacentElement('afterend', dom.patternPreviewRow);
+bindProgressionControls({
+  dom,
+  constants: {
+    PATTERN_MODE_BOTH,
+    PATTERN_MODE_MAJOR,
+    PATTERN_MODE_MINOR
+  },
+  state: {
+    get suppressPatternSelectChange() { return suppressPatternSelectChange; },
+    set suppressPatternSelectChange(value) { suppressPatternSelectChange = value; },
+    get lastPatternSelectValue() { return lastPatternSelectValue; },
+    set lastPatternSelectValue(value) { lastPatternSelectValue = value; },
+    get keyPool() { return keyPool; },
+    set keyPool(value) { keyPool = value; }
+  },
+  helpers: {
+    applyPatternModeAvailability,
+    cancelProgressionEdit,
+    clearAllProgressions,
+    clearOneChordCycleState,
+    clearProgressionEditingState,
+    closeProgressionManager,
+    ensureSessionStarted,
+    getProgressionAnalyticsProps,
+    getSelectedProgressionMode,
+    getSelectedProgressionName,
+    getSelectedProgressionPattern,
+    isCustomPatternSelected,
+    isEditingProgression: isEditingPreset,
+    isOneChordModeActive,
+    markDefaultProgressionsPromptHandled,
+    mergeUpdatedDefaultProgressions,
+    normalizePatternString,
+    normalizePresetName,
+    normalizePresetNameForInput,
+    refreshDisplayedHarmony,
+    registerSessionAction,
+    rememberStandaloneCustomDraft,
+    replaceProgressionsWithDefaultList,
+    restoreDefaultProgressions,
+    saveCurrentProgression,
+    setEditorPatternMode,
+    setProgressionFeedback,
+    startNewProgression,
+    syncCustomPatternUI,
+    syncPatternPreview,
+    syncPatternSelectionFromInput,
+    syncProgressionManagerState,
+    toggleProgressionManager,
+    toAnalyticsToken,
+    trackEvent,
+    trackProgressionEvent,
+    updateKeyPickerLabels,
+    validateCustomPattern
   }
-  if (!customSelected) {
-    dom.patternError.classList.add('hidden');
-  }
-  syncPatternPreview();
-}
-
-function getPresetNames() {
-  return Object.keys(presets);
-}
-
-function rebuildPresetsFromNames(names) {
-  presets = Object.fromEntries(
-    names
-      .filter(name => Object.prototype.hasOwnProperty.call(presets, name))
-      .map(name => [name, presets[name]])
-  );
-}
-
-function clearPresetManagerDropMarkers() {
-  dom.presetManagerList?.querySelectorAll('.preset-manager-item').forEach(item => {
-    item.classList.remove('drop-before', 'drop-after');
-  });
-}
-
-function renderPresetManagerList() {
-  if (!dom.presetManagerList) return;
-  dom.presetManagerList.innerHTML = '';
-
-  const presetNames = getPresetNames();
-  if (presetNames.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'hint';
-    empty.textContent = 'No progressions saved.';
-    dom.presetManagerList.appendChild(empty);
-    return;
-  }
-
-  for (const name of presetNames) {
-    const item = document.createElement('div');
-    item.className = 'preset-manager-item';
-    item.draggable = true;
-    item.dataset.name = name;
-    if (dom.patternSelect.value === name) {
-      item.classList.add('is-selected');
-    }
-
-    item.addEventListener('dragstart', () => {
-      draggedPresetName = name;
-      item.classList.add('is-dragging');
-    });
-    item.addEventListener('dragend', () => {
-      draggedPresetName = '';
-      item.classList.remove('is-dragging');
-      clearPresetManagerDropMarkers();
-    });
-    item.addEventListener('dragover', event => {
-      event.preventDefault();
-      if (!draggedPresetName || draggedPresetName === name) return;
-      clearPresetManagerDropMarkers();
-      const bounds = item.getBoundingClientRect();
-      const insertAfter = event.clientY - bounds.top > bounds.height / 2;
-      item.classList.add(insertAfter ? 'drop-after' : 'drop-before');
-    });
-    item.addEventListener('dragleave', () => {
-      item.classList.remove('drop-before', 'drop-after');
-    });
-    item.addEventListener('drop', event => {
-      event.preventDefault();
-      if (!draggedPresetName || draggedPresetName === name) return;
-      const names = getPresetNames().filter(entry => entry !== draggedPresetName);
-      const targetIndex = names.indexOf(name);
-      const bounds = item.getBoundingClientRect();
-      const insertAfter = event.clientY - bounds.top > bounds.height / 2;
-      names.splice(targetIndex + (insertAfter ? 1 : 0), 0, draggedPresetName);
-      rebuildPresetsFromNames(names);
-      renderPresetOptions(dom.patternSelect.value);
-      renderPresetManagerList();
-      saveSettings();
-    });
-
-    const handle = document.createElement('span');
-    handle.className = 'preset-manager-handle';
-    handle.textContent = '::';
-
-    const label = document.createElement('div');
-    label.className = 'preset-manager-item-name';
-    label.textContent = getPresetDisplayLabel(name);
-
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.className = 'preset-manager-item-delete';
-    deleteButton.textContent = 'Delete';
-    deleteButton.addEventListener('click', () => {
-      const itemElement = deleteButton.closest('.preset-manager-item');
-      deletePresetInline(name, itemElement);
-    });
-
-    const editButton = document.createElement('button');
-    editButton.type = 'button';
-    editButton.className = 'preset-manager-item-edit';
-    editButton.textContent = 'Edit';
-    editButton.addEventListener('click', () => {
-      dom.patternSelect.value = name;
-      syncCustomPatternUI();
-      editSelectedPreset();
-      dom.customPattern.focus();
-    });
-
-    const copyButton = document.createElement('button');
-    copyButton.type = 'button';
-    copyButton.className = 'preset-manager-item-copy';
-    copyButton.textContent = 'Copy';
-    copyButton.addEventListener('click', () => {
-      duplicatePreset(name);
-    });
-
-    const actions = document.createElement('div');
-    actions.className = 'preset-manager-item-actions';
-    actions.appendChild(editButton);
-    actions.appendChild(copyButton);
-    actions.appendChild(deleteButton);
-
-    item.appendChild(handle);
-    item.appendChild(label);
-    item.appendChild(actions);
-    dom.presetManagerList.appendChild(item);
-  }
-}
-
-function syncPresetManagerPanel(skipListRender = false) {
-  if (!dom.presetManagerPanel) return;
-  const shouldShow = isManagingPresets;
-  dom.presetManagerPanel.classList.toggle('hidden', !shouldShow);
-  if (shouldShow && !skipListRender && !suppressListRender) {
-    renderPresetManagerList();
-  }
-}
-
-function deletePresetByName(name, {
-  requireConfirmation = false,
-  confirmationMessage = `Delete progression "${name}"?`,
-  successMessage = `Progression deleted: ${name}`,
-  offerUndo = false
-} = {}) {
-  if (!Object.prototype.hasOwnProperty.call(presets, name)) {
-    setPresetFeedback('Progression not found.', true);
-    return false;
-  }
-  if (requireConfirmation && !window.confirm(confirmationMessage)) {
-    return false;
-  }
-
-  if (editingPresetName === name) {
-    clearPresetEditingState();
-  }
-  const presetNamesBeforeDeletion = getPresetNames();
-  const deletedEntry = presets[name];
-  const deletedIndex = presetNamesBeforeDeletion.indexOf(name);
-  const wasSelected = dom.patternSelect.value === name;
-  const fallbackSelection = wasSelected
-    ? presetNamesBeforeDeletion[deletedIndex + 1] || presetNamesBeforeDeletion[deletedIndex - 1] || ''
-    : dom.patternSelect.value;
-  delete presets[name];
-  renderPresetOptions(fallbackSelection);
-  if (Object.prototype.hasOwnProperty.call(presets, fallbackSelection)) {
-    dom.patternSelect.value = fallbackSelection;
-    dom.patternName.value = getSelectedPresetName();
-    dom.customPattern.value = getSelectedPresetPattern();
-    setEditorPatternMode(getSelectedPresetMode());
-    syncCustomPatternUI();
-  } else {
-    syncPatternSelectionFromInput();
-  }
-  syncPresetManagerState();
-  syncPresetManagerPanel();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  if (offerUndo) {
-    pendingPresetDeletion = {
-      name,
-      entry: deletedEntry,
-      index: deletedIndex,
-      wasSelected
-    };
-    setPresetFeedback(successMessage, false, {
-      label: 'Undo',
-      onClick: undoPresetDeletion
-    });
-  } else {
-    pendingPresetDeletion = null;
-    setPresetFeedback(successMessage);
-  }
-  saveSettings();
-  return true;
-}
-
-function deletePresetInline(name, itemElement) {
-  const entry = presets[name];
-  if (!entry) return;
-
-  const presetNamesBeforeDeletion = getPresetNames();
-  const deletedIndex = presetNamesBeforeDeletion.indexOf(name);
-  const wasSelected = dom.patternSelect.value === name;
-  const fallbackSelection = wasSelected
-    ? presetNamesBeforeDeletion[deletedIndex + 1] || presetNamesBeforeDeletion[deletedIndex - 1] || ''
-    : dom.patternSelect.value;
-
-  if (editingPresetName === name) {
-    clearPresetEditingState();
-  }
-  const deletedEntry = { ...entry };
-  delete presets[name];
-  suppressListRender = true;
-  renderPresetOptions(fallbackSelection);
-  if (Object.prototype.hasOwnProperty.call(presets, fallbackSelection)) {
-    dom.patternSelect.value = fallbackSelection;
-    dom.patternName.value = getSelectedPresetName();
-    dom.customPattern.value = getSelectedPresetPattern();
-    setEditorPatternMode(getSelectedPresetMode());
-    syncCustomPatternUI();
-  } else {
-    syncPatternSelectionFromInput();
-  }
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  saveSettings();
-  suppressListRender = false;
-
-  // Remove any previous undo placeholder
-  dom.presetManagerList?.querySelectorAll('.preset-manager-undo-placeholder').forEach(el => el.remove());
-
-  // Replace the item in the list with an inline undo placeholder
-  const placeholder = document.createElement('div');
-  placeholder.className = 'preset-manager-undo-placeholder';
-  const message = document.createElement('span');
-  message.className = 'preset-manager-undo-message';
-  message.textContent = `Deleted progression: ${getPresetDisplayLabel(name) || name}`;
-  const undoButton = document.createElement('button');
-  undoButton.type = 'button';
-  undoButton.className = 'preset-manager-undo-button';
-  undoButton.textContent = 'Undo';
-  undoButton.addEventListener('click', () => {
-    presets[name] = normalizePresetEntry(name, deletedEntry);
-    const names = getPresetNames().filter(n => n !== name);
-    names.splice(Math.max(0, Math.min(deletedIndex, names.length)), 0, name);
-    rebuildPresetsFromNames(names);
-    renderPresetOptions(wasSelected ? name : dom.patternSelect.value);
-    if (wasSelected) {
-      dom.patternSelect.value = name;
-      dom.patternName.value = getSelectedPresetName();
-      dom.customPattern.value = getSelectedPresetPattern();
-      setEditorPatternMode(getSelectedPresetMode());
-      syncCustomPatternUI();
-    }
-    syncPresetManagerState();
-    renderPresetManagerList();
-    validateCustomPattern();
-    applyPatternModeAvailability();
-    saveSettings();
-    setPresetFeedback(`Restored progression: ${getPresetDisplayLabel(name) || name}`);
-  }, { once: true });
-  placeholder.appendChild(message);
-  placeholder.appendChild(undoButton);
-  itemElement.replaceWith(placeholder);
-}
-
-function undoPresetDeletion() {
-  if (!pendingPresetDeletion) return;
-
-  const { name, entry, index, wasSelected } = pendingPresetDeletion;
-  pendingPresetDeletion = null;
-  presets[name] = normalizePresetEntry(name, entry);
-
-  const names = getPresetNames().filter(presetName => presetName !== name);
-  names.splice(Math.max(0, Math.min(index, names.length)), 0, name);
-  rebuildPresetsFromNames(names);
-
-  renderPresetOptions(wasSelected ? name : dom.patternSelect.value);
-  if (wasSelected) {
-    dom.patternSelect.value = name;
-    dom.patternName.value = getSelectedPresetName();
-    dom.customPattern.value = getSelectedPresetPattern();
-    setEditorPatternMode(getSelectedPresetMode());
-    syncCustomPatternUI();
-  } else {
-    syncPatternSelectionFromInput();
-  }
-  syncPresetManagerState();
-  syncPresetManagerPanel();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  setPresetFeedback(`Restored progression: ${name}`);
-  saveSettings();
-}
-
-function syncPatternSelectionFromInput() {
-  const pattern = normalizePatternString(dom.customPattern.value);
-  const mode = getCurrentPatternMode();
-  if (isEditingPreset() || isCreatingPreset) {
-    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE, { suppressChange: true });
-    syncCustomPatternUI();
-    return;
-  }
-  const matchingPreset = Object.keys(presets).find(name => {
-    const entry = presets[name];
-    return entry.pattern === pattern && entry.mode === mode;
-  }) || '';
-  if (matchingPreset) {
-    setPatternSelectValue(matchingPreset);
-    dom.patternName.value = getPresetEntry(matchingPreset)?.name || '';
-  } else {
-    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
-  }
-  syncCustomPatternUI();
-}
-
-function applyPatternModeAvailability() {
-  if (isOneChordModeActive()) {
-    const modeChanged = dom.majorMinor.checked !== false;
-    const disabledChanged = dom.majorMinor.disabled !== true;
-    dom.majorMinor.disabled = true;
-    dom.majorMinor.checked = false;
-    if (modeChanged || disabledChanged) {
-      updateKeyPickerLabels();
-      keyPool = [];
-    }
-    refreshDisplayedHarmony();
-    return;
-  }
-
-  const patternMode = getCurrentPatternMode();
-  const allowBothModes = patternMode === PATTERN_MODE_BOTH || isCustomPatternSelected();
-  const shouldBeMinor = patternMode === PATTERN_MODE_MINOR;
-  const modeChanged = dom.majorMinor.checked !== shouldBeMinor;
-  const disabledChanged = dom.majorMinor.disabled !== !allowBothModes;
-
-  dom.majorMinor.disabled = !allowBothModes;
-  if (!allowBothModes) {
-    dom.majorMinor.checked = shouldBeMinor;
-  }
-
-  if (!allowBothModes && (modeChanged || disabledChanged)) {
-    updateKeyPickerLabels();
-    keyPool = [];
-  } else if (allowBothModes && disabledChanged) {
-    updateKeyPickerLabels();
-  }
-
-  refreshDisplayedHarmony();
-}
+});
 
 function buildProgression() {
   if (currentRawChords.length > 0) return currentRawChords;
@@ -3122,361 +2791,165 @@ function buildProgression() {
   return raw;
 }
 
-function prepareNextProgression() {
-  const previousKey = currentKey;
-  if (nextKeyValue !== null && shouldAlternateDisplaySides()) {
-    toggleCurrentDisplaySide();
+const playbackSchedulerState = {
+  get audioCtx() { return audioCtx; },
+  get currentBeat() { return currentBeat; },
+  set currentBeat(value) { currentBeat = value; },
+  get currentChordIdx() { return currentChordIdx; },
+  set currentChordIdx(value) { currentChordIdx = value; },
+  get currentDisplaySide() { return currentDisplaySide; },
+  set currentDisplaySide(value) { currentDisplaySide = value; },
+  get currentKey() { return currentKey; },
+  set currentKey(value) { currentKey = value; },
+  get currentKeyRepetition() { return currentKeyRepetition; },
+  set currentKeyRepetition(value) { currentKeyRepetition = value; },
+  get currentOneChordQualityValue() { return currentOneChordQualityValue; },
+  set currentOneChordQualityValue(value) { currentOneChordQualityValue = value; },
+  get currentRawChords() { return currentRawChords; },
+  set currentRawChords(value) { currentRawChords = value; },
+  get currentVoicingPlan() { return currentVoicingPlan; },
+  set currentVoicingPlan(value) { currentVoicingPlan = value; },
+  get isIntro() { return isIntro; },
+  set isIntro(value) { isIntro = value; },
+  get isPaused() { return isPaused; },
+  get isPlaying() { return isPlaying; },
+  get lastPlayedChordIdx() { return lastPlayedChordIdx; },
+  set lastPlayedChordIdx(value) { lastPlayedChordIdx = value; },
+  get loopVoicingTemplate() { return loopVoicingTemplate; },
+  set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
+  get nextBeatTime() { return nextBeatTime; },
+  set nextBeatTime(value) { nextBeatTime = value; },
+  get nextKeyValue() { return nextKeyValue; },
+  set nextKeyValue(value) { nextKeyValue = value; },
+  get nextOneChordQualityValue() { return nextOneChordQualityValue; },
+  set nextOneChordQualityValue(value) { nextOneChordQualityValue = value; },
+  get nextPaddedChords() { return nextPaddedChords; },
+  set nextPaddedChords(value) { nextPaddedChords = value; },
+  get nextRawChords() { return nextRawChords; },
+  set nextRawChords(value) { nextRawChords = value; },
+  get nextVoicingPlan() { return nextVoicingPlan; },
+  set nextVoicingPlan(value) { nextVoicingPlan = value; },
+  get paddedChords() { return paddedChords; },
+  set paddedChords(value) { paddedChords = value; },
+  get pendingDisplayTimeouts() { return pendingDisplayTimeouts; }
+};
+
+const {
+  prepareNextProgression: prepareNextProgressionPlayback,
+  scheduleBeat: scheduleBeatPlayback,
+  scheduleDisplay: scheduleDisplayPlayback
+} = createPlaybackScheduler({
+  dom,
+  state: playbackSchedulerState,
+  constants: {
+    SCHEDULE_AHEAD
+  },
+  helpers: {
+    applyDisplaySideLayout,
+    buildLegacyVoicingPlan,
+    buildLoopRepVoicings,
+    buildVoicingPlanForSlots,
+    canLoopTrimProgression,
+    chordSymbol,
+    createOneChordToken,
+    createVoicingSlot,
+    fitHarmonyDisplay,
+    getBassMidi,
+    getCurrentPatternString,
+    getIntroDisplaySide,
+    getRepetitionsPerKey,
+    getSecondsPerBeat,
+    hideNextCol,
+    isChordsEnabled,
+    isVoiceLeadingV2Enabled,
+    keyName,
+    nextKey,
+    padProgression,
+    parseOneChordSpec,
+    parsePattern,
+    playChord,
+    playClick,
+    playNote,
+    scheduleDrumsForBeat,
+    shouldAlternateDisplaySides,
+    shouldShowNextPreview,
+    showNextCol,
+    takeNextOneChordQuality,
+    toggleCurrentDisplaySide,
+    updateBeatDots
   }
+});
 
-  if (nextKeyValue !== null) {
-    currentKey = nextKeyValue;
-    currentKeyRepetition = currentKey === previousKey ? currentKeyRepetition + 1 : 1;
-  } else {
-    currentKey = nextKey();
-    currentKeyRepetition = 1;
+const playbackTransportState = {
+  get activeChordVoices() { return activeChordVoices; },
+  get activeNoteGain() { return activeNoteGain; },
+  set activeNoteGain(value) { activeNoteGain = value; },
+  get audioCtx() { return audioCtx; },
+  set audioCtx(value) { audioCtx = value; },
+  get currentBeat() { return currentBeat; },
+  set currentBeat(value) { currentBeat = value; },
+  get currentChordIdx() { return currentChordIdx; },
+  set currentChordIdx(value) { currentChordIdx = value; },
+  get currentDisplaySide() { return currentDisplaySide; },
+  set currentDisplaySide(value) { currentDisplaySide = value; },
+  get currentKeyRepetition() { return currentKeyRepetition; },
+  set currentKeyRepetition(value) { currentKeyRepetition = value; },
+  get firstPlayStartTracked() { return firstPlayStartTracked; },
+  set firstPlayStartTracked(value) { firstPlayStartTracked = value; },
+  get isIntro() { return isIntro; },
+  set isIntro(value) { isIntro = value; },
+  get isPaused() { return isPaused; },
+  set isPaused(value) { isPaused = value; },
+  get isPlaying() { return isPlaying; },
+  set isPlaying(value) { isPlaying = value; },
+  get keyPool() { return keyPool; },
+  set keyPool(value) { keyPool = value; },
+  get loopVoicingTemplate() { return loopVoicingTemplate; },
+  set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
+  get nearTermSamplePreloadPromise() { return nearTermSamplePreloadPromise; },
+  set nearTermSamplePreloadPromise(value) { nearTermSamplePreloadPromise = value; },
+  get nextBeatTime() { return nextBeatTime; },
+  set nextBeatTime(value) { nextBeatTime = value; },
+  get nextKeyValue() { return nextKeyValue; },
+  set nextKeyValue(value) { nextKeyValue = value; },
+  get schedulerTimer() { return schedulerTimer; },
+  set schedulerTimer(value) { schedulerTimer = value; },
+  get startupSamplePreloadInProgress() { return startupSamplePreloadInProgress; },
+  set startupSamplePreloadInProgress(value) { startupSamplePreloadInProgress = value; }
+};
+
+const { start, stop, togglePause } = createPlaybackTransport({
+  dom,
+  state: playbackTransportState,
+  constants: {
+    NOTE_FADEOUT,
+    SCHEDULE_INTERVAL
+  },
+  helpers: {
+    applyDisplaySideLayout,
+    clearBeatDots,
+    clearScheduledDisplays,
+    ensureNearTermSamplePreload,
+    ensureSessionStarted,
+    fitHarmonyDisplay,
+    getEnabledKeyCount,
+    getIntroDisplaySide,
+    getProgressionAnalyticsProps,
+    getRepetitionsPerKey,
+    getTempoBucket,
+    hideNextCol,
+    initAudio,
+    normalizeDisplayMode,
+    preloadStartupSamples,
+    prepareNextProgression: prepareNextProgressionPlayback,
+    registerSessionAction,
+    scheduleBeat: scheduleBeatPlayback,
+    stopActiveChordVoices,
+    stopScheduledAudio,
+    trackEvent,
+    trackProgressionEvent
   }
-
-  const oneChordSpec = parseOneChordSpec(getCurrentPatternString());
-  if (oneChordSpec.active) {
-    currentOneChordQualityValue = nextOneChordQualityValue || takeNextOneChordQuality(oneChordSpec.qualities);
-    currentRawChords = [createOneChordToken(currentOneChordQualityValue)];
-  } else {
-    currentOneChordQualityValue = '';
-    currentRawChords = parsePattern(getCurrentPatternString());
-    if (currentRawChords.length === 0) {
-      currentRawChords = parsePattern('II-V-I');
-    }
-  }
-
-  const doubleTime = dom.doubleTime.checked;
-  const reps = getRepetitionsPerKey();
-  const loopTrim = !oneChordSpec.active && reps > 1 && canLoopTrimProgression(currentRawChords, doubleTime);
-  // Non-final reps: trim last chord → e.g. C A7 D G (4 bars)
-  // Final rep: full padded → e.g. C A7 D G C C (6 bars, resolution held 2 bars)
-  const isLastRep = currentKeyRepetition >= reps;
-  paddedChords = padProgression(
-    loopTrim && !isLastRep ? currentRawChords.slice(0, -1) : currentRawChords,
-    doubleTime
-  );
-
-  const shouldRepeatCurrentKey = oneChordSpec.active ? false : currentKeyRepetition < reps;
-  nextKeyValue = shouldRepeatCurrentKey ? currentKey : nextKey(currentKey);
-  if (oneChordSpec.active) {
-    nextOneChordQualityValue = takeNextOneChordQuality(oneChordSpec.qualities, currentOneChordQualityValue);
-    nextRawChords = [createOneChordToken(nextOneChordQualityValue)];
-  } else {
-    nextOneChordQualityValue = '';
-    nextRawChords = currentRawChords;
-  }
-  const nextLoopTrim = !oneChordSpec.active && reps > 1 && canLoopTrimProgression(nextRawChords, doubleTime);
-  const nextRepetition = shouldRepeatCurrentKey ? currentKeyRepetition + 1 : 1;
-  const nextIsLastRep = nextRepetition >= reps;
-  nextPaddedChords = padProgression(
-    nextLoopTrim && !nextIsLastRep ? nextRawChords.slice(0, -1) : nextRawChords,
-    doubleTime
-  );
-
-  const isMinor = oneChordSpec.active ? false : dom.majorMinor.checked;
-
-  // --- Voicing plan for loop-trimmed progressions ---
-  // Template = voicings computed on the FULL raw sequence (e.g. C A7 D G C = 5 voicings).
-  // Rep 1 plays C A7 D G → voicings template[0..3]
-  // Rep 2+ plays C A7 D G → voicings [template[4], template[1], template[2], template[3]]
-  //   (C gets the "resolution" voicing connecting from G, body A7/D/G identical to rep 1)
-  // Last rep plays C A7 D G C C → [v4, v1, v2, v3, v4, v4] (or v0..v3,v4,v4 if rep 1 is last)
-
-  if (loopTrim) {
-    // Compute template once on rep 1
-    if (currentKeyRepetition === 1) {
-      const rawSlots = currentRawChords.map(chord => createVoicingSlot(chord, currentKey, isMinor, 'current'));
-      if (isVoiceLeadingV2Enabled()) {
-        loopVoicingTemplate = buildVoicingPlanForSlots(rawSlots);
-      } else {
-        loopVoicingTemplate = buildLegacyVoicingPlan(currentRawChords, currentKey, isMinor);
-      }
-    }
-    // Derive currentVoicingPlan from template
-    currentVoicingPlan = buildLoopRepVoicings(loopVoicingTemplate, paddedChords.length, currentKeyRepetition === 1);
-    // Derive nextVoicingPlan
-    if (shouldRepeatCurrentKey) {
-      nextVoicingPlan = buildLoopRepVoicings(loopVoicingTemplate, nextPaddedChords.length, false);
-    } else {
-      // Next is new key: compute fresh voicings optimized against current tail
-      if (isVoiceLeadingV2Enabled()) {
-        const fixedSlots = currentVoicingPlan.map(v => ({ candidateSet: [v], segment: 'current' }));
-        const nextSlots = nextPaddedChords.map(chord => createVoicingSlot(chord, nextKeyValue, isMinor, 'next'));
-        const transitionPlan = buildVoicingPlanForSlots([...fixedSlots, ...nextSlots]);
-        nextVoicingPlan = transitionPlan.slice(fixedSlots.length);
-      } else {
-        nextVoicingPlan = buildLegacyVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
-      }
-      loopVoicingTemplate = null;
-    }
-  } else {
-    // No loop trim: normal behavior
-    loopVoicingTemplate = null;
-    if (isVoiceLeadingV2Enabled()) {
-      const currentSlots = paddedChords.map(chord => createVoicingSlot(chord, currentKey, isMinor, 'current'));
-      const nextSlots = nextPaddedChords.map(chord => createVoicingSlot(chord, nextKeyValue, isMinor, 'next'));
-      const combinedPlan = buildVoicingPlanForSlots([...currentSlots, ...nextSlots]);
-      currentVoicingPlan = combinedPlan.slice(0, currentSlots.length);
-      nextVoicingPlan = combinedPlan.slice(currentSlots.length);
-    } else {
-      currentVoicingPlan = buildLegacyVoicingPlan(paddedChords, currentKey, isMinor);
-      nextVoicingPlan = buildLegacyVoicingPlan(nextPaddedChords, nextKeyValue, isMinor);
-    }
-  }
-
-  currentChordIdx = 0;
-  lastPlayedChordIdx = -1;
-}
-
-function scheduleBeat() {
-  const spb = getSecondsPerBeat();
-  const doubleTime = dom.doubleTime.checked;
-  const chordsPerMeasure = doubleTime ? 2 : 1;
-  const beatsPerChord = doubleTime ? 2 : 4;
-
-  while (nextBeatTime < audioCtx.currentTime + SCHEDULE_AHEAD) {
-    if (isIntro) {
-      // Count-in: click on every beat
-      playClick(nextBeatTime, currentBeat === 0);
-
-      // Schedule display update — show current key + next column with upcoming info
-      const introB = currentBeat;
-      const introKey = currentKey;
-      const introNextKey = nextKeyValue;
-      const introFirstChord = paddedChords[0];
-      const introDisplaySide = getIntroDisplaySide();
-      scheduleDisplay(nextBeatTime, () => {
-        applyDisplaySideLayout(introDisplaySide);
-        dom.keyDisplay.textContent = '';
-        dom.chordDisplay.textContent = '';
-        // Show next column during intro with the upcoming first chord
-        showNextCol();
-        dom.nextKeyDisplay.textContent = keyName(introKey);
-        dom.nextChordDisplay.textContent = introFirstChord ? chordSymbol(introKey, introFirstChord) : '';
-        fitHarmonyDisplay();
-        updateBeatDots(introB, true);
-      });
-
-      currentBeat++;
-      if (currentBeat >= 4) {
-        currentBeat = 0;
-        isIntro = false;
-      }
-      nextBeatTime += spb;
-      continue;
-    }
-
-    // --- Normal progression beats ---
-
-    scheduleDrumsForBeat(nextBeatTime, currentBeat, spb);
-
-    // Bass note + optional chord voicing
-    const chord = paddedChords[currentChordIdx];
-    const noteDuration = beatsPerChord * spb; // time until next chord change
-    const isChordBeat = doubleTime
-      ? (currentBeat === 0 || currentBeat === 2)
-      : (currentBeat === 0);
-
-    if (isChordBeat) {
-      // Check if chord is same as previous (padding/sustain)
-      const prevChord = lastPlayedChordIdx >= 0 ? paddedChords[lastPlayedChordIdx] : null;
-      const sameChord = prevChord && prevChord.semitones === chord.semitones
-        && prevChord.qualityMajor === chord.qualityMajor
-        && prevChord.qualityMinor === chord.qualityMinor;
-
-      if (!sameChord) {
-        // Compute sustained duration: count consecutive identical chords from current index
-        let sustainSlots = 1;
-        for (let i = currentChordIdx + 1; i < paddedChords.length; i++) {
-          const c = paddedChords[i];
-          if (c.semitones === chord.semitones
-              && c.qualityMajor === chord.qualityMajor
-              && c.qualityMinor === chord.qualityMinor) {
-            sustainSlots++;
-          } else break;
-        }
-        const sustainDuration = sustainSlots * beatsPerChord * spb;
-
-        const midi = getBassMidi(currentKey, chord.semitones);
-        playNote(midi, nextBeatTime, sustainDuration);
-
-        // Chord voicing (cello + violin)
-        if (isChordsEnabled()) {
-          const isMinor = dom.majorMinor.checked;
-          playChord(paddedChords, currentKey, currentChordIdx, isMinor, nextBeatTime, noteDuration);
-        }
-      }
-      lastPlayedChordIdx = currentChordIdx;
-    }
-
-    // Determine if we're in the last measure
-    const totalMeasures = paddedChords.length / chordsPerMeasure;
-    const currentMeasure = Math.floor(currentChordIdx / chordsPerMeasure);
-    const onLastMeasure = currentMeasure === totalMeasures - 1;
-
-    // Schedule display
-    const dispBeat = currentBeat;
-    const dispChord = chord;
-    const dispKey = currentKey;
-    const dispNextKey = nextKeyValue;
-    const dispLastMeas = onLastMeasure;
-    const dispNextFirstChord = onLastMeasure ? nextRawChords[0] || null : null;
-    const dispCurrentSide = currentDisplaySide;
-    scheduleDisplay(nextBeatTime, () => {
-      if (!dispLastMeas) {
-        dom.nextKeyDisplay.textContent = '';
-        dom.nextChordDisplay.textContent = '';
-        hideNextCol();
-      }
-      applyDisplaySideLayout(dispCurrentSide);
-      dom.keyDisplay.textContent = keyName(dispKey);
-      dom.chordDisplay.textContent = chordSymbol(dispKey, dispChord);
-      if (dispLastMeas && shouldShowNextPreview(dispKey, dispNextKey)) {
-        showNextCol();
-        dom.nextKeyDisplay.textContent = keyName(dispNextKey);
-        dom.nextChordDisplay.textContent = dispNextFirstChord ? chordSymbol(dispNextKey, dispNextFirstChord) : '';
-      } else if (dispLastMeas) {
-        dom.nextKeyDisplay.textContent = '';
-        dom.nextChordDisplay.textContent = '';
-        hideNextCol();
-      }
-      fitHarmonyDisplay();
-      updateBeatDots(dispBeat, false);
-    });
-
-    // Advance beat
-    currentBeat++;
-    if (currentBeat >= 4) {
-      currentBeat = 0;
-    }
-
-    // Advance chord index
-    if (doubleTime) {
-      if (currentBeat === 0 || currentBeat === 2) {
-        currentChordIdx++;
-      }
-    } else {
-      if (currentBeat === 0) {
-        currentChordIdx++;
-      }
-    }
-
-    // End of progression → prepare next
-    if (currentChordIdx >= paddedChords.length) {
-      prepareNextProgression();
-    }
-
-    nextBeatTime += spb;
-  }
-}
-
-// Rough display sync: use setTimeout offset from audioCtx time
-function scheduleDisplay(audioTime, fn) {
-  const delay = (audioTime - audioCtx.currentTime) * 1000;
-  if (delay <= 0) {
-    if (isPlaying && !isPaused) fn();
-    return;
-  }
-  const timeoutId = setTimeout(() => {
-    pendingDisplayTimeouts.delete(timeoutId);
-    if (isPlaying && !isPaused) {
-      fn();
-    }
-  }, delay);
-  pendingDisplayTimeouts.add(timeoutId);
-}
-
-// ---- Start / Stop ----
-
-async function start() {
-  ensureSessionStarted('play_start');
-  initAudio();
-  if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-  isPlaying = true;
-  isPaused = false;
-  dom.startStop.textContent = 'Stop';
-  dom.startStop.classList.add('running');
-  dom.pause.classList.remove('hidden', 'paused');
-  dom.pause.textContent = 'Pause';
-
-  // Reset state
-  isIntro = true;
-  currentBeat = 0;
-  currentChordIdx = 0;
-  currentDisplaySide = 'left';
-  keyPool = [];
-  nextKeyValue = null;
-  currentKeyRepetition = 0;
-  loopVoicingTemplate = null;
-  nearTermSamplePreloadPromise = null;
-  prepareNextProgression();
-  applyDisplaySideLayout(getIntroDisplaySide());
-  dom.keyDisplay.textContent = '';
-  dom.chordDisplay.textContent = '';
-  hideNextCol();
-  startupSamplePreloadInProgress = true;
-  try {
-    await preloadStartupSamples();
-  } finally {
-    startupSamplePreloadInProgress = false;
-  }
-  ensureNearTermSamplePreload();
-  if (!firstPlayStartTracked) {
-    firstPlayStartTracked = true;
-    const progressionProps = getProgressionAnalyticsProps();
-    trackEvent('first_play_start', {
-      progression_source: progressionProps.progression_source,
-      progression_kind: progressionProps.progression_kind
-    });
-    registerSessionAction('first_play_start');
-  }
-  trackProgressionEvent('play_start', {
-    tempo_bucket: getTempoBucket(),
-    repetitions_per_key: getRepetitionsPerKey(),
-    drums_mode: dom.drumsSelect?.value || DRUM_MODE_OFF,
-    display_mode: normalizeDisplayMode(dom.displayMode?.value),
-    transposition: dom.transpositionSelect?.value || '0',
-    enabled_keys: getEnabledKeyCount()
-  });
-
-  // 300ms delay, then start scheduling
-  nextBeatTime = audioCtx.currentTime + 0.3;
-  schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
-}
-
-function stop() {
-  trackProgressionEvent('play_stop', {
-    tempo_bucket: getTempoBucket(),
-    enabled_keys: getEnabledKeyCount()
-  });
-  isPlaying = false;
-  isPaused = false;
-  dom.startStop.textContent = 'Start';
-  dom.startStop.classList.remove('running');
-  dom.pause.classList.add('hidden');
-  dom.pause.classList.remove('paused');
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer);
-    schedulerTimer = null;
-  }
-  clearScheduledDisplays();
-  stopScheduledAudio();
-  // Fade out any active bass note
-  if (activeNoteGain) {
-    activeNoteGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + NOTE_FADEOUT);
-    activeNoteGain = null;
-  }
-  stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-  dom.keyDisplay.textContent = '';
-  dom.chordDisplay.textContent = '';
-  hideNextCol();
-  fitHarmonyDisplay();
-  clearBeatDots();
-}
+});
 
 // ---- UI Wiring ----
 
@@ -3484,152 +2957,10 @@ dom.startStop.addEventListener('click', () => {
   if (isPlaying) stop(); else start();
 });
 
-dom.pause.addEventListener('click', () => {
-  if (!isPlaying) return;
-  if (isPaused) {
-    // Resume
-    isPaused = false;
-    dom.pause.textContent = 'Pause';
-    dom.pause.classList.remove('paused');
-    audioCtx.resume();
-    trackProgressionEvent('play_resume', {
-      tempo_bucket: getTempoBucket()
-    });
-    // Re-anchor timing so scheduler picks up from now
-    nextBeatTime = audioCtx.currentTime + 0.05;
-    schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
-  } else {
-    // Pause
-    isPaused = true;
-    dom.pause.textContent = 'Resume';
-    dom.pause.classList.add('paused');
-    if (schedulerTimer) {
-      clearInterval(schedulerTimer);
-      schedulerTimer = null;
-    }
-    clearScheduledDisplays();
-    stopScheduledAudio();
-    activeNoteGain = null;
-    activeChordVoices.clear();
-    audioCtx.suspend();
-    trackProgressionEvent('play_pause', {
-      tempo_bucket: getTempoBucket()
-    });
-  }
-});
+dom.pause.addEventListener('click', togglePause);
 
 dom.tempoSlider.addEventListener('input', () => {
   dom.tempoValue.textContent = dom.tempoSlider.value;
-});
-
-dom.patternSelect.addEventListener('change', () => {
-  ensureSessionStarted('pattern_select');
-  if (suppressPatternSelectChange) {
-    lastPatternSelectValue = dom.patternSelect.value;
-    return;
-  }
-  const previousPatternSelection = lastPatternSelectValue;
-  clearOneChordCycleState();
-  if (isCustomPatternSelected() && !isEditingPreset()) {
-    startNewPreset(previousPatternSelection);
-    trackEvent('custom_progression_started', {
-      previous_selection: previousPatternSelection ? toAnalyticsToken(previousPatternSelection) : 'none'
-    });
-    registerSessionAction('custom_progression_started');
-    lastPatternSelectValue = dom.patternSelect.value;
-    return;
-  }
-  if (!isCustomPatternSelected()) {
-    clearPresetEditingState();
-    dom.patternName.value = getSelectedPresetName();
-    dom.customPattern.value = getSelectedPresetPattern();
-    setEditorPatternMode(getSelectedPresetMode());
-  }
-  if (isCustomPatternSelected() && !isEditingPreset()) {
-    rememberStandaloneCustomDraft();
-  }
-  syncCustomPatternUI();
-  syncPresetManagerState();
-  setPresetFeedback('');
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  if (!isCustomPatternSelected()) {
-    trackProgressionEvent('progression_selected');
-    if (previousPatternSelection !== dom.patternSelect.value) {
-      trackEvent('preset_changed', {
-        progression_id: `preset_${toAnalyticsToken(dom.patternSelect.value)}`,
-        previous_progression_id: previousPatternSelection ? `preset_${toAnalyticsToken(previousPatternSelection)}` : 'none'
-      });
-    }
-    registerSessionAction('preset_changed');
-  }
-  lastPatternSelectValue = dom.patternSelect.value;
-});
-
-dom.customPattern.addEventListener('input', () => {
-  clearOneChordCycleState();
-  rememberStandaloneCustomDraft();
-  syncPatternSelectionFromInput();
-  syncPresetManagerState();
-  setPresetFeedback('');
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  syncPatternPreview();
-});
-
-dom.customPattern.addEventListener('change', () => {
-  ensureSessionStarted('custom_progression');
-  dom.customPattern.value = normalizePatternString(dom.customPattern.value);
-  clearOneChordCycleState();
-  rememberStandaloneCustomDraft();
-  syncPatternSelectionFromInput();
-  syncPresetManagerState();
-  const isValid = validateCustomPattern();
-  applyPatternModeAvailability();
-  syncPatternPreview();
-  if (dom.customPattern.value && isValid) {
-    trackProgressionEvent('custom_progression_committed');
-    const progressionProps = getProgressionAnalyticsProps();
-    trackEvent('custom_progression_used', {
-      progression_mode: progressionProps.progression_mode,
-      progression_kind: progressionProps.progression_kind
-    });
-    registerSessionAction('custom_progression_used');
-  }
-});
-
-dom.patternMode.addEventListener('change', () => {
-  setEditorPatternMode(dom.patternMode.value);
-  rememberStandaloneCustomDraft();
-  syncPatternSelectionFromInput();
-  syncPresetManagerState();
-  setPresetFeedback('');
-  applyPatternModeAvailability();
-  trackProgressionEvent('pattern_mode_changed');
-});
-
-dom.patternModeBoth?.addEventListener('change', () => {
-  const nextMode = dom.patternModeBoth.checked
-    ? PATTERN_MODE_BOTH
-    : (dom.majorMinor.checked ? PATTERN_MODE_MINOR : PATTERN_MODE_MAJOR);
-  setEditorPatternMode(nextMode, { syncMajorMinor: false });
-  rememberStandaloneCustomDraft();
-  syncPatternSelectionFromInput();
-  syncPresetManagerState();
-  setPresetFeedback('');
-  applyPatternModeAvailability();
-  trackProgressionEvent('pattern_mode_changed');
-});
-
-dom.patternName.addEventListener('input', () => {
-  dom.patternName.value = normalizePresetNameForInput(dom.patternName.value);
-  rememberStandaloneCustomDraft();
-  syncPresetManagerState();
-  setPresetFeedback('');
-});
-
-dom.patternName.addEventListener('change', () => {
-  dom.patternName.value = normalizePresetName(dom.patternName.value);
 });
 
 // ---- Key Picker ----
@@ -3736,24 +3067,6 @@ function refreshDisplayedHarmony() {
   fitHarmonyDisplay();
 }
 
-dom.majorMinor.addEventListener('change', () => {
-  if (isCustomPatternSelected() && !dom.patternModeBoth?.checked && !isOneChordModeActive()) {
-    setEditorPatternMode(dom.majorMinor.checked ? PATTERN_MODE_MINOR : PATTERN_MODE_MAJOR, { syncMajorMinor: false });
-    rememberStandaloneCustomDraft();
-    syncPatternSelectionFromInput();
-    syncPresetManagerState();
-    setPresetFeedback('');
-    applyPatternModeAvailability();
-  }
-  updateKeyPickerLabels();
-  keyPool = [];
-  refreshDisplayedHarmony();
-  syncPatternPreview();
-  trackProgressionEvent('major_minor_toggled', {
-    tonal_mode: dom.majorMinor.checked ? 'minor' : 'major'
-  });
-});
-
 dom.selectAllKeys?.addEventListener('click', () => {
   setAllKeysEnabled(true);
   trackEvent('all_keys_selected', {
@@ -3807,428 +3120,20 @@ function validateCustomPattern() {
   return true;
 }
 
-function setPresetFeedback(message, isError = false, action = null) {
-  if (!dom.presetFeedback) return;
-  dom.presetFeedback.textContent = '';
-  const actions = Array.isArray(action)
-    ? action.filter(entry => entry?.label && typeof entry.onClick === 'function')
-    : (action?.label && typeof action.onClick === 'function' ? [action] : []);
-  if (message) {
-    const text = document.createElement('span');
-    text.textContent = message;
-    dom.presetFeedback.appendChild(text);
-  }
-  for (const entry of actions) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'preset-feedback-action';
-    button.textContent = entry.label;
-    button.addEventListener('click', entry.onClick, { once: true });
-    dom.presetFeedback.appendChild(button);
-  }
-  dom.presetFeedback.classList.toggle('error-text', Boolean(isError && message));
-}
 
-function syncPresetManagerState({ skipListRender = false } = {}) {
-  const customSelected = isCustomPatternSelected();
-  if (dom.savePreset) {
-    dom.savePreset.classList.toggle('hidden', !customSelected);
-    dom.savePreset.textContent = 'Save';
-  }
-  if (dom.cancelPresetEdit) {
-    dom.cancelPresetEdit.classList.toggle('hidden', !(isEditingPreset() || isCreatingPreset));
-  }
-  if (dom.managePresets) {
-    dom.managePresets.classList.toggle('hidden', customSelected || isManagingPresets);
-  }
-  if (dom.restoreDefaultPresets) {
-    dom.restoreDefaultPresets.classList.toggle('hidden', false);
-  }
-  if (dom.clearAllPresets) {
-    dom.clearAllPresets.classList.toggle('hidden', false);
-  }
-  syncPresetManagerPanel(skipListRender);
-}
 
-function renderPresetOptions(selectedValue = dom.patternSelect.value) {
-  if (!dom.patternSelect) return;
 
-  dom.patternSelect.innerHTML = '';
 
-  for (const name of Object.keys(presets)) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = getPresetDisplayLabel(name);
-    opt.dataset.patternMode = presets[name].mode;
-    dom.patternSelect.appendChild(opt);
-  }
 
-  const customOption = document.createElement('option');
-  customOption.value = CUSTOM_PATTERN_OPTION_VALUE;
-  customOption.textContent = 'Custom progression...';
-  dom.patternSelect.appendChild(customOption);
 
-  if (Object.prototype.hasOwnProperty.call(presets, selectedValue)) {
-    dom.patternSelect.value = selectedValue;
-  } else if (selectedValue === CUSTOM_PATTERN_OPTION_VALUE) {
-    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  } else {
-    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  }
-  syncCustomPatternUI();
-  syncPresetManagerState();
-}
 
-function saveCurrentPreset() {
-  const name = getCurrentPatternName();
-  const pattern = normalizePatternString(dom.customPattern.value);
-  const mode = getCurrentPatternMode();
-  const presetNameToReplace = editingPresetName;
 
-  if (!pattern) {
-    setPresetFeedback('Enter a progression before saving.', true);
-    return;
-  }
-  if (!validateCustomPattern()) {
-    setPresetFeedback('Fix the progression syntax before saving.', true);
-    return;
-  }
 
-  if (presetNameToReplace && presetNameToReplace !== pattern) {
-    delete presets[presetNameToReplace];
-  }
-  presets[pattern] = createPresetEntry(pattern, mode, name);
-  renderPresetOptions(pattern);
-  dom.patternName.value = name;
-  dom.customPattern.value = pattern;
-  setEditorPatternMode(mode);
-  resetStandaloneCustomDraft();
-  clearPresetEditingState();
-  syncPatternSelectionFromInput();
-  syncPresetManagerState();
-  applyPatternModeAvailability();
-  setPresetFeedback(
-    presetNameToReplace
-      ? `Progression updated: ${getPresetDisplayLabel(pattern)}`
-      : `Progression saved: ${getPresetDisplayLabel(pattern)}`
-  );
-  saveSettings();
-  trackProgressionEvent(presetNameToReplace ? 'preset_updated' : 'preset_saved');
-}
-
-function editSelectedPreset() {
-  if (!hasSelectedPreset()) {
-    setPresetFeedback('Select a progression to edit it.', true);
-    return;
-  }
-
-  const selectedName = dom.patternSelect.value;
-  const selectedEntry = getPresetEntry();
-  if (!selectedEntry) {
-    setPresetFeedback('Select a progression to edit it.', true);
-    return;
-  }
-
-  presetSelectionBeforeEditing = selectedName;
-  isCreatingPreset = false;
-  editingPresetName = selectedName;
-  editingPresetSnapshot = {
-    name: selectedName,
-    label: selectedEntry.name,
-    pattern: selectedEntry.pattern,
-    mode: selectedEntry.mode
-  };
-  dom.patternName.value = selectedEntry.name || '';
-  dom.customPattern.value = selectedEntry.pattern;
-  setEditorPatternMode(selectedEntry.mode);
-  dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  syncCustomPatternUI();
-  syncPresetManagerState();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  setPresetFeedback(`Editing progression: ${getPresetDisplayLabel(selectedName)}`);
-}
-
-function cancelPresetEdit() {
-  if (!isEditingPreset() && !isCreatingPreset) {
-    clearPresetEditingState();
-    syncPresetManagerState();
-    saveSettings();
-    return;
-  }
-
-  if (!isEditingPreset() || !editingPresetSnapshot) {
-    const previousSelection = presetSelectionBeforeEditing;
-    clearPresetEditingState();
-    if (
-      previousSelection
-      && previousSelection !== CUSTOM_PATTERN_OPTION_VALUE
-      && Object.prototype.hasOwnProperty.call(presets, previousSelection)
-    ) {
-      dom.patternSelect.value = previousSelection;
-      const previousEntry = getPresetEntry(previousSelection);
-      if (previousEntry) {
-        dom.patternName.value = previousEntry.name || '';
-        dom.customPattern.value = previousEntry.pattern;
-        setEditorPatternMode(previousEntry.mode);
-      }
-    } else {
-      dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-      dom.patternName.value = lastStandaloneCustomName || '';
-      dom.customPattern.value = lastStandaloneCustomPattern || '';
-      setEditorPatternMode(normalizePatternMode(lastStandaloneCustomMode));
-    }
-    syncCustomPatternUI();
-    syncPresetManagerState();
-    validateCustomPattern();
-    applyPatternModeAvailability();
-    setPresetFeedback('');
-    saveSettings();
-    return;
-  }
-
-  const { name, label, pattern, mode } = editingPresetSnapshot;
-  clearPresetEditingState();
-  dom.patternSelect.value = name;
-  dom.patternName.value = label || '';
-  dom.customPattern.value = pattern;
-  setEditorPatternMode(mode);
-  syncCustomPatternUI();
-  syncPresetManagerState();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  setPresetFeedback('');
-  saveSettings();
-}
-
-function startNewPreset(previousSelection = hasSelectedPreset() ? dom.patternSelect.value : '') {
-  clearPresetEditingState();
-  presetSelectionBeforeEditing = previousSelection;
-  isCreatingPreset = true;
-  dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  if (hasStandaloneCustomDraft()) {
-    dom.patternName.value = lastStandaloneCustomName || '';
-    dom.customPattern.value = lastStandaloneCustomPattern || '';
-    setEditorPatternMode(normalizePatternMode(lastStandaloneCustomMode));
-  } else {
-    dom.patternName.value = '';
-    dom.customPattern.value = '';
-    setEditorPatternMode(PATTERN_MODE_MAJOR);
-  }
-  syncCustomPatternUI();
-  syncPresetManagerState();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  setPresetFeedback(hasStandaloneCustomDraft() ? 'Back to your draft progression.' : 'New progression.');
-  dom.customPattern.focus();
-}
-
-function deleteSelectedPreset() {
-  if (!hasSelectedPreset()) {
-    setPresetFeedback('Select a progression to delete it.', true);
-    return;
-  }
-  deletePresetByName(dom.patternSelect.value, {
-    offerUndo: true
-  });
-}
-
-function duplicatePreset(name) {
-  const entry = presets[name];
-  if (!entry) {
-    setPresetFeedback('Progression not found.', true);
-    return;
-  }
-  const baseName = (entry.name || entry.pattern).replace(/\s*\(\d+\)$/, '');
-  let copyIndex = 2;
-  const existingNames = new Set(Object.values(presets).map(e => e.name || e.pattern));
-  while (existingNames.has(`${baseName} (${copyIndex})`)) {
-    copyIndex++;
-  }
-  const newDisplayName = `${baseName} (${copyIndex})`;
-  const newPattern = entry.pattern;
-  const newEntry = createPresetEntry(newPattern, entry.mode, newDisplayName);
-
-  // Presets are keyed by pattern. Two presets can share the same pattern
-  // (only the display name differs), so we need a unique key.
-  const newKey = `${newPattern}#${copyIndex}`;
-  newEntry.pattern = newPattern; // actual pattern stays the same
-
-  const names = getPresetNames();
-  const sourceIndex = names.indexOf(name);
-  const before = names.slice(0, sourceIndex + 1);
-  const after = names.slice(sourceIndex + 1);
-  presets[newKey] = newEntry;
-  const reordered = [...before, newKey, ...after];
-  presets = Object.fromEntries(
-    reordered
-      .filter(n => Object.prototype.hasOwnProperty.call(presets, n))
-      .map(n => [n, presets[n]])
-  );
-  renderPresetOptions(dom.patternSelect.value);
-  renderPresetManagerList();
-  saveSettings();
-  setPresetFeedback(`Progression copied: ${newDisplayName}`);
-}
-
-function restoreDefaultPresets() {
-  if (!window.confirm('Restore the default progressions? Existing progressions will be kept.')) {
-    return;
-  }
-  const wasManagingPresets = isManagingPresets;
-  const currentSelection = dom.patternSelect.value;
-  let restoredCount = 0;
-
-  for (const [name, entry] of Object.entries(DEFAULT_PRESETS)) {
-    if (Object.prototype.hasOwnProperty.call(presets, name)) continue;
-    presets[name] = normalizePresetEntry(name, entry);
-    restoredCount++;
-  }
-
-  const nextSelection = Object.prototype.hasOwnProperty.call(presets, currentSelection)
-    ? currentSelection
-    : Object.keys(DEFAULT_PRESETS).find(name => Object.prototype.hasOwnProperty.call(presets, name))
-      || Object.keys(presets)[0]
-      || '';
-
-  renderPresetOptions(nextSelection);
-  if (Object.prototype.hasOwnProperty.call(presets, nextSelection)) {
-    dom.patternSelect.value = nextSelection;
-    dom.patternName.value = getSelectedPresetName();
-    dom.customPattern.value = getSelectedPresetPattern();
-    setEditorPatternMode(getSelectedPresetMode());
-    syncCustomPatternUI();
-  } else {
-    syncPatternSelectionFromInput();
-  }
-  isManagingPresets = wasManagingPresets;
-  syncPresetManagerState();
-  syncPresetManagerPanel();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-
-  if (restoredCount === 0) {
-    setPresetFeedback('Default progressions are already present.');
-  } else {
-    appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
-    acknowledgedDefaultPresetsVersion = defaultPresetsVersion;
-    shouldPromptForDefaultPresetsUpdate = false;
-    setPresetFeedback(`Restored ${restoredCount} default progression${restoredCount > 1 ? 's' : ''}.`);
-    saveSettings();
-    trackEvent('default_presets_restored', {
-      restored_count: restoredCount
-    });
-  }
-}
-
-function clearAllPresets() {
-  if (!window.confirm('Clear all progressions? This cannot be undone.')) {
-    return;
-  }
-  const wasManagingPresets = isManagingPresets;
-  presets = {};
-  clearPresetEditingState();
-  renderPresetOptions('');
-  syncPatternSelectionFromInput();
-  isManagingPresets = wasManagingPresets;
-  syncPresetManagerState();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  setPresetFeedback('All progressions cleared.');
-  saveSettings();
-  trackEvent('all_presets_cleared');
-}
-
-function togglePresetManager() {
-  isManagingPresets = !isManagingPresets;
-  syncPresetManagerState();
-  if (isManagingPresets) {
-    trackEvent('preset_manager_opened', {
-      preset_count: getPresetNames().length
-    });
-  }
-}
-
-function refreshPresetUIAfterChange(preferredSelection = dom.patternSelect.value) {
-  renderPresetOptions(preferredSelection);
-  if (Object.prototype.hasOwnProperty.call(presets, preferredSelection)) {
-    dom.patternSelect.value = preferredSelection;
-    dom.patternName.value = getSelectedPresetName();
-    dom.customPattern.value = getSelectedPresetPattern();
-    setEditorPatternMode(getSelectedPresetMode());
-    syncCustomPatternUI();
-  } else {
-    syncPatternSelectionFromInput();
-  }
-  syncPresetManagerState();
-  syncPresetManagerPanel();
-  validateCustomPattern();
-  applyPatternModeAvailability();
-  lastPatternSelectValue = dom.patternSelect.value;
-}
-
-function setPresetUpdateModalVisibility(isVisible) {
-  dom.presetUpdateModal?.classList.toggle('hidden', !isVisible);
-  dom.presetUpdateModal?.setAttribute('aria-hidden', String(!isVisible));
-}
-
-function markDefaultPresetsPromptHandled() {
-  const fingerprint = getDefaultPresetsFingerprint();
-  appliedDefaultPresetsFingerprint = fingerprint;
-  acknowledgedDefaultPresetsVersion = defaultPresetsVersion;
-  shouldPromptForDefaultPresetsUpdate = false;
-  setPresetUpdateModalVisibility(false);
-  saveSettings();
-}
-
-function replacePresetsWithDefaultList() {
-  const currentSelection = dom.patternSelect.value;
-  presets = normalizePresetsMap(DEFAULT_PRESETS);
-  const nextSelection = Object.prototype.hasOwnProperty.call(presets, currentSelection)
-    ? currentSelection
-    : Object.keys(DEFAULT_PRESETS)[0] || Object.keys(presets)[0] || '';
-  refreshPresetUIAfterChange(nextSelection);
-  markDefaultPresetsPromptHandled();
-  setPresetFeedback('Default progressions replaced with the updated list.');
-}
-
-function mergeUpdatedDefaultPresets() {
-  const currentSelection = dom.patternSelect.value;
-  let addedCount = 0;
-  let updatedCount = 0;
-
-  for (const [name, entry] of Object.entries(DEFAULT_PRESETS)) {
-    const normalizedEntry = normalizePresetEntry(name, entry);
-    if (Object.prototype.hasOwnProperty.call(presets, name)) {
-      const previousEntry = presets[name];
-      const changed = previousEntry.name !== normalizedEntry.name || previousEntry.mode !== normalizedEntry.mode;
-      presets[name] = normalizedEntry;
-      if (changed) updatedCount++;
-      continue;
-    }
-    presets[name] = normalizedEntry;
-    addedCount++;
-  }
-
-  refreshPresetUIAfterChange(currentSelection);
-  markDefaultPresetsPromptHandled();
-  setPresetFeedback(
-    `Updated default progressions: ${addedCount} added, ${updatedCount} renamed/updated.`
-  );
-}
-
-function promptForUpdatedDefaultPresets() {
-  if (dom.presetUpdateMessage) {
-    dom.presetUpdateMessage.textContent = 'The default progression list was updated. Replace your full list, or only add the new entries?';
-  }
-  setPresetUpdateModalVisibility(true);
-}
 
 // ---- Persistence (localStorage) ----
 
-const STORAGE_KEY = 'jazzTrainerSettings';
 const APP_BASE_URL = (import.meta?.env?.BASE_URL) || './';
-const PATTERN_HELP_URL = `${APP_BASE_URL}pattern-suffixes.txt`;
+const PATTERN_HELP_URL = `${APP_BASE_URL}progression-suffixes.txt`;
 const PATTERN_HELP_VERSION = APP_VERSION;
 const DISPLAY_MODE_SHOW_BOTH = 'show-both';
 const DISPLAY_MODE_CHORDS_ONLY = 'chords-only';
@@ -4244,26 +3149,26 @@ function normalizeDisplayMode(mode) {
     : DISPLAY_MODE_SHOW_BOTH;
 }
 
-function saveSettings() {
+function buildSettingsSnapshot() {
   const editingState = isEditingPreset()
     ? {
         type: 'edit',
-        editingPresetName,
-        presetSelectionBeforeEditing,
-        snapshot: editingPresetSnapshot ? {
-          ...editingPresetSnapshot
+        editingPresetName: editingProgressionName,
+        presetSelectionBeforeEditing: progressionSelectionBeforeEditing,
+        snapshot: editingProgressionSnapshot ? {
+          ...editingProgressionSnapshot
         } : null
       }
-    : (isCreatingPreset
+    : (isCreatingProgression
         ? {
             type: 'create',
-            presetSelectionBeforeEditing
+            presetSelectionBeforeEditing: progressionSelectionBeforeEditing
           }
         : null);
-  const settings = {
-    presets,
-    defaultPresetsFingerprintApplied: appliedDefaultPresetsFingerprint || getDefaultPresetsFingerprint(),
-    defaultPresetsVersionAcknowledged: acknowledgedDefaultPresetsVersion || '',
+  return {
+    presets: progressions,
+    defaultPresetsFingerprintApplied: appliedDefaultProgressionsFingerprint || getDefaultProgressionsFingerprint(),
+    defaultPresetsVersionAcknowledged: acknowledgedDefaultProgressionsVersion || '',
     editingState,
     patternSelect: dom.patternSelect.value,
     customPatternName: getCurrentPatternName(),
@@ -4283,130 +3188,132 @@ function saveSettings() {
     drumsVolume: dom.drumsVolume?.value,
     enabledKeys: enabledKeys
   };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch(e) {}
 }
 
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      hadStoredPresets = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets) && Object.keys(s.presets).length > 0);
-      const storedDefaultPresetsFingerprint = typeof s.defaultPresetsFingerprintApplied === 'string'
-        ? s.defaultPresetsFingerprintApplied
-        : '';
-      const storedAcknowledgedVersion = typeof s.defaultPresetsVersionAcknowledged === 'string'
-        ? s.defaultPresetsVersionAcknowledged
-        : '';
-      appliedDefaultPresetsFingerprint = storedDefaultPresetsFingerprint;
-      acknowledgedDefaultPresetsVersion = storedAcknowledgedVersion;
-      savedPatternSelection = typeof s.patternSelect === 'string' ? s.patternSelect : null;
-      if (s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets)) {
-        presets = normalizePresetsMap(s.presets);
-      }
-      renderPresetOptions(s.patternSelect);
-      if (s.patternSelect !== undefined) dom.patternSelect.value = s.patternSelect;
-      if (s.customPatternName !== undefined && dom.patternName) {
-        dom.patternName.value = normalizePresetName(s.customPatternName);
-      }
-      if (s.customPattern !== undefined) dom.customPattern.value = normalizePatternString(s.customPattern);
-      if (s.patternMode !== undefined && dom.patternMode) {
-        setEditorPatternMode(normalizePatternMode(s.patternMode));
-      }
-      if (s.tempo !== undefined) {
-        dom.tempoSlider.value = s.tempo;
-        dom.tempoValue.textContent = s.tempo;
-      }
-      if (s.repetitionsPerKey !== undefined && dom.repetitionsPerKey) {
-        dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(s.repetitionsPerKey));
-      }
-      if (s.transposition !== undefined && dom.transpositionSelect) {
-        dom.transpositionSelect.value = String(s.transposition);
-      }
-      if (s.doubleTime !== undefined) dom.doubleTime.checked = s.doubleTime;
-      if (s.majorMinor !== undefined) {
-        dom.majorMinor.checked = s.majorMinor;
-      }
-      if (s.displayMode !== undefined && dom.displayMode) {
-        dom.displayMode.value = normalizeDisplayMode(s.displayMode);
-      } else if (s.hideChords !== undefined && dom.displayMode) {
-        dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
-      }
-      if (s.alternateDisplaySides !== undefined && dom.alternateDisplaySides) {
-        dom.alternateDisplaySides.checked = Boolean(s.alternateDisplaySides);
-      }
-      if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
-        dom.stringsVolume.value = 0;
-      }
-      if (s.drumsMode !== undefined && dom.drumsSelect) {
-        dom.drumsSelect.value = s.drumsMode;
-      } else if (s.metronome !== undefined && dom.drumsSelect) {
-        dom.drumsSelect.value = s.metronome ? DRUM_MODE_METRONOME_24 : DRUM_MODE_OFF;
-      }
-      if (s.bassVolume !== undefined && dom.bassVolume) dom.bassVolume.value = s.bassVolume;
-      if (s.stringsVolume !== undefined && dom.stringsVolume) dom.stringsVolume.value = s.stringsVolume;
-      if (s.drumsVolume !== undefined && dom.drumsVolume) dom.drumsVolume.value = s.drumsVolume;
-      if (s.enabledKeys !== undefined && Array.isArray(s.enabledKeys) && s.enabledKeys.length === 12) {
-        enabledKeys = s.enabledKeys;
-      }
+function saveSettings() {
+  saveStoredProgressionSettings(buildSettingsSnapshot());
+}
 
-      const storedEditingState = s.editingState && typeof s.editingState === 'object'
-        ? s.editingState
+function applyLoadedSettings(s) {
+  if (!s || typeof s !== 'object') return;
+
+  hadStoredProgressions = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets) && Object.keys(s.presets).length > 0);
+  const storedDefaultPresetsFingerprint = typeof s.defaultPresetsFingerprintApplied === 'string'
+    ? s.defaultPresetsFingerprintApplied
+    : '';
+  const storedAcknowledgedVersion = typeof s.defaultPresetsVersionAcknowledged === 'string'
+    ? s.defaultPresetsVersionAcknowledged
+    : '';
+  appliedDefaultProgressionsFingerprint = storedDefaultPresetsFingerprint;
+  acknowledgedDefaultProgressionsVersion = storedAcknowledgedVersion;
+  savedPatternSelection = typeof s.patternSelect === 'string' ? s.patternSelect : null;
+  if (s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets)) {
+    progressions = normalizeProgressionsMap(s.presets);
+  }
+  renderProgressionOptions(s.patternSelect);
+  if (s.patternSelect !== undefined) dom.patternSelect.value = s.patternSelect;
+  if (s.customPatternName !== undefined && dom.patternName) {
+    dom.patternName.value = normalizePresetName(s.customPatternName);
+  }
+  if (s.customPattern !== undefined) dom.customPattern.value = normalizePatternString(s.customPattern);
+  if (s.patternMode !== undefined && dom.patternMode) {
+    setEditorPatternMode(normalizePatternMode(s.patternMode));
+  }
+  if (s.tempo !== undefined) {
+    dom.tempoSlider.value = s.tempo;
+    dom.tempoValue.textContent = s.tempo;
+  }
+  if (s.repetitionsPerKey !== undefined && dom.repetitionsPerKey) {
+    dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(s.repetitionsPerKey));
+  }
+  if (s.transposition !== undefined && dom.transpositionSelect) {
+    dom.transpositionSelect.value = String(s.transposition);
+  }
+  if (s.doubleTime !== undefined) dom.doubleTime.checked = s.doubleTime;
+  if (s.majorMinor !== undefined) {
+    dom.majorMinor.checked = s.majorMinor;
+  }
+  if (s.displayMode !== undefined && dom.displayMode) {
+    dom.displayMode.value = normalizeDisplayMode(s.displayMode);
+  } else if (s.hideChords !== undefined && dom.displayMode) {
+    dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
+  }
+  if (s.alternateDisplaySides !== undefined && dom.alternateDisplaySides) {
+    dom.alternateDisplaySides.checked = Boolean(s.alternateDisplaySides);
+  }
+  if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
+    dom.stringsVolume.value = 0;
+  }
+  if (s.drumsMode !== undefined && dom.drumsSelect) {
+    dom.drumsSelect.value = s.drumsMode;
+  } else if (s.metronome !== undefined && dom.drumsSelect) {
+    dom.drumsSelect.value = s.metronome ? DRUM_MODE_METRONOME_24 : DRUM_MODE_OFF;
+  }
+  if (s.bassVolume !== undefined && dom.bassVolume) dom.bassVolume.value = s.bassVolume;
+  if (s.stringsVolume !== undefined && dom.stringsVolume) dom.stringsVolume.value = s.stringsVolume;
+  if (s.drumsVolume !== undefined && dom.drumsVolume) dom.drumsVolume.value = s.drumsVolume;
+  if (s.enabledKeys !== undefined && Array.isArray(s.enabledKeys) && s.enabledKeys.length === 12) {
+    enabledKeys = s.enabledKeys;
+  }
+
+  const storedEditingState = s.editingState && typeof s.editingState === 'object'
+    ? s.editingState
+    : null;
+  if (storedEditingState?.type === 'edit') {
+    const storedEditingName = typeof storedEditingState.editingPresetName === 'string'
+      ? storedEditingState.editingPresetName
+      : '';
+    if (storedEditingName && Object.prototype.hasOwnProperty.call(progressions, storedEditingName)) {
+      editingProgressionName = storedEditingName;
+      progressionSelectionBeforeEditing = typeof storedEditingState.presetSelectionBeforeEditing === 'string'
+        ? storedEditingState.presetSelectionBeforeEditing
+        : storedEditingName;
+      const snapshot = storedEditingState.snapshot && typeof storedEditingState.snapshot === 'object'
+        ? storedEditingState.snapshot
         : null;
-      if (storedEditingState?.type === 'edit') {
-        const storedEditingName = typeof storedEditingState.editingPresetName === 'string'
-          ? storedEditingState.editingPresetName
-          : '';
-        if (storedEditingName && Object.prototype.hasOwnProperty.call(presets, storedEditingName)) {
-          editingPresetName = storedEditingName;
-          presetSelectionBeforeEditing = typeof storedEditingState.presetSelectionBeforeEditing === 'string'
-            ? storedEditingState.presetSelectionBeforeEditing
-            : storedEditingName;
-          const snapshot = storedEditingState.snapshot && typeof storedEditingState.snapshot === 'object'
-            ? storedEditingState.snapshot
-            : null;
-          editingPresetSnapshot = snapshot ? {
-            name: typeof snapshot.name === 'string' ? snapshot.name : storedEditingName,
-            label: typeof snapshot.label === 'string' ? snapshot.label : (getPresetEntry(storedEditingName)?.name || ''),
-            pattern: typeof snapshot.pattern === 'string' ? snapshot.pattern : (getPresetEntry(storedEditingName)?.pattern || ''),
-            mode: normalizePatternMode(snapshot.mode)
-          } : {
-            name: storedEditingName,
-            label: getPresetEntry(storedEditingName)?.name || '',
-            pattern: getPresetEntry(storedEditingName)?.pattern || '',
-            mode: normalizePatternMode(getPresetEntry(storedEditingName)?.mode)
-          };
-          isCreatingPreset = false;
-          savedPatternSelection = CUSTOM_PATTERN_OPTION_VALUE;
-          if (dom.patternSelect) {
-            dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-          }
-        }
-      } else if (storedEditingState?.type === 'create') {
-        isCreatingPreset = true;
-        presetSelectionBeforeEditing = typeof storedEditingState.presetSelectionBeforeEditing === 'string'
-          ? storedEditingState.presetSelectionBeforeEditing
-          : '';
-        savedPatternSelection = CUSTOM_PATTERN_OPTION_VALUE;
-        if (dom.patternSelect) {
-          dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-        }
+      editingProgressionSnapshot = snapshot ? {
+        name: typeof snapshot.name === 'string' ? snapshot.name : storedEditingName,
+        label: typeof snapshot.label === 'string' ? snapshot.label : (getProgressionEntry(storedEditingName)?.name || ''),
+        pattern: typeof snapshot.pattern === 'string' ? snapshot.pattern : (getProgressionEntry(storedEditingName)?.pattern || ''),
+        mode: normalizePatternMode(snapshot.mode)
+      } : {
+        name: storedEditingName,
+        label: getProgressionEntry(storedEditingName)?.name || '',
+        pattern: getProgressionEntry(storedEditingName)?.pattern || '',
+        mode: normalizePatternMode(getProgressionEntry(storedEditingName)?.mode)
+      };
+      isCreatingProgression = false;
+      savedPatternSelection = CUSTOM_PATTERN_OPTION_VALUE;
+      if (dom.patternSelect) {
+        dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
       }
-
-      shouldPromptForDefaultPresetsUpdate = hadStoredPresets
-        && acknowledgedDefaultPresetsVersion !== defaultPresetsVersion;
     }
-  } catch(e) {}
+  } else if (storedEditingState?.type === 'create') {
+    isCreatingProgression = true;
+    progressionSelectionBeforeEditing = typeof storedEditingState.presetSelectionBeforeEditing === 'string'
+      ? storedEditingState.presetSelectionBeforeEditing
+      : '';
+    savedPatternSelection = CUSTOM_PATTERN_OPTION_VALUE;
+    if (dom.patternSelect) {
+      dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
+    }
+  }
 
-  if (!appliedDefaultPresetsFingerprint && !hadStoredPresets) {
-    appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
+  shouldPromptForDefaultProgressionsUpdate = hadStoredProgressions
+    && acknowledgedDefaultProgressionsVersion !== defaultProgressionsVersion;
+}
+
+function finalizeLoadedSettings() {
+
+  if (!appliedDefaultProgressionsFingerprint && !hadStoredProgressions) {
+    appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
   }
 
   applyMixerSettings();
   if (dom.repetitionsPerKey) {
     dom.repetitionsPerKey.value = String(getRepetitionsPerKey());
   }
-  if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE || isCreatingPreset) {
+  if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE || isCreatingProgression) {
     lastStandaloneCustomName = normalizePresetName(dom.patternName?.value);
     lastStandaloneCustomPattern = normalizePatternString(dom.customPattern.value);
     lastStandaloneCustomMode = normalizePatternMode(dom.patternMode?.value);
@@ -4416,8 +3323,13 @@ function loadSettings() {
   if (dom.debugToggle) {
     dom.debugToggle.checked = getAnalyticsDebugEnabled();
   }
-  syncPresetManagerState();
+  syncProgressionManagerState();
   applyPatternModeAvailability();
+}
+
+function loadSettings() {
+  applyLoadedSettings(loadStoredProgressionSettings());
+  finalizeLoadedSettings();
 }
 
 async function loadPatternHelp() {
@@ -4466,64 +3378,64 @@ async function loadPatternHelp() {
   }
 }
 
-async function loadDefaultPresets() {
+async function loadDefaultProgressions() {
   try {
-    const versionedUrl = `${DEFAULT_PRESETS_URL}?v=${encodeURIComponent(APP_VERSION)}`;
+    const versionedUrl = `${DEFAULT_PROGRESSIONS_URL}?v=${encodeURIComponent(APP_VERSION)}`;
     let response = await fetch(versionedUrl);
     if (!response.ok) {
-      response = await fetch(DEFAULT_PRESETS_URL);
+      response = await fetch(DEFAULT_PROGRESSIONS_URL);
     }
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    const parsed = parseDefaultPresetsText(await response.text());
-    defaultPresetsVersion = parsed.version || '1';
-    DEFAULT_PRESETS = parsed.presets;
+    const parsed = parseDefaultProgressionsText(await response.text());
+    defaultProgressionsVersion = parsed.version || '1';
+    DEFAULT_PROGRESSIONS = parsed.progressions;
   } catch (err) {
-    defaultPresetsVersion = '1';
-    DEFAULT_PRESETS = {};
-    console.warn('Default presets load failed:', err);
+    defaultProgressionsVersion = '1';
+    DEFAULT_PROGRESSIONS = {};
+    console.warn('Default progressions load failed:', err);
   }
-  presets = normalizePresetsMap(DEFAULT_PRESETS);
+  progressions = normalizeProgressionsMap(DEFAULT_PROGRESSIONS);
 }
 
 async function initializeApp() {
   await Promise.all([
-    loadDefaultPresets(),
+    loadDefaultProgressions(),
     loadPatternHelp()
   ]);
 
-  renderPresetOptions(Object.keys(presets)[0] || '');
+  renderProgressionOptions(Object.keys(progressions)[0] || '');
   loadSettings();
   buildKeyCheckboxes();
   updateKeyPickerLabels();
   applyDisplayMode();
   if (!dom.customPattern.value) {
-    dom.customPattern.value = getSelectedPresetPattern();
+    dom.customPattern.value = getSelectedProgressionPattern();
   }
-  if (hasSelectedPreset()) {
-    dom.patternName.value = getSelectedPresetName();
-    setEditorPatternMode(getSelectedPresetMode());
+  if (hasSelectedProgression()) {
+    dom.patternName.value = getSelectedProgressionName();
+    setEditorPatternMode(getSelectedProgressionMode());
   } else {
     dom.patternName.value = normalizePresetName(dom.patternName.value);
     setEditorPatternMode(normalizePatternMode(dom.patternMode.value));
   }
   if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE) {
     dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  } else if (savedPatternSelection && Object.prototype.hasOwnProperty.call(presets, savedPatternSelection)) {
+  } else if (savedPatternSelection && Object.prototype.hasOwnProperty.call(progressions, savedPatternSelection)) {
     dom.patternSelect.value = savedPatternSelection;
   } else {
     syncPatternSelectionFromInput();
   }
-  syncPresetManagerState();
+  syncProgressionManagerState();
   syncCustomPatternUI();
   applyPatternModeAvailability();
   lastPatternSelectValue = dom.patternSelect.value;
 
-  if (shouldPromptForDefaultPresetsUpdate) {
-    promptForUpdatedDefaultPresets();
-  } else if (!appliedDefaultPresetsFingerprint) {
-    appliedDefaultPresetsFingerprint = getDefaultPresetsFingerprint();
+  if (shouldPromptForDefaultProgressionsUpdate) {
+    promptForUpdatedDefaultProgressions();
+  } else if (!appliedDefaultProgressionsFingerprint) {
+    appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
   }
 
   ensurePageSampleWarmup();
@@ -4608,27 +3520,6 @@ dom.drumsVolume.addEventListener('change', () => {
     volume_percent: Number(dom.drumsVolume.value)
   });
 });
-dom.savePreset?.addEventListener('click', saveCurrentPreset);
-dom.cancelPresetEdit?.addEventListener('click', cancelPresetEdit);
-dom.newPreset?.addEventListener('click', () => startNewPreset());
-dom.managePresets?.addEventListener('click', () => {
-  ensureSessionStarted('preset_manager');
-  registerSessionAction('preset_manager_opened');
-  togglePresetManager();
-});
-dom.closePresetManager?.addEventListener('click', () => {
-  closePresetManager();
-  syncPresetManagerState();
-});
-dom.restoreDefaultPresets?.addEventListener('click', restoreDefaultPresets);
-dom.clearAllPresets?.addEventListener('click', clearAllPresets);
-dom.presetUpdateReplace?.addEventListener('click', replacePresetsWithDefaultList);
-dom.presetUpdateMerge?.addEventListener('click', mergeUpdatedDefaultPresets);
-dom.presetUpdateKeep?.addEventListener('click', () => {
-  markDefaultPresetsPromptHandled();
-  setPresetFeedback('Kept your current progression list.');
-});
-
 function applyDisplayMode() {
   const display = document.getElementById('display');
   const mode = normalizeDisplayMode(dom.displayMode?.value);

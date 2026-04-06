@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
-const publicDir = path.join(projectRoot, 'Public');
+const publicDir = path.join(projectRoot, 'public');
 const scriptMode = process.argv[2] || 'public';
 
 const filesToSync = [
-  'default-presets.txt',
+  'default-progressions.txt',
   'favicon.svg',
-  'pattern-suffixes.txt'
+  'progression-suffixes.txt'
 ];
 
 const directoriesToSyncForBuild = [
@@ -47,7 +47,7 @@ async function syncDirectoriesToBuild(targetDir, label) {
 }
 
 if (scriptMode === 'public' || scriptMode === 'all') {
-  await syncToDirectory(publicDir, 'Public');
+  await syncToDirectory(publicDir, 'public');
 }
 
 if (scriptMode === 'build' || scriptMode === 'all') {

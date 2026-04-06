@@ -454,7 +454,7 @@ input[type="range"] {
   word-break: break-word;
 }
 
-#preset-feedback {
+#progression-feedback {
   color: var(--text-faint);
   display: flex;
   align-items: center;
@@ -462,11 +462,11 @@ input[type="range"] {
   flex-wrap: wrap;
 }
 
-#preset-feedback.error-text {
+#progression-feedback.error-text {
   color: var(--danger);
 }
 
-.preset-feedback-action {
+.progression-feedback-action {
   padding: 0.3rem 0.65rem;
   border: 1px solid rgba(110, 198, 255, 0.28);
   border-radius: 999px;
@@ -478,7 +478,7 @@ input[type="range"] {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.preset-feedback-action:hover {
+.progression-feedback-action:hover {
   background: rgba(110, 198, 255, 0.12);
   border-color: rgba(110, 198, 255, 0.42);
 }
@@ -605,14 +605,14 @@ input[type="range"] {
   display: none;
 }
 
-.preset-manager-row {
+.progression-manager-row {
   border: 0;
   min-width: 0;
   padding: 0;
   margin-top: 0.75rem;
 }
 
-.preset-manager-grid {
+.progression-manager-grid {
   display: grid;
   grid-template-columns: auto auto;
   gap: 0.6rem;
@@ -620,14 +620,14 @@ input[type="range"] {
   justify-content: start;
 }
 
-#save-preset,
-#cancel-preset-edit,
-#new-preset,
-#edit-preset,
-#delete-preset,
-#manage-presets,
-#restore-default-presets,
-#clear-all-presets {
+#save-progression,
+#cancel-progression-edit,
+#new-progression,
+#edit-progression,
+#delete-progression,
+#manage-progressions,
+#restore-default-progressions,
+#clear-all-progressions {
   padding: 0.55rem 0.85rem;
   font-size: 0.88rem;
   font-weight: 600;
@@ -638,109 +638,109 @@ input[type="range"] {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-#save-preset {
+#save-progression {
   background: var(--accent);
   color: var(--bg);
 }
 
-#save-preset:hover {
+#save-progression:hover {
   background: var(--accent-warm);
 }
 
-#cancel-preset-edit {
+#cancel-progression-edit {
   background: rgba(142, 160, 182, 0.14);
   border-color: rgba(142, 160, 182, 0.28);
   color: var(--text-muted);
 }
 
-#cancel-preset-edit:hover:not(:disabled) {
+#cancel-progression-edit:hover:not(:disabled) {
   background: rgba(142, 160, 182, 0.22);
 }
 
-#new-preset {
+#new-progression {
   background: rgba(110, 198, 255, 0.12);
   border-color: rgba(110, 198, 255, 0.28);
   color: #dce8f5;
 }
 
-#new-preset:hover:not(:disabled) {
+#new-progression:hover:not(:disabled) {
   background: rgba(110, 198, 255, 0.2);
   border-color: rgba(110, 198, 255, 0.4);
 }
 
-#edit-preset {
+#edit-progression {
   background: rgba(110, 198, 255, 0.12);
   border-color: rgba(110, 198, 255, 0.28);
   color: #dce8f5;
 }
 
-#edit-preset:hover:not(:disabled) {
+#edit-progression:hover:not(:disabled) {
   background: rgba(110, 198, 255, 0.2);
   border-color: rgba(110, 198, 255, 0.4);
 }
 
-#delete-preset {
+#delete-progression {
   background: rgba(201, 108, 125, 0.14);
   border-color: rgba(201, 108, 125, 0.28);
   color: #f0d7df;
 }
 
-#delete-preset:hover:not(:disabled) {
+#delete-progression:hover:not(:disabled) {
   background: rgba(201, 108, 125, 0.22);
   border-color: rgba(201, 108, 125, 0.4);
 }
 
-#manage-presets {
+#manage-progressions {
   background: rgba(110, 198, 255, 0.12);
   border-color: rgba(110, 198, 255, 0.28);
   color: #dce8f5;
 }
 
-#manage-presets:hover:not(:disabled) {
+#manage-progressions:hover:not(:disabled) {
   background: rgba(110, 198, 255, 0.2);
   border-color: rgba(110, 198, 255, 0.4);
 }
 
-#restore-default-presets {
+#restore-default-progressions {
   background: rgba(110, 198, 255, 0.12);
   border-color: rgba(110, 198, 255, 0.28);
   color: #dce8f5;
 }
 
-#restore-default-presets:hover {
+#restore-default-progressions:hover {
   background: rgba(110, 198, 255, 0.2);
   border-color: rgba(110, 198, 255, 0.4);
 }
 
-#clear-all-presets {
+#clear-all-progressions {
   background: rgba(201, 108, 125, 0.14);
   border-color: rgba(201, 108, 125, 0.28);
   color: #f0d7df;
 }
 
-#clear-all-presets:hover:not(:disabled) {
+#clear-all-progressions:hover:not(:disabled) {
   background: rgba(201, 108, 125, 0.22);
   border-color: rgba(201, 108, 125, 0.4);
 }
 
-#save-preset.hidden,
-#cancel-preset-edit.hidden,
-#new-preset.hidden,
-#edit-preset.hidden,
-#delete-preset.hidden,
-#manage-presets.hidden,
-#restore-default-presets.hidden {
+#save-progression.hidden,
+#cancel-progression-edit.hidden,
+#new-progression.hidden,
+#edit-progression.hidden,
+#delete-progression.hidden,
+#manage-progressions.hidden,
+#restore-default-progressions.hidden {
   display: none;
 }
 
-#cancel-preset-edit:disabled,
-#edit-preset:disabled,
-#delete-preset:disabled {
+#cancel-progression-edit:disabled,
+#edit-progression:disabled,
+#delete-progression:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.preset-manager-panel {
+.progression-manager-panel {
   margin-top: 0.9rem;
   padding: 0.85rem;
   border: 1px solid var(--border);
@@ -748,11 +748,11 @@ input[type="range"] {
   background: var(--panel-strong);
 }
 
-.preset-manager-panel.hidden {
+.progression-manager-panel.hidden {
   display: none;
 }
 
-.preset-manager-panel-header {
+.progression-manager-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -760,14 +760,14 @@ input[type="range"] {
   margin-bottom: 0.7rem;
 }
 
-.preset-manager-panel-heading {
+.progression-manager-panel-heading {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.2rem;
 }
 
-.preset-manager-panel-title {
+.progression-manager-panel-title {
   font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -775,12 +775,12 @@ input[type="range"] {
   color: var(--text);
 }
 
-.preset-manager-panel-hint {
+.progression-manager-panel-hint {
   font-size: 0.8rem;
   color: var(--accent-cool);
 }
 
-.preset-manager-back-button {
+.progression-manager-back-button {
   padding: 0.4rem 0.75rem;
   border: 1px solid rgba(110, 198, 255, 0.28);
   border-radius: 999px;
@@ -791,17 +791,17 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.preset-manager-back-button:hover {
+.progression-manager-back-button:hover {
   background: rgba(110, 198, 255, 0.12);
   border-color: rgba(110, 198, 255, 0.42);
 }
 
-.preset-manager-list {
+.progression-manager-list {
   display: grid;
   gap: 0.45rem;
 }
 
-.preset-manager-item {
+.progression-manager-item {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.7rem;
@@ -812,41 +812,41 @@ input[type="range"] {
   background: #182543;
 }
 
-.preset-manager-item.is-selected {
+.progression-manager-item.is-selected {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px rgba(226, 183, 20, 0.2);
 }
 
-.preset-manager-item.is-dragging {
+.progression-manager-item.is-dragging {
   opacity: 0.55;
 }
 
-.preset-manager-item.drop-before {
+.progression-manager-item.drop-before {
   box-shadow: inset 0 2px 0 var(--accent);
 }
 
-.preset-manager-item.drop-after {
+.progression-manager-item.drop-after {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-.preset-manager-handle {
+.progression-manager-handle {
   color: var(--text-soft);
   cursor: grab;
   font-size: 1rem;
   user-select: none;
 }
 
-.preset-manager-item-name {
+.progression-manager-item-name {
   min-width: 0;
   font-size: 0.88rem;
   color: #dfe8f2;
 }
 
-.preset-manager-item-mode {
+.progression-manager-item-mode {
   color: var(--text-soft);
 }
 
-.preset-manager-item-delete {
+.progression-manager-item-delete {
   padding: 0.45rem 0.7rem;
   border: 1px solid rgba(201, 108, 125, 0.28);
   border-radius: var(--radius-sm);
@@ -857,18 +857,18 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.preset-manager-item-delete:hover {
+.progression-manager-item-delete:hover {
   background: rgba(201, 108, 125, 0.22);
   border-color: rgba(201, 108, 125, 0.4);
 }
 
-.preset-manager-item-actions {
+.progression-manager-item-actions {
   display: flex;
   gap: 0.4rem;
 }
 
-.preset-manager-item-edit,
-.preset-manager-item-copy {
+.progression-manager-item-edit,
+.progression-manager-item-copy {
   padding: 0.45rem 0.7rem;
   border: 1px solid rgba(226, 183, 20, 0.22);
   border-radius: var(--radius-sm);
@@ -879,13 +879,13 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.preset-manager-item-edit:hover,
-.preset-manager-item-copy:hover {
+.progression-manager-item-edit:hover,
+.progression-manager-item-copy:hover {
   background: rgba(226, 183, 20, 0.18);
   border-color: rgba(226, 183, 20, 0.35);
 }
 
-.preset-manager-undo-placeholder {
+.progression-manager-undo-placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -896,13 +896,13 @@ input[type="range"] {
   background: rgba(201, 108, 125, 0.06);
 }
 
-.preset-manager-undo-message {
+.progression-manager-undo-message {
   font-size: 0.84rem;
   color: var(--text-soft);
   font-style: italic;
 }
 
-.preset-manager-undo-button {
+.progression-manager-undo-button {
   padding: 0.4rem 0.75rem;
   border: 1px solid rgba(226, 183, 20, 0.28);
   border-radius: var(--radius-sm);
@@ -913,12 +913,12 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.preset-manager-undo-button:hover {
+.progression-manager-undo-button:hover {
   background: rgba(226, 183, 20, 0.22);
   border-color: rgba(226, 183, 20, 0.4);
 }
 
-.preset-manager-actions {
+.progression-manager-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
@@ -1370,36 +1370,36 @@ input[type="range"] {
     grid-column: auto;
   }
 
-  .preset-manager-grid {
+  .progression-manager-grid {
     grid-template-columns: 1fr;
   }
 
-  .preset-manager-panel-header {
+  .progression-manager-panel-header {
     align-items: flex-start;
     flex-wrap: wrap;
   }
 
-  .preset-manager-actions {
+  .progression-manager-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem;
   }
 
-  .preset-manager-actions button {
+  .progression-manager-actions button {
     width: 100%;
   }
 
-  .preset-manager-item {
+  .progression-manager-item {
     grid-template-columns: auto 1fr;
     align-items: start;
   }
 
-  .preset-manager-item-actions {
+  .progression-manager-item-actions {
     grid-column: 2;
     flex-wrap: wrap;
   }
 
-  .preset-manager-item-mode {
+  .progression-manager-item-mode {
     display: none;
   }
 }

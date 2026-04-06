@@ -8,7 +8,7 @@ const packageJson = JSON.parse(readFileSync(fileURLToPath(packageJsonUrl), 'utf8
 
 export default defineConfig({
   base: './',
-  publicDir: 'Public',
+  publicDir: 'public',
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version)
   },
