@@ -10,8 +10,10 @@ const scriptMode = process.argv[2] || 'public';
 
 const filesToSync = [
   'default-progressions.txt',
+  'demo.html',
   'favicon.svg',
-  'progression-suffixes.txt'
+  'progression-suffixes.txt',
+  'style.css'
 ];
 
 const directoriesToSyncForBuild = [
