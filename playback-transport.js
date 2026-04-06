@@ -19,6 +19,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     prepareNextProgression,
     registerSessionAction,
     scheduleBeat,
+    setDisplayPlaceholderVisible,
     stopActiveChordVoices,
     stopScheduledAudio,
     trackEvent,
@@ -32,6 +33,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
 
     state.isPlaying = true;
     state.isPaused = false;
+    setDisplayPlaceholderVisible(false);
     dom.startStop.textContent = 'Stop';
     dom.startStop.classList.add('running');
     dom.pause.classList.remove('hidden', 'paused');
@@ -87,6 +89,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     });
     state.isPlaying = false;
     state.isPaused = false;
+    setDisplayPlaceholderVisible(true);
     dom.startStop.textContent = 'Start';
     dom.startStop.classList.remove('running');
     dom.pause.classList.add('hidden');

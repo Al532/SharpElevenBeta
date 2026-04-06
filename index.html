@@ -15,19 +15,21 @@
 <body>
   <div id="app">
     <header class="app-header">
-      <div class="feedback-banner">
-        <a href="mailto:alcibiade.minel@gmail.com">Share your feedback!</a>
+      <div class="app-header-links" aria-label="Project links">
+        <a class="app-header-link" href="./demo.html">Demo</a>
+        <a class="app-header-link" href="mailto:alcibiade.minel@gmail.com">Share your feedback!</a>
       </div>
-      <div id="app-version"></div>
       <h1>Jazz Progression Trainer</h1>
+      <p class="app-subtitle">Practice jazz progressions in all 12 keys &mdash; build automaticity for improvisation.</p>
     </header>
 
     <main class="app-layout">
       <section class="surface-block surface-display" aria-label="Current progression">
-        <div class="section-heading">
-          <span class="section-kicker">Display</span>
-        </div>
+        <div id="selected-keys-summary" class="selected-keys-summary hidden" aria-live="polite"></div>
         <div id="display">
+          <div id="display-placeholder" class="display-placeholder">
+            <p>Choose a progression, then press Start.</p>
+          </div>
           <div id="display-columns">
             <div id="current-header" class="col-header"></div>
             <div id="next-header" class="col-header hidden">Next</div>
@@ -250,6 +252,20 @@
                 </select>
               </label>
             </div>
+            <div class="control-row">
+              <label for="next-preview-value">Show next ahead</label>
+              <div class="next-preview-controls">
+                <input type="number" id="next-preview-value" min="0" step="0.25" value="1">
+                <label class="mode-toggle next-preview-mode-toggle" for="next-preview-unit-toggle">
+                  <input type="checkbox" id="next-preview-unit-toggle">
+                  <span class="mode-toggle-track" aria-hidden="true">
+                    <span class="mode-option mode-option-major">Bars</span>
+                    <span class="mode-option mode-option-minor">Seconds</span>
+                  </span>
+                </label>
+              </div>
+              <div id="next-preview-hint" class="hint">1 bar ahead</div>
+            </div>
             <div class="toggle-row">
               <label class="toggle-label">
                 <input type="checkbox" id="alternate-display-sides">
@@ -268,6 +284,10 @@
         </div>
       </section>
     </main>
+
+    <footer class="app-footer">
+      <div id="app-version"></div>
+    </footer>
   </div>
 
   <div id="progression-update-modal" class="modal-overlay hidden" aria-hidden="true">

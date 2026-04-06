@@ -12,6 +12,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     fitHarmonyDisplay,
     getCurrentPatternString,
     getIntroDisplaySide,
+    getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getSecondsPerBeat,
     hideNextCol,
@@ -151,7 +152,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   function scheduleBeat() {
     const spb = getSecondsPerBeat();
     const doubleTime = dom.doubleTime.checked;
-    const chordsPerMeasure = doubleTime ? 2 : 1;
     const beatsPerChord = doubleTime ? 2 : 4;
 
     while (state.nextBeatTime < state.audioCtx.currentTime + SCHEDULE_AHEAD) {
@@ -224,19 +224,19 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         state.lastPlayedChordIdx = state.currentChordIdx;
       }
 
-      const totalMeasures = state.paddedChords.length / chordsPerMeasure;
-      const currentMeasure = Math.floor(state.currentChordIdx / chordsPerMeasure);
-      const onLastMeasure = currentMeasure === totalMeasures - 1;
-
       const dispBeat = state.currentBeat;
       const dispChord = chord;
       const dispKey = state.currentKey;
       const dispNextKey = state.nextKeyValue;
-      const dispLastMeas = onLastMeasure;
-      const dispNextFirstChord = onLastMeasure ? state.nextRawChords[0] || null : null;
+      const dispRemainingBeats = getRemainingBeatsUntilNextProgression(
+        state.currentChordIdx,
+        state.currentBeat,
+        state.paddedChords.length
+      );
+      const dispNextFirstChord = state.nextRawChords[0] || null;
       const dispCurrentSide = state.currentDisplaySide;
       scheduleDisplay(state.nextBeatTime, () => {
-        if (!dispLastMeas) {
+        if (!shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           dom.nextKeyDisplay.textContent = '';
           dom.nextChordDisplay.textContent = '';
           hideNextCol();
@@ -244,11 +244,11 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         applyDisplaySideLayout(dispCurrentSide);
         dom.keyDisplay.textContent = keyName(dispKey);
         dom.chordDisplay.textContent = chordSymbol(dispKey, dispChord);
-        if (dispLastMeas && shouldShowNextPreview(dispKey, dispNextKey)) {
+        if (shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           showNextCol();
           dom.nextKeyDisplay.textContent = keyName(dispNextKey);
           dom.nextChordDisplay.textContent = dispNextFirstChord ? chordSymbol(dispNextKey, dispNextFirstChord) : '';
-        } else if (dispLastMeas) {
+        } else {
           dom.nextKeyDisplay.textContent = '';
           dom.nextChordDisplay.textContent = '';
           hideNextCol();

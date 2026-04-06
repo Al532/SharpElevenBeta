@@ -76,8 +76,11 @@ const {
 const PATTERN_MODE_BOTH = 'both';
 const PATTERN_MODE_MAJOR = 'major';
 const PATTERN_MODE_MINOR = 'minor';
+const NEXT_PREVIEW_UNIT_BARS = 'bars';
+const NEXT_PREVIEW_UNIT_SECONDS = 'seconds';
 const DEFAULT_PROGRESSIONS_URL = './default-progressions.txt';
 const DEFAULT_REPETITIONS_PER_KEY = 1;
+const DEFAULT_NEXT_PREVIEW_LEAD_BARS = 1;
 
 const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
 const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
@@ -96,6 +99,8 @@ const SCHEDULE_INTERVAL = 25; // ms
 
 const dom = {
   appVersion:      document.getElementById('app-version'),
+  selectedKeysSummary: document.getElementById('selected-keys-summary'),
+  displayPlaceholder: document.getElementById('display-placeholder'),
   keyDisplay:      document.getElementById('key-display'),
   chordDisplay:    document.getElementById('chord-display'),
   nextHeader:      document.getElementById('next-header'),
@@ -137,6 +142,9 @@ const dom = {
   tempoValue:      document.getElementById('tempo-value'),
   repetitionsPerKey: document.getElementById('repetitions-per-key'),
   transpositionSelect: document.getElementById('transposition-select'),
+  nextPreviewValue: document.getElementById('next-preview-value'),
+  nextPreviewUnitToggle: document.getElementById('next-preview-unit-toggle'),
+  nextPreviewHint: document.getElementById('next-preview-hint'),
   doubleTime:      document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
@@ -2208,7 +2216,9 @@ function getEffectiveKeyPool() {
   for (let i = 0; i < 12; i++) {
     if (enabledKeys[i]) pool.push(i);
   }
-  if (pool.length === 0) pool = [0]; // fallback to C
+  if (pool.length === 0) {
+    pool = Array.from({ length: 12 }, (_, index) => index);
+  }
   if (dom.majorMinor.checked && !isOneChordModeActive()) {
     pool = pool.map(k => (k - 3 + 12) % 12);
   }
@@ -2337,8 +2347,23 @@ function hideNextCol() {
   fitHarmonyDisplay();
 }
 
-function shouldShowNextPreview(currentKeyValue, upcomingKeyValue) {
-  return upcomingKeyValue !== null && upcomingKeyValue !== currentKeyValue;
+function setDisplayPlaceholderVisible(visible) {
+  dom.displayPlaceholder?.classList.toggle('hidden', !visible);
+}
+
+function getRemainingBeatsUntilNextProgression(chordIndex = currentChordIdx, beatInMeasure = currentBeat, chordCount = paddedChords.length) {
+  if (!Number.isFinite(chordCount) || chordCount <= 0) return 0;
+  const doubleTime = dom.doubleTime.checked;
+  const chordsPerMeasure = doubleTime ? 2 : 1;
+  const totalMeasures = chordCount / chordsPerMeasure;
+  const currentMeasure = Math.floor(chordIndex / chordsPerMeasure);
+  const elapsedBeats = currentMeasure * 4 + beatInMeasure;
+  return Math.max(0, totalMeasures * 4 - elapsedBeats);
+}
+
+function shouldShowNextPreview(currentKeyValue, upcomingKeyValue, remainingBeats = getRemainingBeatsUntilNextProgression()) {
+  if (upcomingKeyValue === null || upcomingKeyValue === currentKeyValue) return false;
+  return remainingBeats * getSecondsPerBeat() <= getNextPreviewLeadSeconds();
 }
 
 function shouldAlternateDisplaySides() {
@@ -2433,10 +2458,102 @@ let nextPaddedChords = [];
 let nextVoicingPlan = [];
 let loopVoicingTemplate = null; // saved voicing plan from first loop iteration
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
+let nextPreviewLeadValue = DEFAULT_NEXT_PREVIEW_LEAD_BARS;
+let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
 const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 
 function getSecondsPerBeat() {
   return 60 / Number(dom.tempoSlider.value);
+}
+
+function normalizeNextPreviewUnit(unit) {
+  return unit === NEXT_PREVIEW_UNIT_SECONDS ? NEXT_PREVIEW_UNIT_SECONDS : NEXT_PREVIEW_UNIT_BARS;
+}
+
+function normalizeNextPreviewLeadValue(value) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_NEXT_PREVIEW_LEAD_BARS;
+  return Math.min(32, Math.max(0, Math.round(parsed * 100) / 100));
+}
+
+function formatPreviewNumber(value, maximumFractionDigits = 2) {
+  const rounded = Math.round(Number(value || 0) * 100) / 100;
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits,
+    minimumFractionDigits: 0
+  }).format(rounded);
+}
+
+function barsToSeconds(bars) {
+  return normalizeNextPreviewLeadValue(bars) * 4 * getSecondsPerBeat();
+}
+
+function secondsToBars(seconds) {
+  const parsed = Number.parseFloat(seconds);
+  if (!Number.isFinite(parsed)) return nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_BARS ? nextPreviewLeadValue : DEFAULT_NEXT_PREVIEW_LEAD_BARS;
+  return normalizeNextPreviewLeadValue(parsed / (4 * getSecondsPerBeat()));
+}
+
+function getNextPreviewInputUnit() {
+  return nextPreviewLeadUnit;
+}
+
+function setNextPreviewInputUnit(unit) {
+  nextPreviewLeadUnit = normalizeNextPreviewUnit(unit);
+  if (!dom.nextPreviewUnitToggle) return;
+  dom.nextPreviewUnitToggle.checked = nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_SECONDS;
+}
+
+function getNextPreviewLeadSeconds() {
+  return nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_SECONDS
+    ? nextPreviewLeadValue
+    : barsToSeconds(nextPreviewLeadValue);
+}
+
+function getNextPreviewLeadBars() {
+  return nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_BARS
+    ? nextPreviewLeadValue
+    : secondsToBars(nextPreviewLeadValue);
+}
+
+function formatBarsLabel(value) {
+  return `${formatPreviewNumber(value)} ${value === 1 ? 'bar' : 'bars'}`;
+}
+
+function syncNextPreviewControlDisplay() {
+  const unit = getNextPreviewInputUnit();
+  if (dom.nextPreviewValue) {
+    dom.nextPreviewValue.value = formatPreviewNumber(nextPreviewLeadValue, unit === NEXT_PREVIEW_UNIT_SECONDS ? 1 : 2);
+    dom.nextPreviewValue.step = unit === NEXT_PREVIEW_UNIT_SECONDS ? '0.1' : '0.25';
+  }
+  if (dom.nextPreviewHint) {
+    const tempo = Number(dom.tempoSlider?.value || 120);
+    dom.nextPreviewHint.textContent = unit === NEXT_PREVIEW_UNIT_SECONDS
+      ? `${formatBarsLabel(getNextPreviewLeadBars())} at ${tempo} BPM`
+      : `${formatPreviewNumber(getNextPreviewLeadSeconds(), 1)} seconds at ${tempo} BPM`;
+  }
+}
+
+function commitNextPreviewValueFromInput() {
+  const rawValue = Number.parseFloat(dom.nextPreviewValue?.value ?? '');
+  if (!Number.isFinite(rawValue)) {
+    syncNextPreviewControlDisplay();
+    return;
+  }
+  nextPreviewLeadValue = normalizeNextPreviewLeadValue(rawValue);
+  syncNextPreviewControlDisplay();
+  refreshDisplayedHarmony();
+}
+
+function convertNextPreviewValueToUnit(nextUnit) {
+  const normalizedNextUnit = normalizeNextPreviewUnit(nextUnit);
+  if (normalizedNextUnit === nextPreviewLeadUnit) return;
+
+  const valueInSeconds = getNextPreviewLeadSeconds();
+  nextPreviewLeadUnit = normalizedNextUnit;
+  nextPreviewLeadValue = normalizedNextUnit === NEXT_PREVIEW_UNIT_SECONDS
+    ? normalizeNextPreviewLeadValue(valueInSeconds)
+    : secondsToBars(valueInSeconds);
 }
 
 function toAnalyticsToken(value, fallback = 'unknown') {
@@ -2450,6 +2567,23 @@ function toAnalyticsToken(value, fallback = 'unknown') {
 
 function getEnabledKeyCount() {
   return enabledKeys.filter(Boolean).length;
+}
+
+function syncSelectedKeysSummary() {
+  if (!dom.selectedKeysSummary) return;
+
+  const selectedKeys = enabledKeys
+    .map((isEnabled, index) => (isEnabled ? keyLabelForPicker(index) : ''))
+    .filter(Boolean);
+
+  if (selectedKeys.length === 0 || selectedKeys.length === 12) {
+    dom.selectedKeysSummary.textContent = '';
+    dom.selectedKeysSummary.classList.add('hidden');
+    return;
+  }
+
+  dom.selectedKeysSummary.textContent = `Keys: ${selectedKeys.join(' · ')}`;
+  dom.selectedKeysSummary.classList.remove('hidden');
 }
 
 function getTempoBucket() {
@@ -2857,6 +2991,7 @@ const {
     getBassMidi,
     getCurrentPatternString,
     getIntroDisplaySide,
+    getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getSecondsPerBeat,
     hideNextCol,
@@ -2944,6 +3079,7 @@ const { start, stop, togglePause } = createPlaybackTransport({
     prepareNextProgression: prepareNextProgressionPlayback,
     registerSessionAction,
     scheduleBeat: scheduleBeatPlayback,
+    setDisplayPlaceholderVisible,
     stopActiveChordVoices,
     stopScheduledAudio,
     trackEvent,
@@ -2961,6 +3097,31 @@ dom.pause.addEventListener('click', togglePause);
 
 dom.tempoSlider.addEventListener('input', () => {
   dom.tempoValue.textContent = dom.tempoSlider.value;
+  syncNextPreviewControlDisplay();
+  refreshDisplayedHarmony();
+});
+
+dom.nextPreviewValue?.addEventListener('change', () => {
+  commitNextPreviewValueFromInput();
+  saveSettings();
+  trackEvent('next_preview_changed', {
+    next_preview_unit: getNextPreviewInputUnit(),
+    next_preview_bars: formatPreviewNumber(getNextPreviewLeadBars()),
+    next_preview_seconds: formatPreviewNumber(getNextPreviewLeadSeconds(), 1)
+  });
+});
+
+dom.nextPreviewUnitToggle?.addEventListener('change', () => {
+  convertNextPreviewValueToUnit(
+    dom.nextPreviewUnitToggle.checked ? NEXT_PREVIEW_UNIT_SECONDS : NEXT_PREVIEW_UNIT_BARS
+  );
+  setNextPreviewInputUnit(nextPreviewLeadUnit);
+  syncNextPreviewControlDisplay();
+  refreshDisplayedHarmony();
+  saveSettings();
+  trackEvent('next_preview_unit_changed', {
+    next_preview_unit: getNextPreviewInputUnit()
+  });
 });
 
 // ---- Key Picker ----
@@ -2977,6 +3138,7 @@ function buildKeyCheckboxes() {
     cb.addEventListener('change', () => {
       enabledKeys[i] = cb.checked;
       keyPool = []; // reset pool
+      syncSelectedKeysSummary();
       saveSettings();
       trackEvent('key_selection_changed', {
         enabled_keys: getEnabledKeyCount(),
@@ -2990,6 +3152,7 @@ function buildKeyCheckboxes() {
     label.appendChild(span);
     dom.keyCheckboxes.appendChild(label);
   }
+  syncSelectedKeysSummary();
 }
 
 function setAllKeysEnabled(isEnabled) {
@@ -2998,6 +3161,7 @@ function setAllKeysEnabled(isEnabled) {
     checkbox.checked = enabledKeys[index];
   });
   keyPool = [];
+  syncSelectedKeysSummary();
   saveSettings();
 }
 
@@ -3007,6 +3171,7 @@ function invertKeysEnabled() {
     checkbox.checked = enabledKeys[index];
   });
   keyPool = [];
+  syncSelectedKeysSummary();
   saveSettings();
 }
 
@@ -3027,6 +3192,7 @@ function updateKeyPickerLabels() {
   labels.forEach((label, i) => {
     label.querySelector('span').textContent = keyLabelForPicker(i);
   });
+  syncSelectedKeysSummary();
 }
 
 function refreshDisplayedHarmony() {
@@ -3049,14 +3215,9 @@ function refreshDisplayedHarmony() {
 
   dom.keyDisplay.textContent = keyName(currentKey);
   dom.chordDisplay.textContent = chordSymbol(currentKey, chord);
+  const remainingBeats = getRemainingBeatsUntilNextProgression();
 
-  const doubleTime = dom.doubleTime.checked;
-  const chordsPerMeasure = doubleTime ? 2 : 1;
-  const totalMeasures = paddedChords.length / chordsPerMeasure;
-  const currentMeasure = Math.floor(currentChordIdx / chordsPerMeasure);
-  const onLastMeasure = currentMeasure === totalMeasures - 1;
-
-  if (onLastMeasure && shouldShowNextPreview(currentKey, nextKeyValue)) {
+  if (shouldShowNextPreview(currentKey, nextKeyValue, remainingBeats)) {
     showNextCol();
     const nextFirstChord = nextRawChords[0] || null;
     dom.nextKeyDisplay.textContent = keyName(nextKeyValue);
@@ -3177,6 +3338,8 @@ function buildSettingsSnapshot() {
     tempo: dom.tempoSlider.value,
     repetitionsPerKey: getRepetitionsPerKey(),
     transposition: dom.transpositionSelect.value,
+    nextPreviewLeadValue,
+    nextPreviewUnit: getNextPreviewInputUnit(),
     doubleTime: dom.doubleTime.checked,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
@@ -3228,6 +3391,16 @@ function applyLoadedSettings(s) {
   }
   if (s.transposition !== undefined && dom.transpositionSelect) {
     dom.transpositionSelect.value = String(s.transposition);
+  }
+  if (s.nextPreviewLeadValue !== undefined) {
+    nextPreviewLeadValue = normalizeNextPreviewLeadValue(s.nextPreviewLeadValue);
+  } else if (s.nextPreviewLeadBars !== undefined) {
+    nextPreviewLeadValue = normalizeNextPreviewLeadValue(s.nextPreviewLeadBars);
+  }
+  if (s.nextPreviewUnit !== undefined) {
+    setNextPreviewInputUnit(s.nextPreviewUnit);
+  } else {
+    setNextPreviewInputUnit(NEXT_PREVIEW_UNIT_BARS);
   }
   if (s.doubleTime !== undefined) dom.doubleTime.checked = s.doubleTime;
   if (s.majorMinor !== undefined) {
@@ -3310,6 +3483,7 @@ function finalizeLoadedSettings() {
   }
 
   applyMixerSettings();
+  syncNextPreviewControlDisplay();
   if (dom.repetitionsPerKey) {
     dom.repetitionsPerKey.value = String(getRepetitionsPerKey());
   }
@@ -3442,6 +3616,7 @@ async function initializeApp() {
 }
 
 initializeApp();
+setDisplayPlaceholderVisible(true);
 
 // Save on every change
 dom.tempoSlider.addEventListener('change', saveSettings);
