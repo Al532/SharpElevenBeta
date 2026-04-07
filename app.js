@@ -92,7 +92,7 @@ const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
 const CELLO_LOW = 37;  // MIDI C#2
 const CELLO_HIGH = 80; // MIDI G#5
 const VIOLIN_LOW = 56; // MIDI G#3
-const VIOLIN_HIGH = 96;// MIDI C7
+const VIOLIN_HIGH = 84; // MIDI C6
 const GUIDE_TONE_LOW = 49;  // MIDI C#3 — bottom of guide tone range
 const GUIDE_TONE_HIGH = 60; // MIDI C4  — top of guide tone range
 const SCHEDULE_AHEAD = 0.1;  // seconds
@@ -823,8 +823,7 @@ function applyMixerSettings() {
 
 async function preloadSamples() {
   const bassRange = getBassPreloadRange();
-  const stringRanges = getStringPreloadRanges();
-  const pianoRange = getPianoPreloadRange();
+  const { celloNotes, violinNotes, pianoNotes } = buildAllRequiredSampleNoteSets();
 
   await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
   const drumPromises = [loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL)];
@@ -832,9 +831,9 @@ async function preloadSamples() {
     drumPromises.push(loadFileSample('drums', `ride_${index}`, url));
   });
   await Promise.all(drumPromises);
-  await loadSampleRange('cello', 'Cellos', stringRanges.cello.low, stringRanges.cello.high);
-  await loadSampleRange('violin', 'Violins', VIOLIN_LOW, VIOLIN_HIGH);
-  await loadSampleRange('piano', 'Piano', pianoRange.low, pianoRange.high);
+  await loadSampleList('cello', 'Cellos', celloNotes);
+  await loadSampleList('violin', 'Violins', violinNotes);
+  await loadSampleList('piano', 'Piano', pianoNotes);
 }
 
 function loadTrackedSample(category, key, loader) {
@@ -1435,18 +1434,17 @@ async function loadSampleList(category, folder, midiValues) {
 function buildAllSampleFetchDescriptors() {
   const descriptors = [];
   const bassRange = getBassPreloadRange();
-  const stringRanges = getStringPreloadRanges();
-  const pianoRange = getPianoPreloadRange();
+  const { celloNotes, violinNotes, pianoNotes } = buildAllRequiredSampleNoteSets();
 
   descriptors.push(DRUM_HIHAT_SAMPLE_URL);
   DRUM_RIDE_SAMPLE_URLS.forEach(url => descriptors.push(url));
-  for (let midi = stringRanges.cello.low; midi <= stringRanges.cello.high; midi++) {
+  for (const midi of [...celloNotes].sort((a, b) => a - b)) {
     descriptors.push(`assets/MP3/Cellos/${midi}.mp3`);
   }
-  for (let midi = VIOLIN_LOW; midi <= VIOLIN_HIGH; midi++) {
+  for (const midi of [...violinNotes].sort((a, b) => a - b)) {
     descriptors.push(`assets/MP3/Violins/${midi}.mp3`);
   }
-  for (let midi = pianoRange.low; midi <= pianoRange.high; midi++) {
+  for (const midi of [...pianoNotes].sort((a, b) => a - b)) {
     descriptors.push(`assets/MP3/Piano/${midi}.mp3`);
   }
   for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
@@ -2085,27 +2083,29 @@ function buildVoicingPlan(chords, key, isMinor) {
   return buildVoicingPlanForSlots(slots);
 }
 
-function getStringPreloadRanges() {
-  let celloLow = Infinity;
-  let celloHigh = -Infinity;
+function buildAllRequiredSampleNoteSets() {
+  const celloNotes = new Set();
+  const violinNotes = new Set();
+  const pianoNotes = new Set();
 
-  const registerVoicing = (voicing) => {
-    if (!voicing) return;
-
-    celloLow = Math.min(celloLow, voicing.fundamental, ...voicing.guideTones);
-    celloHigh = Math.max(celloHigh, voicing.fundamental, ...voicing.guideTones);
+  const processCandidates = (candidates) => {
+    for (const voicing of candidates) {
+      if (!voicing) continue;
+      compingEngine.collectSampleNotes('strings', voicing, { celloNotes, violinNotes, pianoNotes });
+      compingEngine.collectSampleNotes('piano', voicing, { celloNotes, violinNotes, pianoNotes });
+    }
   };
 
   for (let rootPitchClass = 0; rootPitchClass < 12; rootPitchClass++) {
     for (const [qualityCategory, colorToneIntervals] of Object.entries(COLOR_TONES)) {
-      registerVoicing(
-        computeChordVoicing(rootPitchClass, qualityCategory, resolveIntervalList(colorToneIntervals))
+      processCandidates(
+        enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, resolveIntervalList(colorToneIntervals))
       );
     }
 
     for (const [subtype, colorToneIntervals] of Object.entries(DOMINANT_COLOR_TONES)) {
-      registerVoicing(
-        computeChordVoicing(
+      processCandidates(
+        enumerateChordVoicingCandidates(
           rootPitchClass,
           'dom',
           resolveIntervalList(colorToneIntervals),
@@ -2115,14 +2115,7 @@ function getStringPreloadRanges() {
     }
   }
 
-  return {
-    cello: { low: celloLow, high: celloHigh },
-    violin: { low: VIOLIN_LOW, high: VIOLIN_HIGH }
-  };
-}
-
-function getPianoPreloadRange() {
-  return { low: 36, high: 96 };
+  return { celloNotes, violinNotes, pianoNotes };
 }
 
 function getVoicing(key, chord, isMinor) {
