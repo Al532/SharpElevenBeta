@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir, readFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,6 +7,8 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const publicDir = path.join(projectRoot, 'public');
 const scriptMode = process.argv[2] || 'public';
+const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
+const appVersion = packageJson.version;
 
 const filesToSync = [
   'default-progressions.txt',
@@ -19,6 +21,10 @@ const filesToSync = [
 const directoriesToSyncForBuild = [
   'assets'
 ];
+
+const templatedFiles = new Set([
+  'demo.html'
+]);
 
 async function getBuildOutDir() {
   const viteConfigPath = path.join(projectRoot, 'vite.config.js');
@@ -34,7 +40,13 @@ async function syncToDirectory(targetDir, label) {
   for (const relativePath of filesToSync) {
     const sourcePath = path.join(projectRoot, relativePath);
     const destinationPath = path.join(targetDir, relativePath);
-    await copyFile(sourcePath, destinationPath);
+    if (templatedFiles.has(relativePath)) {
+      const sourceContent = await readFile(sourcePath, 'utf8');
+      const renderedContent = sourceContent.replaceAll('__APP_VERSION__', appVersion);
+      await writeFile(destinationPath, renderedContent, 'utf8');
+    } else {
+      await copyFile(sourcePath, destinationPath);
+    }
     console.log(`Synced ${relativePath} -> ${label}/${relativePath}`);
   }
 }
