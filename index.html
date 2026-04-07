@@ -173,6 +173,16 @@
 
           <div class="control-row toggles">
             <div class="toggle-row">
+              <label class="toggle-label toggle-select-label" for="comping-style">
+                <span>Comping style</span>
+                <select id="comping-style">
+                  <option value="off">Off</option>
+                  <option value="strings" selected>Strings</option>
+                  <option value="piano">Piano</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-row">
               <label class="toggle-label toggle-select-label" for="drums-select">
                 <span>Drums</span>
                 <select id="drums-select">
@@ -198,7 +208,7 @@
                 </div>
               </label>
               <label class="mixer-slider" for="strings-volume">
-                <span>Strings</span>
+                <span>Comping</span>
                 <div class="mixer-slider-row">
                   <input type="range" id="strings-volume" min="0" max="100" value="100">
                   <output id="strings-volume-value" for="strings-volume">100%</output>

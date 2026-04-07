@@ -3,14 +3,17 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   const {
     applyDisplaySideLayout,
     buildLegacyVoicingPlan,
+    buildPreparedCompingPlans,
     buildLoopRepVoicings,
     buildVoicingPlanForSlots,
     canLoopTrimProgression,
     chordSymbol,
+    compingEngine,
     createOneChordToken,
     createVoicingSlot,
     fitHarmonyDisplay,
     getCurrentPatternString,
+    getCompingStyle,
     getIntroDisplaySide,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
@@ -23,7 +26,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     padProgression,
     parseOneChordSpec,
     parsePattern,
-    playChord,
     playClick,
     playNote,
     scheduleDrumsForBeat,
@@ -37,6 +39,11 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
   function prepareNextProgression() {
     const previousKey = state.currentKey;
+    const currentPlanAnticipatesNextStart = Boolean(state.currentCompingPlan?.anticipatesNextStart);
+    const previousTotalBeats = state.paddedChords.length * (dom.doubleTime.checked ? 2 : 4);
+    const currentPreviousTailBeats = state.currentCompingPlan?.events?.length
+      ? Math.max(0, previousTotalBeats - state.currentCompingPlan.events[state.currentCompingPlan.events.length - 1].timeBeats)
+      : null;
     if (state.nextKeyValue !== null && shouldAlternateDisplaySides()) {
       toggleCurrentDisplaySide();
     }
@@ -132,6 +139,13 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
     state.currentChordIdx = 0;
     state.lastPlayedChordIdx = -1;
+    buildPreparedCompingPlans(
+        state.currentKeyRepetition === 1 && state.nextKeyValue !== null && previousKey === state.currentKey
+          ? null
+          : previousKey,
+        currentPlanAnticipatesNextStart,
+        currentPreviousTailBeats
+      );
   }
 
   function scheduleDisplay(audioTime, fn) {
@@ -187,6 +201,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
       const chord = state.paddedChords[state.currentChordIdx];
       const noteDuration = beatsPerChord * spb;
+      const chordsPerMeasure = doubleTime ? 2 : 1;
+      const windowStartBeats = Math.floor(state.currentChordIdx / chordsPerMeasure) * 4 + state.currentBeat;
+      const windowEndBeats = windowStartBeats + 1;
       const isChordBeat = doubleTime
         ? (state.currentBeat === 0 || state.currentBeat === 2)
         : (state.currentBeat === 0);
@@ -215,13 +232,31 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
           const midi = helpers.getBassMidi(state.currentKey, chord.semitones);
           playNote(midi, state.nextBeatTime, sustainDuration);
-
-          if (isChordsEnabled()) {
-            const isMinor = dom.majorMinor.checked;
-            playChord(state.paddedChords, state.currentKey, state.currentChordIdx, isMinor, state.nextBeatTime, noteDuration);
-          }
         }
         state.lastPlayedChordIdx = state.currentChordIdx;
+      }
+
+      if (isChordsEnabled()) {
+        const isMinor = dom.majorMinor.checked;
+        compingEngine.scheduleWindow({
+          style: getCompingStyle(),
+          progression: {
+            chords: state.paddedChords,
+            key: state.currentKey,
+            isMinor,
+          },
+          plan: state.currentCompingPlan,
+          nextProgression: {
+            chords: state.nextPaddedChords,
+            key: state.nextKeyValue,
+            isMinor,
+          },
+          slotDuration: noteDuration,
+          windowStartBeats,
+          windowEndBeats,
+          beatStartTime: state.nextBeatTime,
+          secondsPerBeat: spb,
+        });
       }
 
       const dispBeat = state.currentBeat;

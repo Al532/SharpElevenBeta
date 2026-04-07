@@ -12,6 +12,8 @@ import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
 import { loadStoredProgressionSettings, saveStoredProgressionSettings } from './progression-storage.js';
+import { createCompingEngine } from './comping-engine.js';
+import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './display-placeholder-messages.js';
 import voicingConfig from './voicing-config.js';
 
 /* ============================================================
@@ -80,7 +82,10 @@ const NEXT_PREVIEW_UNIT_BARS = 'bars';
 const NEXT_PREVIEW_UNIT_SECONDS = 'seconds';
 const DEFAULT_PROGRESSIONS_URL = './default-progressions.txt';
 const DEFAULT_REPETITIONS_PER_KEY = 1;
+const COMPING_STYLE_OFF = 'off';
 const DEFAULT_NEXT_PREVIEW_LEAD_BARS = 1;
+const COMPING_STYLE_STRINGS = 'strings';
+const COMPING_STYLE_PIANO = 'piano';
 
 const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
 const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
@@ -107,6 +112,7 @@ const dom = {
   nextHeader:      document.getElementById('next-header'),
   nextKeyDisplay:  document.getElementById('next-key-display'),
   nextChordDisplay:document.getElementById('next-chord-display'),
+  compingStyle:    document.getElementById('comping-style'),
   drumsSelect:     document.getElementById('drums-select'),
   patternHelp:     document.getElementById('pattern-help'),
   patternPicker:   document.getElementById('pattern-picker'),
@@ -229,6 +235,12 @@ function normalizePatternString(pattern) {
     .replace(/-/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function normalizeCompingStyle(style) {
+  return [COMPING_STYLE_OFF, COMPING_STYLE_STRINGS, COMPING_STYLE_PIANO].includes(style)
+    ? style
+    : COMPING_STYLE_STRINGS;
 }
 
 function normalizeRepetitionsPerKey(value) {
@@ -712,12 +724,13 @@ function buildLoopRepVoicings(template, paddedLength, isFirstRep) {
 
 let audioCtx = null;
 let mixerNodes = null;
-const sampleBuffers = { bass: {}, cello: {}, violin: {}, drums: {} };
+const sampleBuffers = { bass: {}, cello: {}, violin: {}, piano: {}, drums: {} };
 const sampleFileBuffers = new Map();
 const sampleLoadPromises = {
   bass: new Map(),
   cello: new Map(),
   violin: new Map(),
+  piano: new Map(),
   drums: new Map()
 };
 const sampleFileFetchPromises = new Map();
@@ -782,7 +795,11 @@ function sliderValueToGain(slider) {
 }
 
 function isChordsEnabled() {
-  return sliderValueToGain(dom.stringsVolume) > 0;
+  return getCompingStyle() !== COMPING_STYLE_OFF && sliderValueToGain(dom.stringsVolume) > 0;
+}
+
+function getCompingStyle() {
+  return normalizeCompingStyle(dom.compingStyle?.value);
 }
 
 function updateMixerValueLabel(slider, output) {
@@ -807,6 +824,7 @@ function applyMixerSettings() {
 async function preloadSamples() {
   const bassRange = getBassPreloadRange();
   const stringRanges = getStringPreloadRanges();
+  const pianoRange = getPianoPreloadRange();
 
   await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
   const drumPromises = [loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL)];
@@ -816,6 +834,7 @@ async function preloadSamples() {
   await Promise.all(drumPromises);
   await loadSampleRange('cello', 'Cellos', stringRanges.cello.low, stringRanges.cello.high);
   await loadSampleRange('violin', 'Violins', VIOLIN_LOW, VIOLIN_HIGH);
+  await loadSampleRange('piano', 'Piano', pianoRange.low, pianoRange.high);
 }
 
 function loadTrackedSample(category, key, loader) {
@@ -909,7 +928,6 @@ const STRING_LEGATO_HOLD_TIME = 0.1; // seconds
 const STRING_LEGATO_FADE_TIME = 0.2; // seconds
 const AUTOMATION_CURVE_STEPS = 32;
 let activeNoteGain = null; // current bass note's GainNode for early cutoff
-let activeChordVoices = new Map(); // active string voices by "instrument:midi"
 const scheduledAudioSources = new Set();
 const pendingDisplayTimeouts = new Set();
 
@@ -953,24 +971,7 @@ function stopScheduledAudio(stopTime = audioCtx?.currentTime ?? 0) {
 }
 
 function stopActiveChordVoices(stopTime = audioCtx?.currentTime ?? 0, fadeDuration = NOTE_FADEOUT) {
-  const fadeEnd = stopTime + fadeDuration;
-
-  for (const voice of activeChordVoices.values()) {
-    try {
-      voice.gain.gain.cancelScheduledValues(stopTime);
-      voice.gain.gain.setValueAtTime(voice.gain.gain.value, stopTime);
-      voice.gain.gain.linearRampToValueAtTime(0, fadeEnd);
-    } catch (err) {
-      // Ignore nodes that have already been disconnected or stopped.
-    }
-
-    if (voice.stop) {
-      voice.stop(fadeEnd);
-    }
-    voice.audibleUntil = Math.min(voice.audibleUntil, fadeEnd);
-  }
-
-  activeChordVoices.clear();
+  compingEngine.stopActiveComping(stopTime, fadeDuration);
 }
 
 function playNote(midi, time, maxDuration) {
@@ -1172,42 +1173,10 @@ function playSample(category, midi, time, maxDuration, volume) {
 }
 
 const CHORD_ANTICIPATION = 0.25; // seconds — strings start before the beat
-
-function getChordVoiceEntries(voicing) {
-  if (!voicing) return [];
-
-  const entries = [
-    {
-      key: `cello:${voicing.fundamental}`,
-      category: 'cello',
-      midi: voicing.fundamental,
-      role: 'fundamental',
-      volume: 10.0 * CHORD_VOLUME_MULTIPLIER,
-    },
-  ];
-
-  for (const midi of voicing.guideTones) {
-    entries.push({
-      key: `cello:${midi}`,
-      category: 'cello',
-      midi,
-      role: 'guide',
-      volume: 16.5 * CHORD_VOLUME_MULTIPLIER,
-    });
-  }
-
-  for (const midi of voicing.colorTones) {
-    entries.push({
-      key: `violin:${midi}`,
-      category: 'violin',
-      midi,
-      role: 'color',
-      volume: 6.5 * CHORD_VOLUME_MULTIPLIER,
-    });
-  }
-
-  return entries;
-}
+const PIANO_COMP_DURATION_RATIO = 0.28;
+const PIANO_COMP_MIN_DURATION = 0.09;
+const PIANO_COMP_MAX_DURATION = 0.18;
+const PIANO_VOLUME_MULTIPLIER = 0.21;
 
 function getNextDifferentChord(chords, startIdx) {
   const chord = chords[startIdx];
@@ -1239,183 +1208,67 @@ function getPreparedNextProgression() {
     key: nextKeyValue,
     chords: nextPaddedChords,
     voicingPlan: nextVoicingPlan,
+    compingPlan: nextCompingPlan,
+    isMinor: dom.majorMinor.checked,
   };
 }
 
-function getVoiceSustainSlots(chords, key, chordIdx, voiceKey, isMinor, nextProgression = null) {
-  let sustainSlots = 1;
-  let reachesSequenceEnd = true;
+const compingEngine = createCompingEngine({
+  constants: {
+    AUTOMATION_CURVE_STEPS,
+    CHORD_ANTICIPATION,
+    CHORD_FADE_DUR,
+    CHORD_VOLUME_MULTIPLIER,
+    NOTE_FADEOUT,
+    PIANO_COMP_DURATION_RATIO,
+    PIANO_COMP_MAX_DURATION,
+    PIANO_COMP_MIN_DURATION,
+    PIANO_VOLUME_MULTIPLIER,
+    PORTAMENTO_ALWAYS_ON,
+    STRING_LEGATO_FADE_TIME,
+    STRING_LEGATO_GLIDE_TIME,
+    STRING_LEGATO_HOLD_TIME,
+    STRING_LEGATO_MAX_DISTANCE,
+    STRING_LEGATO_PRE_DIP_RATIO,
+    STRING_LEGATO_PRE_DIP_TIME,
+  },
+  helpers: {
+    getAudioContext: () => audioCtx,
+    getPreparedNextProgression,
+    getVoicingAtIndex,
+    playSample,
+  },
+});
 
-  for (let i = chordIdx + 1; i < chords.length; i++) {
-    const nextVoicing = getVoicingAtIndex(chords, key, i, isMinor);
-    const nextVoiceKeys = new Set(getChordVoiceEntries(nextVoicing).map(voice => voice.key));
-    if (!nextVoiceKeys.has(voiceKey)) {
-      reachesSequenceEnd = false;
-      break;
-    }
-    sustainSlots++;
-  }
-
-  if (!nextProgression || !reachesSequenceEnd) {
-    return sustainSlots;
-  }
-
-  for (let i = 0; i < nextProgression.chords.length; i++) {
-    const nextVoicing = getVoicingAtIndex(nextProgression.chords, nextProgression.key, i, isMinor);
-    const nextVoiceKeys = new Set(getChordVoiceEntries(nextVoicing).map(voice => voice.key));
-    if (!nextVoiceKeys.has(voiceKey)) break;
-    sustainSlots++;
-  }
-
-  return sustainSlots;
-}
-
-function fadeOutChordVoice(voice, fadeStart, fadeEnd) {
-  voice.gain.gain.cancelScheduledValues(fadeStart);
-  voice.gain.gain.setValueAtTime(voice.volume, fadeStart);
-  voice.gain.gain.linearRampToValueAtTime(0, fadeEnd);
-  if (voice.stop) {
-    voice.stop(fadeEnd);
-  }
-  voice.audibleUntil = Math.min(voice.audibleUntil, fadeEnd);
-}
-
-function pruneExpiredChordVoices(time) {
-  for (const [voiceKey, voice] of activeChordVoices.entries()) {
-    if (voice.audibleUntil <= time) {
-      activeChordVoices.delete(voiceKey);
-    }
-  }
-}
-
-function scheduleEaseOutAutomation(param, startTime, endTime, startValue, endValue) {
-  const duration = endTime - startTime;
-  if (duration <= 0) {
-    param.setValueAtTime(endValue, endTime);
-    return;
-  }
-
-  const curve = new Float32Array(AUTOMATION_CURVE_STEPS);
-  for (let i = 0; i < AUTOMATION_CURVE_STEPS; i++) {
-    const t = i / (AUTOMATION_CURVE_STEPS - 1);
-    const eased = 1 - Math.pow(1 - t, 2);
-    curve[i] = startValue + (endValue - startValue) * eased;
-  }
-
-  param.setValueCurveAtTime(curve, startTime, duration);
-}
-
-function findLegatoTransitions(exitingVoices, targetVoices) {
-  if (exitingVoices.length === 0 || targetVoices.length === 0) return new Map();
-
-  const transitions = new Map();
-  const remainingTargets = [...targetVoices];
-  const sortedVoices = [...exitingVoices].sort((a, b) => b.midi - a.midi);
-
-  for (const voice of sortedVoices) {
-    let bestTargetIndex = -1;
-    let bestDistance = Infinity;
-
-    for (let i = 0; i < remainingTargets.length; i++) {
-      const target = remainingTargets[i];
-      const distance = Math.abs(target.midi - voice.midi);
-      if (distance > STRING_LEGATO_MAX_DISTANCE) continue;
-      if (distance < bestDistance || (distance === bestDistance && target.midi > remainingTargets[bestTargetIndex]?.midi)) {
-        bestTargetIndex = i;
-        bestDistance = distance;
-      }
-    }
-
-    if (bestTargetIndex === -1) continue;
-    transitions.set(voice, remainingTargets[bestTargetIndex]);
-    remainingTargets.splice(bestTargetIndex, 1);
-  }
-
-  return transitions;
-}
-
-function applyLegatoFadeOut(voice, targetMidi, targetTime) {
-  if (!voice?.detuneParams?.length) return false;
-
-  const startTime = Math.max(targetTime - STRING_LEGATO_GLIDE_TIME, audioCtx.currentTime);
-  const dipStart = Math.max(startTime - STRING_LEGATO_PRE_DIP_TIME, audioCtx.currentTime);
-  const glideEnd = startTime + STRING_LEGATO_GLIDE_TIME;
-  const holdEnd = glideEnd + STRING_LEGATO_HOLD_TIME;
-  const fadeEnd = holdEnd + STRING_LEGATO_FADE_TIME;
-  const detuneAmount = (targetMidi - voice.midi) * 100;
-  const dippedVolume = voice.volume * STRING_LEGATO_PRE_DIP_RATIO;
-
-  for (const detune of voice.detuneParams) {
-    detune.cancelScheduledValues(dipStart);
-    detune.setValueAtTime(0, startTime);
-    scheduleEaseOutAutomation(detune, startTime, glideEnd, 0, detuneAmount);
-  }
-
-  voice.gain.gain.cancelScheduledValues(dipStart);
-  voice.gain.gain.setValueAtTime(voice.volume, dipStart);
-  scheduleEaseOutAutomation(voice.gain.gain, dipStart, startTime, voice.volume, dippedVolume);
-  voice.gain.gain.setValueAtTime(dippedVolume, glideEnd);
-  voice.gain.gain.setValueAtTime(dippedVolume, holdEnd);
-  scheduleEaseOutAutomation(voice.gain.gain, holdEnd, fadeEnd, dippedVolume, 0);
-
-  if (voice.stop) {
-    voice.stop(fadeEnd);
-  }
-  voice.audibleUntil = Math.min(voice.audibleUntil, fadeEnd);
-  return true;
-}
-
-function playChord(chords, key, chordIdx, isMinor, time, slotDuration) {
-  const voicing = getVoicingAtIndex(chords, key, chordIdx, isMinor);
-  if (!voicing) return;
-
-  const earlyTime = Math.max(time - CHORD_ANTICIPATION, audioCtx.currentTime);
-  pruneExpiredChordVoices(earlyTime);
-  const targetVoiceKeys = new Set();
-  const nextProgression = getPreparedNextProgression();
-  const targetVoices = getChordVoiceEntries(voicing);
-
-  for (const voice of targetVoices) {
-    targetVoiceKeys.add(voice.key);
-    if (activeChordVoices.has(voice.key)) continue;
-
-    const sustainSlots = getVoiceSustainSlots(chords, key, chordIdx, voice.key, isMinor, nextProgression);
-    const adjustedDuration = sustainSlots * slotDuration + CHORD_ANTICIPATION;
-    const activeVoice = playSample(voice.category, voice.midi, earlyTime, adjustedDuration, voice.volume);
-    if (activeVoice) {
-      activeVoice.role = voice.role;
-      activeVoice.endAnchor.onended = () => {
-        const currentVoice = activeChordVoices.get(voice.key);
-        if (currentVoice === activeVoice) {
-          activeChordVoices.delete(voice.key);
-        }
-      };
-      activeChordVoices.set(voice.key, activeVoice);
-    }
-  }
-
-  const exitingVoices = [];
-  for (const [voiceKey, voice] of activeChordVoices.entries()) {
-    if (targetVoiceKeys.has(voiceKey)) continue;
-    if (voice.role === 'guide') {
-      exitingVoices.push(voice);
-    }
-  }
-
-  const eligibleTargetVoices = targetVoices.filter(voice => voice.role === 'guide');
-  const legatoTransitions = findLegatoTransitions(exitingVoices, eligibleTargetVoices);
-
-  for (const [voiceKey, voice] of activeChordVoices.entries()) {
-    if (targetVoiceKeys.has(voiceKey)) continue;
-    const legatoTarget = PORTAMENTO_ALWAYS_ON ? legatoTransitions.get(voice) : null;
-    const usedLegato = legatoTarget
-      && applyLegatoFadeOut(voice, legatoTarget.midi, time);
-    if (!usedLegato) {
-      const fadeStart = Math.max(time, audioCtx.currentTime);
-      fadeOutChordVoice(voice, fadeStart, fadeStart + CHORD_FADE_DUR);
-    }
-    activeChordVoices.delete(voiceKey);
-  }
+function rebuildPreparedCompingPlans(
+  previousKey = currentKey,
+  currentHasIncomingAnticipation = false,
+  currentPreviousTailBeats = null
+) {
+  const beatsPerChord = dom.doubleTime.checked ? 2 : 4;
+  const isMinor = dom.majorMinor.checked;
+  const { currentPlan, nextPlan } = compingEngine.buildPreparedPlans({
+    style: getCompingStyle(),
+    previousKey,
+    currentHasIncomingAnticipation,
+    currentPreviousTailBeats,
+    current: {
+      chords: paddedChords,
+      key: currentKey,
+      isMinor,
+      voicingPlan: currentVoicingPlan,
+      beatsPerChord,
+    },
+    next: {
+      chords: nextPaddedChords,
+      key: nextKeyValue,
+      isMinor,
+      voicingPlan: nextVoicingPlan,
+      beatsPerChord,
+    },
+  });
+  currentCompingPlan = currentPlan;
+  nextCompingPlan = nextPlan;
 }
 
 function playClick(time, accent) {
@@ -1583,6 +1436,7 @@ function buildAllSampleFetchDescriptors() {
   const descriptors = [];
   const bassRange = getBassPreloadRange();
   const stringRanges = getStringPreloadRanges();
+  const pianoRange = getPianoPreloadRange();
 
   descriptors.push(DRUM_HIHAT_SAMPLE_URL);
   DRUM_RIDE_SAMPLE_URLS.forEach(url => descriptors.push(url));
@@ -1591,6 +1445,9 @@ function buildAllSampleFetchDescriptors() {
   }
   for (let midi = VIOLIN_LOW; midi <= VIOLIN_HIGH; midi++) {
     descriptors.push(`assets/MP3/Violins/${midi}.mp3`);
+  }
+  for (let midi = pianoRange.low; midi <= pianoRange.high; midi++) {
+    descriptors.push(`assets/MP3/Piano/${midi}.mp3`);
   }
   for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
     descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
@@ -1602,6 +1459,8 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
   const bassNotes = new Set();
   const celloNotes = new Set();
   const violinNotes = new Set();
+  const pianoNotes = new Set();
+  const compingStyle = getCompingStyle();
 
   const registerProgression = (chords, key, voicingPlan, chordLimit = null) => {
     if (!Array.isArray(chords) || key === null || key === undefined) return;
@@ -1615,9 +1474,7 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
 
     for (const voicing of (voicingPlan || []).slice(0, limitedChords.length)) {
       if (!voicing) continue;
-      celloNotes.add(voicing.fundamental);
-      for (const midi of voicing.guideTones || []) celloNotes.add(midi);
-      for (const midi of voicing.colorTones || []) violinNotes.add(midi);
+      compingEngine.collectSampleNotes(compingStyle, voicing, { celloNotes, violinNotes, pianoNotes });
     }
   };
 
@@ -1628,12 +1485,12 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
     registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan, nextChordLimit);
   }
 
-  return { bassNotes, celloNotes, violinNotes };
+  return { bassNotes, celloNotes, violinNotes, pianoNotes };
 }
 
 async function preloadStartupSamples() {
   const startupChordLimit = dom.doubleTime.checked ? 2 : 1;
-  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes({
+  const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
     includeCurrent: true,
     includeNext: false,
     currentChordLimit: startupChordLimit
@@ -1655,6 +1512,7 @@ async function preloadStartupSamples() {
   await Promise.all(drumPromises);
   await loadSampleList('cello', 'Cellos', celloNotes);
   await loadSampleList('violin', 'Violins', violinNotes);
+  await loadSampleList('piano', 'Piano', pianoNotes);
 }
 
 function getSafetyLeadChordCount() {
@@ -1667,7 +1525,7 @@ async function preloadNearTermSamples() {
   const currentChordLimit = Math.min(paddedChords.length, targetChordCount);
   const remainingChordCount = Math.max(0, targetChordCount - currentChordLimit);
   const nextChordLimit = Math.min(nextPaddedChords.length, remainingChordCount);
-  const { bassNotes, celloNotes, violinNotes } = collectRequiredSampleNotes({
+  const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
     includeCurrent: currentChordLimit > 0,
     includeNext: nextChordLimit > 0,
     currentChordLimit,
@@ -1676,6 +1534,7 @@ async function preloadNearTermSamples() {
 
   await loadSampleList('cello', 'Cellos', celloNotes);
   await loadSampleList('violin', 'Violins', violinNotes);
+  await loadSampleList('piano', 'Piano', pianoNotes);
   await loadSampleList('bass', 'Bass', bassNotes);
 }
 
@@ -1768,6 +1627,78 @@ function getCandidateMidisForPitchClass(pitchClass, minExclusive, low = VIOLIN_L
   return midis;
 }
 
+function getGapFillCandidates(lowerNote, upperNote, colorPitchClasses, existingNotes) {
+  const candidates = [];
+  const seen = new Set();
+
+  for (const pitchClass of colorPitchClasses) {
+    let midi = pitchClass;
+    while (midi <= lowerNote || midi < VIOLIN_LOW) midi += 12;
+    while (midi < upperNote && midi <= VIOLIN_HIGH) {
+      if (!existingNotes.has(midi) && !seen.has(midi)) {
+        candidates.push(midi);
+        seen.add(midi);
+      }
+      midi += 12;
+    }
+  }
+
+  return candidates;
+}
+
+function pickBestGapFill(lowerNote, upperNote, candidates) {
+  if (!candidates.length) return null;
+  const midpoint = (lowerNote + upperNote) / 2;
+
+  return candidates.slice().sort((left, right) => {
+    const leftLargestGap = Math.max(left - lowerNote, upperNote - left);
+    const rightLargestGap = Math.max(right - lowerNote, upperNote - right);
+    if (leftLargestGap !== rightLargestGap) return leftLargestGap - rightLargestGap;
+
+    const leftMidDistance = Math.abs(left - midpoint);
+    const rightMidDistance = Math.abs(right - midpoint);
+    if (leftMidDistance !== rightMidDistance) return leftMidDistance - rightMidDistance;
+
+    return left - right;
+  })[0];
+}
+
+function fillVoicingUpperGaps(guideTones, colorTones, colorPitchClasses) {
+  const augmentedColorTones = [...colorTones];
+
+  while (true) {
+    const upperNotes = [...guideTones, ...augmentedColorTones].sort((a, b) => a - b);
+    let widestGap = null;
+
+    for (let i = 1; i < upperNotes.length; i++) {
+      const lowerNote = upperNotes[i - 1];
+      const upperNote = upperNotes[i];
+      const gap = upperNote - lowerNote;
+      if (gap > 12 && (!widestGap || gap > widestGap.gap)) {
+        widestGap = { lowerNote, upperNote, gap };
+      }
+    }
+
+    if (!widestGap) {
+      return augmentedColorTones.sort((a, b) => a - b);
+    }
+
+    const existingNotes = new Set(upperNotes);
+    const fillCandidates = getGapFillCandidates(
+      widestGap.lowerNote,
+      widestGap.upperNote,
+      colorPitchClasses,
+      existingNotes
+    );
+    const filler = pickBestGapFill(widestGap.lowerNote, widestGap.upperNote, fillCandidates);
+    if (filler === null) {
+      return null;
+    }
+
+    augmentedColorTones.push(filler);
+  }
+}
+
 function enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
   const base = buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals);
   const { fundamental, guideTones, colorPitchClasses, topGuide } = base;
@@ -1786,9 +1717,13 @@ function enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, colorT
   function visitOption(optionIndex) {
     if (optionIndex >= colorToneOptions.length) {
       const colorTones = [...current].sort((a, b) => a - b);
-      const key = colorTones.join(',');
+      const filledColorTones = fillVoicingUpperGaps(guideTones, colorTones, colorPitchClasses);
+      if (!filledColorTones) {
+        return;
+      }
+      const key = filledColorTones.join(',');
       if (!candidateMap.has(key)) {
-        candidateMap.set(key, { fundamental, guideTones, colorTones });
+        candidateMap.set(key, { fundamental, guideTones, colorTones: filledColorTones });
       }
       return;
     }
@@ -1823,6 +1758,12 @@ function sumNotes(notes) {
   return notes.reduce((total, note) => total + note, 0);
 }
 
+function getVoicingUpperSpan(voicing) {
+  const upperNotes = [...(voicing?.guideTones || []), ...(voicing?.colorTones || [])].sort((a, b) => a - b);
+  if (upperNotes.length < 2) return 0;
+  return upperNotes[upperNotes.length - 1] - upperNotes[0];
+}
+
 function getVoicingTopNote(voicing) {
   if (!voicing?.colorTones?.length) {
     return Math.max(voicing?.fundamental || -Infinity, ...(voicing?.guideTones || []));
@@ -1831,6 +1772,7 @@ function getVoicingTopNote(voicing) {
 }
 
 const VOICING_RANDOMIZATION_CHANCE = 0.3;
+const VOICING_BOUNDARY_RANDOMIZATION_CHANCE = 0.3;
 const VOICING_RANDOM_TOP_SLACK = 1;
 const VOICING_RANDOM_BOUNDARY_SLACK = 2;
 const VOICING_RANDOM_CENTER_SLACK = 5;
@@ -1916,6 +1858,7 @@ function buildVoicingPlanForSlots(slots) {
     totalTopMovement: 0,
     totalBoundaryTopMovement: 0,
     totalBoundaryCenterDistance: candidate ? Math.abs(getVoicingTopNote(candidate) - topCenter) : 0,
+    totalUpperSpan: candidate ? getVoicingUpperSpan(candidate) : 0,
     totalTopSum: candidate ? getVoicingTopNote(candidate) : 0,
     totalInnerMovement: 0,
     prevIndex: -1,
@@ -1948,6 +1891,7 @@ function buildVoicingPlanForSlots(slots) {
           totalTopMovement: prevScore.totalTopMovement + inPatternTopMovement,
           totalBoundaryTopMovement: prevScore.totalBoundaryTopMovement + boundaryTopMovement,
           totalBoundaryCenterDistance: prevScore.totalBoundaryCenterDistance + boundaryCenterDistance,
+          totalUpperSpan: prevScore.totalUpperSpan + (candidate ? getVoicingUpperSpan(candidate) : 0),
           totalTopSum: prevScore.totalTopSum + (candidate ? getVoicingTopNote(candidate) : 0),
           totalInnerMovement: prevScore.totalInnerMovement + innerMovement,
           prevIndex,
@@ -1955,7 +1899,10 @@ function buildVoicingPlanForSlots(slots) {
         };
         candidateScores.push(candidateScore);
       }
-      return pickVoicingScore(candidateScores);
+      const randomizationChance = crossesBoundary
+        ? VOICING_BOUNDARY_RANDOMIZATION_CHANCE
+        : VOICING_RANDOMIZATION_CHANCE;
+      return pickVoicingScore(candidateScores, randomizationChance);
     });
 
     scoreRows.push(nextScores);
@@ -1987,6 +1934,9 @@ function compareVoicingPathScores(left, right) {
   }
   if (left.totalBoundaryTopMovement !== right.totalBoundaryTopMovement) {
     return left.totalBoundaryTopMovement - right.totalBoundaryTopMovement;
+  }
+  if (left.totalUpperSpan !== right.totalUpperSpan) {
+    return right.totalUpperSpan - left.totalUpperSpan;
   }
   if (left.totalTopSum !== right.totalTopSum) {
     return left.totalTopSum - right.totalTopSum;
@@ -2023,6 +1973,7 @@ function getVoicingScorePenalty(score, bestScore) {
   return (score.totalTopMovement - bestScore.totalTopMovement) * 6
     + (score.totalBoundaryCenterDistance - bestScore.totalBoundaryCenterDistance) * 2
     + (score.totalBoundaryTopMovement - bestScore.totalBoundaryTopMovement) * 4
+    + Math.max(0, bestScore.totalUpperSpan - score.totalUpperSpan) * 0.75
     + (score.totalTopSum - bestScore.totalTopSum) * 0.25
     + (score.totalInnerMovement - bestScore.totalInnerMovement) * 0.5;
 }
@@ -2047,7 +1998,7 @@ function pickWeightedRandomScore(scores, bestScore) {
   return weightedScores[weightedScores.length - 1]?.score || bestScore;
 }
 
-function pickVoicingScore(scores) {
+function pickVoicingScore(scores, randomizationChance = VOICING_RANDOMIZATION_CHANCE) {
   const availableScores = scores.filter(Boolean);
   if (availableScores.length === 0) return null;
 
@@ -2059,7 +2010,7 @@ function pickVoicingScore(scores) {
   }
 
   const shortlist = availableScores.filter(score => isVoicingScoreNearBest(score, bestScore));
-  if (shortlist.length <= 1 || Math.random() >= VOICING_RANDOMIZATION_CHANCE) {
+  if (shortlist.length <= 1 || Math.random() >= randomizationChance) {
     return bestScore;
   }
 
@@ -2168,6 +2119,10 @@ function getStringPreloadRanges() {
     cello: { low: celloLow, high: celloHigh },
     violin: { low: VIOLIN_LOW, high: VIOLIN_HIGH }
   };
+}
+
+function getPianoPreloadRange() {
+  return { low: 36, high: 96 };
 }
 
 function getVoicing(key, chord, isMinor) {
@@ -2353,10 +2308,12 @@ function setDisplayPlaceholderVisible(visible) {
   dom.displayPlaceholder?.classList.toggle('hidden', !visible);
 }
 
-function setDisplayPlaceholderMessage(message = 'Choose a progression, then press Start.') {
+function setDisplayPlaceholderMessage(message = DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE) {
   if (!dom.displayPlaceholderMessage) return;
   dom.displayPlaceholderMessage.textContent = message;
 }
+
+setDisplayPlaceholderMessage();
 
 function getRemainingBeatsUntilNextProgression(chordIndex = currentChordIdx, beatInMeasure = currentBeat, chordCount = paddedChords.length) {
   if (!Number.isFinite(chordCount) || chordCount <= 0) return 0;
@@ -2461,8 +2418,10 @@ let nextKeyValue = null;
 let currentKeyRepetition = 0;
 let paddedChords = [];
 let currentVoicingPlan = [];
+let currentCompingPlan = null;
 let nextPaddedChords = [];
 let nextVoicingPlan = [];
+let nextCompingPlan = null;
 let loopVoicingTemplate = null; // saved voicing plan from first loop iteration
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
 let nextPreviewLeadValue = DEFAULT_NEXT_PREVIEW_LEAD_BARS;
@@ -2938,6 +2897,8 @@ const playbackSchedulerState = {
   set currentBeat(value) { currentBeat = value; },
   get currentChordIdx() { return currentChordIdx; },
   set currentChordIdx(value) { currentChordIdx = value; },
+  get currentCompingPlan() { return currentCompingPlan; },
+  set currentCompingPlan(value) { currentCompingPlan = value; },
   get currentDisplaySide() { return currentDisplaySide; },
   set currentDisplaySide(value) { currentDisplaySide = value; },
   get currentKey() { return currentKey; },
@@ -2960,6 +2921,8 @@ const playbackSchedulerState = {
   set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
   get nextBeatTime() { return nextBeatTime; },
   set nextBeatTime(value) { nextBeatTime = value; },
+  get nextCompingPlan() { return nextCompingPlan; },
+  set nextCompingPlan(value) { nextCompingPlan = value; },
   get nextKeyValue() { return nextKeyValue; },
   set nextKeyValue(value) { nextKeyValue = value; },
   get nextOneChordQualityValue() { return nextOneChordQualityValue; },
@@ -2989,13 +2952,16 @@ const {
     applyDisplaySideLayout,
     buildLegacyVoicingPlan,
     buildLoopRepVoicings,
+    buildPreparedCompingPlans: rebuildPreparedCompingPlans,
     buildVoicingPlanForSlots,
     canLoopTrimProgression,
     chordSymbol,
+    compingEngine,
     createOneChordToken,
     createVoicingSlot,
     fitHarmonyDisplay,
     getBassMidi,
+    getCompingStyle,
     getCurrentPatternString,
     getIntroDisplaySide,
     getRemainingBeatsUntilNextProgression,
@@ -3009,7 +2975,6 @@ const {
     padProgression,
     parseOneChordSpec,
     parsePattern,
-    playChord,
     playClick,
     playNote,
     scheduleDrumsForBeat,
@@ -3023,7 +2988,6 @@ const {
 });
 
 const playbackTransportState = {
-  get activeChordVoices() { return activeChordVoices; },
   get activeNoteGain() { return activeNoteGain; },
   set activeNoteGain(value) { activeNoteGain = value; },
   get audioCtx() { return audioCtx; },
@@ -3090,7 +3054,7 @@ const { start, stop, togglePause } = createPlaybackTransport({
     scheduleBeat: scheduleBeatPlayback,
     setDisplayPlaceholderMessage,
     setDisplayPlaceholderVisible,
-    stopActiveChordVoices,
+    stopActiveComping: stopActiveChordVoices,
     stopScheduledAudio,
     trackEvent,
     trackProgressionEvent
@@ -3354,6 +3318,7 @@ function buildSettingsSnapshot() {
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
     alternateDisplaySides: shouldAlternateDisplaySides(),
+    compingStyle: getCompingStyle(),
     chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
     bassVolume: dom.bassVolume?.value,
@@ -3423,6 +3388,9 @@ function applyLoadedSettings(s) {
   }
   if (s.alternateDisplaySides !== undefined && dom.alternateDisplaySides) {
     dom.alternateDisplaySides.checked = Boolean(s.alternateDisplaySides);
+  }
+  if (s.compingStyle !== undefined && dom.compingStyle) {
+    dom.compingStyle.value = normalizeCompingStyle(s.compingStyle);
   }
   if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
     dom.stringsVolume.value = 0;
@@ -3638,6 +3606,7 @@ dom.patternMode.addEventListener('change', saveSettings);
 dom.patternModeBoth?.addEventListener('change', saveSettings);
 dom.doubleTime.addEventListener('change', saveSettings);
 dom.majorMinor.addEventListener('change', saveSettings);
+dom.compingStyle?.addEventListener('change', saveSettings);
 dom.tempoSlider.addEventListener('change', () => {
   trackEvent('tempo_changed', {
     tempo: Number(dom.tempoSlider.value),
@@ -3652,6 +3621,18 @@ dom.repetitionsPerKey?.addEventListener('change', () => {
 dom.doubleTime.addEventListener('change', () => {
   trackEvent('double_time_toggled', {
     double_time: dom.doubleTime.checked ? 'on' : 'off'
+  });
+});
+dom.compingStyle?.addEventListener('change', () => {
+  if (isPlaying && audioCtx) {
+    stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
+    rebuildPreparedCompingPlans(currentKey);
+  }
+  preloadNearTermSamples().catch((err) => {
+    console.warn('Comping style preload failed:', err);
+  });
+  trackEvent('comping_style_changed', {
+    comping_style: getCompingStyle()
   });
 });
 dom.stringsVolume.addEventListener('input', () => {

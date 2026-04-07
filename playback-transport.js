@@ -1,10 +1,10 @@
+import {
+  DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE,
+  STOP_SUGGESTION_MESSAGES
+} from './display-placeholder-messages.js';
+
 export function createPlaybackTransport({ dom, state, constants, helpers }) {
   const { NOTE_FADEOUT, SCHEDULE_INTERVAL } = constants;
-  const STOP_SUGGESTION_MESSAGES = [
-    'Want to try another progression from the list?',
-    'Some progressions also work in minor. Have you tried?',
-    'You can create custom patterns in Custom progression or Manage progressions > New progression.'
-  ];
   const {
     applyDisplaySideLayout,
     clearBeatDots,
@@ -26,7 +26,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     scheduleBeat,
     setDisplayPlaceholderMessage,
     setDisplayPlaceholderVisible,
-    stopActiveChordVoices,
+    stopActiveComping,
     stopScheduledAudio,
     trackEvent,
     trackProgressionEvent
@@ -40,7 +40,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.isPlaying = true;
     state.isPaused = false;
     setDisplayPlaceholderVisible(false);
-    setDisplayPlaceholderMessage('Choose a progression, then press Start.');
+    setDisplayPlaceholderMessage(DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE);
     dom.startStop.textContent = 'Stop';
     dom.startStop.classList.add('running');
     dom.pause.classList.remove('hidden', 'paused');
@@ -113,7 +113,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
       state.activeNoteGain.gain.linearRampToValueAtTime(0, state.audioCtx.currentTime + NOTE_FADEOUT);
       state.activeNoteGain = null;
     }
-    stopActiveChordVoices(state.audioCtx.currentTime, NOTE_FADEOUT);
+    stopActiveComping(state.audioCtx.currentTime, NOTE_FADEOUT);
     dom.keyDisplay.textContent = '';
     dom.chordDisplay.textContent = '';
     hideNextCol();
@@ -152,7 +152,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     clearScheduledDisplays();
     stopScheduledAudio();
     state.activeNoteGain = null;
-    state.activeChordVoices.clear();
+    stopActiveComping(state.audioCtx.currentTime, NOTE_FADEOUT);
     state.audioCtx.suspend();
     trackProgressionEvent('play_pause', {
       tempo_bucket: getTempoBucket()
