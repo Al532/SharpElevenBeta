@@ -157,14 +157,19 @@ h1 {
 .demo-video-frame {
   position: relative;
   width: 100%;
-  max-width: 420px;
-  aspect-ratio: 9 / 16;
+  max-width: 720px;
+  aspect-ratio: 16 / 9;
   margin: 0 auto;
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-soft);
   background: rgba(0, 0, 0, 0.25);
+}
+
+.demo-video-frame-portrait {
+  max-width: 420px;
+  aspect-ratio: 9 / 16;
 }
 
 .demo-video-frame iframe {

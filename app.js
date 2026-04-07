@@ -2635,9 +2635,31 @@ function getProgressionAnalyticsProps() {
   };
 }
 
+function getPlaybackAnalyticsProps() {
+  return {
+    tempo: Number(dom.tempoSlider?.value || 120),
+    tempo_bucket: getTempoBucket(),
+    repetitions_per_key: getRepetitionsPerKey(),
+    comping_style: getCompingStyle(),
+    drums_mode: dom.drumsSelect?.value || 'off',
+    display_mode: normalizeDisplayMode(dom.displayMode?.value),
+    transposition: dom.transpositionSelect?.value || '0',
+    enabled_keys: getEnabledKeyCount(),
+    double_time: dom.doubleTime.checked ? 'on' : 'off'
+  };
+}
+
 function trackProgressionEvent(name, extraProps = {}) {
   trackEvent(name, {
     ...getProgressionAnalyticsProps(),
+    ...extraProps
+  });
+}
+
+function trackProgressionOccurrence(extraProps = {}) {
+  trackEvent('progression_occurrence_played', {
+    ...getProgressionAnalyticsProps(),
+    ...getPlaybackAnalyticsProps(),
     ...extraProps
   });
 }
@@ -2982,6 +3004,7 @@ const {
     shouldShowNextPreview,
     showNextCol,
     takeNextOneChordQuality,
+    trackProgressionOccurrence,
     toggleCurrentDisplaySide,
     updateBeatDots
   }
@@ -3040,21 +3063,18 @@ const { start, stop, togglePause } = createPlaybackTransport({
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
-    getEnabledKeyCount,
     getIntroDisplaySide,
+    getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
-    getRepetitionsPerKey,
-    getTempoBucket,
     hideNextCol,
     initAudio,
-    normalizeDisplayMode,
     preloadStartupSamples,
     prepareNextProgression: prepareNextProgressionPlayback,
     registerSessionAction,
     scheduleBeat: scheduleBeatPlayback,
     setDisplayPlaceholderMessage,
     setDisplayPlaceholderVisible,
-    stopActiveComping: stopActiveChordVoices,
+    stopActiveComping: compingEngine.stopActiveComping,
     stopScheduledAudio,
     trackEvent,
     trackProgressionEvent

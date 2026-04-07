@@ -12,14 +12,11 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
-    getEnabledKeyCount,
     getIntroDisplaySide,
+    getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
-    getRepetitionsPerKey,
-    getTempoBucket,
     hideNextCol,
     initAudio,
-    normalizeDisplayMode,
     preloadStartupSamples,
     prepareNextProgression,
     registerSessionAction,
@@ -76,14 +73,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
       });
       registerSessionAction('first_play_start');
     }
-    trackProgressionEvent('play_start', {
-      tempo_bucket: getTempoBucket(),
-      repetitions_per_key: getRepetitionsPerKey(),
-      drums_mode: dom.drumsSelect?.value || 'off',
-      display_mode: normalizeDisplayMode(dom.displayMode?.value),
-      transposition: dom.transpositionSelect?.value || '0',
-      enabled_keys: getEnabledKeyCount()
-    });
+    trackProgressionEvent('play_start', getPlaybackAnalyticsProps());
 
     state.nextBeatTime = state.audioCtx.currentTime + 0.3;
     state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
@@ -92,10 +82,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
   function stop() {
     const shouldShowStopSuggestion = state.firstPlayStartTracked;
 
-    trackProgressionEvent('play_stop', {
-      tempo_bucket: getTempoBucket(),
-      enabled_keys: getEnabledKeyCount()
-    });
+    trackProgressionEvent('play_stop', getPlaybackAnalyticsProps());
     state.isPlaying = false;
     state.isPaused = false;
     setDisplayPlaceholderVisible(true);
@@ -134,9 +121,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
       dom.pause.textContent = 'Pause';
       dom.pause.classList.remove('paused');
       state.audioCtx.resume();
-      trackProgressionEvent('play_resume', {
-        tempo_bucket: getTempoBucket()
-      });
+      trackProgressionEvent('play_resume', getPlaybackAnalyticsProps());
       state.nextBeatTime = state.audioCtx.currentTime + 0.05;
       state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
       return;
@@ -154,9 +139,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.activeNoteGain = null;
     stopActiveComping(state.audioCtx.currentTime, NOTE_FADEOUT);
     state.audioCtx.suspend();
-    trackProgressionEvent('play_pause', {
-      tempo_bucket: getTempoBucket()
-    });
+    trackProgressionEvent('play_pause', getPlaybackAnalyticsProps());
   }
 
   return {

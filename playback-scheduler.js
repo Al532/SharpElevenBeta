@@ -33,6 +33,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     shouldShowNextPreview,
     showNextCol,
     takeNextOneChordQuality,
+    trackProgressionOccurrence,
     toggleCurrentDisplaySide,
     updateBeatDots
   } = helpers;
@@ -306,6 +307,10 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       }
 
       if (state.currentChordIdx >= state.paddedChords.length) {
+        trackProgressionOccurrence({
+          key_repetition_index: state.currentKeyRepetition,
+          played_chord_count: state.currentRawChords.length || state.paddedChords.length || 0
+        });
         prepareNextProgression();
       }
 
