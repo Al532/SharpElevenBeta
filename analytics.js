@@ -268,6 +268,9 @@ function trackVisitorLifecycle() {
   if (!firstSeenDay) {
     writeStorageValue(ANALYTICS_VISITOR_FIRST_SEEN_STORAGE_KEY, today);
     writeStorageValue(ANALYTICS_VISITOR_LAST_SEEN_STORAGE_KEY, today);
+    trackEvent('visitor_session', {
+      visitor_state: 'new'
+    });
     trackEvent('visitor_first_seen', {
       visitor_state: 'new'
     });
@@ -275,17 +278,28 @@ function trackVisitorLifecycle() {
   }
 
   const lastSeenDay = readStorageValue(ANALYTICS_VISITOR_LAST_SEEN_STORAGE_KEY) || firstSeenDay;
-  if (lastSeenDay === today) return;
+  if (lastSeenDay === today) {
+    trackEvent('visitor_session', {
+      visitor_state: 'same_day'
+    });
+    return;
+  }
 
   writeStorageValue(ANALYTICS_VISITOR_LAST_SEEN_STORAGE_KEY, today);
 
   const lastReturnTrackedDay = readStorageValue(ANALYTICS_VISITOR_LAST_RETURN_TRACKED_STORAGE_KEY);
+  const gapDays = getDaysBetween(lastSeenDay, today);
+  const returnGapBucket = getReturnGapBucket(gapDays);
+  trackEvent('visitor_session', {
+    visitor_state: 'returning',
+    return_gap_bucket: returnGapBucket
+  });
+
   if (lastReturnTrackedDay === today) return;
 
-  const gapDays = getDaysBetween(lastSeenDay, today);
   trackEvent('visitor_returned', {
     visitor_state: 'returning',
-    return_gap_bucket: getReturnGapBucket(gapDays)
+    return_gap_bucket: returnGapBucket
   });
   writeStorageValue(ANALYTICS_VISITOR_LAST_RETURN_TRACKED_STORAGE_KEY, today);
 }
