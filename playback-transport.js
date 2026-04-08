@@ -12,7 +12,6 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
-    getIntroDisplaySide,
     getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
     hideNextCol,
@@ -53,7 +52,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.loopVoicingTemplate = null;
     state.nearTermSamplePreloadPromise = null;
     prepareNextProgression();
-    applyDisplaySideLayout(getIntroDisplaySide());
+    applyDisplaySideLayout();
     dom.keyDisplay.textContent = '';
     dom.chordDisplay.textContent = '';
     hideNextCol();
