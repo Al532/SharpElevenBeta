@@ -14,7 +14,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     fitHarmonyDisplay,
     getCurrentPatternString,
     getCompingStyle,
-    getIntroDisplaySide,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getSecondsPerBeat,
@@ -29,12 +28,10 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     playClick,
     playNote,
     scheduleDrumsForBeat,
-    shouldAlternateDisplaySides,
     shouldShowNextPreview,
     showNextCol,
     takeNextOneChordQuality,
     trackProgressionOccurrence,
-    toggleCurrentDisplaySide,
     updateBeatDots
   } = helpers;
 
@@ -45,10 +42,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     const currentPreviousTailBeats = state.currentCompingPlan?.events?.length
       ? Math.max(0, previousTotalBeats - state.currentCompingPlan.events[state.currentCompingPlan.events.length - 1].timeBeats)
       : null;
-    if (state.nextKeyValue !== null && shouldAlternateDisplaySides()) {
-      toggleCurrentDisplaySide();
-    }
-
     if (state.nextKeyValue !== null) {
       state.currentKey = state.nextKeyValue;
       state.currentKeyRepetition = state.currentKey === previousKey ? state.currentKeyRepetition + 1 : 1;
@@ -177,9 +170,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         const introKey = state.currentKey;
         const introNextKey = state.nextKeyValue;
         const introFirstChord = state.paddedChords[0];
-        const introDisplaySide = getIntroDisplaySide();
         scheduleDisplay(state.nextBeatTime, () => {
-          applyDisplaySideLayout(introDisplaySide);
+          applyDisplaySideLayout();
           dom.keyDisplay.textContent = '';
           dom.chordDisplay.textContent = '';
           showNextCol();
@@ -270,14 +262,13 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         state.paddedChords.length
       );
       const dispNextFirstChord = state.nextRawChords[0] || null;
-      const dispCurrentSide = state.currentDisplaySide;
       scheduleDisplay(state.nextBeatTime, () => {
         if (!shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           dom.nextKeyDisplay.textContent = '';
           dom.nextChordDisplay.textContent = '';
           hideNextCol();
         }
-        applyDisplaySideLayout(dispCurrentSide);
+        applyDisplaySideLayout();
         dom.keyDisplay.textContent = keyName(dispKey);
         dom.chordDisplay.textContent = chordSymbol(dispKey, dispChord);
         if (shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {

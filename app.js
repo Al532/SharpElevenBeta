@@ -163,8 +163,9 @@ const dom = {
   doubleTime:      document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
-  alternateDisplaySides: document.getElementById('alternate-display-sides'),
   debugToggle:     document.getElementById('debug-toggle'),
+  keyPicker:       document.getElementById('key-picker'),
+  closeKeyPicker:  document.getElementById('close-key-picker'),
   startStop:       document.getElementById('start-stop'),
   pause:           document.getElementById('pause'),
   beatDots:        document.querySelectorAll('.beat-dot'),
@@ -185,6 +186,16 @@ const dom = {
 if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
 }
+
+dom.closeKeyPicker?.addEventListener('click', () => {
+  if (!dom.keyPicker) return;
+  dom.keyPicker.open = false;
+});
+
+dom.keyPicker?.addEventListener('toggle', () => {
+  if (dom.keyPicker?.open) return;
+  restoreAllKeysIfNoneSelectedOnClose();
+});
 
 function initializeSocialShareLinks() {
   const shareLinks = Array.from(document.querySelectorAll('.social-share-link[data-share-network]'));
@@ -218,7 +229,6 @@ let draggedPresetName = '';
 let savedPatternSelection = null;
 let lastPatternSelectValue = '';
 let pendingPresetDeletion = null;
-let currentDisplaySide = 'left';
 let currentRawChords = [];
 let nextRawChords = [];
 let oneChordQualityPool = [];
@@ -2349,28 +2359,10 @@ function shouldShowNextPreview(currentKeyValue, upcomingKeyValue, remainingBeats
   return remainingBeats * getSecondsPerBeat() <= getNextPreviewLeadSeconds();
 }
 
-function shouldAlternateDisplaySides() {
-  return Boolean(dom.alternateDisplaySides?.checked);
-}
-
-function toggleCurrentDisplaySide() {
-  currentDisplaySide = currentDisplaySide === 'left' ? 'right' : 'left';
-}
-
-function getIntroDisplaySide() {
-  if (!shouldAlternateDisplaySides()) return currentDisplaySide;
-  return currentDisplaySide === 'left' ? 'right' : 'left';
-}
-
-function applyDisplaySideLayout(side = currentDisplaySide) {
+function applyDisplaySideLayout() {
   const display = document.getElementById('display');
   if (!display) return;
-
-  display.classList.toggle('alternate-display-sides', shouldAlternateDisplaySides());
-  display.classList.toggle('display-current-right', shouldAlternateDisplaySides() && side === 'right');
-
-  // Legacy fixed layout kept here for quick rollback:
-  // display.classList.remove('alternate-display-sides', 'display-current-right');
+  display.classList.remove('alternate-display-sides', 'display-current-right');
 }
 
 function fitChordDisplay(element, baseRem) {
@@ -2565,14 +2557,26 @@ function syncSelectedKeysSummary() {
     .map((isEnabled, index) => (isEnabled ? keyLabelForPicker(index) : ''))
     .filter(Boolean);
 
-  if (selectedKeys.length === 0 || selectedKeys.length === 12) {
-    dom.selectedKeysSummary.textContent = '';
-    dom.selectedKeysSummary.classList.add('hidden');
+  if (selectedKeys.length === 0) {
+    dom.selectedKeysSummary.textContent = 'Keys: none';
+    dom.selectedKeysSummary.setAttribute('aria-label', 'Open key selection. Current selection: none');
     return;
   }
 
-  dom.selectedKeysSummary.textContent = `Keys: ${selectedKeys.join(' · ')}`;
-  dom.selectedKeysSummary.classList.remove('hidden');
+  if (selectedKeys.length === 12) {
+    dom.selectedKeysSummary.textContent = 'Keys: all';
+    dom.selectedKeysSummary.setAttribute('aria-label', 'Open key selection. Current selection: all');
+    return;
+  }
+
+  dom.selectedKeysSummary.textContent = `Keys: ${selectedKeys.join(' \u00B7 ')}`;
+  dom.selectedKeysSummary.setAttribute('aria-label', `Open key selection. Current selection: ${selectedKeys.join(', ')}`);
+}
+
+function restoreAllKeysIfNoneSelectedOnClose() {
+  if (getEnabledKeyCount() !== 0) return;
+  applyEnabledKeys(enabledKeys.map(() => true));
+  saveSettings();
 }
 
 function isBlackDisplayPitchClass(pitchClass) {
@@ -3006,8 +3010,6 @@ const playbackSchedulerState = {
   set currentChordIdx(value) { currentChordIdx = value; },
   get currentCompingPlan() { return currentCompingPlan; },
   set currentCompingPlan(value) { currentCompingPlan = value; },
-  get currentDisplaySide() { return currentDisplaySide; },
-  set currentDisplaySide(value) { currentDisplaySide = value; },
   get currentKey() { return currentKey; },
   set currentKey(value) { currentKey = value; },
   get currentKeyRepetition() { return currentKeyRepetition; },
@@ -3070,7 +3072,6 @@ const {
     getBassMidi,
     getCompingStyle,
     getCurrentPatternString,
-    getIntroDisplaySide,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getSecondsPerBeat,
@@ -3085,12 +3086,10 @@ const {
     playClick,
     playNote,
     scheduleDrumsForBeat,
-    shouldAlternateDisplaySides,
     shouldShowNextPreview,
     showNextCol,
     takeNextOneChordQuality,
     trackProgressionOccurrence,
-    toggleCurrentDisplaySide,
     updateBeatDots
   }
 });
@@ -3104,8 +3103,6 @@ const playbackTransportState = {
   set currentBeat(value) { currentBeat = value; },
   get currentChordIdx() { return currentChordIdx; },
   set currentChordIdx(value) { currentChordIdx = value; },
-  get currentDisplaySide() { return currentDisplaySide; },
-  set currentDisplaySide(value) { currentDisplaySide = value; },
   get currentKeyRepetition() { return currentKeyRepetition; },
   set currentKeyRepetition(value) { currentKeyRepetition = value; },
   get firstPlayStartTracked() { return firstPlayStartTracked; },
@@ -3148,7 +3145,6 @@ const { start, stop, togglePause } = createPlaybackTransport({
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
-    getIntroDisplaySide,
     getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
     hideNextCol,
@@ -3262,7 +3258,7 @@ function updateKeyPickerLabels() {
 
 function refreshDisplayedHarmony() {
   if (!isPlaying) return;
-  applyDisplaySideLayout(currentDisplaySide);
+  applyDisplaySideLayout();
 
   if (isIntro) {
     dom.keyDisplay.textContent = '';
@@ -3411,7 +3407,6 @@ function buildSettingsSnapshot() {
     doubleTime: dom.doubleTime.checked,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
-    alternateDisplaySides: shouldAlternateDisplaySides(),
     compingStyle: getCompingStyle(),
     chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
@@ -3479,9 +3474,6 @@ function applyLoadedSettings(s) {
     dom.displayMode.value = normalizeDisplayMode(s.displayMode);
   } else if (s.hideChords !== undefined && dom.displayMode) {
     dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
-  }
-  if (s.alternateDisplaySides !== undefined && dom.alternateDisplaySides) {
-    dom.alternateDisplaySides.checked = Boolean(s.alternateDisplaySides);
   }
   if (s.compingStyle !== undefined && dom.compingStyle) {
     dom.compingStyle.value = normalizeCompingStyle(s.compingStyle);
@@ -3758,14 +3750,6 @@ dom.displayMode.addEventListener('change', () => {
   });
 });
 dom.transpositionSelect?.addEventListener('change', syncPatternPreview);
-dom.alternateDisplaySides?.addEventListener('change', () => {
-  applyDisplaySideLayout();
-  refreshDisplayedHarmony();
-  saveSettings();
-  trackEvent('alternate_display_toggled', {
-    alternate_display: dom.alternateDisplaySides.checked ? 'on' : 'off'
-  });
-});
 dom.debugToggle?.addEventListener('change', () => {
   setAnalyticsDebugEnabled(dom.debugToggle.checked);
 });

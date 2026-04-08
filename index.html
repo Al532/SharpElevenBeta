@@ -58,7 +58,22 @@
 
     <main class="app-layout">
       <section class="surface-block surface-display" aria-label="Current progression">
-        <div id="selected-keys-summary" class="selected-keys-summary hidden" aria-live="polite"></div>
+        <details class="display-key-picker" id="key-picker">
+          <summary id="selected-keys-summary" class="selected-keys-summary" aria-live="polite">Keys</summary>
+          <div class="display-key-picker-panel">
+            <div class="display-key-picker-header">
+              <button type="button" id="close-key-picker" class="display-key-picker-close">Close</button>
+            </div>
+            <div class="key-picker-actions">
+              <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
+              <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
+              <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
+              <button type="button" id="save-key-preset" class="secondary-button key-picker-action">Save preset</button>
+              <button type="button" id="load-key-preset" class="secondary-button key-picker-action">Load preset</button>
+            </div>
+            <div id="key-checkboxes"></div>
+          </div>
+        </details>
         <div id="display">
           <div id="display-placeholder" class="display-placeholder">
             <p id="display-placeholder-message">Choose a progression, then press Start.</p>
@@ -273,20 +288,6 @@
             </select>
           </div>
 
-          <details class="control-row" id="key-picker">
-            <summary class="key-picker-summary">
-              <span>Keys</span>
-            </summary>
-            <div class="key-picker-actions">
-              <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
-              <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
-              <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
-              <button type="button" id="save-key-preset" class="secondary-button key-picker-action">Save preset</button>
-              <button type="button" id="load-key-preset" class="secondary-button key-picker-action">Load preset</button>
-            </div>
-            <div id="key-checkboxes"></div>
-          </details>
-
           <div class="control-row toggles">
             <div class="toggle-row">
               <label class="toggle-label toggle-select-label" for="display-mode">
@@ -310,12 +311,6 @@
                 </label>
               </div>
               <div id="next-preview-hint" class="hint">1 bar ahead</div>
-            </div>
-            <div class="toggle-row">
-              <label class="toggle-label">
-                <input type="checkbox" id="alternate-display-sides">
-                <span>Alternate current / next sides</span>
-              </label>
             </div>
           </div>
 
