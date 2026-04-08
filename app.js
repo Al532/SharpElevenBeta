@@ -165,9 +165,11 @@ const dom = {
   displayMode:     document.getElementById('display-mode'),
   debugToggle:     document.getElementById('debug-toggle'),
   keyPicker:       document.getElementById('key-picker'),
+  keyPickerBackdrop: document.getElementById('key-picker-backdrop'),
   closeKeyPicker:  document.getElementById('close-key-picker'),
   startStop:       document.getElementById('start-stop'),
   pause:           document.getElementById('pause'),
+  beatIndicator:   document.getElementById('beat-indicator'),
   beatDots:        document.querySelectorAll('.beat-dot'),
   selectAllKeys:   document.getElementById('select-all-keys'),
   invertKeys:      document.getElementById('invert-keys'),
@@ -180,20 +182,43 @@ const dom = {
   stringsVolume:   document.getElementById('strings-volume'),
   stringsVolumeValue: document.getElementById('strings-volume-value'),
   drumsVolume:     document.getElementById('drums-volume'),
-  drumsVolumeValue: document.getElementById('drums-volume-value')
+  drumsVolumeValue: document.getElementById('drums-volume-value'),
+  showBeatIndicator: document.getElementById('show-beat-indicator'),
+  hideCurrentHarmony: document.getElementById('hide-current-harmony')
 };
 
 if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
 }
 
-dom.closeKeyPicker?.addEventListener('click', () => {
+function setKeyPickerOpen(isOpen) {
   if (!dom.keyPicker) return;
-  dom.keyPicker.open = false;
+  dom.keyPicker.open = Boolean(isOpen);
+}
+
+dom.closeKeyPicker?.addEventListener('click', () => {
+  setKeyPickerOpen(false);
+});
+
+dom.keyPickerBackdrop?.addEventListener('click', () => {
+  setKeyPickerOpen(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !dom.keyPicker?.open) return;
+  setKeyPickerOpen(false);
+  dom.selectedKeysSummary?.focus();
 });
 
 dom.keyPicker?.addEventListener('toggle', () => {
-  if (dom.keyPicker?.open) return;
+  const isOpen = Boolean(dom.keyPicker?.open);
+  document.body.classList.toggle('key-picker-open', isOpen);
+  if (isOpen) {
+    window.requestAnimationFrame(() => {
+      dom.closeKeyPicker?.focus();
+    });
+    return;
+  }
   restoreAllKeysIfNoneSelectedOnClose();
 });
 
@@ -2376,7 +2401,9 @@ function fitChordDisplay(element, baseRem) {
 
   // Let the browser lay out at full size, then scale down if needed
   const parentWidth = element.parentElement
-    ? element.parentElement.clientWidth / 2 - 10
+    ? (isCurrentHarmonyHidden()
+        ? element.parentElement.clientWidth - 10
+        : element.parentElement.clientWidth / 2 - 10)
     : element.clientWidth;
   const textWidth = element.scrollWidth;
 
@@ -2413,6 +2440,19 @@ function updateBeatDots(beat, isIntro) {
 
 function clearBeatDots() {
   dom.beatDots.forEach(d => { d.classList.remove('active', 'intro'); });
+}
+
+function applyBeatIndicatorVisibility() {
+  dom.beatIndicator?.classList.toggle('hidden', dom.showBeatIndicator?.checked === false);
+}
+
+function isCurrentHarmonyHidden() {
+  return dom.hideCurrentHarmony?.checked === true;
+}
+
+function applyCurrentHarmonyVisibility() {
+  const display = document.getElementById('display');
+  display?.classList.toggle('display-hide-current', isCurrentHarmonyHidden());
 }
 
 // ---- Scheduler / Playback State ----
@@ -3259,6 +3299,7 @@ function updateKeyPickerLabels() {
 function refreshDisplayedHarmony() {
   if (!isPlaying) return;
   applyDisplaySideLayout();
+  applyCurrentHarmonyVisibility();
 
   if (isIntro) {
     dom.keyDisplay.textContent = '';
@@ -3407,6 +3448,8 @@ function buildSettingsSnapshot() {
     doubleTime: dom.doubleTime.checked,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
+    showBeatIndicator: dom.showBeatIndicator?.checked !== false,
+    hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
     compingStyle: getCompingStyle(),
     chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
@@ -3474,6 +3517,12 @@ function applyLoadedSettings(s) {
     dom.displayMode.value = normalizeDisplayMode(s.displayMode);
   } else if (s.hideChords !== undefined && dom.displayMode) {
     dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
+  }
+  if (s.showBeatIndicator !== undefined && dom.showBeatIndicator) {
+    dom.showBeatIndicator.checked = Boolean(s.showBeatIndicator);
+  }
+  if (s.hideCurrentHarmony !== undefined && dom.hideCurrentHarmony) {
+    dom.hideCurrentHarmony.checked = Boolean(s.hideCurrentHarmony);
   }
   if (s.compingStyle !== undefined && dom.compingStyle) {
     dom.compingStyle.value = normalizeCompingStyle(s.compingStyle);
@@ -3548,6 +3597,8 @@ function finalizeLoadedSettings() {
 
   applyMixerSettings();
   syncNextPreviewControlDisplay();
+  applyBeatIndicatorVisibility();
+  applyCurrentHarmonyVisibility();
   if (dom.repetitionsPerKey) {
     dom.repetitionsPerKey.value = String(getRepetitionsPerKey());
   }
@@ -3749,6 +3800,16 @@ dom.displayMode.addEventListener('change', () => {
     display_mode: normalizeDisplayMode(dom.displayMode.value)
   });
 });
+dom.showBeatIndicator?.addEventListener('change', () => {
+  applyBeatIndicatorVisibility();
+  saveSettings();
+});
+dom.hideCurrentHarmony?.addEventListener('change', () => {
+  applyCurrentHarmonyVisibility();
+  refreshDisplayedHarmony();
+  fitHarmonyDisplay();
+  saveSettings();
+});
 dom.transpositionSelect?.addEventListener('change', syncPatternPreview);
 dom.debugToggle?.addEventListener('change', () => {
   setAnalyticsDebugEnabled(dom.debugToggle.checked);
@@ -3780,17 +3841,20 @@ function applyDisplayMode() {
   if (mode === DISPLAY_MODE_CHORDS_ONLY) {
     display.classList.add('display-chords-only');
     applyDisplaySideLayout();
+    applyCurrentHarmonyVisibility();
     fitHarmonyDisplay();
     return;
   }
   if (mode === DISPLAY_MODE_KEY_ONLY) {
     display.classList.add('display-key-only');
     applyDisplaySideLayout();
+    applyCurrentHarmonyVisibility();
     fitHarmonyDisplay();
     return;
   }
   display.classList.add('display-show-both');
   applyDisplaySideLayout();
+  applyCurrentHarmonyVisibility();
   fitHarmonyDisplay();
 }
 

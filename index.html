@@ -60,6 +60,7 @@
       <section class="surface-block surface-display" aria-label="Current progression">
         <details class="display-key-picker" id="key-picker">
           <summary id="selected-keys-summary" class="selected-keys-summary" aria-live="polite">Keys</summary>
+          <div id="key-picker-backdrop" class="display-key-picker-backdrop" aria-hidden="true"></div>
           <div class="display-key-picker-panel">
             <div class="display-key-picker-header">
               <button type="button" id="close-key-picker" class="display-key-picker-close">Close</button>
@@ -74,22 +75,22 @@
             <div id="key-checkboxes"></div>
           </div>
         </details>
-        <div id="display">
-          <div id="display-placeholder" class="display-placeholder">
-            <p id="display-placeholder-message">Choose a progression, then press Start.</p>
-          </div>
-          <div id="display-columns">
+          <div id="display">
+            <div id="display-placeholder" class="display-placeholder">
+              <p id="display-placeholder-message">Choose a progression, then press Start.</p>
+            </div>
+            <div id="display-columns">
             <div id="current-header" class="col-header"></div>
             <div id="next-header" class="col-header hidden">Next</div>
             <div id="key-display"></div>
             <div id="next-key-display" class="hidden"></div>
             <div id="chord-display"></div>
             <div id="next-chord-display" class="hidden"></div>
-          </div>
-          <div id="beat-indicator">
-            <span class="beat-dot" data-beat="0"></span>
-            <span class="beat-dot" data-beat="1"></span>
-            <span class="beat-dot" data-beat="2"></span>
+            </div>
+            <div id="beat-indicator">
+              <span class="beat-dot" data-beat="0"></span>
+              <span class="beat-dot" data-beat="1"></span>
+              <span class="beat-dot" data-beat="2"></span>
             <span class="beat-dot" data-beat="3"></span>
           </div>
         </div>
@@ -312,6 +313,20 @@
               </div>
               <div id="next-preview-hint" class="hint">1 bar ahead</div>
             </div>
+          </div>
+
+          <div class="control-row">
+            <label class="toggle-label" for="show-beat-indicator">
+              <input type="checkbox" id="show-beat-indicator" checked>
+              <span>Show beat indicator</span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <label class="toggle-label" for="hide-current-harmony">
+              <input type="checkbox" id="hide-current-harmony">
+              <span>Hide current chord/key</span>
+            </label>
           </div>
 
           <div class="control-row">

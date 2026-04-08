@@ -275,6 +275,7 @@ h1 {
 }
 
 .display-key-picker#key-picker {
+  position: relative;
   padding: 0;
   border: 0;
   background: transparent;
@@ -283,13 +284,47 @@ h1 {
   text-align: left;
 }
 
+.display-key-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 16, 26, 0.46);
+  backdrop-filter: blur(10px) saturate(0.78);
+  -webkit-backdrop-filter: blur(10px) saturate(0.78);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+  z-index: 30;
+}
+
+.display-key-picker[open] .display-key-picker-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .display-key-picker-panel {
-  margin-top: 0.5rem;
-  padding: 0.8rem;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - 0.5rem));
+  width: min(68rem, calc(100vw - 2rem));
+  max-height: min(40rem, calc(100vh - 2rem));
+  margin-top: 0;
+  padding: 1rem 1rem 1.1rem;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow-soft);
+  border-radius: calc(var(--radius-md) + 0.3rem);
+  background: rgba(12, 24, 38, 0.94);
+  box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.32);
+  overflow: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 31;
+}
+
+.display-key-picker[open] .display-key-picker-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
 }
 
 .display-key-picker-header {
@@ -313,6 +348,10 @@ h1 {
 .display-key-picker-close:hover {
   background: rgba(110, 198, 255, 0.18);
   border-color: rgba(110, 198, 255, 0.4);
+}
+
+body.key-picker-open {
+  overflow: hidden;
 }
 
 /* ---- Display ---- */
@@ -427,6 +466,24 @@ h1 {
   transition: opacity 0.2s;
 }
 
+.display-hide-current #current-header,
+.display-hide-current #key-display,
+.display-hide-current #chord-display {
+  display: none;
+}
+
+.display-hide-current #next-header,
+.display-hide-current #next-key-display,
+.display-hide-current #next-chord-display {
+  grid-column: 1 / -1;
+}
+
+.display-hide-current #next-header:not(.hidden),
+.display-hide-current #next-key-display:not(.hidden),
+.display-hide-current #next-chord-display:not(.hidden) {
+  opacity: 1;
+}
+
 .display-show-both #key-display,
 .display-show-both #next-key-display {
   font-size: 1.1rem;
@@ -478,6 +535,10 @@ h1 {
   display: flex;
   justify-content: center;
   gap: 12px;
+}
+
+#beat-indicator.hidden {
+  display: none;
 }
 
 .beat-dot {
@@ -1479,15 +1540,20 @@ input[type="range"] {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-template-rows: auto auto;
   gap: 0.4rem 0.5rem;
-  padding: 0.55rem 0.8rem 0.8rem;
+  width: min(100%, 54rem);
+  margin: 0 auto;
+  padding: 0.55rem 0 0.8rem;
   align-items: end;
 }
 
 .key-picker-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.55rem;
-  padding: 0.55rem 0.8rem 0.1rem;
+  width: min(100%, 54rem);
+  margin: 0 auto;
+  padding: 0.55rem 0 0.1rem;
 }
 
 .key-picker-action {
@@ -1598,6 +1664,12 @@ input[type="range"] {
 }
 
 @media (max-width: 560px) {
+  .display-key-picker-panel {
+    width: calc(100vw - 1rem);
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
   #key-checkboxes {
     gap: 0.35rem 0.32rem;
   }
