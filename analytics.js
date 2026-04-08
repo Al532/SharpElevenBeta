@@ -29,6 +29,8 @@ const TRACKING_KEY_PRIORITY = [
   'preset_count',
   'key_state',
   'key_index',
+  'share_network',
+  'location',
   'visitor_state',
   'return_gap_bucket'
 ];

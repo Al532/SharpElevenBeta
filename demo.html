@@ -7,6 +7,20 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=__APP_VERSION__">
   <link rel="shortcut icon" href="./favicon.svg?v=__APP_VERSION__">
   <link rel="stylesheet" href="./style.css?v=__APP_VERSION__">
+  <script>
+    window.JAZZ_TRAINER_GOATCOUNTER_ENDPOINT = 'https://aminel.goatcounter.com/count';
+    window.goatcounter = window.goatcounter || {};
+    window.goatcounter.path = function demoAnalyticsPath(path) {
+      if (!path || path === location.pathname || path === location.pathname + location.search) {
+        return '/demo.html';
+      }
+      return path;
+    };
+  </script>
+  <script
+    async
+    data-goatcounter="https://aminel.goatcounter.com/count"
+    src="//gc.zgo.at/count.js"></script>
 </head>
 <body class="demo-page">
   <div id="app" class="demo-app">

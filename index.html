@@ -4,6 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jazz Progression Trainer</title>
+  <meta name="description" content="Practice jazz progressions in all 12 keys, in random order. Build fluency for improvisation.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Jazz Progression Trainer">
+  <meta property="og:description" content="Practice jazz progressions in all 12 keys, in random order. Build fluency for improvisation.">
+  <meta property="og:url" content="https://al532.github.io/JazzProgressionTrainerDemo/">
+  <meta property="og:site_name" content="Jazz Progression Trainer">
+  <meta property="og:image" content="https://al532.github.io/JazzProgressionTrainerDemo/social-preview-wide.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Jazz Progression Trainer">
+  <meta name="twitter:description" content="Practice jazz progressions in all 12 keys, in random order. Build fluency for improvisation.">
+  <meta name="twitter:image" content="https://al532.github.io/JazzProgressionTrainerDemo/social-preview-wide.png">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="shortcut icon" href="./favicon.svg">
   <link rel="stylesheet" href="./style.css">
@@ -16,11 +29,31 @@
   <div id="app">
     <header class="app-header">
       <div class="app-header-links" aria-label="Project links">
-        <a class="app-header-link" href="./demo.html">Demo</a>
+        <a class="app-header-link" href="./demo.html" data-analytics-link="demo">Demo</a>
         <a class="app-header-link" href="mailto:alcibiade.minel@gmail.com">Share your feedback!</a>
       </div>
+      <div class="social-share-links" aria-label="Share on social media">
+        <a class="social-share-link" data-share-network="x" href="https://twitter.com/intent/tweet?text=Practice%20jazz%20progressions%20in%20all%2012%20keys%2C%20in%20random%20order.%20Build%20fluency%20for%20improvisation.&amp;url=https%3A%2F%2Fal532.github.io%2FJazzProgressionTrainerDemo%2F" target="_blank" rel="noopener noreferrer" aria-label="Share on X" title="Share on X">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M18.901 2H21.98l-6.723 7.684L23.167 22h-6.191l-4.849-7.35L5.696 22H2.615l7.19-8.218L.833 2h6.348l4.383 6.673L18.901 2Zm-1.086 18h1.706L6.253 3.895H4.423L17.815 20Z"></path>
+          </svg>
+          <span>X</span>
+        </a>
+        <a class="social-share-link" data-share-network="facebook" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fal532.github.io%2FJazzProgressionTrainerDemo%2F&amp;quote=Practice%20jazz%20progressions%20in%20all%2012%20keys%2C%20in%20random%20order.%20Build%20fluency%20for%20improvisation." target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook" title="Share on Facebook">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M13.5 22v-8.2h2.76l.41-3.2H13.5V8.56c0-.93.26-1.56 1.59-1.56h1.69V4.14c-.29-.04-1.28-.14-2.44-.14-2.42 0-4.08 1.48-4.08 4.2v2.34H7.5v3.2h2.76V22h3.24Z"></path>
+          </svg>
+          <span>Facebook</span>
+        </a>
+        <a class="social-share-link" data-share-network="linkedin" href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fal532.github.io%2FJazzProgressionTrainerDemo%2F" target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn" title="Share on LinkedIn">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6.94 8.5A1.94 1.94 0 1 1 6.94 4.62a1.94 1.94 0 0 1 0 3.88ZM8.5 10H5.38v10H8.5V10Zm4.99 0h-2.99v10h3.12v-5.25c0-1.38.26-2.71 1.97-2.71 1.68 0 1.7 1.57 1.7 2.8V20h3.12v-5.79c0-2.85-.61-5.04-3.93-5.04-1.59 0-2.66.87-3.09 1.7h-.04V10Z"></path>
+          </svg>
+          <span>LinkedIn</span>
+        </a>
+      </div>
       <h1>Jazz Progression Trainer</h1>
-      <p class="app-subtitle">Practice jazz progressions in all 12 keys &mdash; build automaticity for improvisation.</p>
+      <p class="app-subtitle">Practice jazz progressions in all 12 keys, in random order. Build fluency for improvisation.</p>
     </header>
 
     <main class="app-layout">
@@ -248,6 +281,8 @@
               <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
               <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
               <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
+              <button type="button" id="save-key-preset" class="secondary-button key-picker-action">Save preset</button>
+              <button type="button" id="load-key-preset" class="secondary-button key-picker-action">Load preset</button>
             </div>
             <div id="key-checkboxes"></div>
           </details>

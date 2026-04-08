@@ -11,7 +11,12 @@ import { createPlaybackScheduler } from './playback-scheduler.js';
 import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
-import { loadStoredProgressionSettings, saveStoredProgressionSettings } from './progression-storage.js';
+import {
+  loadStoredKeySelectionPreset,
+  loadStoredProgressionSettings,
+  saveStoredKeySelectionPreset,
+  saveStoredProgressionSettings
+} from './progression-storage.js';
 import { createCompingEngine } from './comping-engine.js';
 import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './display-placeholder-messages.js';
 import voicingConfig from './voicing-config.js';
@@ -56,6 +61,9 @@ const INTERVAL_SEMITONES = {
   '#5': 8, b13: 8, '6': 9, '13': 9, bb7: 9,
   b7: 10, '7': 11
 };
+
+const PIANO_WHITE_KEY_COLUMNS = { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 };
+const PIANO_BLACK_KEY_COLUMNS = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
@@ -163,6 +171,8 @@ const dom = {
   selectAllKeys:   document.getElementById('select-all-keys'),
   invertKeys:      document.getElementById('invert-keys'),
   clearAllKeys:    document.getElementById('clear-all-keys'),
+  saveKeyPreset:   document.getElementById('save-key-preset'),
+  loadKeyPreset:   document.getElementById('load-key-preset'),
   keyCheckboxes:   document.getElementById('key-checkboxes'),
   bassVolume:      document.getElementById('bass-volume'),
   bassVolumeValue: document.getElementById('bass-volume-value'),
@@ -174,6 +184,21 @@ const dom = {
 
 if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
+}
+
+function initializeSocialShareLinks() {
+  const shareLinks = Array.from(document.querySelectorAll('.social-share-link[data-share-network]'));
+  if (!shareLinks.length) return;
+
+  shareLinks.forEach((link) => {
+    const network = link.dataset.shareNetwork;
+    link.addEventListener('click', () => {
+      trackEvent('social_share_clicked', {
+        share_network: network,
+        location: 'header'
+      });
+    });
+  });
 }
 
 let DEFAULT_PROGRESSIONS = {};
@@ -188,6 +213,7 @@ let lastStandaloneCustomPattern = '';
 let lastStandaloneCustomMode = PATTERN_MODE_BOTH;
 let isManagingPresets = false;
 let suppressListRender = false;
+let savedKeySelectionPreset = null;
 let draggedPresetName = '';
 let savedPatternSelection = null;
 let lastPatternSelectValue = '';
@@ -2528,6 +2554,10 @@ function getEnabledKeyCount() {
   return enabledKeys.filter(Boolean).length;
 }
 
+function persistKeySelectionPreset() {
+  saveStoredKeySelectionPreset(savedKeySelectionPreset);
+}
+
 function syncSelectedKeysSummary() {
   if (!dom.selectedKeysSummary) return;
 
@@ -2543,6 +2573,68 @@ function syncSelectedKeysSummary() {
 
   dom.selectedKeysSummary.textContent = `Keys: ${selectedKeys.join(' · ')}`;
   dom.selectedKeysSummary.classList.remove('hidden');
+}
+
+function isBlackDisplayPitchClass(pitchClass) {
+  return Object.prototype.hasOwnProperty.call(PIANO_BLACK_KEY_COLUMNS, pitchClass);
+}
+
+function updateKeyCheckboxVisualState(label, checkbox, keyIndex) {
+  const displayPitchClass = transposeDisplayPitchClass(keyIndex);
+  const isBlackKey = isBlackDisplayPitchClass(displayPitchClass);
+  const text = label.querySelector('.key-checkbox-text');
+
+  label.classList.toggle('is-selected', checkbox.checked);
+  label.classList.toggle('key-checkbox-black', isBlackKey);
+  label.classList.toggle('key-checkbox-white', !isBlackKey);
+  label.style.gridRow = isBlackKey ? '1' : '2';
+  label.style.gridColumn = String(
+    isBlackKey
+      ? PIANO_BLACK_KEY_COLUMNS[displayPitchClass]
+      : PIANO_WHITE_KEY_COLUMNS[displayPitchClass]
+  );
+
+  if (text) {
+    text.textContent = keyLabelForPicker(keyIndex);
+  }
+}
+
+function syncKeyCheckboxStates() {
+  dom.keyCheckboxes.querySelectorAll('.key-checkbox-label').forEach((label, index) => {
+    const checkbox = label.querySelector('input[type="checkbox"]');
+    if (!checkbox) return;
+    checkbox.checked = enabledKeys[index];
+    updateKeyCheckboxVisualState(label, checkbox, index);
+  });
+}
+
+function applyEnabledKeys(nextEnabledKeys) {
+  if (!Array.isArray(nextEnabledKeys) || nextEnabledKeys.length !== 12) return;
+  enabledKeys = nextEnabledKeys.map(Boolean);
+  keyPool = [];
+  syncKeyCheckboxStates();
+  syncSelectedKeysSummary();
+}
+
+function saveCurrentKeySelectionPreset() {
+  savedKeySelectionPreset = enabledKeys.map(Boolean);
+  persistKeySelectionPreset();
+  trackEvent('key_preset_saved', {
+    enabled_keys: getEnabledKeyCount()
+  });
+}
+
+function loadKeySelectionPreset() {
+  if (!Array.isArray(savedKeySelectionPreset) || savedKeySelectionPreset.length !== 12) {
+    window.alert('No saved key preset yet.');
+    return;
+  }
+
+  applyEnabledKeys(savedKeySelectionPreset);
+  saveSettings();
+  trackEvent('key_preset_loaded', {
+    enabled_keys: getEnabledKeyCount()
+  });
 }
 
 function getTempoBucket() {
@@ -3124,6 +3216,7 @@ function buildKeyCheckboxes() {
     cb.dataset.keyIndex = i;
     cb.addEventListener('change', () => {
       enabledKeys[i] = cb.checked;
+      updateKeyCheckboxVisualState(label, cb, i);
       keyPool = []; // reset pool
       syncSelectedKeysSummary();
       saveSettings();
@@ -3134,50 +3227,35 @@ function buildKeyCheckboxes() {
       });
     });
     const span = document.createElement('span');
-    span.textContent = keyLabelForPicker(i);
+    span.className = 'key-checkbox-text';
     label.appendChild(cb);
     label.appendChild(span);
+    updateKeyCheckboxVisualState(label, cb, i);
     dom.keyCheckboxes.appendChild(label);
   }
   syncSelectedKeysSummary();
 }
 
 function setAllKeysEnabled(isEnabled) {
-  enabledKeys = enabledKeys.map(() => isEnabled);
-  dom.keyCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
-    checkbox.checked = enabledKeys[index];
-  });
-  keyPool = [];
-  syncSelectedKeysSummary();
+  applyEnabledKeys(enabledKeys.map(() => isEnabled));
   saveSettings();
 }
 
 function invertKeysEnabled() {
-  enabledKeys = enabledKeys.map(isEnabled => !isEnabled);
-  dom.keyCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
-    checkbox.checked = enabledKeys[index];
-  });
-  keyPool = [];
-  syncSelectedKeysSummary();
+  applyEnabledKeys(enabledKeys.map(isEnabled => !isEnabled));
   saveSettings();
 }
 
 function keyLabelForPicker(majorIndex) {
-  if (isOneChordModeActive()) {
-    return KEY_NAMES_MAJOR[transposeDisplayPitchClass(majorIndex)];
-  }
-  if (dom.majorMinor.checked) {
-    // Show relative minor name
-    const minorIndex = (majorIndex - 3 + 12) % 12;
-    return KEY_NAMES_MINOR[transposeDisplayPitchClass(minorIndex)] + 'm';
-  }
   return KEY_NAMES_MAJOR[transposeDisplayPitchClass(majorIndex)];
 }
 
 function updateKeyPickerLabels() {
   const labels = dom.keyCheckboxes.querySelectorAll('.key-checkbox-label');
   labels.forEach((label, i) => {
-    label.querySelector('span').textContent = keyLabelForPicker(i);
+    const checkbox = label.querySelector('input[type="checkbox"]');
+    if (!checkbox) return;
+    updateKeyCheckboxVisualState(label, checkbox, i);
   });
   syncSelectedKeysSummary();
 }
@@ -3235,6 +3313,9 @@ dom.clearAllKeys?.addEventListener('click', () => {
     enabled_keys: getEnabledKeyCount()
   });
 });
+
+dom.saveKeyPreset?.addEventListener('click', saveCurrentKeySelectionPreset);
+dom.loadKeyPreset?.addEventListener('click', loadKeySelectionPreset);
 
 dom.transpositionSelect.addEventListener('change', () => {
   updateKeyPickerLabels();
@@ -3494,6 +3575,7 @@ function finalizeLoadedSettings() {
 
 function loadSettings() {
   applyLoadedSettings(loadStoredProgressionSettings());
+  savedKeySelectionPreset = loadStoredKeySelectionPreset();
   finalizeLoadedSettings();
 }
 
@@ -3565,6 +3647,8 @@ async function loadDefaultProgressions() {
 }
 
 async function initializeApp() {
+  initializeSocialShareLinks();
+
   await Promise.all([
     loadDefaultProgressions(),
     loadPatternHelp()
@@ -3608,6 +3692,12 @@ async function initializeApp() {
 
 initializeApp();
 setDisplayPlaceholderVisible(true);
+
+document.querySelector('[data-analytics-link="demo"]')?.addEventListener('click', () => {
+  trackEvent('demo_link_clicked', {
+    location: 'header'
+  });
+});
 
 // Save on every change
 dom.tempoSlider.addEventListener('change', saveSettings);

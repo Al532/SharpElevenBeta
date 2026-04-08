@@ -4,9 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jazz Progression Trainer Demo</title>
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=1.1.4">
-  <link rel="shortcut icon" href="./favicon.svg?v=1.1.4">
-  <link rel="stylesheet" href="./style.css?v=1.1.4">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=1.1.6">
+  <link rel="shortcut icon" href="./favicon.svg?v=1.1.6">
+  <link rel="stylesheet" href="./style.css?v=1.1.6">
+  <script>
+    window.JAZZ_TRAINER_GOATCOUNTER_ENDPOINT = 'https://aminel.goatcounter.com/count';
+    window.goatcounter = window.goatcounter || {};
+    window.goatcounter.path = function demoAnalyticsPath(path) {
+      if (!path || path === location.pathname || path === location.pathname + location.search) {
+        return '/demo.html';
+      }
+      return path;
+    };
+  </script>
+  <script
+    async
+    data-goatcounter="https://aminel.goatcounter.com/count"
+    src="//gc.zgo.at/count.js"></script>
 </head>
 <body class="demo-page">
   <div id="app" class="demo-app">
