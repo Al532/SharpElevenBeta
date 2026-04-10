@@ -19,6 +19,7 @@ import {
 } from './progression-storage.js';
 import { createCompingEngine } from './comping-engine.js';
 import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './display-placeholder-messages.js';
+import { renderChordSymbolHtml } from './chord-symbol-display.js';
 import voicingConfig from './voicing-config.js';
 
 /* ============================================================
@@ -77,10 +78,10 @@ const {
   COLOR_TONES,
   DOMINANT_COLOR_TONES,
   DOMINANT_GUIDE_TONES = {},
-  DOMINANT_DEFAULT_SUBTYPE_MAJOR = {},
-  DOMINANT_DEFAULT_SUBTYPE_MINOR = {},
-  QUALITY_CATEGORY_ALIASES = {},
-  DOMINANT_SUBTYPE_SUFFIXES = {}
+  DOMINANT_DEFAULT_QUALITY_MAJOR = {},
+  DOMINANT_DEFAULT_QUALITY_MINOR = {},
+  DOMINANT_QUALITY_ALIASES = {},
+  QUALITY_CATEGORY_ALIASES = {}
 } = voicingConfig;
 
 const PATTERN_MODE_BOTH = 'both';
@@ -346,10 +347,10 @@ function parseDefaultProgressionsText(source) {
 const ONE_CHORD_TAG = 'one:';
 const ONE_CHORD_DEFAULT_QUALITIES = [
   '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'm7b5', 'dim7',
-  '7mixo', '7b9', '7alt', '7oct', '7lyd', '7#5', '7sus', '7b9sus'
+  '13', '7b9', '7alt', '7oct', '13#11', '7#5', '7sus', '7b9sus'
 ];
 const ONE_CHORD_DOMINANT_QUALITIES = [
-  '7mixo', '7b9', '7alt', '7oct', '7lyd', '7#5', '7sus', '7b9sus'
+  '13', '7b9', '7alt', '7oct', '13#11', '7#5', '7sus', '7b9sus'
 ];
 const ONE_CHORD_QUALITY_ALIASES = {
   '6': '6',
@@ -364,14 +365,17 @@ const ONE_CHORD_QUALITY_ALIASES = {
   m7b5: 'm7b5',
   dim7: 'dim7',
   '°7': 'dim7',
-  '7mixo': '7mixo',
-  '7b9': '7b9',
-  '7alt': '7alt',
-  '7oct': '7oct',
-  '7lyd': '7lyd',
-  '7#5': '7#5',
-  '7sus': '7sus',
-  '7b9sus': '7b9sus'
+  '7mixo': '13',
+  '13mixo': '13',
+  '13b9': '7b9',
+  '13alt': '7alt',
+  '13oct': '7oct',
+  '7lyd': '13#11',
+  '7#11': '13#11',
+  '13lyd': '13#11',
+  '13#5': '7#5',
+  '13sus': '7sus',
+  '13b9sus': '7b9sus'
 };
 
 function clearOneChordCycleState() {
@@ -394,6 +398,14 @@ function getDefaultProgressionsFingerprint(source = DEFAULT_PROGRESSIONS) {
 
 function normalizeOneChordQualityToken(token) {
   const normalized = String(token || '').trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalized)) return normalized;
+  for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
+    if ((aliases || []).includes(normalized)) return canonicalQuality;
+  }
+  if (Object.prototype.hasOwnProperty.call(QUALITY_CATEGORY_ALIASES, normalized)) return normalized;
+  for (const [canonicalQuality, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
+    if ((aliases || []).includes(normalized)) return canonicalQuality;
+  }
   return ONE_CHORD_QUALITY_ALIASES[normalized] || null;
 }
 
@@ -566,8 +578,21 @@ function isAcceptedCustomQuality(quality) {
 
 function normalizeParsedQuality(quality, roman) {
   const normalizedQuality = String(quality).toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalizedQuality)) return normalizedQuality;
+  for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
+    if ((aliases || []).includes(normalizedQuality)) return canonicalQuality;
+  }
+  if (normalizedQuality === 'm') {
+    if (roman === 'I') return 'm6';
+    if (roman === 'III') return 'm7';
+    return 'm9';
+  }
   if (normalizedQuality === 'm9') return roman === 'III' ? 'm7' : 'm9';
   if (normalizedQuality === 'm7' && roman !== 'III') return 'm9';
+  if (Object.prototype.hasOwnProperty.call(QUALITY_CATEGORY_ALIASES, normalizedQuality)) return normalizedQuality;
+  for (const [canonicalQuality, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
+    if ((aliases || []).includes(normalizedQuality)) return canonicalQuality;
+  }
   return quality;
 }
 
@@ -695,7 +720,7 @@ function analyzePattern(str) {
     if (parsed) {
       chords.push(parsed);
     } else if (containsRejectedQuality(t)) {
-      invalidTokens.push(`${t} (use m7; m9 is applied automatically except on III)`);
+      invalidTokens.push(`${t} (use m or m7; m9 is applied automatically except on III)`);
     } else {
       invalidTokens.push(t);
     }
@@ -759,6 +784,9 @@ function canLoopTrimProgression(rawChords, doubleTime) {
 // - isFirstRep=true  → [v0, v1, v2, v3] (trim resolution voicing)
 // - isFirstRep=false → [v4, v1, v2, v3, (v4, v4, ...)] (resolution first, body, pad)
 function buildLoopRepVoicings(template, paddedLength, isFirstRep) {
+  if (!Array.isArray(template) || template.length === 0) {
+    return new Array(Math.max(0, paddedLength)).fill(null);
+  }
   const N = template.length; // number of raw chords (e.g. 5)
   const plan = [];
   if (isFirstRep) {
@@ -1426,26 +1454,19 @@ function getBassMidi(key, semitoneOffset) {
 
 function classifyQuality(quality) {
   for (const [category, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
+    if (quality === category) return category;
     if ((aliases || []).includes(quality)) return category;
   }
+  if (quality.startsWith('13')) return 'dom';
   if (quality.startsWith('7')) return 'dom';
   return null;
 }
 
-function getDominantSubtype(quality) {
-  const suffix = quality.slice(1); // remove leading '7'
-  for (const [subtype, aliases] of Object.entries(DOMINANT_SUBTYPE_SUFFIXES)) {
-    if ((aliases || []).includes(suffix)) return subtype;
-  }
-  return 'auto';
-}
-
-function resolveDominantSubtype(chord, quality, isMinor) {
-  const sub = getDominantSubtype(quality);
-  if (sub !== 'auto') return sub;
-  const defaults = isMinor ? DOMINANT_DEFAULT_SUBTYPE_MINOR : DOMINANT_DEFAULT_SUBTYPE_MAJOR;
-  if (chord.modifier) return 'mixo';
-  return defaults[chord.roman] || 'mixo';
+function resolveDominantQuality(chord, quality, isMinor) {
+  if (quality !== '7') return quality;
+  const defaults = isMinor ? DOMINANT_DEFAULT_QUALITY_MINOR : DOMINANT_DEFAULT_QUALITY_MAJOR;
+  if (chord.modifier) return '13';
+  return defaults[chord.roman] || '13';
 }
 
 function resolveIntervalValue(interval) {
@@ -1884,9 +1905,9 @@ function createVoicingSlot(chord, key, isMinor, segment = 'current') {
   let colorIntervals;
   let guideIntervals = null;
   if (qualityCategory === 'dom') {
-    const subtype = resolveDominantSubtype(chord, quality, isMinor);
-    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[subtype] || DOMINANT_COLOR_TONES.mixo);
-    guideIntervals = DOMINANT_GUIDE_TONES[subtype] || null;
+    const dominantQuality = resolveDominantQuality(chord, quality, isMinor);
+    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[dominantQuality] || DOMINANT_COLOR_TONES['13']);
+    guideIntervals = DOMINANT_GUIDE_TONES[dominantQuality] || null;
   } else {
     colorIntervals = resolveIntervalList(COLOR_TONES[qualityCategory] || []);
   }
@@ -2164,13 +2185,13 @@ function buildAllRequiredSampleNoteSets() {
       );
     }
 
-    for (const [subtype, colorToneIntervals] of Object.entries(DOMINANT_COLOR_TONES)) {
+    for (const [dominantQuality, colorToneIntervals] of Object.entries(DOMINANT_COLOR_TONES)) {
       processCandidates(
         enumerateChordVoicingCandidates(
           rootPitchClass,
           'dom',
           resolveIntervalList(colorToneIntervals),
-          DOMINANT_GUIDE_TONES[subtype] || null
+          DOMINANT_GUIDE_TONES[dominantQuality] || null
         )
       );
     }
@@ -2189,9 +2210,9 @@ function getVoicing(key, chord, isMinor) {
   let colorIntervals;
   let guideIntervals = null;
   if (cat === 'dom') {
-    const subtype = resolveDominantSubtype(chord, quality, isMinor);
-    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[subtype] || DOMINANT_COLOR_TONES.mixo);
-    guideIntervals = DOMINANT_GUIDE_TONES[subtype] || null;
+    const dominantQuality = resolveDominantQuality(chord, quality, isMinor);
+    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[dominantQuality] || DOMINANT_COLOR_TONES['13']);
+    guideIntervals = DOMINANT_GUIDE_TONES[dominantQuality] || null;
   } else {
     colorIntervals = resolveIntervalList(COLOR_TONES[cat] || []);
   }
@@ -2286,9 +2307,7 @@ function keyName(key) {
 function getDisplayedQuality(chord, isMinor) {
   const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
   if (classifyQuality(quality) !== 'dom') return quality;
-
-  const subtype = resolveDominantSubtype(chord, quality, isMinor);
-  return `7${subtype}`;
+  return resolveDominantQuality(chord, quality, isMinor);
 }
 
 function normalizeDisplayedRootName(rootName) {
@@ -2316,6 +2335,24 @@ function chordSymbol(key, chord, isMinorOverride = null) {
   );
   const quality = getDisplayedQuality(chord, isMinor);
   return rootName + quality;
+}
+
+function chordSymbolHtml(key, chord, isMinorOverride = null) {
+  if (chord?.inputType === 'one-chord') {
+    const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
+    return renderChordSymbolHtml(rootName, chord.qualityMajor || '');
+  }
+  const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
+  const rootName = normalizeDisplayedRootName(
+    degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
+  );
+  const quality = getDisplayedQuality(chord, isMinor);
+  return renderChordSymbolHtml(rootName, quality);
+}
+
+function refreshChordDisplayLayout(element, baseRem) {
+  if (!element) return;
+  fitChordDisplay(element, baseRem);
 }
 
 // Compute the displayed note name from the parsed pitch class so display matches playback.
@@ -2392,11 +2429,17 @@ function applyDisplaySideLayout() {
 
 function fitChordDisplay(element, baseRem) {
   if (!element) return;
+  const symbol = element.querySelector('.chord-symbol');
 
   // Always set the desired large font size
   element.style.fontSize = `${baseRem}rem`;
-  element.style.transform = '';
-  element.style.transformOrigin = 'center center';
+  if (symbol) {
+    symbol.style.transform = '';
+    symbol.style.transformOrigin = 'center center';
+  } else {
+    element.style.transform = '';
+    element.style.transformOrigin = 'center center';
+  }
   if (!element.textContent?.trim()) return;
 
   // Let the browser lay out at full size, then scale down if needed
@@ -2409,7 +2452,11 @@ function fitChordDisplay(element, baseRem) {
 
   if (textWidth > parentWidth && parentWidth > 0) {
     const scale = parentWidth / textWidth;
-    element.style.transform = `scale(${scale.toFixed(4)})`;
+    if (symbol) {
+      symbol.style.transform = `scale(${scale.toFixed(4)})`;
+    } else {
+      element.style.transform = `scale(${scale.toFixed(4)})`;
+    }
   }
 }
 
@@ -2426,8 +2473,8 @@ function getBaseChordDisplaySize() {
 function fitHarmonyDisplay() {
   window.requestAnimationFrame(() => {
     const baseRem = getBaseChordDisplaySize();
-    fitChordDisplay(dom.chordDisplay, baseRem);
-    fitChordDisplay(dom.nextChordDisplay, baseRem);
+    refreshChordDisplayLayout(dom.chordDisplay, baseRem);
+    refreshChordDisplayLayout(dom.nextChordDisplay, baseRem);
   });
 }
 
@@ -2604,8 +2651,8 @@ function syncSelectedKeysSummary() {
   }
 
   if (selectedKeys.length === 12) {
-    dom.selectedKeysSummary.textContent = 'Keys: all';
-    dom.selectedKeysSummary.setAttribute('aria-label', 'Open key selection. Current selection: all');
+    dom.selectedKeysSummary.textContent = 'Keys: all (click to select)';
+    dom.selectedKeysSummary.setAttribute('aria-label', 'Open key selection. Current selection: all. Click to select keys.');
     return;
   }
 
@@ -3104,6 +3151,7 @@ const {
     buildPreparedCompingPlans: rebuildPreparedCompingPlans,
     buildVoicingPlanForSlots,
     canLoopTrimProgression,
+    chordSymbolHtml,
     chordSymbol,
     compingEngine,
     createOneChordToken,
@@ -3303,11 +3351,11 @@ function refreshDisplayedHarmony() {
 
   if (isIntro) {
     dom.keyDisplay.textContent = '';
-    dom.chordDisplay.textContent = '';
+    dom.chordDisplay.innerHTML = '';
     const firstChord = paddedChords[0];
     showNextCol();
     dom.nextKeyDisplay.textContent = keyName(currentKey);
-    dom.nextChordDisplay.textContent = firstChord ? chordSymbol(currentKey, firstChord) : '';
+    dom.nextChordDisplay.innerHTML = firstChord ? chordSymbolHtml(currentKey, firstChord) : '';
     fitHarmonyDisplay();
     return;
   }
@@ -3316,14 +3364,14 @@ function refreshDisplayedHarmony() {
   if (!chord) return;
 
   dom.keyDisplay.textContent = keyName(currentKey);
-  dom.chordDisplay.textContent = chordSymbol(currentKey, chord);
+  dom.chordDisplay.innerHTML = chordSymbolHtml(currentKey, chord);
   const remainingBeats = getRemainingBeatsUntilNextProgression();
 
   if (shouldShowNextPreview(currentKey, nextKeyValue, remainingBeats)) {
     showNextCol();
     const nextFirstChord = nextRawChords[0] || null;
     dom.nextKeyDisplay.textContent = keyName(nextKeyValue);
-    dom.nextChordDisplay.textContent = nextFirstChord ? chordSymbol(nextKeyValue, nextFirstChord) : '';
+    dom.nextChordDisplay.innerHTML = nextFirstChord ? chordSymbolHtml(nextKeyValue, nextFirstChord) : '';
   } else {
     hideNextCol();
   }
@@ -3656,7 +3704,7 @@ async function loadPatternHelp() {
       <div class="pattern-help-body">
         <p>Use note roots such as <code>C Dm7 G7</code> or <code>F# B7 Emaj7</code>. Notes are interpreted relative to <code>C</code> by default. Separate chords with spaces.</p>
         <p>You can also use functions such as <code>IIm7 V I</code>, with optional <code>b</code> or <code>#</code> like <code>bVI</code> or <code>#IV</code>.</p>
-        <p>If you omit the chord quality, a default one is chosen from the context. For example, <code>D</code> or <code>II</code> in minor will default to <code>m7b5</code>. Check with the <code>Progression preview</code>.</p>
+        <p>If you omit the chord quality, a default one is chosen from the context. For example, <code>D</code> or <code>II</code> in minor will default to <code>m7b5</code>. Check with the <code>Progression preview</code> below.</p>
         <p>Available suffixes:</p>
         <ul>${items}</ul>
         <p><code>%</code> repeats the previous chord.</p>

@@ -251,7 +251,7 @@ h1 {
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   color: var(--text-faint);
   text-align: left;
   line-height: 1.35;
@@ -438,6 +438,7 @@ body.key-picker-open {
 #chord-display,
 #next-chord-display {
   grid-row: 3;
+  margin-top: 0.22rem;
   font-size: 5rem;
   font-weight: 700;
   line-height: 1.1;
@@ -450,6 +451,46 @@ body.key-picker-open {
 }
 #chord-display      { grid-column: 1; }
 #next-chord-display  { grid-column: 2; color: var(--text-soft); }
+
+.chord-symbol {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: start;
+  column-gap: 0.02em;
+}
+
+.chord-symbol-main {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.chord-symbol-root,
+.chord-symbol-root-letter,
+.chord-symbol-root-accidental,
+.chord-symbol-base,
+.chord-symbol-sup {
+  display: inline-block;
+}
+
+.chord-symbol-root-accidental {
+  font-size: 0.78em;
+  transform: translateY(-0.18em);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-base {
+  font-size: 0.68em;
+  margin-left: 0.04em;
+}
+
+.chord-symbol-sup {
+  font-size: 0.5em;
+  line-height: 1;
+  white-space: nowrap;
+  color: inherit;
+  transform: translateY(-0.12em);
+  transform-origin: left bottom;
+}
 
 /* Hidden state for next-column cells */
 #next-header.hidden,

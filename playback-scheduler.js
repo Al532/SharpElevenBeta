@@ -8,6 +8,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     buildVoicingPlanForSlots,
     canLoopTrimProgression,
     chordSymbol,
+    chordSymbolHtml,
     compingEngine,
     createOneChordToken,
     createVoicingSlot,
@@ -91,7 +92,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     const isMinor = oneChordSpec.active ? false : dom.majorMinor.checked;
 
     if (loopTrim) {
-      if (state.currentKeyRepetition === 1) {
+      if (state.currentKeyRepetition === 1 || !Array.isArray(state.loopVoicingTemplate) || state.loopVoicingTemplate.length === 0) {
         const rawSlots = state.currentRawChords.map(chord => createVoicingSlot(chord, state.currentKey, isMinor, 'current'));
         if (isVoiceLeadingV2Enabled()) {
           state.loopVoicingTemplate = buildVoicingPlanForSlots(rawSlots);
@@ -173,10 +174,10 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         scheduleDisplay(state.nextBeatTime, () => {
           applyDisplaySideLayout();
           dom.keyDisplay.textContent = '';
-          dom.chordDisplay.textContent = '';
+          dom.chordDisplay.innerHTML = '';
           showNextCol();
           dom.nextKeyDisplay.textContent = keyName(introKey);
-          dom.nextChordDisplay.textContent = introFirstChord ? chordSymbol(introKey, introFirstChord) : '';
+          dom.nextChordDisplay.innerHTML = introFirstChord ? chordSymbolHtml(introKey, introFirstChord) : '';
           fitHarmonyDisplay();
           updateBeatDots(introB, true);
         });
@@ -265,19 +266,19 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       scheduleDisplay(state.nextBeatTime, () => {
         if (!shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           dom.nextKeyDisplay.textContent = '';
-          dom.nextChordDisplay.textContent = '';
+          dom.nextChordDisplay.innerHTML = '';
           hideNextCol();
         }
         applyDisplaySideLayout();
         dom.keyDisplay.textContent = keyName(dispKey);
-        dom.chordDisplay.textContent = chordSymbol(dispKey, dispChord);
+        dom.chordDisplay.innerHTML = chordSymbolHtml(dispKey, dispChord);
         if (shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           showNextCol();
           dom.nextKeyDisplay.textContent = keyName(dispNextKey);
-          dom.nextChordDisplay.textContent = dispNextFirstChord ? chordSymbol(dispNextKey, dispNextFirstChord) : '';
+          dom.nextChordDisplay.innerHTML = dispNextFirstChord ? chordSymbolHtml(dispNextKey, dispNextFirstChord) : '';
         } else {
           dom.nextKeyDisplay.textContent = '';
-          dom.nextChordDisplay.textContent = '';
+          dom.nextChordDisplay.innerHTML = '';
           hideNextCol();
         }
         fitHarmonyDisplay();

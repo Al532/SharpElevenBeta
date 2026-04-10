@@ -37,8 +37,8 @@ const JAZZ_TRAINER_CONFIG = {
     m6: ['b3', '6'],
     maj7: ['3', '7'],
     '6': ['3', '6'],
-    hdim: ['b5', 'b7'],
-    dim: ['b3', 'bb7'],
+    m7b5: ['b5', 'b7'],
+    dim7: ['b3', 'bb7'],
     lyd: ['3', '5']
   },
 
@@ -49,70 +49,70 @@ const JAZZ_TRAINER_CONFIG = {
     m6: ['5', '9'],
     maj7: ['5', '9'],
     '6': ['5', '9'],
-    hdim: ['b3', 'b7'],
-    dim: ['b5'],
-    lyd: ['9', "#11", '13']
+    m7b5: ['b3', 'b7'],
+    dim7: ['b5'],
+    lyd: ['9', '#11', '13']
   },
 
-  // Dominant color tones per subtype
+  // Dominant color tones per full quality syntax
   DOMINANT_COLOR_TONES: {
-    mixo: ['9', '13'],
-    b9: ['b9', 'b13'],
-    alt: ['b9', '#9', 'b13'],
-    oct: ['b9', '13'],
-    lyd: ['9', '6', '#11'],
-    '#5': ['9','#5'],
-    '#9': ['#9', 'b7'],
-    sus: ['9', '13'],
-    b9sus: ['4', '5', 'b9']
+    '13': ['9', '13'],
+    '7b9': ['b9', 'b13'],
+    '7alt': ['b9', '#9', 'b13'],
+    '7oct': ['b9', '13'],
+    '13#11': ['9', '6', '#11'],
+    '7#5': ['9', '#5'],
+    '7#9': ['#9', 'b7'],
+    '7sus': ['9', '13'],
+    '7b9sus': ['4', '5', 'b9']
   },
 
-  // Dominant guide tones per subtype when they differ from the default dominant 3 + b7
+  // Dominant guide tones per full quality when they differ from the default dominant 3 + b7
   DOMINANT_GUIDE_TONES: {
-    sus: ['4', 'b7'],
-    b9sus: ['b7']
+    '7sus': ['4', 'b7'],
+    '7b9sus': ['b7']
   },
 
-  // Default dominant subtype for a bare "7" quality, by strict diatonic degree and mode
+  // Default dominant quality for a bare "7" quality, by strict diatonic degree and mode
   // These mappings apply only to unaltered degrees (II, III, etc.), not to bII / #IV / etc.
-  DOMINANT_DEFAULT_SUBTYPE_MAJOR: {
-    II: 'lyd',
-    III: 'b9',
-    VI: 'b9',
-    VII: '#5'
+  DOMINANT_DEFAULT_QUALITY_MAJOR: {
+    II: '13#11',
+    III: '7b9',
+    VI: '7b9',
+    VII: '7#5'
   },
 
-  DOMINANT_DEFAULT_SUBTYPE_MINOR: {
-    II: 'b9',
-    III: 'b9',
-    V: 'b9',
-    VI: 'b9',
-    VII: 'b9'
+  DOMINANT_DEFAULT_QUALITY_MINOR: {
+    II: '7b9',
+    III: '7b9',
+    V: '7b9',
+    VI: '7b9',
+    VII: '7b9'
+  },
+
+  // Accepted textual aliases for dominant qualities that share the same behavior
+  DOMINANT_QUALITY_ALIASES: {
+    '13': ['7mixo', '13mixo', 'mixo'],
+    '7b9': [],
+    '7alt': ['alt'],
+    '7oct': ['oct', '13b9'],
+    '13#11': ['7#11', '7lyd', '13lyd'],
+    '7#5': ['9#5'],
+    '7#9': [],
+    '7sus': ['13sus'],
+    '7b9sus': []
   },
 
   // Accepted textual aliases for quality families
   QUALITY_CATEGORY_ALIASES: {
-    m7: ['m7'],
-    m9: ['m9'],
-    m6: ['m6'],
-    maj7: ['△7', 'maj7', '△9'],
-    '6': ['6'],
-    hdim: ['ø7', 'm7b5'],
-    dim: ['°7', 'dim7'],
-    lyd: ['lyd']
-  },
-
-  // Accepted dominant suffixes after the leading "7"
-  DOMINANT_SUBTYPE_SUFFIXES: {
-    mixo: ['mixo'],
-    b9: ['b9'],
-    alt: ['alt'],
-    oct: ['oct'],
-    lyd: ['lyd'],
-    '#5': ['#5'],
-    '#9': ['#9'],
-    sus: ['sus'],
-    b9sus: ['b9sus']
+    m7: [],
+    m9: [],
+    m6: [],
+    maj7: ['△7', 'maj9', '△9'],
+    '6': [],
+    m7b5: ['ø7'],
+    dim7: ['°7', 'dim'],
+    lyd: ['maj#11', '△#11']
   }
 };
 
