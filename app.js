@@ -67,6 +67,9 @@ const PIANO_WHITE_KEY_COLUMNS = { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 };
 const PIANO_BLACK_KEY_COLUMNS = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+const ONE_TIME_MIGRATIONS = Object.freeze({
+  silentDefaultPresetReset: '2026-04-silent-default-preset-reset'
+});
 
 // Centralized voicing/chord defaults loaded from voicing-config.js
 const {
@@ -266,6 +269,8 @@ let hadStoredProgressions = false;
 let shouldPromptForDefaultProgressionsUpdate = false;
 let defaultProgressionsVersion = '1';
 let acknowledgedDefaultProgressionsVersion = '';
+let shouldPersistRecoveredDefaultProgressions = false;
+let appliedOneTimeMigrations = {};
 let sessionStartedAt = Date.now();
 let sessionStartTracked = false;
 let firstPlayStartTracked = false;
@@ -394,6 +399,52 @@ function getDefaultProgressionsFingerprint(source = DEFAULT_PROGRESSIONS) {
       return [name, normalized.name || '', normalized.mode || PATTERN_MODE_MAJOR];
     })
   );
+}
+
+function normalizeAppliedOneTimeMigrations(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, entry]) => Boolean(key) && entry && typeof entry === 'object' && !Array.isArray(entry))
+      .map(([key, entry]) => [key, {
+        appliedAt: typeof entry.appliedAt === 'string' ? entry.appliedAt : '',
+        appVersion: typeof entry.appVersion === 'string' ? entry.appVersion : '',
+        defaultPresetsVersion: typeof entry.defaultPresetsVersion === 'string' ? entry.defaultPresetsVersion : ''
+      }])
+  );
+}
+
+function markOneTimeMigrationApplied(migrationId) {
+  if (!migrationId) return;
+
+  appliedOneTimeMigrations = {
+    ...appliedOneTimeMigrations,
+    [migrationId]: {
+      appliedAt: new Date().toISOString(),
+      appVersion: APP_VERSION,
+      defaultPresetsVersion: defaultProgressionsVersion
+    }
+  };
+}
+
+function hasAppliedOneTimeMigration(migrationId) {
+  return Boolean(migrationId && appliedOneTimeMigrations[migrationId]);
+}
+
+function applySilentDefaultPresetResetMigration() {
+  const migrationId = ONE_TIME_MIGRATIONS.silentDefaultPresetReset;
+  if (!migrationId || hasAppliedOneTimeMigration(migrationId) || Object.keys(DEFAULT_PROGRESSIONS).length === 0) {
+    return false;
+  }
+
+  progressions = normalizeProgressionsMap(DEFAULT_PROGRESSIONS);
+  appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
+  acknowledgedDefaultProgressionsVersion = defaultProgressionsVersion;
+  shouldPromptForDefaultProgressionsUpdate = false;
+  savedPatternSelection = Object.keys(progressions)[0] || CUSTOM_PATTERN_OPTION_VALUE;
+  markOneTimeMigrationApplied(migrationId);
+  return true;
 }
 
 function normalizeOneChordQualityToken(token) {
@@ -3481,8 +3532,10 @@ function buildSettingsSnapshot() {
         : null);
   return {
     presets: progressions,
+    presetsCleared: Object.keys(progressions).length === 0,
     defaultPresetsFingerprintApplied: appliedDefaultProgressionsFingerprint || getDefaultProgressionsFingerprint(),
     defaultPresetsVersionAcknowledged: acknowledgedDefaultProgressionsVersion || '',
+    appliedOneTimeMigrations,
     editingState,
     patternSelect: dom.patternSelect.value,
     customPatternName: getCurrentPatternName(),
@@ -3515,18 +3568,25 @@ function saveSettings() {
 function applyLoadedSettings(s) {
   if (!s || typeof s !== 'object') return;
 
-  hadStoredProgressions = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets) && Object.keys(s.presets).length > 0);
+  const hasStoredPresets = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets));
+  const storedPresetCount = hasStoredPresets ? Object.keys(s.presets).length : 0;
+  const storedEmptyListWasIntentional = s.presetsCleared === true;
+  hadStoredProgressions = storedPresetCount > 0;
   const storedDefaultPresetsFingerprint = typeof s.defaultPresetsFingerprintApplied === 'string'
     ? s.defaultPresetsFingerprintApplied
     : '';
   const storedAcknowledgedVersion = typeof s.defaultPresetsVersionAcknowledged === 'string'
     ? s.defaultPresetsVersionAcknowledged
     : '';
+  appliedOneTimeMigrations = normalizeAppliedOneTimeMigrations(s.appliedOneTimeMigrations);
   appliedDefaultProgressionsFingerprint = storedDefaultPresetsFingerprint;
   acknowledgedDefaultProgressionsVersion = storedAcknowledgedVersion;
   savedPatternSelection = typeof s.patternSelect === 'string' ? s.patternSelect : null;
-  if (s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets)) {
+  if (hasStoredPresets && (storedPresetCount > 0 || storedEmptyListWasIntentional)) {
     progressions = normalizeProgressionsMap(s.presets);
+  } else if (hasStoredPresets && storedPresetCount === 0 && Object.keys(DEFAULT_PROGRESSIONS).length > 0) {
+    progressions = normalizeProgressionsMap(DEFAULT_PROGRESSIONS);
+    shouldPersistRecoveredDefaultProgressions = true;
   }
   renderProgressionOptions(s.patternSelect);
   if (s.patternSelect !== undefined) dom.patternSelect.value = s.patternSelect;
@@ -3662,6 +3722,10 @@ function finalizeLoadedSettings() {
   }
   syncProgressionManagerState();
   applyPatternModeAvailability();
+  if (shouldPersistRecoveredDefaultProgressions) {
+    shouldPersistRecoveredDefaultProgressions = false;
+    saveSettings();
+  }
 }
 
 function loadSettings() {
@@ -3747,6 +3811,11 @@ async function initializeApp() {
 
   renderProgressionOptions(Object.keys(progressions)[0] || '');
   loadSettings();
+  const appliedSilentPresetReset = applySilentDefaultPresetResetMigration();
+  if (appliedSilentPresetReset) {
+    renderProgressionOptions(savedPatternSelection);
+    saveSettings();
+  }
   buildKeyCheckboxes();
   updateKeyPickerLabels();
   applyDisplayMode();
