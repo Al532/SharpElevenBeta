@@ -33,6 +33,10 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     return Object.keys(state.progressions);
   }
 
+  function scheduleProgressionMutation(work) {
+    window.setTimeout(work, 0);
+  }
+
   function rebuildProgressionsFromNames(names) {
     state.progressions = Object.fromEntries(
       names
@@ -581,68 +585,72 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     if (!window.confirm('Restore the default progressions? Existing progressions will be kept.')) {
       return;
     }
-    const wasManagingProgressions = state.isManagingProgressions;
-    const currentSelection = dom.patternSelect.value;
-    let restoredCount = 0;
+    scheduleProgressionMutation(() => {
+      const wasManagingProgressions = state.isManagingProgressions;
+      const currentSelection = dom.patternSelect.value;
+      let restoredCount = 0;
 
-    for (const [name, entry] of Object.entries(state.defaultProgressions)) {
-      if (Object.prototype.hasOwnProperty.call(state.progressions, name)) continue;
-      state.progressions[name] = normalizeProgressionEntry(name, entry);
-      restoredCount++;
-    }
+      for (const [name, entry] of Object.entries(state.defaultProgressions)) {
+        if (Object.prototype.hasOwnProperty.call(state.progressions, name)) continue;
+        state.progressions[name] = normalizeProgressionEntry(name, entry);
+        restoredCount++;
+      }
 
-    const nextSelection = Object.prototype.hasOwnProperty.call(state.progressions, currentSelection)
-      ? currentSelection
-      : Object.keys(state.defaultProgressions).find(name => Object.prototype.hasOwnProperty.call(state.progressions, name))
-        || Object.keys(state.progressions)[0]
-        || '';
+      const nextSelection = Object.prototype.hasOwnProperty.call(state.progressions, currentSelection)
+        ? currentSelection
+        : Object.keys(state.defaultProgressions).find(name => Object.prototype.hasOwnProperty.call(state.progressions, name))
+          || Object.keys(state.progressions)[0]
+          || '';
 
-    renderProgressionOptions(nextSelection);
-    if (Object.prototype.hasOwnProperty.call(state.progressions, nextSelection)) {
-      dom.patternSelect.value = nextSelection;
-      dom.patternName.value = getSelectedProgressionName();
-      dom.customPattern.value = getSelectedProgressionPattern();
-      setEditorPatternMode(getSelectedProgressionMode());
-      syncCustomPatternUI();
-    } else {
-      syncPatternSelectionFromInput();
-    }
-    state.isManagingProgressions = wasManagingProgressions;
-    syncProgressionManagerState();
-    syncProgressionManagerPanel();
-    validateCustomPattern();
-    applyPatternModeAvailability();
+      renderProgressionOptions(nextSelection);
+      if (Object.prototype.hasOwnProperty.call(state.progressions, nextSelection)) {
+        dom.patternSelect.value = nextSelection;
+        dom.patternName.value = getSelectedProgressionName();
+        dom.customPattern.value = getSelectedProgressionPattern();
+        setEditorPatternMode(getSelectedProgressionMode());
+        syncCustomPatternUI();
+      } else {
+        syncPatternSelectionFromInput();
+      }
+      state.isManagingProgressions = wasManagingProgressions;
+      syncProgressionManagerState();
+      syncProgressionManagerPanel();
+      validateCustomPattern();
+      applyPatternModeAvailability();
 
-    if (restoredCount === 0) {
-      setProgressionFeedback('Default progressions are already present.');
-    } else {
-      state.appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
-      state.acknowledgedDefaultProgressionsVersion = state.defaultProgressionsVersion;
-      state.shouldPromptForDefaultProgressionsUpdate = false;
-      setProgressionFeedback(`Restored ${restoredCount} default progression${restoredCount > 1 ? 's' : ''}.`);
-      saveSettings();
-      trackEvent('default_presets_restored', {
-        restored_count: restoredCount
-      });
-    }
+      if (restoredCount === 0) {
+        setProgressionFeedback('Default progressions are already present.');
+      } else {
+        state.appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
+        state.acknowledgedDefaultProgressionsVersion = state.defaultProgressionsVersion;
+        state.shouldPromptForDefaultProgressionsUpdate = false;
+        setProgressionFeedback(`Restored ${restoredCount} default progression${restoredCount > 1 ? 's' : ''}.`);
+        saveSettings();
+        trackEvent('default_presets_restored', {
+          restored_count: restoredCount
+        });
+      }
+    });
   }
 
   function clearAllProgressions() {
     if (!window.confirm('Clear all progressions? This cannot be undone.')) {
       return;
     }
-    const wasManagingProgressions = state.isManagingProgressions;
-    state.progressions = {};
-    clearProgressionEditingState();
-    renderProgressionOptions('');
-    syncPatternSelectionFromInput();
-    state.isManagingProgressions = wasManagingProgressions;
-    syncProgressionManagerState();
-    validateCustomPattern();
-    applyPatternModeAvailability();
-    setProgressionFeedback('All progressions cleared.');
-    saveSettings();
-    trackEvent('all_presets_cleared');
+    scheduleProgressionMutation(() => {
+      const wasManagingProgressions = state.isManagingProgressions;
+      state.progressions = {};
+      clearProgressionEditingState();
+      renderProgressionOptions('');
+      syncPatternSelectionFromInput();
+      state.isManagingProgressions = wasManagingProgressions;
+      syncProgressionManagerState();
+      validateCustomPattern();
+      applyPatternModeAvailability();
+      setProgressionFeedback('All progressions cleared.');
+      saveSettings();
+      trackEvent('all_presets_cleared');
+    });
   }
 
   function toggleProgressionManager() {
