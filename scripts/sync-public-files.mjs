@@ -14,6 +14,7 @@ const filesToSync = [
   'default-progressions.txt',
   'demo.html',
   'favicon.svg',
+  'parsing-projects/review-standard-conversions.txt',
   'progression-suffixes.txt',
   'style.css'
 ];
@@ -40,6 +41,7 @@ async function syncToDirectory(targetDir, label) {
   for (const relativePath of filesToSync) {
     const sourcePath = path.join(projectRoot, relativePath);
     const destinationPath = path.join(targetDir, relativePath);
+    await mkdir(path.dirname(destinationPath), { recursive: true });
     if (templatedFiles.has(relativePath)) {
       const sourceContent = await readFile(sourcePath, 'utf8');
       const renderedContent = sourceContent.replaceAll('__APP_VERSION__', appVersion);
