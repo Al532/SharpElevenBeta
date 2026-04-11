@@ -13,6 +13,7 @@ export function createProgressionEditor({ dom, state, constants, helpers }) {
     analyzePattern,
     chordSymbol,
     getDisplayTranspositionSemitones,
+    getSelectedChordsPerBar,
     isOneChordModeActive,
     matchesOneChordQualitySet,
     normalizePatternMode,
@@ -166,15 +167,33 @@ export function createProgressionEditor({ dom, state, constants, helpers }) {
     const rawKey = analysis.basePitchClass ?? 0;
     const previewKey = ((rawKey - getDisplayTranspositionSemitones()) % 12 + 12) % 12;
     const previewIsMinor = getEffectivePreviewMinorMode(normalizedPattern);
-    let previousSymbol = '';
-    return analysis.chords
-      .map(chord => {
-        const symbol = chordSymbol(previewKey, chord, previewIsMinor);
-        const nextSymbol = symbol === previousSymbol ? '%' : symbol;
-        previousSymbol = symbol;
-        return nextSymbol;
-      })
-      .join('  |  ');
+
+    const renderMeasure = (measureChords) => {
+      let previousSymbol = '';
+      return measureChords
+        .map(chord => {
+          const symbol = chordSymbol(previewKey, chord, previewIsMinor);
+          const nextSymbol = symbol === previousSymbol ? '%' : symbol;
+          previousSymbol = symbol;
+          return nextSymbol;
+        })
+        .join(' ');
+    };
+
+    if (analysis.usesBarLines && Array.isArray(analysis.expandedMeasures) && analysis.expandedMeasures.length > 0) {
+      return analysis.expandedMeasures
+        .map(measureChords => `| ${renderMeasure(measureChords)} |`)
+        .join(' ');
+    }
+
+    const measureSize = Math.max(1, Number(getSelectedChordsPerBar?.() || 1));
+    const measures = [];
+    for (let i = 0; i < analysis.chords.length; i += measureSize) {
+      measures.push(analysis.chords.slice(i, i + measureSize));
+    }
+    return measures
+      .map(measureChords => `| ${renderMeasure(measureChords)} |`)
+      .join(' ');
   }
 
   function getPatternPreviewText() {

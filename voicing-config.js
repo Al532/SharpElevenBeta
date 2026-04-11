@@ -23,7 +23,7 @@ const JAZZ_TRAINER_CONFIG = {
   // Altered degree quality by resulting semitone (minor context)
   ALTERED_SEMITONE_QUALITY_MINOR: {
     1: '△7', // bII / #I
-    3: '°7', // bIII / #II
+    3: 'maj7', // bIII / #II
     6: '°7', // bV / #IV
     8: '7',  // bVI / #V
     10: '7'  // bVII / #VI
@@ -76,7 +76,7 @@ const JAZZ_TRAINER_CONFIG = {
   // Default dominant quality for a bare "7" quality, by strict diatonic degree and mode
   // These mappings apply only to unaltered degrees (II, III, etc.), not to bII / #IV / etc.
   DOMINANT_DEFAULT_QUALITY_MAJOR: {
-    II: '13#11',
+    II: '13',
     III: '7b9',
     VI: '7b9',
     VII: '7#5'
@@ -93,7 +93,7 @@ const JAZZ_TRAINER_CONFIG = {
   // Accepted textual aliases for dominant qualities that share the same behavior
   DOMINANT_QUALITY_ALIASES: {
     '13': ['7mixo', '13mixo', 'mixo'],
-    '7b9': [],
+    '7b9': ['7b13'],
     '7alt': ['alt'],
     '7oct': ['oct', '13b9'],
     '13#11': ['7#11', '7lyd', '13lyd'],
@@ -112,7 +112,7 @@ const JAZZ_TRAINER_CONFIG = {
     '6': [],
     m7b5: ['ø7'],
     dim7: ['°7', 'dim'],
-    lyd: ['maj#11', '△#11']
+    lyd: ['maj#11', 'maj7#11', '△#11']
   }
 };
 

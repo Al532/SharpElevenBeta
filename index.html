@@ -77,6 +77,7 @@
         </details>
           <div id="display">
             <div id="display-placeholder" class="display-placeholder">
+              <button type="button" id="reopen-welcome" class="display-quickstart-button">← Back to Quick start</button>
               <p id="display-placeholder-message">Choose a progression, then press Start.</p>
             </div>
             <div id="display-columns">
@@ -199,11 +200,19 @@
             <input type="range" id="tempo-slider" min="40" max="300" value="120">
           </div>
 
-          <div class="control-row">
-            <label class="toggle-label">
-              <input type="checkbox" id="double-time">
-              <span>Double time</span>
-            </label>
+          <select id="chords-per-bar" hidden aria-hidden="true" tabindex="-1">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+            </select>
+
+          <div class="control-row toggles">
+            <div class="toggle-row">
+              <label class="toggle-label" for="double-time">
+                <input type="checkbox" id="double-time">
+                <span>Double time</span>
+              </label>
+            </div>
           </div>
 
           <div class="control-row inline-select-row">
@@ -336,6 +345,10 @@
             </label>
           </div>
 
+          <div class="control-row">
+            <button type="button" id="reset-settings" class="reset-settings-button">Reset settings</button>
+          </div>
+
         </div>
       </section>
     </main>
@@ -353,6 +366,112 @@
         <button type="button" id="progression-update-replace" class="modal-button modal-button-primary">Replace list (recommended)</button>
         <button type="button" id="progression-update-merge" class="modal-button modal-button-secondary">Add new entries only</button>
         <button type="button" id="progression-update-keep" class="modal-button modal-button-tertiary">Keep current list</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="welcome-overlay" class="welcome-overlay hidden" aria-hidden="true">
+    <div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <button type="button" id="welcome-skip" class="welcome-skip-button">Skip</button>
+      <h2 id="welcome-title" class="welcome-title">Quick start</h2>
+
+      <section class="welcome-section" aria-labelledby="welcome-goal-title">
+        <h3 id="welcome-goal-title">1. What do you want to practice?</h3>
+        <div class="welcome-choice-grid" id="welcome-goal-options">
+          <label class="welcome-choice-card">
+            <input type="radio" name="welcome-goal" value="progression" checked>
+            <span class="welcome-choice-title">Common progression in all keys</span>
+            <span class="welcome-choice-copy">Challenge: play some licks or voicings and anticipate the next key before it hits.</span>
+          </label>
+          <label class="welcome-choice-card">
+            <input type="radio" name="welcome-goal" value="one-chord">
+            <span class="welcome-choice-title">Improvise over random chords</span>
+            <span class="welcome-choice-copy">Challenge: improvise a line that leads into the next chord.</span>
+          </label>
+          <label class="welcome-choice-card">
+            <input type="radio" name="welcome-goal" value="standard">
+            <span class="welcome-choice-title">Play a standard</span>
+            <span class="welcome-choice-copy">Just for fun.</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="welcome-section" data-welcome-panel="progression" aria-labelledby="welcome-progression-title">
+        <h3 id="welcome-progression-title">2. Which progression?</h3>
+        <div class="welcome-pill-row">
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-progression" value="ii-v-i-major" checked>
+            <span>II V I major</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-progression" value="ii-v-i-minor">
+            <span>II V I minor</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-progression" value="turnaround">
+            <span>Turnaround <small>(C6 A7♭9 Dm7 G7)</small></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="welcome-section hidden" data-welcome-panel="one-chord" aria-labelledby="welcome-one-chord-title">
+        <h3 id="welcome-one-chord-title">2. Which chord quality?</h3>
+        <div class="welcome-pill-row">
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="maj7" checked>
+            <span>maj7</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="m9">
+            <span>m9</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="lyd">
+            <span>Lydian</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="7alt">
+            <span>Altered</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="13sus">
+            <span>13sus4</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="welcome-section hidden" data-welcome-panel="standard" aria-labelledby="welcome-standard-title">
+        <h3 id="welcome-standard-title">2. Which standard?</h3>
+        <label class="sr-only" for="welcome-standard-select">Standard</label>
+        <select id="welcome-standard-select" class="welcome-standard-select" aria-label="Standard">
+          <option value="autumn-leaves">Autumn Leaves</option>
+        </select>
+      </section>
+
+      <section class="welcome-section" aria-labelledby="welcome-instrument-title">
+        <h3 id="welcome-instrument-title">3. Your instrument?</h3>
+        <div class="welcome-pill-row">
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="0" checked>
+            <span>C</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="2">
+            <span>Bb</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="9">
+            <span>Eb</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="7">
+            <span>F</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="welcome-footer">
+        <button type="button" id="welcome-apply" class="welcome-apply-button">Start with this preset</button>
       </div>
     </div>
   </div>

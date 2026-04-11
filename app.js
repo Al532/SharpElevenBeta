@@ -98,6 +98,15 @@ const COMPING_STYLE_OFF = 'off';
 const DEFAULT_NEXT_PREVIEW_LEAD_BARS = 1;
 const COMPING_STYLE_STRINGS = 'strings';
 const COMPING_STYLE_PIANO = 'piano';
+const DEFAULT_CHORDS_PER_BAR = 1;
+const SUPPORTED_CHORDS_PER_BAR = Object.freeze([1, 2, 4]);
+const WELCOME_GOAL_PROGRESSION = 'progression';
+const WELCOME_GOAL_ONE_CHORD = 'one-chord';
+const WELCOME_GOAL_STANDARD = 'standard';
+const WELCOME_ONBOARDING_SETTINGS_KEY = 'welcomeCompleted';
+const WELCOME_VERSION_SETTINGS_KEY = 'welcomeVersion';
+const WELCOME_VERSION = '2';
+const REVIEW_STANDARD_CONVERSIONS_URL = './parsing-projects/review-standard-conversions.txt';
 
 const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
 const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
@@ -164,7 +173,8 @@ const dom = {
   nextPreviewValue: document.getElementById('next-preview-value'),
   nextPreviewUnitToggle: document.getElementById('next-preview-unit-toggle'),
   nextPreviewHint: document.getElementById('next-preview-hint'),
-  doubleTime:      document.getElementById('double-time'),
+  chordsPerBar:    document.getElementById('chords-per-bar'),
+  doubleTimeToggle: document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
   debugToggle:     document.getElementById('debug-toggle'),
@@ -188,7 +198,15 @@ const dom = {
   drumsVolume:     document.getElementById('drums-volume'),
   drumsVolumeValue: document.getElementById('drums-volume-value'),
   showBeatIndicator: document.getElementById('show-beat-indicator'),
-  hideCurrentHarmony: document.getElementById('hide-current-harmony')
+  hideCurrentHarmony: document.getElementById('hide-current-harmony'),
+  welcomeOverlay: document.getElementById('welcome-overlay'),
+  welcomeSkip: document.getElementById('welcome-skip'),
+  welcomeApply: document.getElementById('welcome-apply'),
+  welcomeSummary: document.getElementById('welcome-summary'),
+  welcomeGoalPanels: document.querySelectorAll('[data-welcome-panel]'),
+  reopenWelcome: document.getElementById('reopen-welcome'),
+  welcomeStandardSelect: document.getElementById('welcome-standard-select'),
+  resetSettings: document.getElementById('reset-settings')
 };
 
 if (dom.appVersion) {
@@ -258,12 +276,189 @@ let draggedPresetName = '';
 let savedPatternSelection = null;
 let lastPatternSelectValue = '';
 let pendingPresetDeletion = null;
+let hasCompletedWelcomeOnboarding = false;
+
+const WELCOME_PROGRESSIONS = Object.freeze({
+  'ii-v-i-major': {
+    summary: 'Suggested: II V I major, tempo 130, 2 reps per key.',
+    presetName: 'II V I',
+    majorMinor: false,
+    repetitionsPerKey: 2,
+    tempo: 130,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'full_swing',
+    enabledKeys: new Array(12).fill(true)
+  },
+  'ii-v-i-minor': {
+    summary: 'Suggested: II V I minor, tempo 130, 2 reps per key.',
+    presetName: 'II V I',
+    majorMinor: true,
+    repetitionsPerKey: 2,
+    tempo: 130,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'full_swing',
+    enabledKeys: new Array(12).fill(true)
+  },
+  turnaround: {
+    summary: 'Suggested: standard turnaround, tempo 130, 2 reps per key.',
+    presetName: 'Standard turnaround',
+    majorMinor: false,
+    repetitionsPerKey: 2,
+    tempo: 130,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'full_swing',
+    enabledKeys: new Array(12).fill(true)
+  }
+});
+
+const WELCOME_ONE_CHORDS = Object.freeze({
+  maj7: {
+    summary: 'Suggested: random maj7, tempo 90, 1 rep per key.',
+    patternName: 'Random maj7',
+    pattern: 'one: maj7',
+    patternMode: PATTERN_MODE_BOTH,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 90,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'hihats_2_4',
+    enabledKeys: new Array(12).fill(true)
+  },
+  m9: {
+    summary: 'Suggested: random m9, tempo 90, 1 rep per key.',
+    patternName: 'Random m9',
+    pattern: 'one: m9',
+    patternMode: PATTERN_MODE_BOTH,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 90,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'hihats_2_4',
+    enabledKeys: new Array(12).fill(true)
+  },
+  lyd: {
+    summary: 'Suggested: random lydian, tempo 90, 1 rep per key.',
+    patternName: 'Random lydian',
+    pattern: 'one: lyd',
+    patternMode: PATTERN_MODE_BOTH,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 90,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'hihats_2_4',
+    enabledKeys: new Array(12).fill(true)
+  },
+  '7alt': {
+    summary: 'Suggested: random altered, tempo 90, 1 rep per key.',
+    patternName: 'Random altered',
+    pattern: 'one: 7alt',
+    patternMode: PATTERN_MODE_BOTH,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 90,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'hihats_2_4',
+    enabledKeys: new Array(12).fill(true)
+  },
+  '13sus': {
+    summary: 'Suggested: random 13sus4, tempo 90, 1 rep per key.',
+    patternName: 'Random 13sus4',
+    pattern: 'one: 13sus',
+    patternMode: PATTERN_MODE_BOTH,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 90,
+    chordsPerBar: 1,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: 'hihats_2_4',
+    enabledKeys: new Array(12).fill(true)
+  }
+});
+
+const WELCOME_STANDARDS_FALLBACK = Object.freeze({
+  'autumn-leaves': {
+    summary: 'Suggested: Autumn Leaves, single key, comfortable playback.',
+    patternName: 'Autumn Leaves',
+    pattern: 'key: E | Am7 D7 | G | F#m7b5 B7 | Em | B7 | Em | Am7 D7 | G | F#m7b5 B7 | Em | F#m7b5 B7 | Em |',
+    patternMode: PATTERN_MODE_MINOR,
+    majorMinor: true,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [false, false, false, false, true, false, false, false, false, false, false, false]
+  },
+  'blue-bossa': {
+    summary: 'Suggested: Blue Bossa, single key, relaxed playback.',
+    patternName: 'Blue Bossa',
+    pattern: 'key: C | Cm | Fm | Dm7b5 G7 | Cm | Ebm7 Ab7 | Db | Dm7b5 G7 | Cm G7 |',
+    patternMode: PATTERN_MODE_MINOR,
+    majorMinor: true,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
+  },
+  solar: {
+    summary: 'Suggested: Solar, single key, medium-up tempo.',
+    patternName: 'Solar',
+    pattern: 'key: C | Cm | Gm7 C7 | F | Fm7 Bb7 | Eb | Ebm7 Ab7 | Db | Dm7b5 G7 |',
+    patternMode: PATTERN_MODE_MINOR,
+    majorMinor: true,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
+  },
+  'satin-doll': {
+    summary: 'Suggested: Satin Doll, single key, comfortable groove.',
+    patternName: 'Satin Doll',
+    pattern: 'key: C [: | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | D7 | Db7 | [1 C | A7 :| [2 C | C | Gm7 | C7 | F | F | Am7 | D7 | G7 | A7 ] | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | D7 | Db7 | C | C |',
+    patternMode: PATTERN_MODE_MAJOR,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
+  },
+  'satin-doll-ireal': {
+    summary: 'Suggested: Satin Doll (iReal), with repeats and explicit endings.',
+    patternName: 'Satin Doll (iReal)',
+    pattern: 'key: C [: | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | Am7 D7 | Abm7 Db7 | [1 Cmaj7 F7 | Em7 A7 :| [2 Cmaj7 | Cmaj7 ] [: | Gm7 C7 | Gm7 C7 | Fmaj7 | Fmaj7 | Am7 D7 | Am7 D7 | G7 | G7 :| | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | Am7 D7 | Abm7 Db7 | Cmaj7 F7 | Em7 A7 |',
+    patternMode: PATTERN_MODE_MAJOR,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
+  },
+  'there-will-never-be-another-you': {
+    summary: 'Suggested: There Will Never Be Another You, single key, medium tempo.',
+    patternName: 'There Will Never Be Another You',
+    pattern: 'key: Eb | Eb | Dm7b5 G7 | Cm | Bbm7 Eb7 | Ab | Abm | Eb | Cm7 F7 | Fm7 Bb7 | Eb | Dm7b5 G7 | Cm | Bbm7 Eb7 | Ab | Abm | Eb C7 | Eb D7 | G7 C7 | Fm7 Bb7 | Eb |',
+    patternMode: PATTERN_MODE_MAJOR,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [false, false, false, true, false, false, false, false, false, false, false, false]
+  }
+});
+let welcomeStandards = { ...WELCOME_STANDARDS_FALLBACK };
 let currentRawChords = [];
 let nextRawChords = [];
 let oneChordQualityPool = [];
 let oneChordQualityPoolSignature = '';
 let currentOneChordQualityValue = '';
 let nextOneChordQualityValue = '';
+let cachedPatternAnalysisInput = null;
+let cachedPatternAnalysisResult = null;
 let appliedDefaultProgressionsFingerprint = '';
 let hadStoredProgressions = false;
 let shouldPromptForDefaultProgressionsUpdate = false;
@@ -290,6 +485,170 @@ function normalizePresetName(name) {
   return String(name || '')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function slugifyWelcomeStandardName(name) {
+  return normalizePresetName(name)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'standard';
+}
+
+function parsePitchClassFromKeyName(name) {
+  const normalized = String(name || '').trim();
+  const match = normalized.match(/^([A-Ga-g])([b#]?)/);
+  if (!match) return null;
+  const letter = match[1].toUpperCase();
+  const accidental = match[2] || '';
+  let pitchClass = NOTE_LETTER_TO_SEMITONE[letter];
+  if (!Number.isFinite(pitchClass)) return null;
+  if (accidental === 'b') pitchClass = (pitchClass + 11) % 12;
+  if (accidental === '#') pitchClass = (pitchClass + 1) % 12;
+  return pitchClass;
+}
+
+function buildSingleEnabledKeySelectionFromPattern(pattern) {
+  const match = String(pattern || '').match(/\bkey:\s*([A-G](?:b|#)?)/i);
+  const pitchClass = parsePitchClassFromKeyName(match?.[1] || '');
+  if (!Number.isFinite(pitchClass)) return [true, false, false, false, false, false, false, false, false, false, false, false];
+  return Array.from({ length: 12 }, (_, index) => index === pitchClass);
+}
+
+function parseWelcomeStandardsText(text) {
+  const entries = {};
+  const lines = String(text || '').split(/\r?\n/);
+  let pendingTempo = 120;
+
+  // Accumulate multi-line entries: header on one line, bars on following lines
+  let pendingName = null;
+  let pendingMode = null;
+  let pendingPatternParts = [];
+
+  function flushPending() {
+    if (!pendingName) return;
+    const pattern = pendingPatternParts.join(' | ');
+    const normalizedMode = normalizePatternMode(pendingMode);
+    const keyMatch = pattern.match(/\bkey:\s*([A-G](?:b|#)?)/i);
+    const keyName = keyMatch?.[1] || 'C';
+    const isMinor = normalizedMode === PATTERN_MODE_MINOR;
+    const keyPitchClass = parsePitchClassFromKeyName(keyName);
+    const fallbackPitchClass = Number.isFinite(keyPitchClass) ? keyPitchClass : 0;
+    entries[slugifyWelcomeStandardName(pendingName)] = {
+      summary: `Suggested: ${pendingName}, single key, ${pendingTempo >= 140 ? 'up-tempo' : 'comfortable'} groove.`,
+      patternName: pendingName,
+      pattern,
+      patternMode: normalizedMode,
+      majorMinor: isMinor,
+      repetitionsPerKey: 1,
+      tempo: pendingTempo,
+      chordsPerBar: 4,
+      enabledKeys: buildSingleEnabledKeySelectionFromPattern(pattern),
+      sourcePitchClass: fallbackPitchClass
+    };
+    pendingName = null;
+    pendingMode = null;
+    pendingPatternParts = [];
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) {
+      const tempoMatch = trimmed.match(/\bTempo:\s*(\d+)/i);
+      if (tempoMatch) pendingTempo = Number.parseInt(tempoMatch[1], 10) || 120;
+      continue;
+    }
+    if (!trimmed) {
+      flushPending();
+      continue;
+    }
+
+    const entryMatch = trimmed.match(/^([^|]+)\|([^|]+)\|(.*)$/);
+    if (!entryMatch) continue;
+
+    const col1 = entryMatch[1].trim();
+    const col2 = entryMatch[2].trim();
+    const col3 = entryMatch[3].trim();
+
+    // Detect a header line: col2 is a mode word and col3 starts with "key:"
+    const isHeader = /^(major|minor)$/i.test(col2) && /^key:/i.test(col3);
+    if (isHeader) {
+      flushPending();
+      pendingName = col1;
+      pendingMode = col2;
+      pendingPatternParts = [col3];
+      continue;
+    }
+
+    // If we have a pending entry, this is a continuation bars line
+    if (pendingName) {
+      // This line has bars separated by |, re-join them
+      pendingPatternParts.push(trimmed);
+      continue;
+    }
+
+    // Legacy single-line format fallback
+    const patternName = col1;
+    const rawMode = col2;
+    const pattern = col3;
+    const normalizedMode = normalizePatternMode(rawMode);
+    const keyMatch = pattern.match(/\bkey:\s*([A-G](?:b|#)?)/i);
+    const keyName = keyMatch?.[1] || 'C';
+    const isMinor = normalizedMode === PATTERN_MODE_MINOR;
+    const keyPitchClass = parsePitchClassFromKeyName(keyName);
+    const fallbackPitchClass = Number.isFinite(keyPitchClass) ? keyPitchClass : 0;
+
+    entries[slugifyWelcomeStandardName(patternName)] = {
+      summary: `Suggested: ${patternName}, single key, ${pendingTempo >= 140 ? 'up-tempo' : 'comfortable'} groove.`,
+      patternName,
+      pattern,
+      patternMode: normalizedMode,
+      majorMinor: isMinor,
+      repetitionsPerKey: 1,
+      tempo: pendingTempo,
+      chordsPerBar: 4,
+      enabledKeys: buildSingleEnabledKeySelectionFromPattern(pattern),
+      sourcePitchClass: fallbackPitchClass
+    };
+  }
+
+  flushPending();
+  return entries;
+}
+
+function renderWelcomeStandardOptions() {
+  if (!dom.welcomeStandardSelect) return;
+
+  const previousValue = dom.welcomeStandardSelect.value;
+  const entries = Object.entries(welcomeStandards);
+  dom.welcomeStandardSelect.innerHTML = '';
+
+  entries.forEach(([key, entry], index) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = entry.patternName || key;
+    if ((previousValue && previousValue === key) || (!previousValue && index === 0)) {
+      option.selected = true;
+    }
+    dom.welcomeStandardSelect.append(option);
+  });
+}
+
+async function loadWelcomeStandards() {
+  try {
+    const response = await fetch(`${REVIEW_STANDARD_CONVERSIONS_URL}?v=${encodeURIComponent(APP_VERSION)}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const parsed = parseWelcomeStandardsText(await response.text());
+    if (Object.keys(parsed).length > 0) {
+      welcomeStandards = parsed;
+    }
+  } catch (error) {
+    console.warn('Welcome standards load failed:', error);
+    welcomeStandards = { ...WELCOME_STANDARDS_FALLBACK };
+  }
+
+  renderWelcomeStandardOptions();
 }
 
 function normalizePresetNameForInput(name) {
@@ -599,18 +958,19 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
 
   if (customQuality) {
     if (!isAcceptedCustomQuality(customQuality)) return null;
-    qualityMajor = customQuality;
-    qualityMinor = customQuality;
+    qualityMajor = normalizeParsedQuality(customQuality, roman, true);
+    qualityMinor = qualityMajor;
   } else if (modifier) {
     qualityMajor = ALTERED_SEMITONE_QUALITY_MAJOR[semitones] || 'â–³7';
     qualityMinor = ALTERED_SEMITONE_QUALITY_MINOR[semitones] || 'm7';
+    qualityMajor = normalizeParsedQuality(qualityMajor, roman);
+    qualityMinor = normalizeParsedQuality(qualityMinor, roman);
   } else {
     qualityMajor = DEGREE_QUALITY_MAJOR[roman] || 'â–³7';
     qualityMinor = DEGREE_QUALITY_MINOR[roman] || 'm7';
+    qualityMajor = normalizeParsedQuality(qualityMajor, roman);
+    qualityMinor = normalizeParsedQuality(qualityMinor, roman);
   }
-
-  qualityMajor = normalizeParsedQuality(qualityMajor, roman);
-  qualityMinor = normalizeParsedQuality(qualityMinor, roman);
 
   return {
     label,
@@ -624,10 +984,10 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
 }
 
 function isAcceptedCustomQuality(quality) {
-  return String(quality).toLowerCase() !== 'm9';
+  return true;
 }
 
-function normalizeParsedQuality(quality, roman) {
+function normalizeParsedQuality(quality, roman, explicit = false) {
   const normalizedQuality = String(quality).toLowerCase();
   if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalizedQuality)) return normalizedQuality;
   for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
@@ -638,7 +998,7 @@ function normalizeParsedQuality(quality, roman) {
     if (roman === 'III') return 'm7';
     return 'm9';
   }
-  if (normalizedQuality === 'm9') return roman === 'III' ? 'm7' : 'm9';
+  if (normalizedQuality === 'm9') return (!explicit && roman === 'III') ? 'm7' : 'm9';
   if (normalizedQuality === 'm7' && roman !== 'III') return 'm9';
   if (Object.prototype.hasOwnProperty.call(QUALITY_CATEGORY_ALIASES, normalizedQuality)) return normalizedQuality;
   for (const [canonicalQuality, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
@@ -696,9 +1056,11 @@ function parseNoteToken(token, basePitchClass = 0) {
 
 function extractPatternBase(str) {
   const normalized = String(str || '').trim();
-  const overrideMatch = normalized.match(/^key\s*=\s*([A-Ga-g])([b#]?)\s*:\s*(.*)$/);
+  const equalsOverrideMatch = normalized.match(/^key\s*=\s*([A-Ga-g])([b#]?)\s*:\s*(.*)$/);
+  const colonOverrideMatch = normalized.match(/^key\s*:\s*([A-Ga-g])([b#]?)\s+(.*)$/);
+  const overrideMatch = equalsOverrideMatch || colonOverrideMatch;
   if (!overrideMatch) {
-    if (/^key\s*=/.test(normalized) && !/:/.test(normalized)) {
+    if ((/^key\s*=/.test(normalized) && !/:/.test(normalized)) || /^key\s*:\s*$/.test(normalized)) {
       return {
         body: normalized,
         basePitchClass: 0,
@@ -707,8 +1069,8 @@ function extractPatternBase(str) {
         error: 'Missing ":" after key override'
       };
     }
-    if (/^key\s*=/.test(normalized)) {
-      const rawOverride = normalized.match(/^key\s*=\s*([^:\s]+)/);
+    if (/^key\s*=/.test(normalized) || /^key\s*:/.test(normalized)) {
+      const rawOverride = normalized.match(/^key\s*(?:=\s*|:\s*)([^:\s]+)/);
       return {
         body: normalized,
         basePitchClass: 0,
@@ -737,6 +1099,104 @@ function parseToken(token, basePitchClass = 0) {
   return parseDegreeToken(token) || parseNoteToken(token, basePitchClass);
 }
 
+function expandRepeatedMeasureStrings(body) {
+  const normalized = String(body || '')
+    .replace(/\r?\n/g, ' ')
+    .replace(/:\]/g, ' __REPEAT_END__ ')
+    .replace(/:\|/g, ' __REPEAT_END__ ')
+    .replace(/\]\s*\[\:/g, '] | [:')
+    .replace(/\|\|/g, '| || |');
+
+  const rawSegments = normalized
+    .split('|')
+    .map(segment => segment.trim())
+    .filter(Boolean);
+
+  const measures = [];
+  let repeatFrame = null;
+  let skippingUntilSecondEnding = false;
+
+  const processSegment = (segment) => {
+    if (segment === '||') return;
+
+    const startsFirstEnding = /\[1\b/.test(segment);
+    const startsSecondEnding = /\[2\b/.test(segment);
+    const startRepeat = segment.includes('[:') || /^\[(?![12]\b)/.test(segment);
+    const explicitRepeatEnd = segment.includes('__REPEAT_END__');
+    const closesBracket = /\]$/.test(segment);
+    const cleaned = segment
+      .replace(/\[:/g, '')
+      .replace(/__REPEAT_END__/g, '')
+      .replace(/\[1\b/g, '')
+      .replace(/\[2\b/g, '')
+      .replace(/^\[(?![12]\b)/g, '')
+      .replace(/\]$/g, '')
+      .trim();
+
+    if (startRepeat && !repeatFrame) {
+      repeatFrame = {
+        startIndex: measures.length,
+        firstEndingStartIndex: null,
+        duplicated: false
+      };
+      skippingUntilSecondEnding = false;
+    }
+
+    if (startsFirstEnding && repeatFrame && !repeatFrame.duplicated) {
+      repeatFrame.firstEndingStartIndex = measures.length;
+      skippingUntilSecondEnding = false;
+    }
+
+    if (startsSecondEnding) {
+      skippingUntilSecondEnding = false;
+    }
+
+    if (cleaned && !skippingUntilSecondEnding) {
+      measures.push(cleaned);
+    }
+
+    if (explicitRepeatEnd && repeatFrame && !repeatFrame.duplicated) {
+      const repeatBodyEnd = repeatFrame.firstEndingStartIndex ?? measures.length;
+      measures.push(...measures.slice(repeatFrame.startIndex, repeatBodyEnd));
+      if (repeatFrame.firstEndingStartIndex === null) {
+        repeatFrame = null;
+        skippingUntilSecondEnding = false;
+      } else {
+        repeatFrame.duplicated = true;
+        skippingUntilSecondEnding = true;
+      }
+    }
+
+    if (closesBracket && repeatFrame) {
+      if (!repeatFrame.duplicated) {
+        const repeatBodyEnd = repeatFrame.firstEndingStartIndex ?? measures.length;
+        measures.push(...measures.slice(repeatFrame.startIndex, repeatBodyEnd));
+      }
+      repeatFrame = null;
+      skippingUntilSecondEnding = false;
+    }
+  };
+
+  rawSegments.forEach((segment) => {
+    if (segment.includes('__REPEAT_END__') && /\[2\b/.test(segment)) {
+      const secondEndingIndex = segment.indexOf('[2');
+      const firstPart = segment.slice(0, secondEndingIndex).trim();
+      const secondPart = segment.slice(secondEndingIndex).trim();
+      if (firstPart) processSegment(firstPart);
+      if (secondPart) processSegment(secondPart);
+      return;
+    }
+    processSegment(segment);
+  });
+
+  if (repeatFrame && !repeatFrame.duplicated) {
+    const repeatBodyEnd = repeatFrame.firstEndingStartIndex ?? measures.length;
+    measures.push(...measures.slice(repeatFrame.startIndex, repeatBodyEnd));
+  }
+
+  return measures;
+}
+
 function analyzePattern(str) {
   const oneChordSpec = parseOneChordSpec(str);
   if (oneChordSpec.active) {
@@ -745,6 +1205,9 @@ function analyzePattern(str) {
       basePitchClass: 0,
       hasOverride: false,
       overrideToken: null,
+      usesBarLines: false,
+      resolvedChordsPerBar: null,
+      expandedMeasures: null,
       tokens: oneChordSpec.qualities,
       chords: oneChordSpec.qualities.length > 0 ? [createOneChordToken(oneChordSpec.qualities[0])] : [],
       invalidTokens: oneChordSpec.invalidTokens,
@@ -754,12 +1217,98 @@ function analyzePattern(str) {
 
   const base = extractPatternBase(str);
   if (base.error) {
-    return { ...base, tokens: [], chords: [], invalidTokens: [], errorMessage: base.error };
+    return {
+      ...base,
+      usesBarLines: false,
+      resolvedChordsPerBar: null,
+      expandedMeasures: null,
+      tokens: [],
+      chords: [],
+      invalidTokens: [],
+      errorMessage: base.error
+    };
   }
 
-  const tokens = base.body ? base.body.split(/[\s-]+/).filter(Boolean) : [];
+  const usesBarLines = base.body.includes('|');
+  const tokens = base.body ? base.body.split(/(?:\|+|[\s-]+)/).filter(Boolean) : [];
   const chords = [];
   const invalidTokens = [];
+
+  if (usesBarLines) {
+    const measures = expandRepeatedMeasureStrings(base.body);
+    const expandedMeasures = [];
+
+    let previousChord = null;
+    measures.forEach((measure, index) => {
+      const measureTokens = measure.split(/[\s-]+/).filter(Boolean);
+      const measureChords = [];
+
+      for (const token of measureTokens) {
+        if (token === '%' || token === '/') {
+          if (measureChords.length > 0) {
+            const repeated = { ...measureChords[measureChords.length - 1] };
+            measureChords.push(repeated);
+            previousChord = repeated;
+          } else if (previousChord) {
+            const repeated = { ...previousChord };
+            measureChords.push(repeated);
+            previousChord = repeated;
+          } else {
+            invalidTokens.push(`${token} (measure ${index + 1})`);
+          }
+          continue;
+        }
+
+        const parsed = parseToken(token, base.basePitchClass);
+        if (parsed) {
+          measureChords.push(parsed);
+          previousChord = parsed;
+        } else if (containsRejectedQuality(token)) {
+          invalidTokens.push(`${token} (use m or m7; m9 is applied automatically except on III)`);
+        } else {
+          invalidTokens.push(`${token} (measure ${index + 1})`);
+        }
+      }
+
+      if (measureChords.length === 0) return;
+      expandedMeasures.push(measureChords.map(chord => ({ ...chord })));
+      if (measureChords.length === 1) {
+        chords.push(
+          { ...measureChords[0] },
+          { ...measureChords[0] },
+          { ...measureChords[0] },
+          { ...measureChords[0] }
+        );
+        return;
+      }
+      if (measureChords.length === 2) {
+        chords.push(
+          { ...measureChords[0] },
+          { ...measureChords[0] },
+          { ...measureChords[1] },
+          { ...measureChords[1] }
+        );
+        return;
+      }
+      if (measureChords.length === 4) {
+        measureChords.forEach(chord => chords.push({ ...chord }));
+        return;
+      }
+
+      invalidTokens.push(`measure ${index + 1} has ${measureChords.length} chords (use 1, 2, or 4 per bar)`);
+    });
+
+    return {
+      ...base,
+      usesBarLines,
+      resolvedChordsPerBar: 4,
+      expandedMeasures,
+      tokens,
+      chords,
+      invalidTokens,
+      errorMessage: invalidTokens.length > 0 ? `Unknown token(s): ${invalidTokens.join(', ')}` : null
+    };
+  }
 
   for (const t of tokens) {
     if (t === '%') {
@@ -779,6 +1328,9 @@ function analyzePattern(str) {
 
   return {
     ...base,
+    usesBarLines,
+    resolvedChordsPerBar: null,
+    expandedMeasures: null,
     tokens,
     chords,
     invalidTokens,
@@ -786,18 +1338,53 @@ function analyzePattern(str) {
   };
 }
 
+function analyzePatternCached(str) {
+  const normalized = String(str || '');
+  if (cachedPatternAnalysisInput === normalized && cachedPatternAnalysisResult) {
+    return cachedPatternAnalysisResult;
+  }
+  const analysis = analyzePattern(normalized);
+  cachedPatternAnalysisInput = normalized;
+  cachedPatternAnalysisResult = analysis;
+  return analysis;
+}
+
 function parsePattern(str) {
   return analyzePattern(str).chords;
 }
 
 function containsRejectedQuality(token) {
-  return /m9/i.test(token);
+  return false;
 }
 
-function padProgression(chords, doubleTime) {
+function normalizeChordsPerBar(value) {
+  const parsed = Number.parseInt(String(value ?? DEFAULT_CHORDS_PER_BAR), 10);
+  return SUPPORTED_CHORDS_PER_BAR.includes(parsed) ? parsed : DEFAULT_CHORDS_PER_BAR;
+}
+
+function syncDoubleTimeToggle() {
+  if (dom.doubleTimeToggle) {
+    dom.doubleTimeToggle.checked = getSelectedChordsPerBar() >= 2;
+  }
+}
+
+function getSelectedChordsPerBar() {
+  return normalizeChordsPerBar(dom.chordsPerBar?.value);
+}
+
+function getChordsPerBar(patternString = getCurrentPatternString()) {
+  const analysis = analyzePatternCached(patternString);
+  return normalizeChordsPerBar(analysis.resolvedChordsPerBar ?? getSelectedChordsPerBar());
+}
+
+function getBeatsPerChord(chordsPerBar = getChordsPerBar()) {
+  return 4 / normalizeChordsPerBar(chordsPerBar);
+}
+
+function padProgression(chords, chordsPerBar = getChordsPerBar()) {
   if (chords.length === 0) return [];
   const result = chords.slice();
-  const chordsPerMeasure = doubleTime ? 2 : 1;
+  const chordsPerMeasure = normalizeChordsPerBar(chordsPerBar);
 
   // Fill last measure if needed
   while (result.length % chordsPerMeasure !== 0) {
@@ -816,7 +1403,7 @@ function padProgression(chords, doubleTime) {
 
 // Check if a progression can be loop-trimmed: last chord == first chord
 // and removing it leaves an even number of measures.
-function canLoopTrimProgression(rawChords, doubleTime) {
+function canLoopTrimProgression(rawChords, chordsPerBar = getChordsPerBar()) {
   if (rawChords.length < 3) return false;
   const first = rawChords[0];
   const last = rawChords[rawChords.length - 1];
@@ -824,7 +1411,7 @@ function canLoopTrimProgression(rawChords, doubleTime) {
       || first.qualityMajor !== last.qualityMajor
       || first.qualityMinor !== last.qualityMinor) return false;
   const trimmedLength = rawChords.length - 1;
-  const chordsPerMeasure = doubleTime ? 2 : 1;
+  const chordsPerMeasure = normalizeChordsPerBar(chordsPerBar);
   if (trimmedLength % chordsPerMeasure !== 0) return false;
   const measures = trimmedLength / chordsPerMeasure;
   return measures % 2 === 0;
@@ -1384,7 +1971,7 @@ function rebuildPreparedCompingPlans(
   currentHasIncomingAnticipation = false,
   currentPreviousTailBeats = null
 ) {
-  const beatsPerChord = dom.doubleTime.checked ? 2 : 4;
+  const beatsPerChord = getBeatsPerChord();
   const isMinor = dom.majorMinor.checked;
   const { currentPlan, nextPlan } = compingEngine.buildPreparedPlans({
     style: getCompingStyle(),
@@ -1620,7 +2207,7 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
 }
 
 async function preloadStartupSamples() {
-  const startupChordLimit = dom.doubleTime.checked ? 2 : 1;
+  const startupChordLimit = getChordsPerBar();
   const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
     includeCurrent: true,
     includeNext: false,
@@ -1647,7 +2234,7 @@ async function preloadStartupSamples() {
 }
 
 function getSafetyLeadChordCount() {
-  const chordsPerMeasure = dom.doubleTime.checked ? 2 : 1;
+  const chordsPerMeasure = getChordsPerBar();
   return SAFE_PRELOAD_MEASURES * chordsPerMeasure;
 }
 
@@ -2302,9 +2889,6 @@ function getEffectiveKeyPool() {
   if (pool.length === 0) {
     pool = Array.from({ length: 12 }, (_, index) => index);
   }
-  if (dom.majorMinor.checked && !isOneChordModeActive()) {
-    pool = pool.map(k => (k - 3 + 12) % 12);
-  }
   return pool;
 }
 
@@ -2459,8 +3043,7 @@ setDisplayPlaceholderMessage();
 
 function getRemainingBeatsUntilNextProgression(chordIndex = currentChordIdx, beatInMeasure = currentBeat, chordCount = paddedChords.length) {
   if (!Number.isFinite(chordCount) || chordCount <= 0) return 0;
-  const doubleTime = dom.doubleTime.checked;
-  const chordsPerMeasure = doubleTime ? 2 : 1;
+  const chordsPerMeasure = getChordsPerBar();
   const totalMeasures = chordCount / chordsPerMeasure;
   const currentMeasure = Math.floor(chordIndex / chordsPerMeasure);
   const elapsedBeats = currentMeasure * 4 + beatInMeasure;
@@ -2779,6 +3362,190 @@ function loadKeySelectionPreset() {
   });
 }
 
+function getCheckedInputValue(name, fallback = '') {
+  return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+}
+
+function setWelcomeOverlayVisible(isVisible) {
+  if (!dom.welcomeOverlay) return;
+  dom.welcomeOverlay.classList.toggle('hidden', !isVisible);
+  dom.welcomeOverlay.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+  document.body.classList.toggle('welcome-open', isVisible);
+  if (isVisible) {
+    window.requestAnimationFrame(() => {
+      dom.welcomeApply?.focus();
+    });
+  }
+}
+
+function getSelectedWelcomeRecommendation() {
+  const goal = getCheckedInputValue('welcome-goal', WELCOME_GOAL_PROGRESSION);
+  const instrument = getCheckedInputValue('welcome-instrument', '0');
+
+  const baseConfig = {
+    goal,
+    instrument,
+    compingStyle: COMPING_STYLE_STRINGS,
+    drumsMode: DRUM_MODE_FULL_SWING,
+    displayMode: DISPLAY_MODE_SHOW_BOTH,
+    showBeatIndicator: true,
+    hideCurrentHarmony: false,
+    nextPreviewLeadValue: 1,
+    nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS,
+    chordsPerBar: DEFAULT_CHORDS_PER_BAR,
+    bassVolume: '100',
+    stringsVolume: '100',
+    drumsVolume: '100'
+  };
+
+  if (goal === WELCOME_GOAL_ONE_CHORD) {
+    const quality = getCheckedInputValue('welcome-one-chord', 'maj7');
+    return {
+      ...baseConfig,
+      ...WELCOME_ONE_CHORDS[quality]
+    };
+  }
+
+  if (goal === WELCOME_GOAL_STANDARD) {
+    const standard = dom.welcomeStandardSelect?.value || Object.keys(welcomeStandards)[0] || 'autumn-leaves';
+    return {
+      ...baseConfig,
+      ...(welcomeStandards[standard] || WELCOME_STANDARDS_FALLBACK[standard] || Object.values(welcomeStandards)[0] || Object.values(WELCOME_STANDARDS_FALLBACK)[0])
+    };
+  }
+
+  const progression = getCheckedInputValue('welcome-progression', 'ii-v-i-major');
+  return {
+    ...baseConfig,
+    ...WELCOME_PROGRESSIONS[progression]
+  };
+}
+
+function updateWelcomePanelVisibility() {
+  const goal = getCheckedInputValue('welcome-goal', WELCOME_GOAL_PROGRESSION);
+  dom.welcomeGoalPanels?.forEach((panel) => {
+    panel.classList.toggle('hidden', panel.dataset.welcomePanel !== goal);
+  });
+}
+
+function updateWelcomeSummary() {
+  const recommendation = getSelectedWelcomeRecommendation();
+  if (dom.welcomeSummary) {
+    dom.welcomeSummary.textContent = recommendation.summary || 'Suggested preset: moderate tempo and adapted playback settings.';
+  }
+}
+
+function markWelcomeOnboardingCompleted() {
+  hasCompletedWelcomeOnboarding = true;
+}
+
+function applyWelcomeRecommendation() {
+  const recommendation = getSelectedWelcomeRecommendation();
+
+  clearProgressionEditingState();
+  closeProgressionManager();
+
+  suppressPatternSelectChange = true;
+  if (recommendation.presetName) {
+    setPatternSelectValue(recommendation.presetName);
+    dom.patternName.value = getSelectedProgressionName();
+    dom.customPattern.value = getSelectedProgressionPattern();
+    setEditorPatternMode(getSelectedProgressionMode());
+  } else {
+    progressionSelectionBeforeEditing = Object.keys(progressions)[0] || '';
+    isCreatingProgression = true;
+    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
+    dom.patternName.value = recommendation.patternName || '';
+    dom.customPattern.value = recommendation.pattern || '';
+    setEditorPatternMode(recommendation.patternMode || PATTERN_MODE_BOTH);
+    syncPatternSelectionFromInput();
+  }
+  suppressPatternSelectChange = false;
+  lastPatternSelectValue = dom.patternSelect.value;
+
+  dom.majorMinor.checked = Boolean(recommendation.majorMinor);
+  dom.transpositionSelect.value = String(recommendation.instrument || '0');
+  dom.tempoSlider.value = String(recommendation.tempo || 120);
+  dom.tempoValue.textContent = dom.tempoSlider.value;
+  if (dom.repetitionsPerKey) {
+    dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(recommendation.repetitionsPerKey));
+  }
+  if (dom.chordsPerBar) {
+    const recommendedChordsPerBar = recommendation.chordsPerBar !== undefined
+      ? recommendation.chordsPerBar
+      : (recommendation.doubleTime ? 2 : DEFAULT_CHORDS_PER_BAR);
+    dom.chordsPerBar.value = String(normalizeChordsPerBar(recommendedChordsPerBar));
+    syncDoubleTimeToggle();
+  }
+  if (dom.compingStyle) {
+    dom.compingStyle.value = normalizeCompingStyle(recommendation.compingStyle);
+  }
+  if (dom.drumsSelect) {
+    dom.drumsSelect.value = recommendation.drumsMode || DRUM_MODE_FULL_SWING;
+  }
+  if (dom.displayMode) {
+    dom.displayMode.value = normalizeDisplayMode(recommendation.displayMode);
+  }
+  if (dom.showBeatIndicator) {
+    dom.showBeatIndicator.checked = recommendation.showBeatIndicator !== false;
+  }
+  if (dom.hideCurrentHarmony) {
+    dom.hideCurrentHarmony.checked = recommendation.hideCurrentHarmony === true;
+  }
+  if (dom.bassVolume) dom.bassVolume.value = recommendation.bassVolume || '100';
+  if (dom.stringsVolume) dom.stringsVolume.value = recommendation.stringsVolume || '100';
+  if (dom.drumsVolume) dom.drumsVolume.value = recommendation.drumsVolume || '100';
+
+  nextPreviewLeadValue = normalizeNextPreviewLeadValue(recommendation.nextPreviewLeadValue);
+  setNextPreviewInputUnit(recommendation.nextPreviewUnit);
+  applyEnabledKeys(
+    Array.isArray(recommendation.enabledKeys) && recommendation.enabledKeys.length === 12
+      ? recommendation.enabledKeys
+      : new Array(12).fill(true)
+  );
+
+  syncCustomPatternUI();
+  syncProgressionManagerState();
+  applyPatternModeAvailability();
+  validateCustomPattern();
+  syncPatternPreview();
+  syncNextPreviewControlDisplay();
+  applyDisplayMode();
+  applyBeatIndicatorVisibility();
+  applyCurrentHarmonyVisibility();
+  applyMixerSettings();
+  updateKeyPickerLabels();
+  refreshDisplayedHarmony();
+
+  markWelcomeOnboardingCompleted();
+  saveSettings();
+  setWelcomeOverlayVisible(false);
+  start();
+
+  trackEvent('welcome_preset_applied', {
+    welcome_goal: recommendation.goal,
+    welcome_progression: getCheckedInputValue('welcome-progression', 'ii-v-i-major'),
+    welcome_one_chord: getCheckedInputValue('welcome-one-chord', 'maj7'),
+    welcome_standard: dom.welcomeStandardSelect?.value || '',
+    transposition: recommendation.instrument || '0',
+    progression_mode: recommendation.majorMinor ? 'minor' : 'major'
+  });
+}
+
+function skipWelcomeOverlay() {
+  markWelcomeOnboardingCompleted();
+  saveSettings();
+  setWelcomeOverlayVisible(false);
+  trackEvent('welcome_skipped');
+}
+
+function maybeShowWelcomeOverlay() {
+  if (hasCompletedWelcomeOnboarding || !dom.welcomeOverlay) return;
+  updateWelcomePanelVisibility();
+  updateWelcomeSummary();
+  setWelcomeOverlayVisible(true);
+}
+
 function getTempoBucket() {
   const tempo = Number(dom.tempoSlider?.value || 0);
   if (tempo < 90) return 'slow';
@@ -2863,6 +3630,7 @@ function getProgressionAnalyticsProps() {
 }
 
 function getPlaybackAnalyticsProps() {
+  const chordsPerBar = getChordsPerBar();
   return {
     tempo: Number(dom.tempoSlider?.value || 120),
     tempo_bucket: getTempoBucket(),
@@ -2872,7 +3640,8 @@ function getPlaybackAnalyticsProps() {
     display_mode: normalizeDisplayMode(dom.displayMode?.value),
     transposition: dom.transpositionSelect?.value || '0',
     enabled_keys: getEnabledKeyCount(),
-    double_time: dom.doubleTime.checked ? 'on' : 'off'
+    chords_per_bar: chordsPerBar,
+    double_time: chordsPerBar > 1 ? 'on' : 'off'
   };
 }
 
@@ -2956,6 +3725,7 @@ const {
     analyzePattern,
     chordSymbol,
     getDisplayTranspositionSemitones,
+    getSelectedChordsPerBar,
     isOneChordModeActive,
     matchesOneChordQualitySet,
     normalizePatternMode,
@@ -3209,6 +3979,8 @@ const {
     createVoicingSlot,
     fitHarmonyDisplay,
     getBassMidi,
+    getBeatsPerChord,
+    getChordsPerBar,
     getCompingStyle,
     getCurrentPatternString,
     getRemainingBeatsUntilNextProgression,
@@ -3531,6 +4303,8 @@ function buildSettingsSnapshot() {
           }
         : null);
   return {
+    [WELCOME_ONBOARDING_SETTINGS_KEY]: hasCompletedWelcomeOnboarding,
+    [WELCOME_VERSION_SETTINGS_KEY]: WELCOME_VERSION,
     presets: progressions,
     presetsCleared: Object.keys(progressions).length === 0,
     defaultPresetsFingerprintApplied: appliedDefaultProgressionsFingerprint || getDefaultProgressionsFingerprint(),
@@ -3546,7 +4320,8 @@ function buildSettingsSnapshot() {
     transposition: dom.transpositionSelect.value,
     nextPreviewLeadValue,
     nextPreviewUnit: getNextPreviewInputUnit(),
-    doubleTime: dom.doubleTime.checked,
+    chordsPerBar: getSelectedChordsPerBar(),
+    doubleTime: getSelectedChordsPerBar() > 1,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
     showBeatIndicator: dom.showBeatIndicator?.checked !== false,
@@ -3567,6 +4342,13 @@ function saveSettings() {
 
 function applyLoadedSettings(s) {
   if (!s || typeof s !== 'object') return;
+  hasCompletedWelcomeOnboarding = s[WELCOME_ONBOARDING_SETTINGS_KEY] !== undefined
+    ? Boolean(s[WELCOME_ONBOARDING_SETTINGS_KEY])
+    : true;
+  // Force re-show if the welcome overlay was redesigned since the user last saw it
+  if (s[WELCOME_VERSION_SETTINGS_KEY] !== WELCOME_VERSION) {
+    hasCompletedWelcomeOnboarding = false;
+  }
 
   const hasStoredPresets = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets));
   const storedPresetCount = hasStoredPresets ? Object.keys(s.presets).length : 0;
@@ -3617,7 +4399,13 @@ function applyLoadedSettings(s) {
   } else {
     setNextPreviewInputUnit(NEXT_PREVIEW_UNIT_BARS);
   }
-  if (s.doubleTime !== undefined) dom.doubleTime.checked = s.doubleTime;
+  if (dom.chordsPerBar) {
+    const storedChordsPerBar = s.chordsPerBar !== undefined
+      ? s.chordsPerBar
+      : (s.doubleTime ? 2 : DEFAULT_CHORDS_PER_BAR);
+    dom.chordsPerBar.value = String(normalizeChordsPerBar(storedChordsPerBar));
+    syncDoubleTimeToggle();
+  }
   if (s.majorMinor !== undefined) {
     dom.majorMinor.checked = s.majorMinor;
   }
@@ -3729,9 +4517,56 @@ function finalizeLoadedSettings() {
 }
 
 function loadSettings() {
-  applyLoadedSettings(loadStoredProgressionSettings());
+  const storedSettings = loadStoredProgressionSettings();
+  if (storedSettings) {
+    applyLoadedSettings(storedSettings);
+  }
   savedKeySelectionPreset = loadStoredKeySelectionPreset();
   finalizeLoadedSettings();
+}
+
+function resetPlaybackSettings() {
+  // Select the first available progression
+  const firstProgressionKey = Object.keys(progressions)[0] || '';
+  if (firstProgressionKey) {
+    clearProgressionEditingState();
+    closeProgressionManager();
+    setPatternSelectValue(firstProgressionKey);
+    dom.patternName.value = getSelectedProgressionName();
+    dom.customPattern.value = getSelectedProgressionPattern();
+    setEditorPatternMode(getSelectedProgressionMode());
+    lastPatternSelectValue = dom.patternSelect.value;
+  }
+  dom.majorMinor.checked = false;
+  dom.tempoSlider.value = '120';
+  dom.tempoValue.textContent = '120';
+  if (dom.repetitionsPerKey) dom.repetitionsPerKey.value = '2';
+  if (dom.chordsPerBar) dom.chordsPerBar.value = '1';
+  syncDoubleTimeToggle();
+  if (dom.compingStyle) dom.compingStyle.value = COMPING_STYLE_STRINGS;
+  if (dom.drumsSelect) dom.drumsSelect.value = DRUM_MODE_FULL_SWING;
+  // Reset all keys to enabled
+  applyEnabledKeys(new Array(12).fill(true));
+  if (dom.displayMode) dom.displayMode.value = DISPLAY_MODE_SHOW_BOTH;
+  if (dom.showBeatIndicator) dom.showBeatIndicator.checked = true;
+  if (dom.hideCurrentHarmony) dom.hideCurrentHarmony.checked = false;
+  if (dom.bassVolume) dom.bassVolume.value = '100';
+  if (dom.stringsVolume) dom.stringsVolume.value = '100';
+  if (dom.drumsVolume) dom.drumsVolume.value = '100';
+  nextPreviewLeadValue = 1;
+  setNextPreviewInputUnit(NEXT_PREVIEW_UNIT_BARS);
+  applyMixerSettings();
+  syncNextPreviewControlDisplay();
+  applyDisplayMode();
+  applyBeatIndicatorVisibility();
+  applyCurrentHarmonyVisibility();
+  syncCustomPatternUI();
+  syncProgressionManagerState();
+  applyPatternModeAvailability();
+  syncPatternPreview();
+  refreshDisplayedHarmony();
+  saveSettings();
+  trackEvent('settings_reset');
 }
 
 async function loadPatternHelp() {
@@ -3771,7 +4606,9 @@ async function loadPatternHelp() {
         <p>If you omit the chord quality, a default one is chosen from the context. For example, <code>D</code> or <code>II</code> in minor will default to <code>m7b5</code>. Check with the <code>Progression preview</code> below.</p>
         <p>Available suffixes:</p>
         <ul>${items}</ul>
-        <p><code>%</code> repeats the previous chord.</p>
+        <p><code>%</code> repeats the previous chord. You can also use bar lines like <code>| Dm7 G7 | C |</code>; when bars are present, they define the measure layout and the <code>Chords per bar</code> selector is ignored.</p>
+        <p>Repeat bars are also supported with syntax like <code>[: Dm7 G7 | C :]</code> or <code>[ Dm7 | G7 || C | C ]</code>.</p>
+        <p>First and second endings are supported with measure markers like <code>[: A | B | [1 C :| [2 D | E ]</code>.</p>
         <p>You can also use <code>one:</code> for one-chord mode, for example <code>one:</code>, <code>one: all dominants</code>, or <code>one: maj7, m9, 7alt, dim7</code>.</p>
       </div>
     `;
@@ -3806,7 +4643,8 @@ async function initializeApp() {
 
   await Promise.all([
     loadDefaultProgressions(),
-    loadPatternHelp()
+    loadPatternHelp(),
+    loadWelcomeStandards()
   ]);
 
   renderProgressionOptions(Object.keys(progressions)[0] || '');
@@ -3848,6 +4686,8 @@ async function initializeApp() {
   }
 
   ensurePageSampleWarmup();
+  syncDoubleTimeToggle();
+  maybeShowWelcomeOverlay();
 }
 
 initializeApp();
@@ -3855,6 +4695,52 @@ setDisplayPlaceholderVisible(true);
 
 document.querySelector('[data-analytics-link="demo"]')?.addEventListener('click', () => {
   trackEvent('demo_link_clicked', {
+    location: 'header'
+  });
+});
+
+document.querySelectorAll('input[name="welcome-goal"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    updateWelcomePanelVisibility();
+    updateWelcomeSummary();
+    trackEvent('welcome_goal_changed', { welcome_goal: input.value });
+  });
+});
+
+document.querySelectorAll('input[name="welcome-progression"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    updateWelcomeSummary();
+    trackEvent('welcome_progression_changed', { welcome_progression: input.value });
+  });
+});
+
+document.querySelectorAll('input[name="welcome-one-chord"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    updateWelcomeSummary();
+    trackEvent('welcome_one_chord_changed', { welcome_one_chord: input.value });
+  });
+});
+
+document.querySelectorAll('input[name="welcome-instrument"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    updateWelcomeSummary();
+    trackEvent('welcome_instrument_changed', { transposition: input.value });
+  });
+});
+
+dom.welcomeStandardSelect?.addEventListener('change', () => {
+  updateWelcomeSummary();
+  trackEvent('welcome_standard_changed', { welcome_standard: dom.welcomeStandardSelect.value });
+});
+
+dom.welcomeApply?.addEventListener('click', applyWelcomeRecommendation);
+dom.welcomeSkip?.addEventListener('click', skipWelcomeOverlay);
+dom.reopenWelcome?.addEventListener('click', (event) => {
+  event.preventDefault();
+  updateWelcomePanelVisibility();
+  updateWelcomeSummary();
+  setWelcomeOverlayVisible(true);
+  trackEvent('welcome_reopened', {
     location: 'header'
   });
 });
@@ -3867,7 +4753,13 @@ dom.patternName.addEventListener('change', saveSettings);
 dom.customPattern.addEventListener('change', saveSettings);
 dom.patternMode.addEventListener('change', saveSettings);
 dom.patternModeBoth?.addEventListener('change', saveSettings);
-dom.doubleTime.addEventListener('change', saveSettings);
+dom.chordsPerBar?.addEventListener('change', saveSettings);
+dom.doubleTimeToggle?.addEventListener('change', () => {
+  if (dom.chordsPerBar) {
+    dom.chordsPerBar.value = dom.doubleTimeToggle.checked ? '2' : '1';
+  }
+  saveSettings();
+});
 dom.majorMinor.addEventListener('change', saveSettings);
 dom.compingStyle?.addEventListener('change', saveSettings);
 dom.tempoSlider.addEventListener('change', () => {
@@ -3881,9 +4773,11 @@ dom.repetitionsPerKey?.addEventListener('change', () => {
     repetitions_per_key: getRepetitionsPerKey()
   });
 });
-dom.doubleTime.addEventListener('change', () => {
-  trackEvent('double_time_toggled', {
-    double_time: dom.doubleTime.checked ? 'on' : 'off'
+dom.chordsPerBar?.addEventListener('change', () => {
+  const chordsPerBar = getSelectedChordsPerBar();
+  trackEvent('harmonic_density_changed', {
+    chords_per_bar: chordsPerBar,
+    double_time: chordsPerBar > 1 ? 'on' : 'off'
   });
 });
 dom.compingStyle?.addEventListener('change', () => {
@@ -3931,6 +4825,7 @@ dom.transpositionSelect?.addEventListener('change', syncPatternPreview);
 dom.debugToggle?.addEventListener('change', () => {
   setAnalyticsDebugEnabled(dom.debugToggle.checked);
 });
+dom.resetSettings?.addEventListener('click', resetPlaybackSettings);
 dom.bassVolume.addEventListener('input', applyMixerSettings);
 dom.drumsVolume.addEventListener('input', applyMixerSettings);
 dom.bassVolume.addEventListener('change', () => {
