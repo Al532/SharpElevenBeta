@@ -17,7 +17,7 @@ const JAZZ_TRAINER_CONFIG = {
   // Default chord quality per diatonic degree (minor scale context)
   DEGREE_QUALITY_MINOR: {
     I: 'm6', II: 'ø7', III: '7', IV: 'm6',
-    V: '7b9', VI: 'ø7', VII: '°7'
+    V: '7b13', VI: 'ø7', VII: '°7'
   },
 
   // Altered degree quality by resulting semitone (minor context)
@@ -35,6 +35,7 @@ const JAZZ_TRAINER_CONFIG = {
     m7: ['b3', 'b7'],
     m9: ['b3', 'b7'],
     m6: ['b3', '6'],
+    mMaj7: ['b3', '6'],
     maj7: ['3', '7'],
     '6': ['3', '6'],
     m7b5: ['b5', 'b7'],
@@ -47,6 +48,7 @@ const JAZZ_TRAINER_CONFIG = {
     m7: ['5', 'b7'],
     m9: ['5', '9'],
     m6: ['5', '9'],
+    mMaj7: ['9', '5', '7'],
     maj7: ['5', '9'],
     '6': ['5', '9'],
     m7b5: ['b3', 'b7'],
@@ -57,7 +59,8 @@ const JAZZ_TRAINER_CONFIG = {
   // Dominant color tones per full quality syntax
   DOMINANT_COLOR_TONES: {
     '13': ['9', '13'],
-    '7b9': ['b9', 'b13'],
+    '7b9': ['b9', '5'],
+    '7b13': ['b9', 'b13'],
     '7alt': ['b9', '#9', 'b13'],
     '7oct': ['b9', '13'],
     '13#11': ['9', '6', '#11'],
@@ -77,23 +80,24 @@ const JAZZ_TRAINER_CONFIG = {
   // These mappings apply only to unaltered degrees (II, III, etc.), not to bII / #IV / etc.
   DOMINANT_DEFAULT_QUALITY_MAJOR: {
     II: '13',
-    III: '7b9',
-    VI: '7b9',
+    III: '7b13',
+    VI: '7b13',
     VII: '7#5'
   },
 
   DOMINANT_DEFAULT_QUALITY_MINOR: {
-    II: '7b9',
-    III: '7b9',
-    V: '7b9',
-    VI: '7b9',
-    VII: '7b9'
+    II: '7b13',
+    III: '7b13',
+    V: '7b13',
+    VI: '7b13',
+    VII: '7b13'
   },
 
   // Accepted textual aliases for dominant qualities that share the same behavior
   DOMINANT_QUALITY_ALIASES: {
     '13': ['7mixo', '13mixo', 'mixo'],
-    '7b9': ['7b13'],
+    '7b9': [],
+    '7b13': [],
     '7alt': ['alt'],
     '7oct': ['oct', '13b9'],
     '13#11': ['7#11', '7lyd', '13lyd'],
@@ -108,6 +112,7 @@ const JAZZ_TRAINER_CONFIG = {
     m7: [],
     m9: [],
     m6: [],
+    mMaj7: ['mmaj7', 'mmaj9'],
     maj7: ['△7', 'maj9', '△9'],
     '6': [],
     m7b5: ['ø7'],

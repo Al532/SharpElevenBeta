@@ -1,8 +1,9 @@
-6, maj7, m, m6, m7, m7b5, dim7
+6, maj7, m, m6, m7, mMaj7, m7b5, dim7
 lyd, maj7#11 // major lydian
 7 // default dominant; resolved from context
 13 // Mixolydian 9/13; default major dominant
-7b9, 7b13 // b9/b13; default minor dominant
+7b9 // strict b9 with natural 5
+7b13 // b9/b13; default minor dominant
 alt // altered dominant
 oct, 13b9 // octatonic dominant (half-whole)
 7#11, 13#11, 7lyd // lydian b7; common on II7

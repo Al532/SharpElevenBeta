@@ -377,6 +377,7 @@ body.key-picker-open {
   align-items: center;
   justify-content: center;
   text-align: center;
+  pointer-events: none;
 }
 
 .display-placeholder.hidden {
@@ -388,26 +389,32 @@ body.key-picker-open {
   color: var(--text-faint);
   font-size: 0.95rem;
   line-height: 1.5;
+  display: none;
 }
 
 .display-quickstart-button {
   position: absolute;
-  top: 0.75rem;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
+  z-index: 1;
   white-space: nowrap;
   padding: 0;
   border: 0;
   background: none;
   color: var(--text-faint);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 1.18rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-color: rgba(255, 255, 255, 0.18);
   transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.display-quickstart-button.hidden {
+  display: none;
 }
 
 .display-quickstart-button:hover {
@@ -821,7 +828,7 @@ input[type="range"] {
   color: var(--text-muted);
   text-align: left;
   line-height: 1.45;
-  white-space: normal;
+  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -1231,7 +1238,8 @@ body.welcome-open {
 }
 
 .custom-pattern-panel.hidden,
-.pattern-picker-custom.hidden {
+.pattern-picker-custom.hidden,
+#double-time-row.hidden {
   display: none;
 }
 

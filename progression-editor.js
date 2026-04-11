@@ -180,10 +180,18 @@ export function createProgressionEditor({ dom, state, constants, helpers }) {
         .join(' ');
     };
 
+    const renderMeasureLines = (measures) => {
+      const renderedMeasures = measures.map(renderMeasure);
+      const lines = [];
+      for (let i = 0; i < renderedMeasures.length; i += 4) {
+        const group = renderedMeasures.slice(i, i + 4);
+        lines.push(group.join(' | '));
+      }
+      return lines.join('\n');
+    };
+
     if (analysis.usesBarLines && Array.isArray(analysis.expandedMeasures) && analysis.expandedMeasures.length > 0) {
-      return analysis.expandedMeasures
-        .map(measureChords => `| ${renderMeasure(measureChords)} |`)
-        .join(' ');
+      return renderMeasureLines(analysis.expandedMeasures);
     }
 
     const measureSize = Math.max(1, Number(getSelectedChordsPerBar?.() || 1));
@@ -191,9 +199,7 @@ export function createProgressionEditor({ dom, state, constants, helpers }) {
     for (let i = 0; i < analysis.chords.length; i += measureSize) {
       measures.push(analysis.chords.slice(i, i + measureSize));
     }
-    return measures
-      .map(measureChords => `| ${renderMeasure(measureChords)} |`)
-      .join(' ');
+    return renderMeasureLines(measures);
   }
 
   function getPatternPreviewText() {
@@ -211,10 +217,14 @@ export function createProgressionEditor({ dom, state, constants, helpers }) {
 
   function syncCustomPatternUI() {
     const customSelected = isCustomPatternSelected();
+    const normalizedPattern = normalizePatternString(getCurrentPatternString());
+    const analysis = normalizedPattern ? analyzePattern(normalizedPattern) : null;
+    const shouldHideDoubleTime = Boolean(analysis?.usesBarLines);
     dom.patternPicker?.classList.toggle('custom-active', customSelected);
     dom.patternPickerCustom?.classList.toggle('hidden', !customSelected);
     dom.customPatternPanel?.classList.toggle('hidden', !customSelected);
     dom.patternHelp?.classList.toggle('hidden', !customSelected);
+    dom.doubleTimeRow?.classList.toggle('hidden', shouldHideDoubleTime);
     const previewTarget = customSelected
       ? dom.patternPreviewEditAnchor
       : dom.patternPreviewDefaultAnchor;

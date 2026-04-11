@@ -174,6 +174,7 @@ const dom = {
   nextPreviewUnitToggle: document.getElementById('next-preview-unit-toggle'),
   nextPreviewHint: document.getElementById('next-preview-hint'),
   chordsPerBar:    document.getElementById('chords-per-bar'),
+  doubleTimeRow:   document.getElementById('double-time-row'),
   doubleTimeToggle: document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
@@ -383,6 +384,17 @@ const WELCOME_ONE_CHORDS = Object.freeze({
 });
 
 const WELCOME_STANDARDS_FALLBACK = Object.freeze({
+  'all-the-things-you-are': {
+    summary: 'Suggested: All the Things You Are, single key, comfortable playback.',
+    patternName: 'All the Things You Are',
+    pattern: 'key: Ab | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | Dm7 G7 | Cmaj7 | Cmaj7 | Cm7 | Fm7 | Bb7 | Ebmaj7 | Abmaj7 | Am7 D7 | Gmaj7 | Gmaj7 | Am7 | D7 | Gmaj7 | Gmaj7 | F#m7b5 | B7b9 | Emaj7 | C7b13 | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | DbmMaj7 | Cm7 | Bdim7 | Bbm7 | Eb7 | Abmaj7 | Gm7b5 C7b9 |',
+    patternMode: PATTERN_MODE_MAJOR,
+    majorMinor: false,
+    repetitionsPerKey: 1,
+    tempo: 120,
+    chordsPerBar: 4,
+    enabledKeys: [false, false, false, false, false, false, false, false, true, false, false, false]
+  },
   'autumn-leaves': {
     summary: 'Suggested: Autumn Leaves, single key, comfortable playback.',
     patternName: 'Autumn Leaves',
@@ -710,7 +722,7 @@ function parseDefaultProgressionsText(source) {
 
 const ONE_CHORD_TAG = 'one:';
 const ONE_CHORD_DEFAULT_QUALITIES = [
-  '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'm7b5', 'dim7',
+  '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mMaj7', 'm7b5', 'dim7',
   '13', '7b9', '7alt', '7oct', '13#11', '7#5', '7sus', '7b9sus'
 ];
 const ONE_CHORD_DOMINANT_QUALITIES = [
@@ -725,6 +737,8 @@ const ONE_CHORD_QUALITY_ALIASES = {
   m7: 'm7',
   m9: 'm9',
   m6: 'm6',
+  mmaj7: 'mMaj7',
+  mMaj7: 'mMaj7',
   'ø7': 'm7b5',
   m7b5: 'm7b5',
   dim7: 'dim7',
@@ -1057,7 +1071,7 @@ function parseNoteToken(token, basePitchClass = 0) {
 function extractPatternBase(str) {
   const normalized = String(str || '').trim();
   const equalsOverrideMatch = normalized.match(/^key\s*=\s*([A-Ga-g])([b#]?)\s*:\s*(.*)$/);
-  const colonOverrideMatch = normalized.match(/^key\s*:\s*([A-Ga-g])([b#]?)\s+(.*)$/);
+  const colonOverrideMatch = normalized.match(/^key\s*:\s*([A-Ga-g])([b#]?)(?:\s*\|\s*|\s+)(.*)$/);
   const overrideMatch = equalsOverrideMatch || colonOverrideMatch;
   if (!overrideMatch) {
     if ((/^key\s*=/.test(normalized) && !/:/.test(normalized)) || /^key\s*:\s*$/.test(normalized)) {
@@ -3032,6 +3046,7 @@ function hideNextCol() {
 
 function setDisplayPlaceholderVisible(visible) {
   dom.displayPlaceholder?.classList.toggle('hidden', !visible);
+  dom.reopenWelcome?.classList.toggle('hidden', !visible);
 }
 
 function setDisplayPlaceholderMessage(message = DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE) {
@@ -3407,7 +3422,7 @@ function getSelectedWelcomeRecommendation() {
   }
 
   if (goal === WELCOME_GOAL_STANDARD) {
-    const standard = dom.welcomeStandardSelect?.value || Object.keys(welcomeStandards)[0] || 'autumn-leaves';
+    const standard = dom.welcomeStandardSelect?.value || Object.keys(welcomeStandards)[0] || 'all-the-things-you-are';
     return {
       ...baseConfig,
       ...(welcomeStandards[standard] || WELCOME_STANDARDS_FALLBACK[standard] || Object.values(welcomeStandards)[0] || Object.values(WELCOME_STANDARDS_FALLBACK)[0])

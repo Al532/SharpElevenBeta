@@ -76,8 +76,8 @@
           </div>
         </details>
           <div id="display">
+            <button type="button" id="reopen-welcome" class="display-quickstart-button">← Back to Quick Start</button>
             <div id="display-placeholder" class="display-placeholder">
-              <button type="button" id="reopen-welcome" class="display-quickstart-button">← Back to Quick start</button>
               <p id="display-placeholder-message">Choose a progression, then press Start.</p>
             </div>
             <div id="display-columns">
@@ -206,7 +206,7 @@
               <option value="4">4</option>
             </select>
 
-          <div class="control-row toggles">
+          <div class="control-row toggles" id="double-time-row">
             <div class="toggle-row">
               <label class="toggle-label" for="double-time">
                 <input type="checkbox" id="double-time">
@@ -380,13 +380,13 @@
         <div class="welcome-choice-grid" id="welcome-goal-options">
           <label class="welcome-choice-card">
             <input type="radio" name="welcome-goal" value="progression" checked>
-            <span class="welcome-choice-title">Common progression in all keys</span>
-            <span class="welcome-choice-copy">Challenge: play some licks or voicings and anticipate the next key before it hits.</span>
+            <span class="welcome-choice-title">Progression in all keys</span>
+            <span class="welcome-choice-copy">Practice a drill and anticipate the next key.</span>
           </label>
           <label class="welcome-choice-card">
             <input type="radio" name="welcome-goal" value="one-chord">
             <span class="welcome-choice-title">Improvise over random chords</span>
-            <span class="welcome-choice-copy">Challenge: improvise a line that leads into the next chord.</span>
+            <span class="welcome-choice-copy">Improvise a line that leads into the next chord.</span>
           </label>
           <label class="welcome-choice-card">
             <input type="radio" name="welcome-goal" value="standard">
@@ -444,7 +444,7 @@
         <h3 id="welcome-standard-title">2. Which standard?</h3>
         <label class="sr-only" for="welcome-standard-select">Standard</label>
         <select id="welcome-standard-select" class="welcome-standard-select" aria-label="Standard">
-          <option value="autumn-leaves">Autumn Leaves</option>
+          <option value="all-the-things-you-are">All the Things You Are</option>
         </select>
       </section>
 
