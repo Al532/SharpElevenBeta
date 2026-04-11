@@ -22,3 +22,4 @@ Synced static assets currently include:
 - `progression-suffixes.txt` -> `public/progression-suffixes.txt`
 - `style.css` -> `public/style.css`
 - `demo.html` -> `public/demo.html`
+- `parsing-projects/review-standard-conversions.txt` -> `public/parsing-projects/review-standard-conversions.txt`
