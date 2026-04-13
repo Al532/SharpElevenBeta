@@ -207,6 +207,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       if (isChordBeat) {
         const prevChord = state.lastPlayedChordIdx >= 0 ? state.paddedChords[state.lastPlayedChordIdx] : null;
         const sameChord = prevChord && prevChord.semitones === chord.semitones
+          && (prevChord.bassSemitones ?? prevChord.semitones) === (chord.bassSemitones ?? chord.semitones)
           && prevChord.qualityMajor === chord.qualityMajor
           && prevChord.qualityMinor === chord.qualityMinor;
 
@@ -216,6 +217,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
             const nextChord = state.paddedChords[i];
             if (
               nextChord.semitones === chord.semitones
+              && (nextChord.bassSemitones ?? nextChord.semitones) === (chord.bassSemitones ?? chord.semitones)
               && nextChord.qualityMajor === chord.qualityMajor
               && nextChord.qualityMinor === chord.qualityMinor
             ) {
@@ -226,7 +228,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           }
           const sustainDuration = sustainSlots * beatsPerChord * spb;
 
-          const midi = helpers.getBassMidi(state.currentKey, chord.semitones);
+          const midi = helpers.getBassMidi(state.currentKey, chord.bassSemitones ?? chord.semitones);
           playNote(midi, state.nextBeatTime, sustainDuration);
         }
         state.lastPlayedChordIdx = state.currentChordIdx;

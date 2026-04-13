@@ -27,10 +27,10 @@ export function createStringsComping({
 
     const entries = [
       {
-        key: `cello:${voicing.fundamental}`,
+        key: `cello:${voicing.bassNote}`,
         category: 'cello',
-        midi: voicing.fundamental,
-        role: 'fundamental',
+        midi: voicing.bassNote,
+        role: 'bass',
         volume: 10.0 * constants.CHORD_VOLUME_MULTIPLIER,
       },
     ];
@@ -69,6 +69,7 @@ export function createStringsComping({
       const chord = chords[chordIdx];
       const sameAsPrevious = previousChord
         && previousChord.semitones === chord.semitones
+        && (previousChord.bassSemitones ?? previousChord.semitones) === (chord.bassSemitones ?? chord.semitones)
         && previousChord.qualityMajor === chord.qualityMajor
         && previousChord.qualityMinor === chord.qualityMinor;
       if (!sameAsPrevious) {
@@ -89,7 +90,7 @@ export function createStringsComping({
 
   function collectSampleNotes(voicing, sets) {
     if (!voicing) return;
-    sets.celloNotes.add(voicing.fundamental);
+    sets.celloNotes.add(voicing.bassNote);
     for (const midi of voicing.guideTones || []) sets.celloNotes.add(midi);
     for (const midi of voicing.colorTones || []) sets.violinNotes.add(midi);
   }

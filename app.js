@@ -901,9 +901,11 @@ function createOneChordToken(quality) {
     roman: 'I',
     modifier: '',
     semitones: 0,
+    bassSemitones: 0,
     qualityMajor: quality,
     qualityMinor: quality,
-    inputType: 'one-chord'
+    inputType: 'one-chord',
+    slashBassLabel: null
   };
 }
 
@@ -991,9 +993,11 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
     roman,
     modifier,
     semitones,
+    bassSemitones: semitones,
     qualityMajor,
     qualityMinor,
-    inputType
+    inputType,
+    slashBassLabel: null
   };
 }
 
@@ -1109,8 +1113,35 @@ function extractPatternBase(str) {
   };
 }
 
+function parseSlashBassToken(token, basePitchClass = 0) {
+  const normalized = String(token || '').trim();
+  if (!/^([b#]?(?:VII|VI|IV|V|III|II|I)|[A-Ga-g][b#]?)$/i.test(normalized)) {
+    return null;
+  }
+  return parseDegreeToken(normalized) || parseNoteToken(normalized, basePitchClass);
+}
+
 function parseToken(token, basePitchClass = 0) {
-  return parseDegreeToken(token) || parseNoteToken(token, basePitchClass);
+  const normalized = String(token || '').trim();
+  if (!normalized) return null;
+
+  const parts = normalized.split('/');
+  if (parts.length === 1) {
+    return parseDegreeToken(normalized) || parseNoteToken(normalized, basePitchClass);
+  }
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return null;
+  }
+
+  const parsedChord = parseDegreeToken(parts[0]) || parseNoteToken(parts[0], basePitchClass);
+  const parsedBass = parseSlashBassToken(parts[1], basePitchClass);
+  if (!parsedChord || !parsedBass) return null;
+
+  return {
+    ...parsedChord,
+    bassSemitones: parsedBass.semitones,
+    slashBassLabel: parsedBass.label
+  };
 }
 
 function expandRepeatedMeasureStrings(body) {
@@ -1422,6 +1453,7 @@ function canLoopTrimProgression(rawChords, chordsPerBar = getChordsPerBar()) {
   const first = rawChords[0];
   const last = rawChords[rawChords.length - 1];
   if (first.semitones !== last.semitones
+      || (first.bassSemitones ?? first.semitones) !== (last.bassSemitones ?? last.semitones)
       || first.qualityMajor !== last.qualityMajor
       || first.qualityMinor !== last.qualityMinor) return false;
   const trimmedLength = rawChords.length - 1;
@@ -1925,6 +1957,7 @@ function getNextDifferentChord(chords, startIdx) {
   for (let i = startIdx + 1; i < chords.length; i++) {
     const candidate = chords[i];
     if (candidate.semitones !== chord.semitones
+        || (candidate.bassSemitones ?? candidate.semitones) !== (chord.bassSemitones ?? chord.semitones)
         || candidate.qualityMajor !== chord.qualityMajor
         || candidate.qualityMinor !== chord.qualityMinor) {
       return candidate;
@@ -2201,7 +2234,7 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
       : chords;
 
     for (const chord of limitedChords) {
-      bassNotes.add(getBassMidi(key, chord.semitones));
+      bassNotes.add(getBassMidi(key, chord.bassSemitones ?? chord.semitones));
     }
 
     for (const voicing of (voicingPlan || []).slice(0, limitedChords.length)) {
@@ -2323,10 +2356,15 @@ function ensureBackgroundSamplePreload() {
   return backgroundSamplePreloadPromise;
 }
 
-function buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
-  // Fundamental: lowest cello note matching root pitch class
-  let fundamental = rootPitchClass;
-  while (fundamental < CELLO_LOW) fundamental += 12;
+function buildChordVoicingBase(
+  rootPitchClass,
+  qualityCategory,
+  colorToneIntervals,
+  guideToneIntervals = null,
+  bassPitchClass = rootPitchClass
+) {
+  let bassNote = bassPitchClass;
+  while (bassNote < CELLO_LOW) bassNote += 12;
 
   // Guide tones: unique MIDI in C#3–C4 (49–60) for each pitch class
   const guideIntervals = resolveIntervalList(guideToneIntervals || GUIDE_TONES[qualityCategory]);
@@ -2335,14 +2373,29 @@ function buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneInterva
     return pc === 0 ? 60 : 48 + pc;
   });
 
-  // Top guide tone = highest MIDI among guide tones
-  const topGuide = Math.max(...guideTones);
+  const bassMatchesGuideIndex = guideTones.findIndex(midi => (midi % 12) === bassPitchClass);
+  if (bassMatchesGuideIndex !== -1) {
+    let rootGuideReplacement = rootPitchClass;
+    while (rootGuideReplacement <= bassNote || rootGuideReplacement < GUIDE_TONE_LOW) rootGuideReplacement += 12;
+    while (rootGuideReplacement > GUIDE_TONE_HIGH) rootGuideReplacement -= 12;
+    if (rootGuideReplacement < GUIDE_TONE_LOW) rootGuideReplacement += 12;
+    guideTones[bassMatchesGuideIndex] = rootGuideReplacement;
+  }
+  const uniqueGuideTones = [...new Set(guideTones)];
 
-  const colorPitchClasses = colorToneIntervals.map(interval => (rootPitchClass + interval) % 12);
+  // Top guide tone = highest MIDI among guide tones
+  const topGuide = Math.max(...uniqueGuideTones);
+
+  const colorPitchClasses = [...new Set(
+    colorToneIntervals.map(interval => (rootPitchClass + interval) % 12)
+  )];
+  if (bassPitchClass !== rootPitchClass && bassMatchesGuideIndex === -1 && !colorPitchClasses.includes(rootPitchClass)) {
+    colorPitchClasses.push(rootPitchClass);
+  }
 
   return {
-    fundamental,
-    guideTones,
+    bassNote,
+    guideTones: uniqueGuideTones,
     colorPitchClasses,
     topGuide,
   };
@@ -2431,11 +2484,23 @@ function fillVoicingUpperGaps(guideTones, colorTones, colorPitchClasses) {
   }
 }
 
-function enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
-  const base = buildChordVoicingBase(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals);
-  const { fundamental, guideTones, colorPitchClasses, topGuide } = base;
+function enumerateChordVoicingCandidates(
+  rootPitchClass,
+  qualityCategory,
+  colorToneIntervals,
+  guideToneIntervals = null,
+  bassPitchClass = rootPitchClass
+) {
+  const base = buildChordVoicingBase(
+    rootPitchClass,
+    qualityCategory,
+    colorToneIntervals,
+    guideToneIntervals,
+    bassPitchClass
+  );
+  const { bassNote, guideTones, colorPitchClasses, topGuide } = base;
   if (colorPitchClasses.length === 0) {
-    return [{ fundamental, guideTones, colorTones: [] }];
+    return [{ bassNote, guideTones, colorTones: [] }];
   }
 
   const colorToneOptions = colorPitchClasses.map(pc => getCandidateMidisForPitchClass(pc, topGuide));
@@ -2455,7 +2520,7 @@ function enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, colorT
       }
       const key = filledColorTones.join(',');
       if (!candidateMap.has(key)) {
-        candidateMap.set(key, { fundamental, guideTones, colorTones: filledColorTones });
+        candidateMap.set(key, { bassNote, guideTones, colorTones: filledColorTones });
       }
       return;
     }
@@ -2477,12 +2542,19 @@ function enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, colorT
   });
 }
 
-function computeChordVoicing(rootPitchClass, qualityCategory, colorToneIntervals, guideToneIntervals = null) {
+function computeChordVoicing(
+  rootPitchClass,
+  qualityCategory,
+  colorToneIntervals,
+  guideToneIntervals = null,
+  bassPitchClass = rootPitchClass
+) {
   return enumerateChordVoicingCandidates(
     rootPitchClass,
     qualityCategory,
     colorToneIntervals,
-    guideToneIntervals
+    guideToneIntervals,
+    bassPitchClass
   )[0] || null;
 }
 
@@ -2498,7 +2570,7 @@ function getVoicingUpperSpan(voicing) {
 
 function getVoicingTopNote(voicing) {
   if (!voicing?.colorTones?.length) {
-    return Math.max(voicing?.fundamental || -Infinity, ...(voicing?.guideTones || []));
+    return Math.max(voicing?.bassNote || -Infinity, ...(voicing?.guideTones || []));
   }
   return voicing.colorTones[voicing.colorTones.length - 1];
 }
@@ -2554,6 +2626,7 @@ function createVoicingSlot(chord, key, isMinor, segment = 'current') {
   }
 
   const rootPitchClass = (key + chord.semitones) % 12;
+  const bassPitchClass = (key + (chord.bassSemitones ?? chord.semitones)) % 12;
   let colorIntervals;
   let guideIntervals = null;
   if (qualityCategory === 'dom') {
@@ -2568,7 +2641,8 @@ function createVoicingSlot(chord, key, isMinor, segment = 'current') {
     rootPitchClass,
     qualityCategory,
     colorIntervals,
-    guideIntervals
+    guideIntervals,
+    bassPitchClass
   );
 
   return {
@@ -2858,6 +2932,7 @@ function getVoicing(key, chord, isMinor) {
   if (!cat) return null;
 
   const rootPitchClass = (key + chord.semitones) % 12;
+  const bassPitchClass = (key + (chord.bassSemitones ?? chord.semitones)) % 12;
 
   let colorIntervals;
   let guideIntervals = null;
@@ -2869,7 +2944,7 @@ function getVoicing(key, chord, isMinor) {
     colorIntervals = resolveIntervalList(COLOR_TONES[cat] || []);
   }
 
-  return computeChordVoicing(rootPitchClass, cat, colorIntervals, guideIntervals);
+  return computeChordVoicing(rootPitchClass, cat, colorIntervals, guideIntervals, bassPitchClass);
 }
 
 function getVoicingPlanForProgression(chords, key, isMinor) {
@@ -2973,6 +3048,13 @@ function normalizeDisplayedRootName(rootName) {
   return enharmonicMap[rootName] || rootName;
 }
 
+function getDisplayedBassName(key, chord, isMinor) {
+  if (!chord || (chord.bassSemitones ?? chord.semitones) === chord.semitones) return null;
+  return normalizeDisplayedRootName(
+    degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.bassSemitones, isMinor)
+  );
+}
+
 function chordSymbol(key, chord, isMinorOverride = null) {
   if (chord?.inputType === 'one-chord') {
     const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
@@ -2983,7 +3065,8 @@ function chordSymbol(key, chord, isMinorOverride = null) {
     degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
   );
   const quality = getDisplayedQuality(chord, isMinor);
-  return rootName + quality;
+  const bassName = getDisplayedBassName(key, chord, isMinor);
+  return rootName + quality + (bassName ? `/${bassName}` : '');
 }
 
 function chordSymbolHtml(key, chord, isMinorOverride = null) {
@@ -2996,7 +3079,8 @@ function chordSymbolHtml(key, chord, isMinorOverride = null) {
     degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
   );
   const quality = getDisplayedQuality(chord, isMinor);
-  return renderChordSymbolHtml(rootName, quality);
+  const bassName = getDisplayedBassName(key, chord, isMinor);
+  return renderChordSymbolHtml(rootName, quality, bassName);
 }
 
 function refreshChordDisplayLayout(element, baseRem) {

@@ -66,13 +66,14 @@ function getDisplayPartsForQuality(quality) {
   }
 }
 
-export function renderChordSymbolHtml(rootName, quality) {
+export function renderChordSymbolHtml(rootName, quality, bassName = null) {
   const { letter, accidental } = splitRootName(rootName);
   const safeRootLetter = escapeHtml(letter);
   const safeRootAccidental = escapeHtml(accidental);
   const { base, sup } = getDisplayPartsForQuality(quality || '');
   const safeBase = escapeHtml(formatAccidentals(base));
   const safeSup = escapeHtml(formatAccidentals(sup));
+  const safeBass = bassName ? escapeHtml(formatAccidentals(bassName)) : '';
 
   return [
     '<span class="chord-symbol">',
@@ -84,6 +85,7 @@ export function renderChordSymbolHtml(rootName, quality) {
     safeBase ? `<span class="chord-symbol-base">${safeBase}</span>` : '',
     '</span>',
     safeSup ? `<span class="chord-symbol-sup">${safeSup}</span>` : '',
+    safeBass ? `<span class="chord-symbol-slash">/${safeBass}</span>` : '',
     '</span>'
   ].join('');
 }

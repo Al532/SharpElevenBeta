@@ -5,6 +5,7 @@ const SWING_OFFBEAT_RATIO = 2 / 3;
 function chordsMatch(left, right) {
   return Boolean(left && right
     && left.semitones === right.semitones
+    && (left.bassSemitones ?? left.semitones) === (right.bassSemitones ?? right.semitones)
     && left.qualityMajor === right.qualityMajor
     && left.qualityMinor === right.qualityMinor);
 }

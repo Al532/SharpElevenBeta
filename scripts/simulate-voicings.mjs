@@ -24,17 +24,29 @@ const DOMINANT_COLOR_TONES = {
 };
 const DOMINANT_GUIDE_TONES = { sus: ['4','b7'], b9sus: ['b7'] };
 
-function buildBase(rootPc, qualityCat, colorToneInts, guideToneInts) {
-  let fundamental = rootPc;
-  while (fundamental < CELLO_LOW) fundamental += 12;
+function buildBase(rootPc, qualityCat, colorToneInts, guideToneInts, bassPc = rootPc) {
+  let bassNote = bassPc;
+  while (bassNote < CELLO_LOW) bassNote += 12;
   const guideIntervals = guideToneInts ?? resolveIntervalList(GUIDE_TONES[qualityCat]);
   const guideTones = guideIntervals.map(interval => {
     const pc = (rootPc + interval) % 12;
     return pc === 0 ? 60 : 48 + pc;
   });
-  const topGuide = Math.max(...guideTones);
-  const colorPitchClasses = colorToneInts.map(i => (rootPc + i) % 12);
-  return { fundamental, guideTones, colorPitchClasses, topGuide };
+  const bassMatchesGuideIndex = guideTones.findIndex(midi => (midi % 12) === bassPc);
+  if (bassMatchesGuideIndex !== -1) {
+    let rootGuideReplacement = rootPc;
+    while (rootGuideReplacement <= bassNote || rootGuideReplacement < 49) rootGuideReplacement += 12;
+    while (rootGuideReplacement > 60) rootGuideReplacement -= 12;
+    if (rootGuideReplacement < 49) rootGuideReplacement += 12;
+    guideTones[bassMatchesGuideIndex] = rootGuideReplacement;
+  }
+  const uniqueGuideTones = [...new Set(guideTones)];
+  const topGuide = Math.max(...uniqueGuideTones);
+  const colorPitchClasses = [...new Set(colorToneInts.map(i => (rootPc + i) % 12))];
+  if (bassPc !== rootPc && bassMatchesGuideIndex === -1 && !colorPitchClasses.includes(rootPc)) {
+    colorPitchClasses.push(rootPc);
+  }
+  return { bassNote, guideTones: uniqueGuideTones, colorPitchClasses, topGuide };
 }
 
 function getCandidates(pc, minExcl) {
@@ -87,11 +99,11 @@ function fillGaps(guideTones, colorTones, colorPcs) {
   }
 }
 
-function computeVoicing(rootPc, qualityCat, colorIntervals, guideIntervals) {
+function computeVoicing(rootPc, qualityCat, colorIntervals, guideIntervals, bassPc = rootPc) {
   const colorToneInts = resolveIntervalList(colorIntervals);
   const guideToneInts = guideIntervals ? resolveIntervalList(guideIntervals) : null;
-  const { fundamental, guideTones, colorPitchClasses, topGuide } = buildBase(rootPc, qualityCat, colorToneInts, guideToneInts);
-  if (colorPitchClasses.length === 0) return { fundamental, guideTones, colorTones: [] };
+  const { bassNote, guideTones, colorPitchClasses, topGuide } = buildBase(rootPc, qualityCat, colorToneInts, guideToneInts, bassPc);
+  if (colorPitchClasses.length === 0) return { bassNote, guideTones, colorTones: [] };
   const opts = colorPitchClasses.map(pc => getCandidates(pc, topGuide));
   if (opts.some(o => o.length === 0)) return null;
 
@@ -103,7 +115,7 @@ function computeVoicing(rootPc, qualityCat, colorIntervals, guideIntervals) {
       const filled = fillGaps(guideTones, ct, colorPitchClasses);
       if (!filled) return;
       const key = filled.join(',');
-      if (!candidateMap.has(key)) candidateMap.set(key, { fundamental, guideTones, colorTones: filled });
+      if (!candidateMap.has(key)) candidateMap.set(key, { bassNote, guideTones, colorTones: filled });
       return;
     }
     for (const m of opts[i]) { current[i] = m; visit(i+1); }
@@ -118,11 +130,11 @@ function computeVoicing(rootPc, qualityCat, colorIntervals, guideIntervals) {
   return candidates[0] ?? null;
 }
 
-function enumerateVoicings(rootPc, qualityCat, colorIntervals, guideIntervals) {
+function enumerateVoicings(rootPc, qualityCat, colorIntervals, guideIntervals, bassPc = rootPc) {
   const colorToneInts = resolveIntervalList(colorIntervals);
   const guideToneInts = guideIntervals ? resolveIntervalList(guideIntervals) : null;
-  const { fundamental, guideTones, colorPitchClasses, topGuide } = buildBase(rootPc, qualityCat, colorToneInts, guideToneInts);
-  if (colorPitchClasses.length === 0) return [{ fundamental, guideTones, colorTones: [] }];
+  const { bassNote, guideTones, colorPitchClasses, topGuide } = buildBase(rootPc, qualityCat, colorToneInts, guideToneInts, bassPc);
+  if (colorPitchClasses.length === 0) return [{ bassNote, guideTones, colorTones: [] }];
   const opts = colorPitchClasses.map(pc => getCandidates(pc, topGuide));
   if (opts.some(o => o.length === 0)) return [];
 
@@ -134,7 +146,7 @@ function enumerateVoicings(rootPc, qualityCat, colorIntervals, guideIntervals) {
       const filled = fillGaps(guideTones, ct, colorPitchClasses);
       if (!filled) return;
       const key = filled.join(',');
-      if (!candidateMap.has(key)) candidateMap.set(key, { fundamental, guideTones, colorTones: filled });
+      if (!candidateMap.has(key)) candidateMap.set(key, { bassNote, guideTones, colorTones: filled });
       return;
     }
     for (const m of opts[i]) { current[i] = m; visit(i+1); }
@@ -149,7 +161,7 @@ const celloNotes = new Set(), violinNotes = new Set(), pianoNotes = new Set();
 for (let rootPc = 0; rootPc < 12; rootPc++) {
   for (const [cat, colorIntervals] of Object.entries(COLOR_TONES)) {
     for (const v of enumerateVoicings(rootPc, cat, colorIntervals, null)) {
-      celloNotes.add(v.fundamental);
+      celloNotes.add(v.bassNote);
       for (const m of v.guideTones) celloNotes.add(m);
       for (const m of v.colorTones) violinNotes.add(m);
       for (const m of v.guideTones) pianoNotes.add(m);
@@ -159,7 +171,7 @@ for (let rootPc = 0; rootPc < 12; rootPc++) {
   for (const [subtype, colorIntervals] of Object.entries(DOMINANT_COLOR_TONES)) {
     const guideIntervals = DOMINANT_GUIDE_TONES[subtype] ?? null;
     for (const v of enumerateVoicings(rootPc, 'dom', colorIntervals, guideIntervals)) {
-      celloNotes.add(v.fundamental);
+      celloNotes.add(v.bassNote);
       for (const m of v.guideTones) celloNotes.add(m);
       for (const m of v.colorTones) violinNotes.add(m);
       for (const m of v.guideTones) pianoNotes.add(m);
@@ -185,7 +197,7 @@ console.log(`  MIDI range: ${pArr[0]} (${midiName(pArr[0])}) — ${pArr[pArr.len
 console.log(`  Count: ${pArr.length} notes`);
 console.log(`  Notes: ${pArr.map(m=>`${m}(${midiName(m)})`).join(' ')}`);
 
-console.log('\n=== CELLO (fundamental+guideTones) ===');
+console.log('\n=== CELLO (bass+guideTones) ===');
 console.log(`  MIDI range: ${cArr[0]} (${midiName(cArr[0])}) — ${cArr[cArr.length-1]} (${midiName(cArr[cArr.length-1])})`);
 console.log(`  Count: ${cArr.length} notes`);
 

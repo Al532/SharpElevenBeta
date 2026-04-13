@@ -232,8 +232,9 @@ function getTrackingSegments(props) {
     .slice(0, 4);
 }
 
-function buildEventPath(name, props) {
+function buildEventPath(name, props, { includePropsInPath = true } = {}) {
   const base = `/event/${toToken(name) || 'unknown'}`;
+  if (!includePropsInPath) return base;
   const segments = getTrackingSegments(props);
   return segments.length > 0 ? `${base}/${segments.join('/')}` : base;
 }
@@ -247,12 +248,12 @@ function buildEventTitle(name, props) {
   return summary ? `${name} (${summary})` : name;
 }
 
-export function trackEvent(name, props = {}) {
+export function trackEvent(name, props = {}, options = {}) {
   if (!name || isAnalyticsDisabled()) return;
   const loaded = ensureGoatCounterScript();
   if (!loaded || !ensureGoatCounterStub()) return;
   window.goatcounter.count({
-    path: () => buildEventPath(name, props),
+    path: () => buildEventPath(name, props, options),
     title: buildEventTitle(name, props),
     event: true
   });
@@ -270,9 +271,13 @@ function trackVisitorLifecycle() {
     writeStorageValue(ANALYTICS_VISITOR_LAST_SEEN_STORAGE_KEY, today);
     trackEvent('visitor_session', {
       visitor_state: 'new'
+    }, {
+      includePropsInPath: false
     });
     trackEvent('visitor_first_seen', {
       visitor_state: 'new'
+    }, {
+      includePropsInPath: false
     });
     return;
   }
@@ -281,6 +286,8 @@ function trackVisitorLifecycle() {
   if (lastSeenDay === today) {
     trackEvent('visitor_session', {
       visitor_state: 'same_day'
+    }, {
+      includePropsInPath: false
     });
     return;
   }
@@ -293,6 +300,8 @@ function trackVisitorLifecycle() {
   trackEvent('visitor_session', {
     visitor_state: 'returning',
     return_gap_bucket: returnGapBucket
+  }, {
+    includePropsInPath: false
   });
 
   if (lastReturnTrackedDay === today) return;
@@ -300,6 +309,8 @@ function trackVisitorLifecycle() {
   trackEvent('visitor_returned', {
     visitor_state: 'returning',
     return_gap_bucket: returnGapBucket
+  }, {
+    includePropsInPath: false
   });
   writeStorageValue(ANALYTICS_VISITOR_LAST_RETURN_TRACKED_STORAGE_KEY, today);
 }
