@@ -31,6 +31,7 @@ export function bindProgressionControls({ dom, constants, state, helpers }) {
     saveCurrentProgression,
     setEditorPatternMode,
     setProgressionFeedback,
+    stopPlaybackIfRunning,
     startNewProgression,
     syncCustomPatternUI,
     syncPatternPreview,
@@ -50,6 +51,9 @@ export function bindProgressionControls({ dom, constants, state, helpers }) {
       return;
     }
     const previousPatternSelection = state.lastPatternSelectValue;
+    if (previousPatternSelection !== dom.patternSelect.value) {
+      stopPlaybackIfRunning();
+    }
     clearOneChordCycleState();
     if (isCustomPatternSelected() && !isEditingProgression()) {
       startNewProgression(previousPatternSelection);

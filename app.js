@@ -192,6 +192,8 @@ const dom = {
   saveKeyPreset:   document.getElementById('save-key-preset'),
   loadKeyPreset:   document.getElementById('load-key-preset'),
   keyCheckboxes:   document.getElementById('key-checkboxes'),
+  masterVolume:    document.getElementById('master-volume'),
+  masterVolumeValue: document.getElementById('master-volume-value'),
   bassVolume:      document.getElementById('bass-volume'),
   bassVolumeValue: document.getElementById('bass-volume-value'),
   stringsVolume:   document.getElementById('strings-volume'),
@@ -219,6 +221,11 @@ function setKeyPickerOpen(isOpen) {
   dom.keyPicker.open = Boolean(isOpen);
 }
 
+function stopPlaybackIfRunning() {
+  if (!isPlaying) return;
+  stop();
+}
+
 dom.closeKeyPicker?.addEventListener('click', () => {
   setKeyPickerOpen(false);
 });
@@ -237,6 +244,7 @@ dom.keyPicker?.addEventListener('toggle', () => {
   const isOpen = Boolean(dom.keyPicker?.open);
   document.body.classList.toggle('key-picker-open', isOpen);
   if (isOpen) {
+    stopPlaybackIfRunning();
     window.requestAnimationFrame(() => {
       dom.closeKeyPicker?.focus();
     });
@@ -668,8 +676,18 @@ function normalizePresetNameForInput(name) {
     .replace(/\s{2,}/g, ' ');
 }
 
+function normalizeMusicalText(value) {
+  return String(value || '')
+    .replace(/\u266d[\ufe0e\ufe0f]?/g, 'b')
+    .replace(/\u266f[\ufe0e\ufe0f]?/g, '#')
+    .replace(/\u2013|\u2014/g, '-');
+}
+
 function normalizePatternString(pattern) {
-  return String(pattern || '')
+  const normalized = normalizeMusicalText(pattern).replace(/\r\n?/g, '\n');
+  const lineBreakReplacement = normalized.includes('|') ? ' | ' : ' ';
+  return normalized
+    .replace(/\n+/g, lineBreakReplacement)
     .replace(/-/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
@@ -723,10 +741,10 @@ function parseDefaultProgressionsText(source) {
 const ONE_CHORD_TAG = 'one:';
 const ONE_CHORD_DEFAULT_QUALITIES = [
   '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mMaj7', 'm7b5', 'dim7',
-  '13', '7b9', '7alt', '7oct', '13#11', '7#5', '7sus', '7b9sus'
+  '13', '7b9', '7alt', '13b9', '13#11', '7#5', '7sus', '7b9sus'
 ];
 const ONE_CHORD_DOMINANT_QUALITIES = [
-  '13', '7b9', '7alt', '7oct', '13#11', '7#5', '7sus', '7b9sus'
+  '13', '7b9', '7alt', '13b9', '13#11', '7#5', '7sus', '7b9sus'
 ];
 const ONE_CHORD_QUALITY_ALIASES = {
   '6': '6',
@@ -745,9 +763,10 @@ const ONE_CHORD_QUALITY_ALIASES = {
   '°7': 'dim7',
   '7mixo': '13',
   '13mixo': '13',
-  '13b9': '7b9',
+  '7oct': '13b9',
+  oct: '13b9',
   '13alt': '7alt',
-  '13oct': '7oct',
+  '13oct': '13b9',
   '7lyd': '13#11',
   '7#11': '13#11',
   '13lyd': '13#11',
@@ -821,7 +840,7 @@ function applySilentDefaultPresetResetMigration() {
 }
 
 function normalizeOneChordQualityToken(token) {
-  const normalized = String(token || '').trim().toLowerCase();
+  const normalized = normalizeMusicalText(token).trim().toLowerCase();
   if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalized)) return normalized;
   for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
     if ((aliases || []).includes(normalized)) return canonicalQuality;
@@ -959,8 +978,9 @@ function takeNextOneChordQuality(qualities, excludedQuality = null) {
 function noteNameToPitchClass(letter, accidental = '') {
   const base = NOTE_LETTER_TO_SEMITONE[String(letter || '').toUpperCase()];
   if (base === undefined) return null;
-  if (accidental === 'b') return (base + 11) % 12;
-  if (accidental === '#') return (base + 1) % 12;
+  const normalizedAccidental = normalizeMusicalText(accidental);
+  if (normalizedAccidental === 'b') return (base + 11) % 12;
+  if (normalizedAccidental === '#') return (base + 1) % 12;
   return base;
 }
 
@@ -1028,7 +1048,8 @@ function normalizeParsedQuality(quality, roman, explicit = false) {
 function parseDegreeToken(token) {
   // Syntax: [b|#]<roman>[quality]  e.g. II, bVI, IIdim7, V9, VI7
   // Roman numerals listed longest-first to avoid partial matches (VII before VI before V, etc.)
-  const match = token.match(/^([b#]?)(VII|VI|IV|V|III|II|I)(.+)?$/i);
+  const normalizedToken = normalizeMusicalText(token).trim();
+  const match = normalizedToken.match(/^([b#]?)(VII|VI|IV|V|III|II|I)(.+)?$/i);
   if (!match) return null;
   const modifier = match[1] || '';
   const roman = match[2].toUpperCase();
@@ -1049,7 +1070,8 @@ function parseDegreeToken(token) {
 }
 
 function parseNoteToken(token, basePitchClass = 0) {
-  const match = token.match(/^([A-Ga-g])([b#]?)(.*)?$/);
+  const normalizedToken = normalizeMusicalText(token).trim();
+  const match = normalizedToken.match(/^([A-Ga-g])([b#]?)(.*)?$/);
   if (!match) return null;
 
   const letter = match[1].toUpperCase();
@@ -1073,7 +1095,7 @@ function parseNoteToken(token, basePitchClass = 0) {
 }
 
 function extractPatternBase(str) {
-  const normalized = String(str || '').trim();
+  const normalized = normalizeMusicalText(str).trim();
   const equalsOverrideMatch = normalized.match(/^key\s*=\s*([A-Ga-g])([b#]?)\s*:\s*(.*)$/);
   const colonOverrideMatch = normalized.match(/^key\s*:\s*([A-Ga-g])([b#]?)(?:\s*\|\s*|\s+)(.*)$/);
   const overrideMatch = equalsOverrideMatch || colonOverrideMatch;
@@ -1114,7 +1136,7 @@ function extractPatternBase(str) {
 }
 
 function parseSlashBassToken(token, basePitchClass = 0) {
-  const normalized = String(token || '').trim();
+  const normalized = normalizeMusicalText(token).trim();
   if (!/^([b#]?(?:VII|VI|IV|V|III|II|I)|[A-Ga-g][b#]?)$/i.test(normalized)) {
     return null;
   }
@@ -1122,7 +1144,7 @@ function parseSlashBassToken(token, basePitchClass = 0) {
 }
 
 function parseToken(token, basePitchClass = 0) {
-  const normalized = String(token || '').trim();
+  const normalized = normalizeMusicalText(token).trim();
   if (!normalized) return null;
 
   const parts = normalized.split('/');
@@ -1546,15 +1568,17 @@ function initAudio() {
 function initMixerNodes() {
   if (!audioCtx || mixerNodes) return;
 
+  const master = audioCtx.createGain();
   const bass = audioCtx.createGain();
   const strings = audioCtx.createGain();
   const drums = audioCtx.createGain();
 
-  bass.connect(audioCtx.destination);
-  strings.connect(audioCtx.destination);
-  drums.connect(audioCtx.destination);
+  bass.connect(master);
+  strings.connect(master);
+  drums.connect(master);
+  master.connect(audioCtx.destination);
 
-  mixerNodes = { bass, strings, drums };
+  mixerNodes = { master, bass, strings, drums };
   applyMixerSettings();
 }
 
@@ -1582,6 +1606,7 @@ function updateMixerValueLabel(slider, output) {
 }
 
 function applyMixerSettings() {
+  updateMixerValueLabel(dom.masterVolume, dom.masterVolumeValue);
   updateMixerValueLabel(dom.bassVolume, dom.bassVolumeValue);
   updateMixerValueLabel(dom.stringsVolume, dom.stringsVolumeValue);
   updateMixerValueLabel(dom.drumsVolume, dom.drumsVolumeValue);
@@ -1589,6 +1614,7 @@ function applyMixerSettings() {
   if (!mixerNodes || !audioCtx) return;
 
   const now = audioCtx.currentTime;
+  mixerNodes.master.gain.setValueAtTime(sliderValueToGain(dom.masterVolume), now);
   mixerNodes.bass.gain.setValueAtTime(sliderValueToGain(dom.bassVolume), now);
   mixerNodes.strings.gain.setValueAtTime(sliderValueToGain(dom.stringsVolume), now);
   mixerNodes.drums.gain.setValueAtTime(sliderValueToGain(dom.drumsVolume), now);
@@ -3492,6 +3518,7 @@ function getSelectedWelcomeRecommendation() {
     nextPreviewLeadValue: 1,
     nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS,
     chordsPerBar: DEFAULT_CHORDS_PER_BAR,
+    masterVolume: '100',
     bassVolume: '100',
     stringsVolume: '100',
     drumsVolume: '100'
@@ -3591,6 +3618,7 @@ function applyWelcomeRecommendation() {
   if (dom.hideCurrentHarmony) {
     dom.hideCurrentHarmony.checked = recommendation.hideCurrentHarmony === true;
   }
+  if (dom.masterVolume) dom.masterVolume.value = recommendation.masterVolume || '100';
   if (dom.bassVolume) dom.bassVolume.value = recommendation.bassVolume || '100';
   if (dom.stringsVolume) dom.stringsVolume.value = recommendation.stringsVolume || '100';
   if (dom.drumsVolume) dom.drumsVolume.value = recommendation.drumsVolume || '100';
@@ -3981,6 +4009,7 @@ bindProgressionControls({
     saveCurrentProgression,
     setEditorPatternMode,
     setProgressionFeedback,
+    stopPlaybackIfRunning,
     startNewProgression,
     syncCustomPatternUI,
     syncPatternPreview,
@@ -4428,6 +4457,7 @@ function buildSettingsSnapshot() {
     compingStyle: getCompingStyle(),
     chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
+    masterVolume: dom.masterVolume?.value,
     bassVolume: dom.bassVolume?.value,
     stringsVolume: dom.stringsVolume?.value,
     drumsVolume: dom.drumsVolume?.value,
@@ -4530,6 +4560,7 @@ function applyLoadedSettings(s) {
   } else if (s.metronome !== undefined && dom.drumsSelect) {
     dom.drumsSelect.value = s.metronome ? DRUM_MODE_METRONOME_24 : DRUM_MODE_OFF;
   }
+  if (s.masterVolume !== undefined && dom.masterVolume) dom.masterVolume.value = s.masterVolume;
   if (s.bassVolume !== undefined && dom.bassVolume) dom.bassVolume.value = s.bassVolume;
   if (s.stringsVolume !== undefined && dom.stringsVolume) dom.stringsVolume.value = s.stringsVolume;
   if (s.drumsVolume !== undefined && dom.drumsVolume) dom.drumsVolume.value = s.drumsVolume;
@@ -4649,6 +4680,7 @@ function resetPlaybackSettings() {
   if (dom.displayMode) dom.displayMode.value = DISPLAY_MODE_SHOW_BOTH;
   if (dom.showBeatIndicator) dom.showBeatIndicator.checked = true;
   if (dom.hideCurrentHarmony) dom.hideCurrentHarmony.checked = false;
+  if (dom.masterVolume) dom.masterVolume.value = '100';
   if (dom.bassVolume) dom.bassVolume.value = '100';
   if (dom.stringsVolume) dom.stringsVolume.value = '100';
   if (dom.drumsVolume) dom.drumsVolume.value = '100';
@@ -4854,6 +4886,7 @@ dom.patternMode.addEventListener('change', saveSettings);
 dom.patternModeBoth?.addEventListener('change', saveSettings);
 dom.chordsPerBar?.addEventListener('change', saveSettings);
 dom.doubleTimeToggle?.addEventListener('change', () => {
+  stopPlaybackIfRunning();
   if (dom.chordsPerBar) {
     dom.chordsPerBar.value = dom.doubleTimeToggle.checked ? '2' : '1';
   }
@@ -4925,8 +4958,15 @@ dom.debugToggle?.addEventListener('change', () => {
   setAnalyticsDebugEnabled(dom.debugToggle.checked);
 });
 dom.resetSettings?.addEventListener('click', resetPlaybackSettings);
+dom.masterVolume.addEventListener('input', applyMixerSettings);
 dom.bassVolume.addEventListener('input', applyMixerSettings);
 dom.drumsVolume.addEventListener('input', applyMixerSettings);
+dom.masterVolume.addEventListener('change', () => {
+  saveSettings();
+  trackEvent('master_volume_changed', {
+    volume_percent: Number(dom.masterVolume.value)
+  });
+});
 dom.bassVolume.addEventListener('change', () => {
   saveSettings();
   trackEvent('bass_volume_changed', {

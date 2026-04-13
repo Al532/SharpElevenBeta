@@ -102,6 +102,11 @@
         <button id="pause" class="hidden">Pause</button>
       </div>
 
+      <div class="transport-tempo">
+        <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
+        <input type="range" id="tempo-slider" min="40" max="300" value="120">
+      </div>
+
       <section id="controls" class="controls-layout" aria-label="Trainer settings">
         <div class="control-panel">
           <div class="section-heading">
@@ -195,11 +200,6 @@
             <span class="section-kicker">Playback</span>
           </div>
 
-          <div class="control-row">
-            <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
-            <input type="range" id="tempo-slider" min="40" max="300" value="120">
-          </div>
-
           <select id="chords-per-bar" hidden aria-hidden="true" tabindex="-1">
               <option value="1" selected>1</option>
               <option value="2">2</option>
@@ -258,6 +258,13 @@
               <span>Mixer</span>
             </summary>
             <div class="mixer-controls">
+              <label class="mixer-slider" for="master-volume">
+                <span>Master</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="master-volume" min="0" max="100" value="100">
+                  <output id="master-volume-value" for="master-volume">100%</output>
+                </div>
+              </label>
               <label class="mixer-slider" for="bass-volume">
                 <span>Bass</span>
                 <div class="mixer-slider-row">

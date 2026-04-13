@@ -10,7 +10,7 @@ Standard turnaround | C A7 D G C
 Dominants turnaround | both | C A7 D7 G7 C
 Minor turnaround | minor | C A D G C
 bVI turnaround | both | C % Ab7 G7b9 C
-Golden Age turnaround | C Ebdim7 D G7oct C
+Golden Age turnaround | C Ebdim7 D G13b9 C
 Plagal turnaround | C C7 F Bb7 C
 Coltrane turnaround | Cmaj7 Eb7 Abmaj7 Db7 Cmaj7
 

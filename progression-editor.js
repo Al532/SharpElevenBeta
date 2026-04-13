@@ -185,7 +185,7 @@ export function createProgressionEditor({ dom, state, constants, helpers }) {
       const lines = [];
       for (let i = 0; i < renderedMeasures.length; i += 4) {
         const group = renderedMeasures.slice(i, i + 4);
-        lines.push(group.join(' | '));
+        lines.push(`${group.join(' | ')} |`);
       }
       return lines.join('\n');
     };

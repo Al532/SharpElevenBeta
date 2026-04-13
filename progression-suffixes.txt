@@ -5,7 +5,7 @@ lyd, maj7#11 // major lydian
 7b9 // strict b9 with natural 5
 7b13 // b9/b13; default minor dominant
 alt // altered dominant
-oct, 13b9 // octatonic dominant (half-whole)
+13b9, oct // octatonic dominant (half-whole)
 7#11, 13#11, 7lyd // lydian b7; common on II7
 7#5 // whole-tone scale or mixolydian b6
 7#9 // #9 only, no other extension
