@@ -11,6 +11,7 @@ import { createPlaybackScheduler } from './playback-scheduler.js';
 import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
+import { createMediumSwingWalkingBassGenerator } from './medium-swing-walking-bass.js';
 import {
   loadStoredKeySelectionPreset,
   loadStoredProgressionSettings,
@@ -200,6 +201,7 @@ const dom = {
   stringsVolumeValue: document.getElementById('strings-volume-value'),
   drumsVolume:     document.getElementById('drums-volume'),
   drumsVolumeValue: document.getElementById('drums-volume-value'),
+  customMediumSwingBass: document.getElementById('custom-medium-swing-bass'),
   showBeatIndicator: document.getElementById('show-beat-indicator'),
   hideCurrentHarmony: document.getElementById('hide-current-harmony'),
   welcomeOverlay: document.getElementById('welcome-overlay'),
@@ -1599,6 +1601,22 @@ function getCompingStyle() {
   return normalizeCompingStyle(dom.compingStyle?.value);
 }
 
+function isCustomMediumSwingBassEnabled() {
+  return Boolean(dom.customMediumSwingBass?.checked);
+}
+
+function isWalkingBassDebugEnabled() {
+  return true;
+}
+
+function bassMidiToNoteName(midi) {
+  const NOTE_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  if (!Number.isFinite(midi)) return String(midi);
+  const pitchClass = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  return `${NOTE_NAMES_FLAT[pitchClass]}${octave}`;
+}
+
 function updateMixerValueLabel(slider, output) {
   if (!slider || !output) return;
   output.value = `${slider.value}%`;
@@ -1710,6 +1728,7 @@ function loadBufferFromUrl(baseUrl) {
 }
 
 const NOTE_FADEOUT = 0.3;  // seconds — bass fadeout before next note
+const BASS_NOTE_ATTACK = 0.005; // seconds — tiny fade-in to avoid clicks on re-attacks
 const CHORD_FADE_BEFORE = 0.1; // seconds — chord fade starts this long before end
 const CHORD_FADE_DUR = 0.2;    // seconds — chord fade duration
 const CHORD_VOLUME_MULTIPLIER = 1.5;
@@ -1726,6 +1745,7 @@ const STRING_LEGATO_HOLD_TIME = 0.1; // seconds
 const STRING_LEGATO_FADE_TIME = 0.2; // seconds
 const AUTOMATION_CURVE_STEPS = 32;
 let activeNoteGain = null; // current bass note's GainNode for early cutoff
+let activeNoteFadeOut = NOTE_FADEOUT;
 const scheduledAudioSources = new Set();
 const pendingDisplayTimeouts = new Set();
 
@@ -1772,27 +1792,79 @@ function stopActiveChordVoices(stopTime = audioCtx?.currentTime ?? 0, fadeDurati
   compingEngine.stopActiveComping(stopTime, fadeDuration);
 }
 
-function playNote(midi, time, maxDuration) {
-  const buf = sampleBuffers.bass[midi];
-  if (!buf) return;
+function getNearestLoadedBassSampleMidi(targetMidi) {
+  const loadedMidis = Object.keys(sampleBuffers.bass)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && sampleBuffers.bass[value]);
+  if (!loadedMidis.length) return null;
+  loadedMidis.sort((left, right) => {
+    const leftDistance = Math.abs(left - targetMidi);
+    const rightDistance = Math.abs(right - targetMidi);
+    if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+    return left - right;
+  });
+  return loadedMidis[0];
+}
+
+function getAdaptiveBassFadeDuration(maxDuration) {
+  if (!(maxDuration > 0)) return NOTE_FADEOUT;
+  return Math.max(0.04, Math.min(NOTE_FADEOUT, maxDuration * 0.35));
+}
+
+function playNote(midi, time, maxDuration, velocity = 127) {
+  if (isWalkingBassDebugEnabled() && (midi < BASS_LOW || midi > BASS_HIGH)) {
+    console.warn(`[walking-bass] out-of-range note ${bassMidiToNoteName(midi)} (${midi}), sampled range ${BASS_LOW}-${BASS_HIGH}`);
+  }
+  let sourceMidi = midi;
+  let buf = sampleBuffers.bass[sourceMidi];
+  if (!buf) {
+    loadSample('bass', 'Bass', midi).catch(() => null);
+    const fallbackMidi = getNearestLoadedBassSampleMidi(midi);
+    if (fallbackMidi !== null) {
+      sourceMidi = fallbackMidi;
+      buf = sampleBuffers.bass[sourceMidi];
+      if (isWalkingBassDebugEnabled()) {
+        console.warn(`[walking-bass] fallback sample ${bassMidiToNoteName(sourceMidi)} (${sourceMidi}) used for ${bassMidiToNoteName(midi)} (${midi})`);
+      }
+    }
+  }
+  if (!buf) {
+    if (isWalkingBassDebugEnabled()) {
+      console.warn(`[walking-bass] missing sample buffer for ${bassMidiToNoteName(midi)} (${midi}) at ${time.toFixed(3)}s, dur=${Number(maxDuration || 0).toFixed(3)}s, vel=${velocity}`);
+    }
+    return;
+  }
+
+  const noteFadeOut = getAdaptiveBassFadeDuration(maxDuration);
 
   // Fade out previous note before this one starts
   if (activeNoteGain) {
-    const fadeStart = Math.max(time - NOTE_FADEOUT, audioCtx.currentTime);
-    activeNoteGain.gain.setValueAtTime(activeNoteGain.gain.value, fadeStart);
+    const fadeStart = Math.max(time - activeNoteFadeOut, audioCtx.currentTime);
+    if (typeof activeNoteGain.gain.cancelAndHoldAtTime === 'function') {
+      activeNoteGain.gain.cancelAndHoldAtTime(fadeStart);
+    } else {
+      activeNoteGain.gain.cancelScheduledValues(fadeStart);
+      activeNoteGain.gain.setValueAtTime(activeNoteGain.gain.value, fadeStart);
+    }
     activeNoteGain.gain.linearRampToValueAtTime(0, time);
   }
 
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
+  if (sourceMidi !== midi) {
+    src.playbackRate.value = Math.pow(2, (midi - sourceMidi) / 12);
+  }
   const gain = audioCtx.createGain();
   const bassGain = isChordsEnabled() ? BASS_GAIN_WITH_CHORDS : BASS_GAIN;
-  gain.gain.setValueAtTime(bassGain, time);
+  const normalizedVelocity = Math.max(0, Math.min(127, Number(velocity) || 127)) / 127;
+  const noteGain = bassGain * normalizedVelocity;
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(noteGain, time + BASS_NOTE_ATTACK);
 
   // If the sample is longer than allowed, schedule a fadeout at the end
-  if (maxDuration && buf.duration > maxDuration - NOTE_FADEOUT) {
-    const fadeStart = time + maxDuration - NOTE_FADEOUT;
-    gain.gain.setValueAtTime(bassGain, fadeStart);
+  if (maxDuration && buf.duration > maxDuration - noteFadeOut) {
+    const fadeStart = time + maxDuration - noteFadeOut;
+    gain.gain.setValueAtTime(noteGain, Math.max(time + BASS_NOTE_ATTACK, fadeStart));
     gain.gain.linearRampToValueAtTime(0, time + maxDuration);
   }
 
@@ -1800,6 +1872,7 @@ function playNote(midi, time, maxDuration) {
   src.start(time);
   trackScheduledSource(src, [gain]);
   activeNoteGain = gain;
+  activeNoteFadeOut = noteFadeOut;
 }
 
 function scheduleSampleSegment(buf, destination, startTime, offset, duration, fadeInDuration = 0, fadeOutDuration = 0) {
@@ -2199,16 +2272,63 @@ function getLowestMidiAtOrAbove(minMidi, pitchClass) {
 }
 
 function getBassPreloadRange() {
-  let low = Infinity;
-  let high = -Infinity;
+  return { low: BASS_LOW, high: BASS_HIGH };
+}
 
-  for (let pitchClass = 0; pitchClass < 12; pitchClass++) {
-    const midi = getLowestMidiAtOrAbove(BASS_LOW, pitchClass);
-    low = Math.min(low, midi);
-    high = Math.max(high, midi);
+const mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
+  constants: {
+    BASS_LOW,
+    BASS_HIGH
+  }
+});
+
+function buildPreparedBassPlan() {
+  if (!isCustomMediumSwingBassEnabled()) {
+    currentBassPlan = [];
+    return currentBassPlan;
   }
 
-  return { low, high };
+  currentBassPlan = mediumSwingWalkingBassGenerator.buildLine({
+    chords: paddedChords,
+    key: currentKey,
+    beatsPerChord: getBeatsPerChord(),
+    isMinor: dom.majorMinor.checked,
+    nextChords: nextPaddedChords,
+    nextKey: nextKeyValue ?? currentKey,
+    nextIsMinor: dom.majorMinor.checked
+  });
+  if (isWalkingBassDebugEnabled()) {
+    const formatBassBeatValue = (value) => {
+      const rounded = Math.round(value * 1000) / 1000;
+      return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    };
+    const eventsText = currentBassPlan
+      .reduce((lines, event, index) => {
+        const currentBlock = Math.floor(event.timeBeats / 4);
+        const previousBlock = index > 0 ? Math.floor(currentBassPlan[index - 1].timeBeats / 4) : null;
+        if (index === 0 || currentBlock !== previousBlock) {
+          const beatRangeStart = currentBlock * 4;
+          const beatRangeEnd = beatRangeStart + 3;
+          const chord = paddedChords[beatRangeStart] || null;
+          const chordLabel = chord ? chordSymbol(currentKey, chord) : '?';
+          lines.push(`[beats ${beatRangeStart}-${beatRangeEnd} | ${chordLabel}]`);
+        }
+        const role = event.rank === 'approach'
+          ? `approach -> ${bassMidiToNoteName(event.targetMidi)} (${event.targetMidi})`
+          : `${event.rank}/${event.source}`;
+        lines.push(`beat ${formatBassBeatValue(event.timeBeats)}: ${bassMidiToNoteName(event.midi)} (${event.midi}), vel=${event.velocity}, ${role}`);
+        const nextBlock = index < currentBassPlan.length - 1 ? Math.floor(currentBassPlan[index + 1].timeBeats / 4) : null;
+        if (nextBlock !== null && nextBlock !== currentBlock) {
+          lines.push('__________');
+        }
+        return lines;
+      }, [])
+      .join('\n');
+    console.log(
+      `[walking-bass] prepared plan | key=${currentKey} beatsPerChord=${getBeatsPerChord()} chords=${paddedChords.length} events=${currentBassPlan.length}\n${eventsText}`
+    );
+  }
+  return currentBassPlan;
 }
 
 async function loadSampleRange(category, folder, low, high) {
@@ -2274,6 +2394,13 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
   }
   if (includeNext) {
     registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan, nextChordLimit);
+  }
+
+  if (isCustomMediumSwingBassEnabled()) {
+    const bassRange = getBassPreloadRange();
+    for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
+      bassNotes.add(midi);
+    }
   }
 
   return { bassNotes, celloNotes, violinNotes, pianoNotes };
@@ -3274,6 +3401,7 @@ let currentKey = 0;
 let nextKeyValue = null;
 let currentKeyRepetition = 0;
 let paddedChords = [];
+let currentBassPlan = [];
 let currentVoicingPlan = [];
 let currentCompingPlan = null;
 let nextPaddedChords = [];
@@ -4040,6 +4168,8 @@ function buildProgression() {
 
 const playbackSchedulerState = {
   get audioCtx() { return audioCtx; },
+  get currentBassPlan() { return currentBassPlan; },
+  set currentBassPlan(value) { currentBassPlan = Array.isArray(value) ? value : []; },
   get currentBeat() { return currentBeat; },
   set currentBeat(value) { currentBeat = value; },
   get currentChordIdx() { return currentChordIdx; },
@@ -4095,10 +4225,12 @@ const {
   },
   helpers: {
     applyDisplaySideLayout,
+    buildPreparedBassPlan,
     buildLegacyVoicingPlan,
     buildLoopRepVoicings,
     buildPreparedCompingPlans: rebuildPreparedCompingPlans,
     buildVoicingPlanForSlots,
+    bassMidiToNoteName,
     canLoopTrimProgression,
     chordSymbolHtml,
     chordSymbol,
@@ -4111,10 +4243,12 @@ const {
     getChordsPerBar,
     getCompingStyle,
     getCurrentPatternString,
+    isWalkingBassDebugEnabled,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getSecondsPerBeat,
     hideNextCol,
+    isCustomMediumSwingBassEnabled,
     isChordsEnabled,
     isVoiceLeadingV2Enabled,
     keyName,
@@ -4455,6 +4589,7 @@ function buildSettingsSnapshot() {
     showBeatIndicator: dom.showBeatIndicator?.checked !== false,
     hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
     compingStyle: getCompingStyle(),
+    customMediumSwingBass: isCustomMediumSwingBassEnabled(),
     chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
     masterVolume: dom.masterVolume?.value,
@@ -4551,6 +4686,9 @@ function applyLoadedSettings(s) {
   }
   if (s.compingStyle !== undefined && dom.compingStyle) {
     dom.compingStyle.value = normalizeCompingStyle(s.compingStyle);
+  }
+  if (s.customMediumSwingBass !== undefined && dom.customMediumSwingBass) {
+    dom.customMediumSwingBass.checked = Boolean(s.customMediumSwingBass);
   }
   if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
     dom.stringsVolume.value = 0;
@@ -4674,6 +4812,7 @@ function resetPlaybackSettings() {
   if (dom.chordsPerBar) dom.chordsPerBar.value = '1';
   syncDoubleTimeToggle();
   if (dom.compingStyle) dom.compingStyle.value = COMPING_STYLE_STRINGS;
+  if (dom.customMediumSwingBass) dom.customMediumSwingBass.checked = true;
   if (dom.drumsSelect) dom.drumsSelect.value = DRUM_MODE_FULL_SWING;
   // Reset all keys to enabled
   applyEnabledKeys(new Array(12).fill(true));
@@ -4923,6 +5062,15 @@ dom.compingStyle?.addEventListener('change', () => {
   trackEvent('comping_style_changed', {
     comping_style: getCompingStyle()
   });
+});
+dom.customMediumSwingBass?.addEventListener('change', () => {
+  if (isPlaying) {
+    buildPreparedBassPlan();
+  }
+  preloadNearTermSamples().catch((err) => {
+    console.warn('Custom bass preload failed:', err);
+  });
+  saveSettings();
 });
 dom.stringsVolume.addEventListener('input', () => {
   applyMixerSettings();

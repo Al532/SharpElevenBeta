@@ -2,6 +2,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   const { SCHEDULE_AHEAD } = constants;
   const {
     applyDisplaySideLayout,
+    buildPreparedBassPlan,
     buildLegacyVoicingPlan,
     buildPreparedCompingPlans,
     buildLoopRepVoicings,
@@ -21,6 +22,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getRepetitionsPerKey,
     getSecondsPerBeat,
     hideNextCol,
+    isCustomMediumSwingBassEnabled,
+    isWalkingBassDebugEnabled,
     isChordsEnabled,
     isVoiceLeadingV2Enabled,
     keyName,
@@ -136,6 +139,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
     state.currentChordIdx = 0;
     state.lastPlayedChordIdx = -1;
+    state.currentBassPlan = buildPreparedBassPlan();
     buildPreparedCompingPlans(
         state.currentKeyRepetition === 1 && state.nextKeyValue !== null && previousKey === state.currentKey
           ? null
@@ -203,8 +207,29 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const beatStep = beatsPerChord;
       const measureProgressBeats = (state.currentChordIdx % chordsPerMeasure) * beatStep;
       const isChordBeat = Math.abs(state.currentBeat - measureProgressBeats) < 0.001;
+      const customBassEnabled = isCustomMediumSwingBassEnabled();
 
-      if (isChordBeat) {
+      if (customBassEnabled) {
+        const bassEvents = state.currentBassPlan.filter((event) => event.timeBeats >= windowStartBeats && event.timeBeats < windowEndBeats);
+        if (bassEvents.length) {
+          bassEvents.forEach((bassEvent) => {
+            const eventOffsetSeconds = (bassEvent.timeBeats - windowStartBeats) * spb;
+            playNote(
+              bassEvent.midi,
+              state.nextBeatTime + eventOffsetSeconds,
+              bassEvent.durationBeats * spb,
+              bassEvent.velocity
+            );
+          });
+        } else if (isWalkingBassDebugEnabled()) {
+          console.warn(
+            `[walking-bass] no event for beat ${windowStartBeats} (chordIndex=${state.currentChordIdx}, currentBeat=${state.currentBeat}, totalEvents=${state.currentBassPlan.length})`
+          );
+        }
+        if (isChordBeat) {
+          state.lastPlayedChordIdx = state.currentChordIdx;
+        }
+      } else if (isChordBeat) {
         const prevChord = state.lastPlayedChordIdx >= 0 ? state.paddedChords[state.lastPlayedChordIdx] : null;
         const sameChord = prevChord && prevChord.semitones === chord.semitones
           && (prevChord.bassSemitones ?? prevChord.semitones) === (chord.bassSemitones ?? chord.semitones)
