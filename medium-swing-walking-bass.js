@@ -27,7 +27,7 @@ const VELOCITY_ARRIVAL = 127;
 const MAX_SEARCH_CANDIDATES = 10;
 const LEAP_REPEAT_EFFECT_THRESHOLD = 5;
 const LEAP_REPEAT_OFFSET_BEATS = 2 / 3;
-const LEAP_REPEAT_EFFECT_PROBABILITY = 0.2;
+const LEAP_REPEAT_EFFECT_PROBABILITY = 0.1;
 const LEAP_REPEAT_VELOCITY_DROP = 28;
 
 function mod12(value) {
@@ -273,6 +273,7 @@ function applyLeapRepeatEffect(events, low, high) {
 
   const embellished = [];
   const effectedMeasures = new Set();
+  let lastEffectBeat = null;
   for (let index = 0; index < events.length; index += 1) {
     const currentEvent = events[index];
     const nextEvent = events[index + 1] || null;
@@ -284,6 +285,7 @@ function applyLeapRepeatEffect(events, low, high) {
       shouldApplyEffect = intervalToNext >= LEAP_REPEAT_EFFECT_THRESHOLD
         && Math.floor(currentEvent.timeBeats) === Math.floor(nextEvent.timeBeats - 1)
         && !effectedMeasures.has(measureIndex)
+        && (lastEffectBeat === null || Math.abs(currentEvent.timeBeats - lastEffectBeat) > 1.001)
         && Math.random() < LEAP_REPEAT_EFFECT_PROBABILITY;
     }
 
@@ -296,6 +298,7 @@ function applyLeapRepeatEffect(events, low, high) {
 
     const effectMidi = chooseLeapRepeatMidi(currentEvent, nextEvent, low, high);
     effectedMeasures.add(measureIndex);
+    lastEffectBeat = currentEvent.timeBeats;
     embellished.push({
       timeBeats: currentEvent.timeBeats + LEAP_REPEAT_OFFSET_BEATS,
       durationBeats: 1 - LEAP_REPEAT_OFFSET_BEATS,
