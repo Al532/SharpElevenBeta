@@ -15,6 +15,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     createVoicingSlot,
     fitHarmonyDisplay,
     getCurrentPatternString,
+    getPatternKeyOverridePitchClass,
     getCompingStyle,
     getBeatsPerChord,
     getChordsPerBar,
@@ -48,21 +49,26 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     const currentPreviousTailBeats = state.currentCompingPlan?.events?.length
       ? Math.max(0, previousTotalBeats - state.currentCompingPlan.events[state.currentCompingPlan.events.length - 1].timeBeats)
       : null;
+    const patternString = getCurrentPatternString();
+    const oneChordSpec = parseOneChordSpec(patternString);
+    const forcedKey = oneChordSpec.active ? null : getPatternKeyOverridePitchClass(patternString);
+
     if (state.nextKeyValue !== null) {
       state.currentKey = state.nextKeyValue;
-      state.currentKeyRepetition = state.currentKey === previousKey ? state.currentKeyRepetition + 1 : 1;
+      state.currentKeyRepetition = forcedKey === null && state.currentKey === previousKey
+        ? state.currentKeyRepetition + 1
+        : 1;
     } else {
-      state.currentKey = nextKey();
+      state.currentKey = forcedKey ?? nextKey();
       state.currentKeyRepetition = 1;
     }
 
-    const oneChordSpec = parseOneChordSpec(getCurrentPatternString());
     if (oneChordSpec.active) {
       state.currentOneChordQualityValue = state.nextOneChordQualityValue || takeNextOneChordQuality(oneChordSpec.qualities);
       state.currentRawChords = [createOneChordToken(state.currentOneChordQualityValue)];
     } else {
       state.currentOneChordQualityValue = '';
-      state.currentRawChords = parsePattern(getCurrentPatternString());
+      state.currentRawChords = parsePattern(patternString);
       if (state.currentRawChords.length === 0) {
         state.currentRawChords = parsePattern('II-V-I');
       }
@@ -77,8 +83,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       chordsPerBar
     );
 
-    const shouldRepeatCurrentKey = oneChordSpec.active ? false : state.currentKeyRepetition < reps;
-    state.nextKeyValue = shouldRepeatCurrentKey ? state.currentKey : nextKey(state.currentKey);
+    const shouldRepeatCurrentKey = forcedKey === null && !oneChordSpec.active && state.currentKeyRepetition < reps;
+    state.nextKeyValue = forcedKey ?? (shouldRepeatCurrentKey ? state.currentKey : nextKey(state.currentKey));
     if (oneChordSpec.active) {
       state.nextOneChordQualityValue = takeNextOneChordQuality(oneChordSpec.qualities, state.currentOneChordQualityValue);
       state.nextRawChords = [createOneChordToken(state.nextOneChordQualityValue)];

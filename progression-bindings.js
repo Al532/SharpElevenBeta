@@ -22,6 +22,7 @@ export function bindProgressionControls({ dom, constants, state, helpers }) {
     markDefaultProgressionsPromptHandled,
     mergeUpdatedDefaultProgressions,
     normalizePatternString,
+    normalizeChordsPerBarForCurrentPattern,
     normalizePresetName,
     normalizePresetNameForInput,
     registerSessionAction,
@@ -74,6 +75,7 @@ export function bindProgressionControls({ dom, constants, state, helpers }) {
       rememberStandaloneCustomDraft();
     }
     syncCustomPatternUI();
+    normalizeChordsPerBarForCurrentPattern();
     syncProgressionManagerState();
     setProgressionFeedback('');
     validateCustomPattern();
@@ -97,6 +99,7 @@ export function bindProgressionControls({ dom, constants, state, helpers }) {
     syncPatternSelectionFromInput();
     syncProgressionManagerState();
     setProgressionFeedback('');
+    normalizeChordsPerBarForCurrentPattern();
     validateCustomPattern();
     applyPatternModeAvailability();
     syncPatternPreview();
@@ -109,6 +112,7 @@ export function bindProgressionControls({ dom, constants, state, helpers }) {
     rememberStandaloneCustomDraft();
     syncPatternSelectionFromInput();
     syncProgressionManagerState();
+    normalizeChordsPerBarForCurrentPattern();
     const isValid = validateCustomPattern();
     applyPatternModeAvailability();
     syncPatternPreview();

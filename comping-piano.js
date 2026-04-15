@@ -387,35 +387,48 @@ function createPianoPlan({
     && nextFirstChord
   );
 
+  // Disabled for now: the piano "broken long" effect that anticipates the
+  // bottom note of the voicing ahead of the full chord entry.
+  //
+  // const playbackEvents = finalEvents
+  //   .flatMap(event => {
+  //     if (!event.isBrokenLong) return [event];
+  //
+  //     const brokenBassSlotIndex = event.slotIndex - 1;
+  //     const brokenBassTimeBeats = getSlotTimeBeats(brokenBassSlotIndex);
+  //     const brokenLeadInBeats = Math.max(0, event.timeBeats - brokenBassTimeBeats);
+  //
+  //     return [
+  //       {
+  //         ...event,
+  //         slotIndex: brokenBassSlotIndex,
+  //         slotKind: getSlotKind(brokenBassSlotIndex),
+  //         timeBeats: brokenBassTimeBeats,
+  //         durationBeats: event.durationBeats + brokenLeadInBeats,
+  //         playBassOnly: true,
+  //         playUpperOnly: false,
+  //         isBrokenLongBassLead: true,
+  //         isBrokenLongUpperEntry: false,
+  //       },
+  //       {
+  //         ...event,
+  //         playBassOnly: false,
+  //         playUpperOnly: true,
+  //         isBrokenLongBassLead: false,
+  //         isBrokenLongUpperEntry: true,
+  //       },
+  //     ];
+  //   })
+  //   .sort((left, right) => left.timeBeats - right.timeBeats);
+
   const playbackEvents = finalEvents
-    .flatMap(event => {
-      if (!event.isBrokenLong) return [event];
-
-      const brokenBassSlotIndex = event.slotIndex - 1;
-      const brokenBassTimeBeats = getSlotTimeBeats(brokenBassSlotIndex);
-      const brokenLeadInBeats = Math.max(0, event.timeBeats - brokenBassTimeBeats);
-
-      return [
-        {
-          ...event,
-          slotIndex: brokenBassSlotIndex,
-          slotKind: getSlotKind(brokenBassSlotIndex),
-          timeBeats: brokenBassTimeBeats,
-          durationBeats: event.durationBeats + brokenLeadInBeats,
-          playBassOnly: true,
-          playUpperOnly: false,
-          isBrokenLongBassLead: true,
-          isBrokenLongUpperEntry: false,
-        },
-        {
-          ...event,
-          playBassOnly: false,
-          playUpperOnly: true,
-          isBrokenLongBassLead: false,
-          isBrokenLongUpperEntry: true,
-        },
-      ];
-    })
+    .map(event => ({
+      ...event,
+      playBassOnly: false,
+      playUpperOnly: false,
+      isBrokenLongBassLead: false,
+      isBrokenLongUpperEntry: false,
+    }))
     .sort((left, right) => left.timeBeats - right.timeBeats);
 
   if (shouldLogFirstBlockDebug && blocks.length > 0) {

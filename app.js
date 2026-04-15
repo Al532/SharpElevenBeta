@@ -1437,8 +1437,34 @@ function syncDoubleTimeToggle() {
   }
 }
 
+function normalizeChordsPerBarForCurrentPattern() {
+  if (!dom.chordsPerBar) return;
+
+  const analysis = analyzePatternCached(getCurrentPatternString());
+  if (analysis.usesBarLines) {
+    dom.chordsPerBar.value = '4';
+    syncDoubleTimeToggle();
+    return;
+  }
+
+  if (getSelectedChordsPerBar() === 4) {
+    dom.chordsPerBar.value = dom.doubleTimeToggle?.checked ? '2' : String(DEFAULT_CHORDS_PER_BAR);
+  }
+  syncDoubleTimeToggle();
+}
+
 function getSelectedChordsPerBar() {
   return normalizeChordsPerBar(dom.chordsPerBar?.value);
+}
+
+function getPatternKeyOverridePitchClass(patternString = getCurrentPatternString()) {
+  const oneChordSpec = parseOneChordSpec(patternString);
+  if (oneChordSpec.active) return null;
+
+  const base = extractPatternBase(patternString);
+  return base.hasOverride && Number.isFinite(base.basePitchClass)
+    ? base.basePitchClass
+    : null;
 }
 
 function getChordsPerBar(patternString = getCurrentPatternString()) {
@@ -3635,28 +3661,19 @@ function getSelectedWelcomeRecommendation() {
   const goal = getCheckedInputValue('welcome-goal', WELCOME_GOAL_PROGRESSION);
   const instrument = getCheckedInputValue('welcome-instrument', '0');
 
-  const baseConfig = {
+  const baseConfig = createDefaultAppSettings({
     goal,
-    instrument,
-    compingStyle: COMPING_STYLE_STRINGS,
-    drumsMode: DRUM_MODE_FULL_SWING,
-    displayMode: DISPLAY_MODE_SHOW_BOTH,
-    showBeatIndicator: true,
-    hideCurrentHarmony: false,
-    nextPreviewLeadValue: 1,
-    nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS,
-    chordsPerBar: DEFAULT_CHORDS_PER_BAR,
-    masterVolume: '100',
-    bassVolume: '100',
-    stringsVolume: '100',
-    drumsVolume: '100'
-  };
+    instrument
+  });
 
   if (goal === WELCOME_GOAL_ONE_CHORD) {
     const quality = getCheckedInputValue('welcome-one-chord', 'maj7');
     return {
       ...baseConfig,
-      ...WELCOME_ONE_CHORDS[quality]
+      ...WELCOME_ONE_CHORDS[quality],
+      customMediumSwingBass: false,
+      nextPreviewLeadValue: 2,
+      nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS
     };
   }
 
@@ -3664,7 +3681,8 @@ function getSelectedWelcomeRecommendation() {
     const standard = dom.welcomeStandardSelect?.value || Object.keys(welcomeStandards)[0] || 'all-the-things-you-are';
     return {
       ...baseConfig,
-      ...(welcomeStandards[standard] || WELCOME_STANDARDS_FALLBACK[standard] || Object.values(welcomeStandards)[0] || Object.values(WELCOME_STANDARDS_FALLBACK)[0])
+      ...(welcomeStandards[standard] || WELCOME_STANDARDS_FALLBACK[standard] || Object.values(welcomeStandards)[0] || Object.values(WELCOME_STANDARDS_FALLBACK)[0]),
+      enabledKeys: [...DEFAULT_APP_SETTINGS.enabledKeys]
     };
   }
 
@@ -3734,6 +3752,9 @@ function applyWelcomeRecommendation() {
   if (dom.compingStyle) {
     dom.compingStyle.value = normalizeCompingStyle(recommendation.compingStyle);
   }
+  if (dom.customMediumSwingBass) {
+    dom.customMediumSwingBass.checked = recommendation.customMediumSwingBass !== false;
+  }
   if (dom.drumsSelect) {
     dom.drumsSelect.value = recommendation.drumsMode || DRUM_MODE_FULL_SWING;
   }
@@ -3760,6 +3781,7 @@ function applyWelcomeRecommendation() {
   );
 
   syncCustomPatternUI();
+  normalizeChordsPerBarForCurrentPattern();
   syncProgressionManagerState();
   applyPatternModeAvailability();
   validateCustomPattern();
@@ -4136,6 +4158,7 @@ bindProgressionControls({
     restoreDefaultProgressions,
     saveCurrentProgression,
     setEditorPatternMode,
+    normalizeChordsPerBarForCurrentPattern,
     setProgressionFeedback,
     stopPlaybackIfRunning,
     startNewProgression,
@@ -4243,6 +4266,7 @@ const {
     getChordsPerBar,
     getCompingStyle,
     getCurrentPatternString,
+    getPatternKeyOverridePitchClass,
     isWalkingBassDebugEnabled,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
@@ -4548,6 +4572,37 @@ function normalizeDisplayMode(mode) {
     : DISPLAY_MODE_SHOW_BOTH;
 }
 
+const DEFAULT_APP_SETTINGS = Object.freeze({
+  majorMinor: false,
+  tempo: 120,
+  repetitionsPerKey: 2,
+  transposition: '0',
+  nextPreviewLeadValue: DEFAULT_NEXT_PREVIEW_LEAD_BARS,
+  nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS,
+  chordsPerBar: DEFAULT_CHORDS_PER_BAR,
+  displayMode: DISPLAY_MODE_SHOW_BOTH,
+  showBeatIndicator: true,
+  hideCurrentHarmony: false,
+  compingStyle: COMPING_STYLE_STRINGS,
+  customMediumSwingBass: true,
+  drumsMode: DRUM_MODE_FULL_SWING,
+  masterVolume: '100',
+  bassVolume: '100',
+  stringsVolume: '100',
+  drumsVolume: '100',
+  enabledKeys: Object.freeze(new Array(12).fill(true))
+});
+
+function createDefaultAppSettings(overrides = {}) {
+  return {
+    ...DEFAULT_APP_SETTINGS,
+    ...overrides,
+    enabledKeys: Array.isArray(overrides.enabledKeys) && overrides.enabledKeys.length === 12
+      ? overrides.enabledKeys.map(Boolean)
+      : [...DEFAULT_APP_SETTINGS.enabledKeys]
+  };
+}
+
 function buildSettingsSnapshot() {
   const editingState = isEditingPreset()
     ? {
@@ -4794,6 +4849,8 @@ function loadSettings() {
 }
 
 function resetPlaybackSettings() {
+  const standardSettings = createDefaultAppSettings();
+
   // Select the first available progression
   const firstProgressionKey = Object.keys(progressions)[0] || '';
   if (firstProgressionKey) {
@@ -4801,30 +4858,31 @@ function resetPlaybackSettings() {
     closeProgressionManager();
     setPatternSelectValue(firstProgressionKey);
     dom.patternName.value = getSelectedProgressionName();
-    dom.customPattern.value = getSelectedProgressionPattern();
+    dom.customPattern.value = '';
     setEditorPatternMode(getSelectedProgressionMode());
     lastPatternSelectValue = dom.patternSelect.value;
   }
-  dom.majorMinor.checked = false;
-  dom.tempoSlider.value = '120';
-  dom.tempoValue.textContent = '120';
-  if (dom.repetitionsPerKey) dom.repetitionsPerKey.value = '2';
-  if (dom.chordsPerBar) dom.chordsPerBar.value = '1';
+  dom.majorMinor.checked = standardSettings.majorMinor;
+  dom.tempoSlider.value = String(standardSettings.tempo);
+  dom.tempoValue.textContent = String(standardSettings.tempo);
+  if (dom.repetitionsPerKey) dom.repetitionsPerKey.value = String(standardSettings.repetitionsPerKey);
+  if (dom.transpositionSelect) dom.transpositionSelect.value = standardSettings.transposition;
+  if (dom.chordsPerBar) dom.chordsPerBar.value = String(standardSettings.chordsPerBar);
   syncDoubleTimeToggle();
-  if (dom.compingStyle) dom.compingStyle.value = COMPING_STYLE_STRINGS;
-  if (dom.customMediumSwingBass) dom.customMediumSwingBass.checked = true;
-  if (dom.drumsSelect) dom.drumsSelect.value = DRUM_MODE_FULL_SWING;
+  if (dom.compingStyle) dom.compingStyle.value = standardSettings.compingStyle;
+  if (dom.customMediumSwingBass) dom.customMediumSwingBass.checked = standardSettings.customMediumSwingBass;
+  if (dom.drumsSelect) dom.drumsSelect.value = standardSettings.drumsMode;
   // Reset all keys to enabled
-  applyEnabledKeys(new Array(12).fill(true));
-  if (dom.displayMode) dom.displayMode.value = DISPLAY_MODE_SHOW_BOTH;
-  if (dom.showBeatIndicator) dom.showBeatIndicator.checked = true;
-  if (dom.hideCurrentHarmony) dom.hideCurrentHarmony.checked = false;
-  if (dom.masterVolume) dom.masterVolume.value = '100';
-  if (dom.bassVolume) dom.bassVolume.value = '100';
-  if (dom.stringsVolume) dom.stringsVolume.value = '100';
-  if (dom.drumsVolume) dom.drumsVolume.value = '100';
-  nextPreviewLeadValue = 1;
-  setNextPreviewInputUnit(NEXT_PREVIEW_UNIT_BARS);
+  applyEnabledKeys(standardSettings.enabledKeys);
+  if (dom.displayMode) dom.displayMode.value = standardSettings.displayMode;
+  if (dom.showBeatIndicator) dom.showBeatIndicator.checked = standardSettings.showBeatIndicator;
+  if (dom.hideCurrentHarmony) dom.hideCurrentHarmony.checked = standardSettings.hideCurrentHarmony;
+  if (dom.masterVolume) dom.masterVolume.value = standardSettings.masterVolume;
+  if (dom.bassVolume) dom.bassVolume.value = standardSettings.bassVolume;
+  if (dom.stringsVolume) dom.stringsVolume.value = standardSettings.stringsVolume;
+  if (dom.drumsVolume) dom.drumsVolume.value = standardSettings.drumsVolume;
+  nextPreviewLeadValue = standardSettings.nextPreviewLeadValue;
+  setNextPreviewInputUnit(standardSettings.nextPreviewUnit);
   applyMixerSettings();
   syncNextPreviewControlDisplay();
   applyDisplayMode();
@@ -4876,12 +4934,15 @@ async function loadPatternHelp() {
         <p>If you omit the chord quality, a default one is chosen from the context. For example, <code>D</code> or <code>II</code> in minor will default to <code>m7b5</code>. Check with the <code>Progression preview</code> below.</p>
         <p>Available suffixes:</p>
         <ul>${items}</ul>
-        <p><code>%</code> repeats the previous chord. You can also use bar lines like <code>| Dm7 G7 | C |</code>; when bars are present, they define the measure layout and the <code>Chords per bar</code> selector is ignored.</p>
-        <p>Repeat bars are also supported with syntax like <code>[: Dm7 G7 | C :]</code> or <code>[ Dm7 | G7 || C | C ]</code>.</p>
-        <p>First and second endings are supported with measure markers like <code>[: A | B | [1 C :| [2 D | E ]</code>.</p>
+        <p><code>%</code> repeats the previous chord.</p>
         <p>You can also use <code>one:</code> for one-chord mode, for example <code>one:</code>, <code>one: all dominants</code>, or <code>one: maj7, m9, 7alt, dim7</code>.</p>
       </div>
     `;
+    // Hidden for now:
+    // - You can also use bar lines like "| Dm7 G7 | C |"; when bars are present, they define the
+    //   measure layout and the "Chords per bar" selector is ignored.
+    // - Repeat bars are also supported with syntax like "[: Dm7 G7 | C :]" or "[ Dm7 | G7 || C | C ]".
+    // - First and second endings are supported with measure markers like "[: A | B | [1 C :| [2 D | E ]".
   } catch (err) {
     console.warn('Pattern help load failed:', err);
   }
@@ -4946,6 +5007,7 @@ async function initializeApp() {
   }
   syncProgressionManagerState();
   syncCustomPatternUI();
+  normalizeChordsPerBarForCurrentPattern();
   applyPatternModeAvailability();
   lastPatternSelectValue = dom.patternSelect.value;
 
@@ -4956,7 +5018,7 @@ async function initializeApp() {
   }
 
   ensurePageSampleWarmup();
-  syncDoubleTimeToggle();
+  normalizeChordsPerBarForCurrentPattern();
   maybeShowWelcomeOverlay();
 }
 
