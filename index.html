@@ -385,7 +385,6 @@
 
   <div id="welcome-overlay" class="welcome-overlay hidden" aria-hidden="true">
     <div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <button type="button" id="welcome-skip" class="welcome-skip-button">Skip</button>
       <h2 id="welcome-title" class="welcome-title">Quick start</h2>
 
       <section class="welcome-section" aria-labelledby="welcome-goal-title">
@@ -484,10 +483,13 @@
       </section>
 
       <div class="welcome-footer">
-        <label class="welcome-show-next-time">
-          <input type="checkbox" id="welcome-show-next-time" checked>
-          <span>Show next time</span>
-        </label>
+        <div class="welcome-footer-meta">
+          <button type="button" id="welcome-skip" class="welcome-skip-button">Skip</button>
+          <label class="welcome-show-next-time">
+            <input type="checkbox" id="welcome-show-next-time" checked>
+            <span>Show next time</span>
+          </label>
+        </div>
         <button type="button" id="welcome-apply" class="welcome-apply-button">Start with this preset</button>
       </div>
     </div>

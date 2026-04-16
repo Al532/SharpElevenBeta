@@ -975,7 +975,6 @@ body.welcome-open {
 }
 
 .welcome-card {
-  position: relative;
   width: min(100%, 52rem);
   max-height: min(92vh, 60rem);
   overflow: auto;
@@ -987,9 +986,6 @@ body.welcome-open {
 }
 
 .welcome-skip-button {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
   padding: 0.55rem 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
@@ -1184,11 +1180,19 @@ body.welcome-open {
 
 .welcome-footer {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1rem;
   margin-top: 1.5rem;
+}
+
+.welcome-footer-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
 }
 
 .welcome-summary {
