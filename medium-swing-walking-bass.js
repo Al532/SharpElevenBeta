@@ -110,8 +110,7 @@ function buildChordPools(chord, key, isMinor, low, high) {
 
   const rootPitchClass = mod12(key + chord.semitones);
   const bassPitchClass = mod12(key + (chord.bassSemitones ?? chord.semitones));
-  const fifthInterval = qualityCategory === 'm7b5' || qualityCategory === 'dim7' ? 6 : 7;
-  const fifthPitchClass = mod12(rootPitchClass + fifthInterval);
+  const perfectFifthPitchClass = mod12(rootPitchClass + 7);
 
   let guideIntervals = [];
   let colorIntervals = [];
@@ -132,11 +131,20 @@ function buildChordPools(chord, key, isMinor, low, high) {
     })
     .map((interval) => mod12(rootPitchClass + interval));
   const colorPitchClasses = colorIntervals.map((interval) => mod12(rootPitchClass + interval));
+  const chordContainsThirteenth = qualityCategory !== 'dim7'
+    && [...guideIntervals, ...colorIntervals]
+      .some((interval) => interval === '13' || interval === 9);
+  const chordPitchClasses = new Set([
+    rootPitchClass,
+    ...guidePitchClasses,
+    ...colorPitchClasses
+  ]);
+  const chordContainsPerfectFifth = chordPitchClasses.has(perfectFifthPitchClass);
+  const shouldAddPerfectFifthToRank1 = chordContainsPerfectFifth || chordContainsThirteenth;
   const rank1PitchClasses = [];
   const noteDescriptors = [
     { source: 'bass', pitchClass: bassPitchClass },
-    { source: 'root', pitchClass: rootPitchClass },
-    { source: 'fifth', pitchClass: fifthPitchClass }
+    { source: 'root', pitchClass: rootPitchClass }
   ];
 
   const rank1 = [];
@@ -153,7 +161,9 @@ function buildChordPools(chord, key, isMinor, low, high) {
   if (rootPitchClass !== bassPitchClass) {
     addRank1PitchClass(rootPitchClass, 'root');
   }
-  addRank1PitchClass(fifthPitchClass, 'fifth');
+  if (shouldAddPerfectFifthToRank1) {
+    addRank1PitchClass(perfectFifthPitchClass, 'fifth');
+  }
 
   const rank1PitchClassSet = new Set(rank1PitchClasses.map(mod12));
   const rank2Entries = [];
@@ -164,17 +174,28 @@ function buildChordPools(chord, key, isMinor, low, high) {
     seenRank2.add(normalized);
     rank2Entries.push(...buildRankPool(rootPitchClass, [normalized], 'rank2', source, low, high));
   };
-
+  const rank2PitchClassSet = new Set();
   guidePitchClasses.forEach((pitchClass) => addRank2PitchClass(pitchClass, 'guide'));
-  colorPitchClasses.forEach((pitchClass) => addRank2PitchClass(pitchClass, 'color'));
+  rank2Entries.forEach((entry) => rank2PitchClassSet.add(entry.pitchClass));
+  const rank3Entries = [];
+  const seenRank3 = new Set();
+  const addRank3PitchClass = (pitchClass, source) => {
+    const normalized = mod12(pitchClass);
+    if (rank1PitchClassSet.has(normalized) || rank2PitchClassSet.has(normalized) || seenRank3.has(normalized)) return;
+    seenRank3.add(normalized);
+    rank3Entries.push(...buildRankPool(rootPitchClass, [normalized], 'rank3', source, low, high));
+  };
+  colorPitchClasses.forEach((pitchClass) => addRank3PitchClass(pitchClass, 'color'));
   const rank2 = rank2Entries;
+  const rank3 = rank3Entries;
 
   return {
     bassPitchClass,
     rootPitchClass,
     minorSeventhPitchClasses: [...new Set(minorSeventhPitchClasses)],
     rank1,
-    rank2
+    rank2,
+    rank3
   };
 }
 
@@ -223,16 +244,49 @@ function chooseNearestMidi(candidates, referenceMidi, preferredPitchClass = null
   return sorted[0];
 }
 
-function getFirstSpanBassCandidate(span, previousEvent, pendingTargetMidi) {
+function getFirstSpanBassCandidate(span, nextSpan, previousEvent, pendingTargetMidi) {
+  const isSingleBeatSpan = span.durationBeats === 1;
   const bassCandidates = span.pools.rank1.filter((candidate) => candidate.source === 'bass');
+
+  if (!isSingleBeatSpan) {
+    if (pendingTargetMidi !== null && pendingTargetMidi !== undefined) {
+      const directBassMatch = bassCandidates.find((candidate) => candidate.midi === pendingTargetMidi);
+      if (directBassMatch) return directBassMatch;
+    }
+    if (previousEvent?.midi !== undefined) {
+      return chooseNearestMidi(bassCandidates, previousEvent.midi, span.pools.bassPitchClass);
+    }
+    return bassCandidates[0] || null;
+  }
+
+  const structuralCandidates = [...span.pools.rank1, ...span.pools.rank2, ...span.pools.rank3];
+  const legalStructuralCandidates = previousEvent?.midi !== undefined
+    ? structuralCandidates.filter((candidate) => isHardLegalCandidate(
+      candidate,
+      previousEvent,
+      span,
+      nextSpan,
+      true,
+      []
+    ))
+    : structuralCandidates;
+  const legalRank1Candidates = legalStructuralCandidates.filter((candidate) => candidate.rank === 'rank1');
+  const legalBassCandidates = legalRank1Candidates.filter((candidate) => candidate.source === 'bass');
+
   if (pendingTargetMidi !== null && pendingTargetMidi !== undefined) {
-    const directMatch = bassCandidates.find((candidate) => candidate.midi === pendingTargetMidi);
+    const directMatch = legalStructuralCandidates.find((candidate) => candidate.midi === pendingTargetMidi);
     if (directMatch) return directMatch;
   }
   if (previousEvent?.midi !== undefined) {
-    return chooseNearestMidi(bassCandidates, previousEvent.midi, span.pools.bassPitchClass);
+    return chooseNearestMidi(
+      legalBassCandidates.length
+        ? legalBassCandidates
+        : (legalRank1Candidates.length ? legalRank1Candidates : legalStructuralCandidates),
+      previousEvent.midi,
+      span.pools.bassPitchClass
+    );
   }
-  return bassCandidates[0] || null;
+  return legalBassCandidates[0] || legalRank1Candidates[0] || legalStructuralCandidates[0] || null;
 }
 
 function notePreference(candidate) {
@@ -317,13 +371,14 @@ function classifyResolvedRank(pools, midi) {
   const pitchClass = mod12(midi);
   if (pools.rank1.some((candidate) => candidate.pitchClass === pitchClass)) return 'rank1';
   if (pools.rank2.some((candidate) => candidate.pitchClass === pitchClass)) return 'rank2';
+  if (pools.rank3.some((candidate) => candidate.pitchClass === pitchClass)) return 'rank3';
   return 'rank1';
 }
 
 function boundaryAllowsStructuralCandidate(candidate, currentSpan, nextSpan) {
   if (!nextSpan) return true;
   const nextBassCandidates = nextSpan.pools.rank1.filter((nextCandidate) => nextCandidate.source === 'bass');
-  if (candidate.rank === 'rank2') {
+  if (candidate.rank === 'rank3') {
     return nextBassCandidates.some((nextCandidate) => {
       const distance = Math.abs(nextCandidate.midi - candidate.midi);
       return distance >= 1 && distance <= 2;
@@ -368,11 +423,11 @@ function sourcePreference(candidate, isFinalBeat, isPreparationWindow, favorsCon
     if (candidate.source === 'bass') return 4;
     return 5;
   }
-  if (candidate.source === 'fifth') return 0;
-  if (candidate.source === 'root') return 1;
-  if (candidate.source === 'bass') return 2;
-  if (candidate.source === 'guide') return 3;
-  if (candidate.source === 'color') return 4;
+  if (candidate.source === 'guide') return 0;
+  if (candidate.source === 'color') return 1;
+  if (candidate.source === 'fifth') return 2;
+  if (candidate.source === 'root') return 3;
+  if (candidate.source === 'bass') return 4;
   return 5;
 }
 
@@ -380,24 +435,45 @@ function rankPreference(candidate, isFinalBeat, isPreparationWindow, favorsConti
   if (isFinalBeat) {
     if (candidate.rank === 'rank1') return 0;
     if (candidate.rank === 'rank2') return 1;
-    return 2;
+    if (candidate.rank === 'rank3') return 2;
+    return 3;
   }
   if (isPreparationWindow) {
     if (candidate.rank === 'approach') return favorsContinuousChromaticLead ? 0 : 2;
-    if (candidate.rank === 'rank2') return 1;
     if (candidate.rank === 'rank1') return 0;
-    return 3;
+    if (candidate.rank === 'rank2') return 1;
+    if (candidate.rank === 'rank3') return 2;
+    return 4;
   }
   if (candidate.rank === 'rank1') return 0;
   if (candidate.rank === 'rank2') return 1;
-  if (candidate.rank === 'approach') return favorsContinuousChromaticLead ? 1 : 2;
-  return 3;
+  if (candidate.rank === 'rank3') return 2;
+  if (candidate.rank === 'approach') return favorsContinuousChromaticLead ? 1 : 3;
+  return 4;
 }
 
 function getDirection(interval) {
   if (interval > 0) return 1;
   if (interval < 0) return -1;
   return 0;
+}
+
+function getConjunctMotion(interval, allowOctaveEquivalent = true) {
+  const direction = getDirection(interval);
+  if (direction === 0) return null;
+
+  const absInterval = Math.abs(interval);
+  const mod12Interval = absInterval % 12;
+  const normalizedAbsInterval = allowOctaveEquivalent
+    ? Math.min(
+      absInterval,
+      mod12Interval === 0 ? 12 : 12 - mod12Interval,
+      mod12Interval === 0 ? 12 : mod12Interval
+    )
+    : absInterval;
+
+  if (normalizedAbsInterval !== 1 && normalizedAbsInterval !== 2) return null;
+  return { direction, size: normalizedAbsInterval };
 }
 
 function directionalPenalty(candidate, previousMidi, events) {
@@ -430,54 +506,57 @@ function directionalPenalty(candidate, previousMidi, events) {
   return penalty;
 }
 
-function recentChromaticRunIntervals(previousMidi, events) {
+function recentConjunctRunIntervals(previousMidi, events, allowOctaveEquivalent = true) {
   const notes = [...events.map((event) => event.midi), previousMidi].slice(-4);
   if (notes.length < 2) return { direction: 0, intervalCount: 0 };
 
   let direction = 0;
   let intervalCount = 0;
   for (let index = notes.length - 1; index > 0; index--) {
-    const interval = notes[index] - notes[index - 1];
-    const stepDirection = getDirection(interval);
-    if (Math.abs(interval) !== 1 || stepDirection === 0) break;
+    const motion = getConjunctMotion(notes[index] - notes[index - 1], allowOctaveEquivalent);
+    if (!motion) break;
     if (direction === 0) {
-      direction = stepDirection;
+      direction = motion.direction;
       intervalCount = 1;
       continue;
     }
-    if (stepDirection !== direction) break;
+    if (motion.direction !== direction) break;
     intervalCount += 1;
   }
 
   return { direction, intervalCount };
 }
 
-function continuousChromaticRunBonus(candidate, previousMidi, events, nextSpan, beatsRemainingInSpan) {
-  const interval = candidate.midi - previousMidi;
-  const direction = getDirection(interval);
-  if (Math.abs(interval) !== 1 || direction === 0) return 0;
+function continuousConjunctRunBonus(candidate, previousMidi, events, nextSpan, beatsRemainingInSpan) {
+  const beatIndex = events.length;
+  const allowOctaveEquivalent = beatIndex === 1;
+  const motion = getConjunctMotion(candidate.midi - previousMidi, allowOctaveEquivalent);
+  if (!motion) return 0;
 
-  const recentRun = recentChromaticRunIntervals(previousMidi, events);
+  const recentRun = recentConjunctRunIntervals(previousMidi, events, allowOctaveEquivalent);
   let bonus = 0;
 
-  if (recentRun.intervalCount >= 1 && recentRun.direction === direction) {
+  if (recentRun.intervalCount >= 1 && recentRun.direction === motion.direction) {
     bonus += 4;
     if (recentRun.intervalCount >= 2) {
-      bonus += 2;
+      bonus += 4;
+    }
+    if (recentRun.intervalCount >= 3) {
+      bonus += 3 * (recentRun.intervalCount - 2);
     }
   }
 
   if (!nextSpan) return bonus;
 
   const nextBassCandidates = nextSpan.pools.rank1.filter((nextCandidate) => nextCandidate.source === 'bass');
-  const canReachNextBassChromatically = nextBassCandidates.some((nextBass) => {
+  const canReachNextBassConjunctly = nextBassCandidates.some((nextBass) => {
     const distance = nextBass.midi - candidate.midi;
     if (distance === 0) return false;
-    if (Math.sign(distance) !== direction) return false;
+    if (Math.sign(distance) !== motion.direction) return false;
     return Math.abs(distance) <= beatsRemainingInSpan;
   });
 
-  if (canReachNextBassChromatically) {
+  if (canReachNextBassConjunctly) {
     bonus += 6;
   }
 
@@ -493,7 +572,7 @@ function respectsMinorSeventhRule(candidate, previousMidi, currentSpan) {
   return interval <= -1 && interval >= -3;
 }
 
-function nextBassAnticipationPenalty(candidate, nextSpan, isFinalBeat) {
+function nextBassAnticipationPenalty(candidate, nextSpan, beatsRemainingInSpan, maxLookaheadBeats = 4) {
   if (!nextSpan || candidate.rank === 'approach') return 0;
   const nextBassPitchClasses = new Set(
     nextSpan.pools.rank1
@@ -501,7 +580,129 @@ function nextBassAnticipationPenalty(candidate, nextSpan, isFinalBeat) {
       .map((nextCandidate) => nextCandidate.pitchClass)
   );
   if (!nextBassPitchClasses.has(candidate.pitchClass)) return 0;
-  return isFinalBeat ? 2 : 6;
+
+  const distanceToNextBass = Math.max(1, beatsRemainingInSpan);
+  if (distanceToNextBass > maxLookaheadBeats) return 0;
+  const proximityPenalty = maxLookaheadBeats - distanceToNextBass + 1;
+  const spoilerPenalty = distanceToNextBass > 1 ? proximityPenalty * 2 : proximityPenalty;
+  return spoilerPenalty;
+}
+
+function nextBassConvergenceBonus(candidate, previousMidi, nextSpan, beatsRemainingInSpan) {
+  if (!nextSpan || candidate.rank === 'approach') return 0;
+  const candidateMotion = candidate.midi - previousMidi;
+  const candidateDirection = getDirection(candidateMotion);
+  if (candidateDirection === 0) return 0;
+
+  const nextBassCandidates = nextSpan.pools.rank1.filter((nextCandidate) => nextCandidate.source === 'bass');
+  let bestBonus = 0;
+
+  nextBassCandidates.forEach((nextBass) => {
+    if (candidate.pitchClass === nextBass.pitchClass && beatsRemainingInSpan > 1) return;
+    const previousDistance = Math.abs(nextBass.midi - previousMidi);
+    const candidateDistance = Math.abs(nextBass.midi - candidate.midi);
+    const improvement = previousDistance - candidateDistance;
+    if (improvement <= 0) return;
+
+    const targetDirection = getDirection(nextBass.midi - candidate.midi);
+    if (targetDirection !== 0 && targetDirection !== candidateDirection) return;
+
+    const proximityBonus = Math.max(0, 5 - Math.min(4, beatsRemainingInSpan));
+    const reachabilityBonus = candidateDistance <= beatsRemainingInSpan * 2 ? 2 : 0;
+    bestBonus = Math.max(bestBonus, improvement + proximityBonus + reachabilityBonus);
+  });
+
+  return bestBonus;
+}
+
+function futureNeighborPreparationBonus(candidate, previousMidi, nextSpan, beatsRemainingInSpan) {
+  if (!nextSpan || candidate.rank === 'approach' || beatsRemainingInSpan > 3) return 0;
+  const motion = getConjunctMotion(candidate.midi - previousMidi);
+  if (!motion) return 0;
+
+  const nextBassCandidates = nextSpan.pools.rank1.filter((nextCandidate) => nextCandidate.source === 'bass');
+  let bestBonus = 0;
+
+  nextBassCandidates.forEach((nextBass) => {
+    const neighborMidis = [nextBass.midi - 1, nextBass.midi + 1, nextBass.midi - 2, nextBass.midi + 2];
+    neighborMidis.forEach((neighborMidi) => {
+      const distanceToNeighbor = neighborMidi - candidate.midi;
+      if (distanceToNeighbor === 0) return;
+      if (getDirection(distanceToNeighbor) !== motion.direction) return;
+      if (Math.abs(distanceToNeighbor) > Math.max(1, beatsRemainingInSpan - 1) * 2) return;
+      bestBonus = Math.max(bestBonus, 3 + Math.max(0, 4 - Math.abs(distanceToNeighbor)));
+    });
+  });
+
+  return bestBonus;
+}
+
+function terminalResolutionBonus(candidate, previousMidi, nextSpan, beatsRemainingInSpan) {
+  if (!nextSpan || candidate.rank === 'approach' || beatsRemainingInSpan > 3) return 0;
+  const motion = getConjunctMotion(candidate.midi - previousMidi, false);
+  if (!motion) return 0;
+
+  const nextBassCandidates = nextSpan.pools.rank1.filter((nextCandidate) => nextCandidate.source === 'bass');
+  let bestBonus = 0;
+
+  nextBassCandidates.forEach((nextBass) => {
+    const distanceToTarget = nextBass.midi - candidate.midi;
+    if (distanceToTarget === 0) return;
+    if (getDirection(distanceToTarget) !== motion.direction) return;
+
+    const absDistance = Math.abs(distanceToTarget);
+    if (absDistance > beatsRemainingInSpan * 2) return;
+
+    const closenessBonus = Math.max(0, beatsRemainingInSpan * 2 - absDistance + 1);
+    const neighborBonus = absDistance <= 2 ? 3 : 0;
+    bestBonus = Math.max(bestBonus, closenessBonus + neighborBonus);
+  });
+
+  return bestBonus;
+}
+
+function recoveryLineBonus(candidate, previousMidi, events, nextSpan) {
+  if (!nextSpan || !events.length) return 0;
+  const lastEvent = events[events.length - 1];
+  const previousInterval = previousMidi - lastEvent.midi;
+  const motion = getConjunctMotion(candidate.midi - previousMidi, false);
+  if (!motion || Math.abs(previousInterval) <= 2) return 0;
+
+  const nextBassCandidates = nextSpan.pools.rank1.filter((nextCandidate) => nextCandidate.source === 'bass');
+  const improvesTowardTarget = nextBassCandidates.some((nextBass) => {
+    const previousDistance = Math.abs(nextBass.midi - previousMidi);
+    const candidateDistance = Math.abs(nextBass.midi - candidate.midi);
+    return candidateDistance < previousDistance && getDirection(nextBass.midi - candidate.midi) === motion.direction;
+  });
+
+  return improvesTowardTarget ? 4 : 0;
+}
+
+function getRank2DirectionalLimit(previousMidi, currentSpan) {
+  const rank1AndRank2Midis = [
+    ...new Set([
+      ...((currentSpan?.pools?.rank1 || []).map((candidate) => candidate.midi)),
+      ...((currentSpan?.pools?.rank2 || []).map((candidate) => candidate.midi))
+    ])
+  ]
+    .sort((left, right) => left - right);
+  let downwardLimit = 2;
+  let upwardLimit = 2;
+
+  for (let index = rank1AndRank2Midis.length - 1; index >= 0; index -= 1) {
+    if (rank1AndRank2Midis[index] < previousMidi) {
+      downwardLimit = Math.max(2, previousMidi - rank1AndRank2Midis[index]);
+      break;
+    }
+  }
+  for (let index = 0; index < rank1AndRank2Midis.length; index += 1) {
+    if (rank1AndRank2Midis[index] > previousMidi) {
+      upwardLimit = Math.max(2, rank1AndRank2Midis[index] - previousMidi);
+      break;
+    }
+  }
+
+  return { downwardLimit, upwardLimit };
 }
 
 function respectsThreeNoteWindowRange(candidate, previousMidi, events) {
@@ -518,27 +719,105 @@ function respectsThreeNoteWindowRange(candidate, previousMidi, events) {
   return (maxMidi - minMidi) <= 12;
 }
 
-function candidatePenaltyScore(candidate, previousMidi, previousPitchClass, isFinalBeat, isPreparationWindow, playedMidis, favorsContinuousChromaticLead, events, nextSpan, currentSpan) {
+function recentPlayedMidiPenalty(candidateMidi, previousMidi, events, maxLookbackBeats = 4) {
+  const eventNotes = events.map((event) => event.midi);
+  const recentNotes = eventNotes.length && eventNotes[eventNotes.length - 1] === previousMidi
+    ? eventNotes
+    : [...eventNotes, previousMidi];
+  const lookbackNotes = recentNotes.slice(-maxLookbackBeats);
+
+  return lookbackNotes.reduce((penalty, midi, index) => {
+    if (midi !== candidateMidi) return penalty;
+    const recencyWeight = index + 1;
+    return penalty + recencyWeight;
+  }, 0);
+}
+
+function disjunctMotionPenalty(candidate, previousMidi, events, currentSpan) {
+  const interval = candidate.midi - previousMidi;
+  const absInterval = Math.abs(interval);
+  if (absInterval <= 2) return 0;
+
+  const beatIndex = events.length;
+  let penalty = 0;
+
+  if (absInterval >= 10) {
+    penalty += 8;
+  } else if (absInterval >= 7) {
+    penalty += 5;
+  } else if (absInterval >= 5) {
+    penalty += 3;
+  } else {
+    penalty += 1;
+  }
+
+  if (beatIndex >= 2) {
+    penalty += 3;
+  } else if (beatIndex >= 1) {
+    penalty += 1;
+  }
+
+  const recentRun = recentConjunctRunIntervals(previousMidi, events, false);
+  if (recentRun.intervalCount >= 1) {
+    penalty += 2 + recentRun.intervalCount;
+  }
+
+  if (candidate.source === 'fifth' || candidate.source === 'bass') {
+    penalty += 1;
+  }
+
+  if (currentSpan?.durationBeats >= 4 && beatIndex >= currentSpan.durationBeats - 2) {
+    penalty += 2;
+  }
+
+  return penalty;
+}
+
+function brokenLinePenalty(candidate, previousMidi, events) {
+  const recentRun = recentConjunctRunIntervals(previousMidi, events, false);
+  if (recentRun.intervalCount < 2) return 0;
+
+  const motion = getConjunctMotion(candidate.midi - previousMidi, false);
+  if (!motion) return 3 + recentRun.intervalCount;
+  if (motion.direction !== recentRun.direction) return 2 + recentRun.intervalCount;
+  return 0;
+}
+
+function candidatePenaltyScore(candidate, previousMidi, previousPitchClass, isFinalBeat, isPreparationWindow, favorsContinuousChromaticLead, events, nextSpan, currentSpan) {
   const distance = Math.abs(candidate.midi - previousMidi);
+  const beatsRemainingInSpan = currentSpan.durationBeats - events.length;
   const repeatMidiPenalty = candidate.midi === previousMidi ? (isFinalBeat ? 5 : 16) : 0;
   const repeatPitchPenalty = candidate.pitchClass === previousPitchClass ? (isFinalBeat ? 1 : 4) : 0;
-  const playedMidiPenalty = playedMidis.has(candidate.midi) ? 2 : 0;
+  const playedMidiPenalty = recentPlayedMidiPenalty(candidate.midi, previousMidi, events);
   const contourPenalty = directionalPenalty(candidate, previousMidi, events);
-  const chromaticRunBonus = continuousChromaticRunBonus(candidate, previousMidi, events, nextSpan, currentSpan.durationBeats - events.length);
-  const anticipationPenalty = nextBassAnticipationPenalty(candidate, nextSpan, isFinalBeat);
+  const conjunctRunBonus = continuousConjunctRunBonus(candidate, previousMidi, events, nextSpan, beatsRemainingInSpan);
+  const anticipationPenalty = nextBassAnticipationPenalty(candidate, nextSpan, beatsRemainingInSpan);
+  const nextBassGravityBonus = nextBassConvergenceBonus(candidate, previousMidi, nextSpan, beatsRemainingInSpan);
+  const terminalBonus = terminalResolutionBonus(candidate, previousMidi, nextSpan, beatsRemainingInSpan);
+  const futureNeighborBonus = futureNeighborPreparationBonus(candidate, previousMidi, nextSpan, beatsRemainingInSpan);
+  const recoveryBonus = recoveryLineBonus(candidate, previousMidi, events, nextSpan);
+  const disjunctPenalty = disjunctMotionPenalty(candidate, previousMidi, events, currentSpan);
+  const lineBreakPenalty = brokenLinePenalty(candidate, previousMidi, events);
   const leapPenalty = distance > 7 ? 4 : 0;
   const rankPenalty = rankPreference(candidate, isFinalBeat, isPreparationWindow, favorsContinuousChromaticLead);
   const sourcePenalty = sourcePreference(candidate, isFinalBeat, isPreparationWindow, favorsContinuousChromaticLead);
+  const rankPenaltyWeight = beatsRemainingInSpan <= 3 ? 2 : 3;
   return (
     repeatMidiPenalty * 5
     + repeatPitchPenalty * 3
     + playedMidiPenalty * 2
     + contourPenalty * 2
-    - chromaticRunBonus * 2
-    + anticipationPenalty * 2
+    + disjunctPenalty * 2
+    + lineBreakPenalty * 2
+    - conjunctRunBonus * 2
+    - nextBassGravityBonus * 2
+    - terminalBonus * 2
+    - futureNeighborBonus * 2
+    - recoveryBonus * 2
+    + anticipationPenalty * 3
     + leapPenalty
-    + rankPenalty * 3
-    + sourcePenalty * 2
+    + rankPenalty * rankPenaltyWeight
+    + sourcePenalty
     + notePreference(candidate)
   );
 }
@@ -572,29 +851,6 @@ function orderCandidatesWeighted(candidates, scoreForCandidate) {
   }
 
   return ordered;
-}
-
-function recentConjunctRunIntervals(previousMidi, events) {
-  const notes = [...events.map((event) => event.midi), previousMidi].slice(-4);
-  if (notes.length < 2) return { direction: 0, intervalCount: 0 };
-
-  let direction = 0;
-  let intervalCount = 0;
-  for (let index = notes.length - 1; index > 0; index--) {
-    const interval = notes[index] - notes[index - 1];
-    const stepDirection = getDirection(interval);
-    const absInterval = Math.abs(interval);
-    if ((absInterval !== 1 && absInterval !== 2) || stepDirection === 0) break;
-    if (direction === 0) {
-      direction = stepDirection;
-      intervalCount = 1;
-      continue;
-    }
-    if (stepDirection !== direction) break;
-    intervalCount += 1;
-  }
-
-  return { direction, intervalCount };
 }
 
 function isExtendedChromaticApproach(previousEvent, approachMidi, targetMidi, events, isFinalBeat) {
@@ -651,11 +907,20 @@ function buildApproachCandidates(targetCandidates, previousEvent, nextSpan, even
 }
 
 function getDirectStructuralCandidates(previousEvent, currentSpan) {
-  const allStructuralCandidates = [...currentSpan.pools.rank1, ...currentSpan.pools.rank2];
+  const allStructuralCandidates = [...currentSpan.pools.rank1, ...currentSpan.pools.rank2, ...currentSpan.pools.rank3];
   if (previousEvent.rank === 'rank1') {
     return allStructuralCandidates.filter((candidate) => {
       const distance = Math.abs(candidate.midi - previousEvent.midi);
       return distance <= 12 && distance !== 11;
+    });
+  }
+  if (previousEvent.rank === 'rank2') {
+    const { downwardLimit, upwardLimit } = getRank2DirectionalLimit(previousEvent.midi, currentSpan);
+    return allStructuralCandidates.filter((candidate) => {
+      const interval = candidate.midi - previousEvent.midi;
+      if (interval === 0) return true;
+      if (interval > 0) return interval <= upwardLimit;
+      return Math.abs(interval) <= downwardLimit;
     });
   }
   return allStructuralCandidates.filter((candidate) => Math.abs(candidate.midi - previousEvent.midi) <= 2);
@@ -675,7 +940,6 @@ function getCandidateEvents(previousEvent, currentSpan, nextSpan, isFinalBeat, b
   const beatsRemainingInSpan = currentSpan.durationBeats - beatIndex;
   const isPreparationWindow = Boolean(nextSpan) && beatsRemainingInSpan <= 2;
   const requireRank1AtMeasureStart = isInternalMeasureStart(currentSpan, beatIndex);
-  const playedMidis = new Set(events.map((event) => event.midi));
   const structuralCandidates = getDirectStructuralCandidates(previousEvent, currentSpan)
     .filter((candidate) => !requireRank1AtMeasureStart || candidate.rank === 'rank1')
     .filter((candidate) => !isFinalBeat || boundaryAllowsStructuralCandidate(candidate, currentSpan, nextSpan));
@@ -695,7 +959,6 @@ function getCandidateEvents(previousEvent, currentSpan, nextSpan, isFinalBeat, b
       previousEvent.pitchClass,
       isFinalBeat,
       isPreparationWindow,
-      playedMidis,
       supportsContinuousChromaticLead(candidate, nextSpan, beatsRemainingInSpan),
       events,
       nextSpan,
@@ -724,7 +987,7 @@ function buildForcedResolutionEvent(previousEvent, currentSpan, isSpanStart = fa
     midi: previousEvent.targetMidi,
     pitchClass: mod12(previousEvent.targetMidi),
     rank,
-    source: rank === 'rank1' ? 'resolution' : 'color',
+    source: rank === 'rank1' ? 'resolution' : (rank === 'rank2' ? 'guide' : 'color'),
     targetMidi: null
   }, isSpanStart, true);
 }
@@ -776,34 +1039,7 @@ function searchSpanEvents(span, nextSpan, previousEvent, beatIndex, events) {
     );
     if (result) return result;
   }
-
-  if (isFinalBeat && nextSpan) {
-    const fallbackBass = chooseNearestMidi(
-      span.pools.rank1
-        .filter((candidate) => candidate.source === 'bass')
-        .filter((candidate) => isHardLegalCandidate(candidate, previousEvent, span, nextSpan, isFinalBeat, events)),
-      previousEvent.midi,
-      span.pools.bassPitchClass
-    );
-    if (fallbackBass) {
-      return [...events, withVelocity(fallbackBass)];
-    }
-  }
-
-  const fallbackCandidate = chooseNearestMidi(
-    getDirectStructuralCandidates(previousEvent, span)
-      .filter((candidate) => isHardLegalCandidate(candidate, previousEvent, span, nextSpan, isFinalBeat, events)),
-    previousEvent.midi
-  );
-  if (!fallbackCandidate) return null;
-
-  return searchSpanEvents(
-    span,
-    nextSpan,
-    withVelocity(fallbackCandidate),
-    beatIndex + 1,
-    [...events, withVelocity(fallbackCandidate)]
-  );
+  return null;
 }
 
 export function createMediumSwingWalkingBassGenerator({ constants = {} } = {}) {
@@ -814,6 +1050,7 @@ export function createMediumSwingWalkingBassGenerator({ constants = {} } = {}) {
     key = 0,
     beatsPerChord = 1,
     isMinor = false,
+    initialPendingTargetMidi = null,
     nextChords = [],
     nextKey = key,
     nextIsMinor = isMinor
@@ -824,11 +1061,11 @@ export function createMediumSwingWalkingBassGenerator({ constants = {} } = {}) {
     const preparedSpans = spans.map((span) => ({ ...span, low: BASS_LOW, high: BASS_HIGH }));
     const events = [];
     let previousEvent = null;
-    let pendingTargetMidi = null;
+    let pendingTargetMidi = initialPendingTargetMidi;
 
     preparedSpans.forEach((span, spanIndex) => {
       const nextSpan = preparedSpans[spanIndex + 1] || null;
-      const firstCandidate = getFirstSpanBassCandidate(span, previousEvent, pendingTargetMidi);
+      const firstCandidate = getFirstSpanBassCandidate(span, nextSpan, previousEvent, pendingTargetMidi);
       if (!firstCandidate) return;
 
       const firstEvent = withVelocity({

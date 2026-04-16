@@ -2,6 +2,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   const { SCHEDULE_AHEAD } = constants;
   const {
     applyDisplaySideLayout,
+    bassMidiToNoteName,
     buildPreparedBassPlan,
     buildLegacyVoicingPlan,
     buildPreparedCompingPlans,
@@ -42,7 +43,51 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     updateBeatDots
   } = helpers;
 
+  function formatBassBeatValue(value) {
+    const rounded = Math.round(value * 1000) / 1000;
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  }
+
+  function logWalkingBassMeasure(measureStartBeats, measureChordIndex) {
+    if (!isWalkingBassDebugEnabled()) return;
+    if (!state.walkingBassLoggedMeasures) {
+      state.walkingBassLoggedMeasures = new Set();
+    }
+    if (state.walkingBassLoggedMeasures.has(measureStartBeats)) return;
+    state.walkingBassLoggedMeasures.add(measureStartBeats);
+
+    const measureEvents = state.currentBassPlan
+      .filter((event) => event.timeBeats >= measureStartBeats && event.timeBeats < measureStartBeats + 4);
+    const chord = state.paddedChords[measureChordIndex] || null;
+    const chordLabel = chord ? chordSymbol(state.currentKey, chord) : '?';
+    const lines = [`[walking-bass] measure ${measureStartBeats / 4 + 1} | beats ${measureStartBeats}-${measureStartBeats + 3} | ${chordLabel}`];
+
+    measureEvents.forEach((event) => {
+      const role = event.rank === 'approach'
+        ? `approach -> ${bassMidiToNoteName(event.targetMidi)} (${event.targetMidi})`
+        : `${event.rank}/${event.source}`;
+      lines.push(`beat ${formatBassBeatValue(event.timeBeats)}: ${bassMidiToNoteName(event.midi)} (${event.midi}), vel=${event.velocity}, ${role}`);
+    });
+
+    const wholeBeatStarts = new Set(
+      measureEvents
+        .filter((event) => Math.abs(event.timeBeats - Math.round(event.timeBeats)) < 0.001)
+        .map((event) => Math.round(event.timeBeats))
+    );
+    for (let beat = measureStartBeats; beat < measureStartBeats + 4; beat += 1) {
+      if (!wholeBeatStarts.has(beat)) {
+        lines.push(`beat ${beat}: (hole)`);
+      }
+    }
+
+    if (lines.length === 1) {
+      lines.push('(no events)');
+    }
+    console.log(lines.join('\n'));
+  }
+
   function prepareNextProgression() {
+    const carriedBassTargetMidi = state.pendingBassTargetMidi ?? null;
     const previousKey = state.currentKey;
     const currentPlanAnticipatesNextStart = Boolean(state.currentCompingPlan?.anticipatesNextStart);
     const previousTotalBeats = state.paddedChords.length * getBeatsPerChord();
@@ -145,7 +190,10 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
     state.currentChordIdx = 0;
     state.lastPlayedChordIdx = -1;
-    state.currentBassPlan = buildPreparedBassPlan();
+    state.currentBassPlan = buildPreparedBassPlan(carriedBassTargetMidi);
+    const lastBassEvent = state.currentBassPlan.length ? state.currentBassPlan[state.currentBassPlan.length - 1] : null;
+    state.pendingBassTargetMidi = lastBassEvent?.rank === 'approach' ? lastBassEvent.targetMidi : null;
+    state.walkingBassLoggedMeasures = new Set();
     buildPreparedCompingPlans(
         state.currentKeyRepetition === 1 && state.nextKeyValue !== null && previousKey === state.currentKey
           ? null
@@ -214,6 +262,12 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const measureProgressBeats = (state.currentChordIdx % chordsPerMeasure) * beatStep;
       const isChordBeat = Math.abs(state.currentBeat - measureProgressBeats) < 0.001;
       const customBassEnabled = isCustomMediumSwingBassEnabled();
+      const measureStartChordIdx = Math.floor(state.currentChordIdx / chordsPerMeasure) * chordsPerMeasure;
+      const measureStartBeats = Math.floor(windowStartBeats / 4) * 4;
+
+      if (customBassEnabled && isWalkingBassDebugEnabled() && state.currentBeat === 0) {
+        scheduleDisplay(state.nextBeatTime, () => logWalkingBassMeasure(measureStartBeats, measureStartChordIdx));
+      }
 
       if (customBassEnabled) {
         const bassEvents = state.currentBassPlan.filter((event) => event.timeBeats >= windowStartBeats && event.timeBeats < windowEndBeats);

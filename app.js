@@ -743,10 +743,10 @@ function parseDefaultProgressionsText(source) {
 const ONE_CHORD_TAG = 'one:';
 const ONE_CHORD_DEFAULT_QUALITIES = [
   '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mMaj7', 'm7b5', 'dim7',
-  '13', '7b9', '7alt', '13b9', '13#11', '7#5', '7sus', '7b9sus'
+  '9', '13', '7b9', '7alt', '13b9', '13#11', '7#5', '13sus', '9sus', '7b9sus'
 ];
 const ONE_CHORD_DOMINANT_QUALITIES = [
-  '13', '7b9', '7alt', '13b9', '13#11', '7#5', '7sus', '7b9sus'
+  '9', '13', '7b9', '7alt', '13b9', '13#11', '7#5', '13sus', '9sus', '7b9sus'
 ];
 const ONE_CHORD_QUALITY_ALIASES = {
   '6': '6',
@@ -763,6 +763,7 @@ const ONE_CHORD_QUALITY_ALIASES = {
   m7b5: 'm7b5',
   dim7: 'dim7',
   '°7': 'dim7',
+  '9': '9',
   '7mixo': '13',
   '13mixo': '13',
   '7oct': '13b9',
@@ -773,7 +774,9 @@ const ONE_CHORD_QUALITY_ALIASES = {
   '7#11': '13#11',
   '13lyd': '13#11',
   '13#5': '7#5',
-  '13sus': '7sus',
+  '7sus': '9sus',
+  '13sus': '13sus',
+  '9sus': '9sus',
   '13b9sus': '7b9sus'
 };
 
@@ -1753,8 +1756,9 @@ function loadBufferFromUrl(baseUrl) {
     .then(buf => audioCtx.decodeAudioData(buf.slice(0)));
 }
 
-const NOTE_FADEOUT = 0.3;  // seconds — bass fadeout before next note
+const NOTE_FADEOUT = 0.26;  // seconds — bass fadeout before next note
 const BASS_NOTE_ATTACK = 0.005; // seconds — tiny fade-in to avoid clicks on re-attacks
+const BASS_NOTE_OVERLAP = 0.07; // seconds - let bass notes overlap slightly
 const CHORD_FADE_BEFORE = 0.1; // seconds — chord fade starts this long before end
 const CHORD_FADE_DUR = 0.2;    // seconds — chord fade duration
 const CHORD_VOLUME_MULTIPLIER = 1.5;
@@ -1834,7 +1838,7 @@ function getNearestLoadedBassSampleMidi(targetMidi) {
 
 function getAdaptiveBassFadeDuration(maxDuration) {
   if (!(maxDuration > 0)) return NOTE_FADEOUT;
-  return Math.max(0.04, Math.min(NOTE_FADEOUT, maxDuration * 0.35));
+  return Math.max(0.04, Math.min(NOTE_FADEOUT, maxDuration * 0.28));
 }
 
 function playNote(midi, time, maxDuration, velocity = 127) {
@@ -1865,14 +1869,15 @@ function playNote(midi, time, maxDuration, velocity = 127) {
 
   // Fade out previous note before this one starts
   if (activeNoteGain) {
-    const fadeStart = Math.max(time - activeNoteFadeOut, audioCtx.currentTime);
+    const fadeEnd = time + BASS_NOTE_OVERLAP;
+    const fadeStart = Math.max(fadeEnd - activeNoteFadeOut, audioCtx.currentTime);
     if (typeof activeNoteGain.gain.cancelAndHoldAtTime === 'function') {
       activeNoteGain.gain.cancelAndHoldAtTime(fadeStart);
     } else {
       activeNoteGain.gain.cancelScheduledValues(fadeStart);
       activeNoteGain.gain.setValueAtTime(activeNoteGain.gain.value, fadeStart);
     }
-    activeNoteGain.gain.linearRampToValueAtTime(0, time);
+    activeNoteGain.gain.linearRampToValueAtTime(0, fadeEnd);
   }
 
   const src = audioCtx.createBufferSource();
@@ -2268,6 +2273,7 @@ function classifyQuality(quality) {
     if ((aliases || []).includes(quality)) return category;
   }
   if (quality.startsWith('13')) return 'dom';
+  if (quality.startsWith('9')) return 'dom';
   if (quality.startsWith('7')) return 'dom';
   return null;
 }
@@ -2308,7 +2314,7 @@ const mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
   }
 });
 
-function buildPreparedBassPlan() {
+function buildPreparedBassPlan(initialPendingTargetMidi = null) {
   if (!isCustomMediumSwingBassEnabled()) {
     currentBassPlan = [];
     return currentBassPlan;
@@ -2319,41 +2325,11 @@ function buildPreparedBassPlan() {
     key: currentKey,
     beatsPerChord: getBeatsPerChord(),
     isMinor: dom.majorMinor.checked,
+    initialPendingTargetMidi,
     nextChords: nextPaddedChords,
     nextKey: nextKeyValue ?? currentKey,
     nextIsMinor: dom.majorMinor.checked
   });
-  if (isWalkingBassDebugEnabled()) {
-    const formatBassBeatValue = (value) => {
-      const rounded = Math.round(value * 1000) / 1000;
-      return Number.isInteger(rounded) ? String(rounded) : String(rounded);
-    };
-    const eventsText = currentBassPlan
-      .reduce((lines, event, index) => {
-        const currentBlock = Math.floor(event.timeBeats / 4);
-        const previousBlock = index > 0 ? Math.floor(currentBassPlan[index - 1].timeBeats / 4) : null;
-        if (index === 0 || currentBlock !== previousBlock) {
-          const beatRangeStart = currentBlock * 4;
-          const beatRangeEnd = beatRangeStart + 3;
-          const chord = paddedChords[beatRangeStart] || null;
-          const chordLabel = chord ? chordSymbol(currentKey, chord) : '?';
-          lines.push(`[beats ${beatRangeStart}-${beatRangeEnd} | ${chordLabel}]`);
-        }
-        const role = event.rank === 'approach'
-          ? `approach -> ${bassMidiToNoteName(event.targetMidi)} (${event.targetMidi})`
-          : `${event.rank}/${event.source}`;
-        lines.push(`beat ${formatBassBeatValue(event.timeBeats)}: ${bassMidiToNoteName(event.midi)} (${event.midi}), vel=${event.velocity}, ${role}`);
-        const nextBlock = index < currentBassPlan.length - 1 ? Math.floor(currentBassPlan[index + 1].timeBeats / 4) : null;
-        if (nextBlock !== null && nextBlock !== currentBlock) {
-          lines.push('__________');
-        }
-        return lines;
-      }, [])
-      .join('\n');
-    console.log(
-      `[walking-bass] prepared plan | key=${currentKey} beatsPerChord=${getBeatsPerChord()} chords=${paddedChords.length} events=${currentBassPlan.length}\n${eventsText}`
-    );
-  }
   return currentBassPlan;
 }
 
@@ -5235,3 +5211,6 @@ if (typeof ResizeObserver !== 'undefined') {
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fitHarmonyDisplay);
 }
+
+
+

@@ -59,6 +59,7 @@ const JAZZ_TRAINER_CONFIG = {
   // Dominant color tones per full quality syntax
   DOMINANT_COLOR_TONES: {
     '13': ['9', '13'],
+    '9': ['9', '5'],
     '7b9': ['b9', '5'],
     '7b13': ['b9', 'b13'],
     '7alt': ['b9', '#9', 'b13'],
@@ -66,13 +67,15 @@ const JAZZ_TRAINER_CONFIG = {
     '13#11': ['9', '6', '#11'],
     '7#5': ['9', '#5'],
     '7#9': ['#9', 'b7'],
-    '7sus': ['9', '13'],
+    '13sus': ['9', '13'],
+    '9sus': ['9', '5'],
     '7b9sus': ['4', '5', 'b9']
   },
 
   // Dominant guide tones per full quality when they differ from the default dominant 3 + b7
   DOMINANT_GUIDE_TONES: {
-    '7sus': ['4', 'b7'],
+    '13sus': ['4', 'b7'],
+    '9sus': ['4', 'b7'],
     '7b9sus': ['b7']
   },
 
@@ -96,6 +99,7 @@ const JAZZ_TRAINER_CONFIG = {
   // Accepted textual aliases for dominant qualities that share the same behavior
   DOMINANT_QUALITY_ALIASES: {
     '13': ['7mixo', '13mixo', 'mixo'],
+    '9': [],
     '7b9': [],
     '7b13': [],
     '7alt': ['alt'],
@@ -103,7 +107,8 @@ const JAZZ_TRAINER_CONFIG = {
     '13#11': ['7#11', '7lyd', '13lyd'],
     '7#5': ['9#5'],
     '7#9': [],
-    '7sus': ['13sus'],
+    '13sus': [],
+    '9sus': ['7sus'],
     '7b9sus': []
   },
 
