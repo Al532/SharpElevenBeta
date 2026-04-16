@@ -11,7 +11,6 @@ import { createPlaybackScheduler } from './playback-scheduler.js';
 import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
-import { createMediumSwingWalkingBassGenerator } from './medium-swing-walking-bass.js';
 import {
   loadStoredKeySelectionPreset,
   loadStoredProgressionSettings,
@@ -105,6 +104,7 @@ const WELCOME_GOAL_PROGRESSION = 'progression';
 const WELCOME_GOAL_ONE_CHORD = 'one-chord';
 const WELCOME_GOAL_STANDARD = 'standard';
 const WELCOME_ONBOARDING_SETTINGS_KEY = 'welcomeCompleted';
+const WELCOME_SHOW_NEXT_TIME_SETTINGS_KEY = 'welcomeShowNextTime';
 const WELCOME_VERSION_SETTINGS_KEY = 'welcomeVersion';
 const WELCOME_VERSION = '2';
 const REVIEW_STANDARD_CONVERSIONS_URL = './parsing-projects/review-standard-conversions.txt';
@@ -211,6 +211,7 @@ const dom = {
   welcomeGoalPanels: document.querySelectorAll('[data-welcome-panel]'),
   reopenWelcome: document.getElementById('reopen-welcome'),
   welcomeStandardSelect: document.getElementById('welcome-standard-select'),
+  welcomeShowNextTime: document.getElementById('welcome-show-next-time'),
   resetSettings: document.getElementById('reset-settings')
 };
 
@@ -288,6 +289,7 @@ let savedPatternSelection = null;
 let lastPatternSelectValue = '';
 let pendingPresetDeletion = null;
 let hasCompletedWelcomeOnboarding = false;
+let shouldShowWelcomeNextTime = true;
 
 const WELCOME_PROGRESSIONS = Object.freeze({
   'ii-v-i-major': {
@@ -2307,15 +2309,40 @@ function getBassPreloadRange() {
   return { low: BASS_LOW, high: BASS_HIGH };
 }
 
-const mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
-  constants: {
-    BASS_LOW,
-    BASS_HIGH
+let mediumSwingWalkingBassGenerator = null;
+let mediumSwingWalkingBassGeneratorPromise = null;
+
+function ensureMediumSwingWalkingBassGenerator() {
+  if (mediumSwingWalkingBassGenerator) {
+    return Promise.resolve(mediumSwingWalkingBassGenerator);
   }
-});
+  if (mediumSwingWalkingBassGeneratorPromise) {
+    return mediumSwingWalkingBassGeneratorPromise;
+  }
+
+  mediumSwingWalkingBassGeneratorPromise = import('./medium-swing-walking-bass.js')
+    .then(({ createMediumSwingWalkingBassGenerator }) => {
+      mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
+        constants: {
+          BASS_LOW,
+          BASS_HIGH
+        }
+      });
+      return mediumSwingWalkingBassGenerator;
+    })
+    .finally(() => {
+      mediumSwingWalkingBassGeneratorPromise = null;
+    });
+
+  return mediumSwingWalkingBassGeneratorPromise;
+}
 
 function buildPreparedBassPlan(initialPendingTargetMidi = null) {
   if (!isCustomMediumSwingBassEnabled()) {
+    currentBassPlan = [];
+    return currentBassPlan;
+  }
+  if (!mediumSwingWalkingBassGenerator) {
     currentBassPlan = [];
     return currentBassPlan;
   }
@@ -2348,8 +2375,12 @@ async function loadSampleList(category, folder, midiValues) {
 
 function buildAllSampleFetchDescriptors() {
   const descriptors = [];
-  const bassRange = getBassPreloadRange();
-  const { celloNotes, violinNotes, pianoNotes } = buildAllRequiredSampleNoteSets();
+  const startupChordLimit = getChordsPerBar();
+  const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
+    includeCurrent: true,
+    includeNext: false,
+    currentChordLimit: startupChordLimit
+  });
 
   descriptors.push(DRUM_HIHAT_SAMPLE_URL);
   DRUM_RIDE_SAMPLE_URLS.forEach(url => descriptors.push(url));
@@ -2362,7 +2393,7 @@ function buildAllSampleFetchDescriptors() {
   for (const midi of [...pianoNotes].sort((a, b) => a - b)) {
     descriptors.push(`assets/MP3/Piano/${midi}.mp3`);
   }
-  for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
+  for (const midi of [...bassNotes].sort((a, b) => a - b)) {
     descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
   }
   return descriptors;
@@ -2374,15 +2405,24 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
   const violinNotes = new Set();
   const pianoNotes = new Set();
   const compingStyle = getCompingStyle();
+  const beatsPerChord = getBeatsPerChord();
 
-  const registerProgression = (chords, key, voicingPlan, chordLimit = null) => {
+  const registerProgression = (chords, key, voicingPlan, chordLimit = null, bassPlan = null) => {
     if (!Array.isArray(chords) || key === null || key === undefined) return;
     const limitedChords = Number.isInteger(chordLimit) && chordLimit >= 0
       ? chords.slice(0, chordLimit)
       : chords;
+    const beatLimit = Number.isInteger(chordLimit) && chordLimit >= 0
+      ? chordLimit * beatsPerChord
+      : Infinity;
 
     for (const chord of limitedChords) {
       bassNotes.add(getBassMidi(key, chord.bassSemitones ?? chord.semitones));
+    }
+    for (const bassEvent of bassPlan || []) {
+      if (bassEvent?.timeBeats < beatLimit && Number.isFinite(bassEvent.midi)) {
+        bassNotes.add(bassEvent.midi);
+      }
     }
 
     for (const voicing of (voicingPlan || []).slice(0, limitedChords.length)) {
@@ -2392,17 +2432,10 @@ function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true,
   };
 
   if (includeCurrent) {
-    registerProgression(paddedChords, currentKey, currentVoicingPlan, currentChordLimit);
+    registerProgression(paddedChords, currentKey, currentVoicingPlan, currentChordLimit, currentBassPlan);
   }
   if (includeNext) {
     registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan, nextChordLimit);
-  }
-
-  if (isCustomMediumSwingBassEnabled()) {
-    const bassRange = getBassPreloadRange();
-    for (let midi = bassRange.low; midi <= bassRange.high; midi++) {
-      bassNotes.add(midi);
-    }
   }
 
   return { bassNotes, celloNotes, violinNotes, pianoNotes };
@@ -3687,6 +3720,10 @@ function markWelcomeOnboardingCompleted() {
   hasCompletedWelcomeOnboarding = true;
 }
 
+function syncWelcomeShowNextTimePreference() {
+  shouldShowWelcomeNextTime = dom.welcomeShowNextTime?.checked !== false;
+}
+
 function applyWelcomeRecommendation() {
   const recommendation = getSelectedWelcomeRecommendation();
 
@@ -3770,6 +3807,7 @@ function applyWelcomeRecommendation() {
   updateKeyPickerLabels();
   refreshDisplayedHarmony();
 
+  syncWelcomeShowNextTimePreference();
   markWelcomeOnboardingCompleted();
   saveSettings();
   setWelcomeOverlayVisible(false);
@@ -3786,6 +3824,7 @@ function applyWelcomeRecommendation() {
 }
 
 function skipWelcomeOverlay() {
+  syncWelcomeShowNextTimePreference();
   markWelcomeOnboardingCompleted();
   saveSettings();
   setWelcomeOverlayVisible(false);
@@ -3793,7 +3832,7 @@ function skipWelcomeOverlay() {
 }
 
 function maybeShowWelcomeOverlay() {
-  if (hasCompletedWelcomeOnboarding || !dom.welcomeOverlay) return;
+  if (!shouldShowWelcomeNextTime || !dom.welcomeOverlay) return;
   updateWelcomePanelVisibility();
   updateWelcomeSummary();
   setWelcomeOverlayVisible(true);
@@ -4315,6 +4354,7 @@ const { start, stop, togglePause } = createPlaybackTransport({
     applyDisplaySideLayout,
     clearBeatDots,
     clearScheduledDisplays,
+    ensureMediumSwingWalkingBassGenerator,
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
@@ -4597,6 +4637,7 @@ function buildSettingsSnapshot() {
         : null);
   return {
     [WELCOME_ONBOARDING_SETTINGS_KEY]: hasCompletedWelcomeOnboarding,
+    [WELCOME_SHOW_NEXT_TIME_SETTINGS_KEY]: shouldShowWelcomeNextTime,
     [WELCOME_VERSION_SETTINGS_KEY]: WELCOME_VERSION,
     presets: progressions,
     presetsCleared: Object.keys(progressions).length === 0,
@@ -4640,9 +4681,15 @@ function applyLoadedSettings(s) {
   hasCompletedWelcomeOnboarding = s[WELCOME_ONBOARDING_SETTINGS_KEY] !== undefined
     ? Boolean(s[WELCOME_ONBOARDING_SETTINGS_KEY])
     : true;
+  shouldShowWelcomeNextTime = s[WELCOME_SHOW_NEXT_TIME_SETTINGS_KEY] !== undefined
+    ? Boolean(s[WELCOME_SHOW_NEXT_TIME_SETTINGS_KEY])
+    : true;
   // Force re-show if the welcome overlay was redesigned since the user last saw it
   if (s[WELCOME_VERSION_SETTINGS_KEY] !== WELCOME_VERSION) {
     hasCompletedWelcomeOnboarding = false;
+  }
+  if (dom.welcomeShowNextTime) {
+    dom.welcomeShowNextTime.checked = shouldShowWelcomeNextTime;
   }
 
   const hasStoredPresets = Boolean(s.presets && typeof s.presets === 'object' && !Array.isArray(s.presets));
@@ -5041,6 +5088,11 @@ dom.welcomeStandardSelect?.addEventListener('change', () => {
   trackEvent('welcome_standard_changed', { welcome_standard: dom.welcomeStandardSelect.value });
 });
 
+dom.welcomeShowNextTime?.addEventListener('change', () => {
+  syncWelcomeShowNextTimePreference();
+  saveSettings();
+});
+
 dom.welcomeApply?.addEventListener('click', applyWelcomeRecommendation);
 dom.welcomeSkip?.addEventListener('click', skipWelcomeOverlay);
 dom.reopenWelcome?.addEventListener('click', (event) => {
@@ -5101,7 +5153,14 @@ dom.compingStyle?.addEventListener('change', () => {
     comping_style: getCompingStyle()
   });
 });
-dom.customMediumSwingBass?.addEventListener('change', () => {
+dom.customMediumSwingBass?.addEventListener('change', async () => {
+  if (isCustomMediumSwingBassEnabled()) {
+    try {
+      await ensureMediumSwingWalkingBassGenerator();
+    } catch (err) {
+      console.warn('Walking bass generator load failed:', err);
+    }
+  }
   if (isPlaying) {
     buildPreparedBassPlan();
   }

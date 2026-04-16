@@ -9,6 +9,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     applyDisplaySideLayout,
     clearBeatDots,
     clearScheduledDisplays,
+    ensureMediumSwingWalkingBassGenerator,
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
@@ -32,6 +33,9 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     ensureSessionStarted('play_start');
     initAudio();
     if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+    if (dom.customMediumSwingBass?.checked) {
+      await ensureMediumSwingWalkingBassGenerator();
+    }
 
     state.isPlaying = true;
     state.isPaused = false;

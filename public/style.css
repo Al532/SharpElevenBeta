@@ -1184,7 +1184,10 @@ body.welcome-open {
 
 .welcome-footer {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  gap: 1rem;
   margin-top: 1.5rem;
 }
 
@@ -1208,6 +1211,27 @@ body.welcome-open {
 
 .welcome-apply-button:hover {
   transform: translateY(-1px);
+}
+
+.welcome-show-next-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--text-faint);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-show-next-time input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.welcome-show-next-time span {
+  line-height: 1.2;
 }
 
 .custom-pattern-panel {
