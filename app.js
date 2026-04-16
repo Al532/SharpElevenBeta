@@ -2484,6 +2484,7 @@ function ensureNearTermSamplePreload() {
       return null;
     })
     .finally(() => {
+      nearTermSamplePreloadPromise = null;
       ensureBackgroundSamplePreload();
     });
 
@@ -4283,6 +4284,7 @@ const {
     getRepetitionsPerKey,
     getSecondsPerBeat,
     hideNextCol,
+    ensureNearTermSamplePreload,
     isCustomMediumSwingBassEnabled,
     isChordsEnabled,
     isVoiceLeadingV2Enabled,

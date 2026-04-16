@@ -24,6 +24,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getRepetitionsPerKey,
     getSecondsPerBeat,
     hideNextCol,
+    ensureNearTermSamplePreload,
     isCustomMediumSwingBassEnabled,
     isWalkingBassDebugEnabled,
     isChordsEnabled,
@@ -390,6 +391,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           played_chord_count: state.currentRawChords.length || state.paddedChords.length || 0
         });
         prepareNextProgression();
+        ensureNearTermSamplePreload();
       }
 
       state.nextBeatTime += spb;
