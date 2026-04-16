@@ -259,34 +259,23 @@ function getFirstSpanBassCandidate(span, nextSpan, previousEvent, pendingTargetM
     return bassCandidates[0] || null;
   }
 
-  const structuralCandidates = [...span.pools.rank1, ...span.pools.rank2, ...span.pools.rank3];
-  const legalStructuralCandidates = previousEvent?.midi !== undefined
-    ? structuralCandidates.filter((candidate) => isHardLegalCandidate(
-      candidate,
-      previousEvent,
-      span,
-      nextSpan,
-      true,
-      []
-    ))
-    : structuralCandidates;
-  const legalRank1Candidates = legalStructuralCandidates.filter((candidate) => candidate.rank === 'rank1');
-  const legalBassCandidates = legalRank1Candidates.filter((candidate) => candidate.source === 'bass');
-
   if (pendingTargetMidi !== null && pendingTargetMidi !== undefined) {
-    const directMatch = legalStructuralCandidates.find((candidate) => candidate.midi === pendingTargetMidi);
+    const directMatch = bassCandidates.find((candidate) => candidate.midi === pendingTargetMidi);
     if (directMatch) return directMatch;
   }
   if (previousEvent?.midi !== undefined) {
+    const bassCandidatesThatPrepareNext = bassCandidates.filter((candidate) =>
+      boundaryAllowsStructuralCandidate(candidate, span, nextSpan)
+      && respectsThreeNoteWindowRange(candidate, previousEvent.midi, [])
+    );
+
     return chooseNearestMidi(
-      legalBassCandidates.length
-        ? legalBassCandidates
-        : (legalRank1Candidates.length ? legalRank1Candidates : legalStructuralCandidates),
+      bassCandidatesThatPrepareNext.length ? bassCandidatesThatPrepareNext : bassCandidates,
       previousEvent.midi,
       span.pools.bassPitchClass
     );
   }
-  return legalBassCandidates[0] || legalRank1Candidates[0] || legalStructuralCandidates[0] || null;
+  return bassCandidates[0] || null;
 }
 
 function notePreference(candidate) {
