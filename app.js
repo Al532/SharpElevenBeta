@@ -11,6 +11,7 @@ import { createPlaybackScheduler } from './playback-scheduler.js';
 import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
+import { createMediumSwingWalkingBassGenerator } from './medium-swing-walking-bass.js';
 import {
   loadStoredKeySelectionPreset,
   loadStoredProgressionSettings,
@@ -2309,32 +2310,15 @@ function getBassPreloadRange() {
   return { low: BASS_LOW, high: BASS_HIGH };
 }
 
-let mediumSwingWalkingBassGenerator = null;
-let mediumSwingWalkingBassGeneratorPromise = null;
+const mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
+  constants: {
+    BASS_LOW,
+    BASS_HIGH
+  }
+});
 
 function ensureMediumSwingWalkingBassGenerator() {
-  if (mediumSwingWalkingBassGenerator) {
-    return Promise.resolve(mediumSwingWalkingBassGenerator);
-  }
-  if (mediumSwingWalkingBassGeneratorPromise) {
-    return mediumSwingWalkingBassGeneratorPromise;
-  }
-
-  mediumSwingWalkingBassGeneratorPromise = import('./medium-swing-walking-bass.js')
-    .then(({ createMediumSwingWalkingBassGenerator }) => {
-      mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
-        constants: {
-          BASS_LOW,
-          BASS_HIGH
-        }
-      });
-      return mediumSwingWalkingBassGenerator;
-    })
-    .finally(() => {
-      mediumSwingWalkingBassGeneratorPromise = null;
-    });
-
-  return mediumSwingWalkingBassGeneratorPromise;
+  return Promise.resolve(mediumSwingWalkingBassGenerator);
 }
 
 function buildPreparedBassPlan(initialPendingTargetMidi = null) {
@@ -3656,8 +3640,20 @@ function getCheckedInputValue(name, fallback = '') {
 
 function setWelcomeOverlayVisible(isVisible) {
   if (!dom.welcomeOverlay) return;
+  if (!isVisible) {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && dom.welcomeOverlay.contains(activeElement)) {
+      const nextFocusTarget = dom.reopenWelcome || dom.startStop || document.body;
+      if (nextFocusTarget instanceof HTMLElement) {
+        nextFocusTarget.focus();
+      } else {
+        activeElement.blur();
+      }
+    }
+  }
   dom.welcomeOverlay.classList.toggle('hidden', !isVisible);
   dom.welcomeOverlay.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+  dom.welcomeOverlay.toggleAttribute('inert', !isVisible);
   document.body.classList.toggle('welcome-open', isVisible);
   if (isVisible) {
     window.requestAnimationFrame(() => {
