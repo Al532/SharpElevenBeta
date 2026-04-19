@@ -72,6 +72,13 @@ function weightedPick(weightMap) {
   return entries[entries.length - 1].jump;
 }
 
+function weightedPickExcludingJump(weightMap, excludedJump) {
+  const filteredWeightMap = Object.fromEntries(
+    Object.entries(weightMap || {}).filter(([jump]) => Number(jump) !== excludedJump)
+  );
+  return weightedPick(filteredWeightMap);
+}
+
 function shouldStartOneStepRun(slotKind, nextJump, activeMode = 'piano', previousJump = null) {
   if (activeMode === 'twoHand') return false;
   if (nextJump !== 1) return false;
@@ -477,6 +484,12 @@ function createPianoPlan({
     let nextJump = forcedOneStepJumpsRemaining > 0
       ? 1
       : weightedPick(getJumpWeights(slotKind, activeMode, secondsPerBeat));
+    if (forcedOneStepJumpsRemaining <= 0 && previousJump === 1 && nextJump === 1) {
+      nextJump = weightedPickExcludingJump(
+        getJumpWeights(slotKind, activeMode, secondsPerBeat),
+        1
+      );
+    }
     if (forcedOneStepJumpsRemaining > 0) {
       forcedOneStepJumpsRemaining -= 1;
       if (forcedOneStepJumpsRemaining <= 0 && oneStepRunCooldownPending > 0) {
