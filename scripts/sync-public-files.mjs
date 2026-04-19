@@ -15,6 +15,8 @@ const filesToSync = [
   'demo.html',
   'favicon.svg',
   'parsing-projects/review-standard-conversions.txt',
+  'piano-sample-calibrator.html',
+  'piano-sample-calibrator.js',
   'progression-suffixes.txt',
   'style.css'
 ];

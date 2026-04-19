@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chart Dev</title>
+  <link rel="stylesheet" href="./chart-dev.css">
+</head>
+<body>
+  <div class="chart-app">
+    <header class="chart-topbar">
+      <div class="chart-brand">
+        <span class="chart-brand-tag">Private</span>
+        <h1>Chart Dev</h1>
+      </div>
+      <div class="chart-topbar-actions">
+        <label class="chart-select-field chart-search-field">
+          <span>Search</span>
+          <input id="chart-search-input" type="search" placeholder="Title or composer">
+        </label>
+        <label class="chart-select-field">
+          <span>Chart</span>
+          <select id="fixture-select"></select>
+        </label>
+        <label class="chart-select-field">
+          <span>Display</span>
+          <select id="transpose-select">
+            <option value="0">Concert</option>
+            <option value="2">Bb</option>
+            <option value="9">Eb</option>
+            <option value="7">F</option>
+          </select>
+        </label>
+        <label class="chart-select-field chart-tempo-field">
+          <span>Tempo</span>
+          <input id="tempo-input" type="number" min="40" max="320" step="1" value="120">
+        </label>
+        <div class="chart-library-count" id="chart-library-count">Loading library...</div>
+      </div>
+    </header>
+
+    <main class="chart-workspace">
+      <section class="chart-sheet-panel">
+        <div class="chart-sheet-header">
+          <div class="chart-sheet-style" id="sheet-style"></div>
+          <div class="chart-sheet-title-group">
+            <h2 id="sheet-title"></h2>
+            <div class="chart-sheet-subtitle" id="sheet-subtitle"></div>
+          </div>
+          <div class="chart-sheet-meta">
+            <span id="sheet-time-signature"></span>
+            <span id="sheet-key"></span>
+          </div>
+        </div>
+        <div id="sheet-grid" class="chart-sheet-grid"></div>
+      </section>
+
+      <aside class="chart-sidepanel">
+        <section class="chart-card chart-transport-card">
+          <div class="chart-transport-meta">
+            <span id="transport-status">Ready</span>
+            <span id="transport-position">Bar 0 / 0</span>
+          </div>
+          <div class="chart-transport-buttons">
+            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Play</button>
+            <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
+          </div>
+        </section>
+
+        <section class="chart-card">
+          <h3>Playback</h3>
+          <div class="chart-controls-grid">
+            <label class="chart-select-field">
+              <span>Comping</span>
+              <select id="comping-style-select">
+                <option value="off">Off</option>
+                <option value="strings" selected>Strings</option>
+                <option value="piano-one-hand">Piano (small chords)</option>
+                <option value="piano-two-hand">Piano (big chords)</option>
+              </select>
+            </label>
+            <label class="chart-select-field">
+              <span>Drums</span>
+              <select id="drums-select">
+                <option value="off">Off</option>
+                <option value="metronome_2_4">Metronome 2 & 4</option>
+                <option value="hihats_2_4">Hi-hats 2 & 4</option>
+                <option value="full_swing" selected>Full swing</option>
+              </select>
+            </label>
+          </div>
+          <label class="chart-toggle chart-toggle-strong">
+            <input id="walking-bass-toggle" type="checkbox" checked>
+            <span>Walking bass Drill</span>
+          </label>
+        </section>
+
+        <section class="chart-card">
+          <h3>Mixer</h3>
+          <div class="chart-mixer">
+            <label class="chart-slider-field">
+              <span>Master</span>
+              <div class="chart-slider-row">
+                <input id="master-volume" type="range" min="0" max="100" step="1" value="100">
+                <output id="master-volume-value">100%</output>
+              </div>
+            </label>
+            <label class="chart-slider-field">
+              <span>Bass</span>
+              <div class="chart-slider-row">
+                <input id="bass-volume" type="range" min="0" max="100" step="1" value="100">
+                <output id="bass-volume-value">100%</output>
+              </div>
+            </label>
+            <label class="chart-slider-field">
+              <span>Chords</span>
+              <div class="chart-slider-row">
+                <input id="strings-volume" type="range" min="0" max="100" step="1" value="100">
+                <output id="strings-volume-value">100%</output>
+              </div>
+            </label>
+            <label class="chart-slider-field">
+              <span>Drums</span>
+              <div class="chart-slider-row">
+                <input id="drums-volume" type="range" min="0" max="100" step="1" value="100">
+                <output id="drums-volume-value">100%</output>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <section class="chart-card">
+          <h3>Document</h3>
+          <dl id="chart-meta" class="chart-meta-list"></dl>
+        </section>
+
+        <section class="chart-card">
+          <h3>Playback Plan</h3>
+          <div id="playback-grid" class="chart-playback-list"></div>
+        </section>
+
+        <section class="chart-card">
+          <h3>Drill Export</h3>
+          <pre id="drill-export"></pre>
+        </section>
+
+        <section class="chart-card">
+          <h3>Diagnostics</h3>
+          <ul id="diagnostics-list"></ul>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <iframe
+    id="drill-bridge-frame"
+    class="chart-drill-bridge"
+    src="../index.html?embedded=1"
+    title="Hidden Drill bridge"
+    aria-hidden="true"
+    tabindex="-1"></iframe>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

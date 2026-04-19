@@ -25,7 +25,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getSecondsPerBeat,
     hideNextCol,
     ensureNearTermSamplePreload,
-    isCustomMediumSwingBassEnabled,
+    isWalkingBassEnabled,
     isWalkingBassDebugEnabled,
     isChordsEnabled,
     isVoiceLeadingV2Enabled,
@@ -50,6 +50,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   }
 
   function logWalkingBassMeasure(measureStartBeats, measureChordIndex) {
+    return;
     if (!isWalkingBassDebugEnabled()) return;
     if (!state.walkingBassLoggedMeasures) {
       state.walkingBassLoggedMeasures = new Set();
@@ -262,7 +263,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const beatStep = beatsPerChord;
       const measureProgressBeats = (state.currentChordIdx % chordsPerMeasure) * beatStep;
       const isChordBeat = Math.abs(state.currentBeat - measureProgressBeats) < 0.001;
-      const customBassEnabled = isCustomMediumSwingBassEnabled();
+      const customBassEnabled = isWalkingBassEnabled();
       const measureStartChordIdx = Math.floor(state.currentChordIdx / chordsPerMeasure) * chordsPerMeasure;
       const measureStartBeats = Math.floor(windowStartBeats / 4) * 4;
 
@@ -282,10 +283,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
               bassEvent.velocity
             );
           });
-        } else if (isWalkingBassDebugEnabled()) {
-          console.warn(
-            `[walking-bass] no event for beat ${windowStartBeats} (chordIndex=${state.currentChordIdx}, currentBeat=${state.currentBeat}, totalEvents=${state.currentBassPlan.length})`
-          );
         }
         if (isChordBeat) {
           state.lastPlayedChordIdx = state.currentChordIdx;
@@ -335,6 +332,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
             key: state.nextKeyValue,
             isMinor,
           },
+          nextPlan: state.nextCompingPlan,
           slotDuration: noteDuration,
           windowStartBeats,
           windowEndBeats,

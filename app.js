@@ -11,7 +11,7 @@ import { createPlaybackScheduler } from './playback-scheduler.js';
 import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
-import { createMediumSwingWalkingBassGenerator } from './medium-swing-walking-bass.js';
+import { createWalkingBassGenerator } from './walking-bass.js';
 import {
   loadStoredKeySelectionPreset,
   loadStoredProgressionSettings,
@@ -21,7 +21,11 @@ import {
 import { createCompingEngine } from './comping-engine.js';
 import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './display-placeholder-messages.js';
 import { renderChordSymbolHtml } from './chord-symbol-display.js';
+import pianoRhythmConfig from './piano-rhythm-config.js';
 import voicingConfig from './voicing-config.js';
+import {
+  DEFAULT_SWING_RATIO,
+} from './swing-utils.js';
 
 /* ============================================================
    Jazz Progression Trainer — app.js
@@ -68,9 +72,25 @@ const PIANO_WHITE_KEY_COLUMNS = { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 };
 const PIANO_BLACK_KEY_COLUMNS = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+const APP_URL_PARAMS = new URLSearchParams(window.location.search);
+const IS_EMBEDDED_DRILL_MODE = APP_URL_PARAMS.get('embedded') === '1';
 const ONE_TIME_MIGRATIONS = Object.freeze({
-  silentDefaultPresetReset: '2026-04-silent-default-preset-reset'
+  silentDefaultPresetReset: '2026-04-silent-default-preset-reset',
+  masterVolumeDefault50: '2026-04-master-volume-default-50'
 });
+const PIANO_SAMPLE_LOW = 45;
+const PIANO_SAMPLE_HIGH = 89;
+const DEFAULT_PIANO_FADE_SETTINGS = Object.freeze({
+  timeConstantLow: 0.095,
+  timeConstantHigh: 0.055,
+  ...(pianoRhythmConfig?.pianoFadeOut || {})
+});
+const DEFAULT_PIANO_MIDI_SETTINGS = Object.freeze({
+  enabled: false,
+  inputId: '',
+  sustainPedalEnabled: true
+});
+const PIANO_SETTINGS_PRESET_VERSION = 1;
 
 // Centralized voicing/chord defaults loaded from voicing-config.js
 const {
@@ -85,7 +105,10 @@ const {
   DOMINANT_DEFAULT_QUALITY_MAJOR = {},
   DOMINANT_DEFAULT_QUALITY_MINOR = {},
   DOMINANT_QUALITY_ALIASES = {},
-  QUALITY_CATEGORY_ALIASES = {}
+  QUALITY_CATEGORY_ALIASES = {},
+  DEFAULT_DISPLAY_QUALITY_ALIASES = {},
+  RICH_DISPLAY_QUALITY_ALIASES = {},
+  CONTEXTUAL_QUALITY_RULES = []
 } = voicingConfig;
 
 const PATTERN_MODE_BOTH = 'both';
@@ -180,6 +203,7 @@ const dom = {
   doubleTimeToggle: document.getElementById('double-time'),
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
+  harmonyDisplayMode: document.getElementById('harmony-display-mode'),
   debugToggle:     document.getElementById('debug-toggle'),
   keyPicker:       document.getElementById('key-picker'),
   keyPickerBackdrop: document.getElementById('key-picker-backdrop'),
@@ -202,7 +226,7 @@ const dom = {
   stringsVolumeValue: document.getElementById('strings-volume-value'),
   drumsVolume:     document.getElementById('drums-volume'),
   drumsVolumeValue: document.getElementById('drums-volume-value'),
-  customMediumSwingBass: document.getElementById('custom-medium-swing-bass'),
+  walkingBass:     document.getElementById('walking-bass-toggle'),
   showBeatIndicator: document.getElementById('show-beat-indicator'),
   hideCurrentHarmony: document.getElementById('hide-current-harmony'),
   welcomeOverlay: document.getElementById('welcome-overlay'),
@@ -213,7 +237,19 @@ const dom = {
   reopenWelcome: document.getElementById('reopen-welcome'),
   welcomeStandardSelect: document.getElementById('welcome-standard-select'),
   welcomeShowNextTime: document.getElementById('welcome-show-next-time'),
-  resetSettings: document.getElementById('reset-settings')
+  resetSettings: document.getElementById('reset-settings'),
+  pianoToolsPanel: document.getElementById('piano-tools-panel'),
+  pianoMidiEnabled: document.getElementById('piano-midi-enabled'),
+  pianoMidiStatus: document.getElementById('piano-midi-status'),
+  pianoMidiInput: document.getElementById('piano-midi-input'),
+  pianoMidiRefresh: document.getElementById('piano-midi-refresh'),
+  pianoMidiSustain: document.getElementById('piano-midi-sustain'),
+  pianoTimeConstantLow: document.getElementById('piano-time-constant-low'),
+  pianoTimeConstantHigh: document.getElementById('piano-time-constant-high'),
+  pianoSettingsJson: document.getElementById('piano-settings-json'),
+  pianoSettingsCopy: document.getElementById('piano-settings-copy'),
+  pianoSettingsApply: document.getElementById('piano-settings-apply'),
+  pianoSettingsReset: document.getElementById('piano-settings-reset')
 };
 
 if (dom.appVersion) {
@@ -300,7 +336,7 @@ const WELCOME_PROGRESSIONS = Object.freeze({
     repetitionsPerKey: 2,
     tempo: 130,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
+    compingStyle: COMPING_STYLE_PIANO,
     drumsMode: 'full_swing',
     enabledKeys: new Array(12).fill(true)
   },
@@ -311,7 +347,7 @@ const WELCOME_PROGRESSIONS = Object.freeze({
     repetitionsPerKey: 2,
     tempo: 130,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
+    compingStyle: COMPING_STYLE_PIANO,
     drumsMode: 'full_swing',
     enabledKeys: new Array(12).fill(true)
   },
@@ -322,7 +358,7 @@ const WELCOME_PROGRESSIONS = Object.freeze({
     repetitionsPerKey: 2,
     tempo: 130,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
+    compingStyle: COMPING_STYLE_PIANO,
     drumsMode: 'full_swing',
     enabledKeys: new Array(12).fill(true)
   }
@@ -400,12 +436,13 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
   'all-the-things-you-are': {
     summary: 'Suggested: All the Things You Are, single key, comfortable playback.',
     patternName: 'All the Things You Are',
-    pattern: 'key: Ab | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | Dm7 G7 | Cmaj7 | Cmaj7 | Cm7 | Fm7 | Bb7 | Ebmaj7 | Abmaj7 | Am7 D7 | Gmaj7 | Gmaj7 | Am7 | D7 | Gmaj7 | Gmaj7 | F#m7b5 | B7b9 | Emaj7 | C7b13 | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | DbmMaj7 | Cm7 | Bdim7 | Bbm7 | Eb7 | Abmaj7 | Gm7b5 C7b9 |',
+    pattern: 'key: Ab | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | Dm7 G7 | Cmaj7 | Cmaj7 | Cm7 | Fm7 | Bb7 | Ebmaj7 | Abmaj7 | Am7 D7 | Gmaj7 | Gmaj7 | Am7 | D7 | Gmaj7 | Gmaj7 | F#m7b5 | B7b9 | Emaj7 | C7b9b13 | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | DbmMaj7 | Cm7 | Bdim7 | Bbm7 | Eb7 | Abmaj7 | Gm7b5 C7b9 |',
     patternMode: PATTERN_MODE_MAJOR,
     majorMinor: false,
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [false, false, false, false, false, false, false, false, true, false, false, false]
   },
   'autumn-leaves': {
@@ -417,6 +454,7 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [false, false, false, false, true, false, false, false, false, false, false, false]
   },
   'blue-bossa': {
@@ -428,6 +466,7 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
   },
   solar: {
@@ -439,6 +478,7 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
   },
   'satin-doll': {
@@ -450,6 +490,7 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
   },
   'satin-doll-ireal': {
@@ -461,6 +502,7 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
   },
   'there-will-never-be-another-you': {
@@ -472,6 +514,7 @@ const WELCOME_STANDARDS_FALLBACK = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 120,
     chordsPerBar: 4,
+    compingStyle: COMPING_STYLE_PIANO,
     enabledKeys: [false, false, false, true, false, false, false, false, false, false, false, false]
   }
 });
@@ -569,6 +612,7 @@ function parseWelcomeStandardsText(text) {
       repetitionsPerKey: 1,
       tempo: pendingTempo,
       chordsPerBar: 4,
+      compingStyle: COMPING_STYLE_PIANO,
       enabledKeys: buildSingleEnabledKeySelectionFromPattern(pattern),
       sourcePitchClass: fallbackPitchClass
     };
@@ -633,6 +677,7 @@ function parseWelcomeStandardsText(text) {
       repetitionsPerKey: 1,
       tempo: pendingTempo,
       chordsPerBar: 4,
+      compingStyle: COMPING_STYLE_PIANO,
       enabledKeys: buildSingleEnabledKeySelectionFromPattern(pattern),
       sourcePitchClass: fallbackPitchClass
     };
@@ -699,9 +744,19 @@ function normalizePatternString(pattern) {
 }
 
 function normalizeCompingStyle(style) {
-  return [COMPING_STYLE_OFF, COMPING_STYLE_STRINGS, COMPING_STYLE_PIANO].includes(style)
+  if (style === 'piano-one-hand' || style === 'piano-two-hand') return COMPING_STYLE_PIANO;
+  return [
+    COMPING_STYLE_OFF,
+    COMPING_STYLE_STRINGS,
+    COMPING_STYLE_PIANO
+  ].includes(style)
     ? style
     : COMPING_STYLE_STRINGS;
+}
+
+function getPianoVoicingMode() {
+  normalizeCompingStyle(dom.compingStyle?.value);
+  return 'piano';
 }
 
 function normalizeRepetitionsPerKey(value) {
@@ -843,6 +898,15 @@ function applySilentDefaultPresetResetMigration() {
   acknowledgedDefaultProgressionsVersion = defaultProgressionsVersion;
   shouldPromptForDefaultProgressionsUpdate = false;
   savedPatternSelection = Object.keys(progressions)[0] || CUSTOM_PATTERN_OPTION_VALUE;
+  markOneTimeMigrationApplied(migrationId);
+  return true;
+}
+
+function shouldApplyMasterVolumeDefault50Migration() {
+  const migrationId = ONE_TIME_MIGRATIONS.masterVolumeDefault50;
+  if (!migrationId || hasAppliedOneTimeMigration(migrationId)) {
+    return false;
+  }
   markOneTimeMigrationApplied(migrationId);
   return true;
 }
@@ -1002,7 +1066,7 @@ function buildParsedToken({ label, roman, modifier, semitones, customQuality = n
 
   if (customQuality) {
     if (!isAcceptedCustomQuality(customQuality)) return null;
-    qualityMajor = normalizeParsedQuality(customQuality, roman, true);
+    qualityMajor = normalizeParsedQuality(customQuality, roman);
     qualityMinor = qualityMajor;
   } else if (modifier) {
     qualityMajor = ALTERED_SEMITONE_QUALITY_MAJOR[semitones] || 'â–³7';
@@ -1033,7 +1097,7 @@ function isAcceptedCustomQuality(quality) {
   return true;
 }
 
-function normalizeParsedQuality(quality, roman, explicit = false) {
+function normalizeParsedQuality(quality, roman) {
   const normalizedQuality = String(quality).toLowerCase();
   if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalizedQuality)) return normalizedQuality;
   for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
@@ -1041,11 +1105,8 @@ function normalizeParsedQuality(quality, roman, explicit = false) {
   }
   if (normalizedQuality === 'm') {
     if (roman === 'I') return 'm6';
-    if (roman === 'III') return 'm7';
-    return 'm9';
+    return 'm7';
   }
-  if (normalizedQuality === 'm9') return (!explicit && roman === 'III') ? 'm7' : 'm9';
-  if (normalizedQuality === 'm7' && roman !== 'III') return 'm9';
   if (Object.prototype.hasOwnProperty.call(QUALITY_CATEGORY_ALIASES, normalizedQuality)) return normalizedQuality;
   for (const [canonicalQuality, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
     if ((aliases || []).includes(normalizedQuality)) return canonicalQuality;
@@ -1339,7 +1400,7 @@ function analyzePattern(str) {
           measureChords.push(parsed);
           previousChord = parsed;
         } else if (containsRejectedQuality(token)) {
-          invalidTokens.push(`${token} (use m or m7; m9 is applied automatically except on III)`);
+          invalidTokens.push(`${token} (use m, m7, or m9; richer harmony may be applied by context)`);
         } else {
           invalidTokens.push(`${token} (measure ${index + 1})`);
         }
@@ -1395,7 +1456,7 @@ function analyzePattern(str) {
     if (parsed) {
       chords.push(parsed);
     } else if (containsRejectedQuality(t)) {
-      invalidTokens.push(`${t} (use m or m7; m9 is applied automatically except on III)`);
+      invalidTokens.push(`${t} (use m, m7, or m9; richer harmony may be applied by context)`);
     } else {
       invalidTokens.push(t);
     }
@@ -1508,10 +1569,14 @@ function canLoopTrimProgression(rawChords, chordsPerBar = getChordsPerBar()) {
   if (rawChords.length < 3) return false;
   const first = rawChords[0];
   const last = rawChords[rawChords.length - 1];
+  const firstPlayedMajor = getPlayedChordQuality(first, false);
+  const lastPlayedMajor = getPlayedChordQuality(last, false);
+  const firstPlayedMinor = getPlayedChordQuality(first, true);
+  const lastPlayedMinor = getPlayedChordQuality(last, true);
   if (first.semitones !== last.semitones
       || (first.bassSemitones ?? first.semitones) !== (last.bassSemitones ?? last.semitones)
-      || first.qualityMajor !== last.qualityMajor
-      || first.qualityMinor !== last.qualityMinor) return false;
+      || firstPlayedMajor !== lastPlayedMajor
+      || firstPlayedMinor !== lastPlayedMinor) return false;
   const trimmedLength = rawChords.length - 1;
   const chordsPerMeasure = normalizeChordsPerBar(chordsPerBar);
   if (trimmedLength % chordsPerMeasure !== 0) return false;
@@ -1574,6 +1639,13 @@ const DRUM_MODE_FULL_SWING = 'full_swing';
 const PORTAMENTO_ALWAYS_ON = true;
 const METRONOME_GAIN_MULTIPLIER = 2.4;
 const DRUMS_GAIN_MULTIPLIER = 1.18;
+const DEFAULT_MASTER_VOLUME_PERCENT = '50';
+const MIXER_CHANNEL_CALIBRATION = Object.freeze({
+  master: 2,
+  bass: 0.74,
+  strings: 1,
+  drums: 0.87,
+});
 const SAFE_PRELOAD_MEASURES = 4;
 const DRUM_HIHAT_SAMPLE_URL = 'assets/13_heavy_hi-hat_chick.mp3';
 const DRUM_RIDE_SAMPLE_URLS = [
@@ -1633,8 +1705,8 @@ function getCompingStyle() {
   return normalizeCompingStyle(dom.compingStyle?.value);
 }
 
-function isCustomMediumSwingBassEnabled() {
-  return Boolean(dom.customMediumSwingBass?.checked);
+function isWalkingBassEnabled() {
+  return Boolean(dom.walkingBass?.checked);
 }
 
 function isWalkingBassDebugEnabled() {
@@ -1664,10 +1736,10 @@ function applyMixerSettings() {
   if (!mixerNodes || !audioCtx) return;
 
   const now = audioCtx.currentTime;
-  mixerNodes.master.gain.setValueAtTime(sliderValueToGain(dom.masterVolume), now);
-  mixerNodes.bass.gain.setValueAtTime(sliderValueToGain(dom.bassVolume), now);
-  mixerNodes.strings.gain.setValueAtTime(sliderValueToGain(dom.stringsVolume), now);
-  mixerNodes.drums.gain.setValueAtTime(sliderValueToGain(dom.drumsVolume), now);
+  mixerNodes.master.gain.setValueAtTime(sliderValueToGain(dom.masterVolume) * MIXER_CHANNEL_CALIBRATION.master, now);
+  mixerNodes.bass.gain.setValueAtTime(sliderValueToGain(dom.bassVolume) * MIXER_CHANNEL_CALIBRATION.bass, now);
+  mixerNodes.strings.gain.setValueAtTime(sliderValueToGain(dom.stringsVolume) * MIXER_CHANNEL_CALIBRATION.strings, now);
+  mixerNodes.drums.gain.setValueAtTime(sliderValueToGain(dom.drumsVolume) * MIXER_CHANNEL_CALIBRATION.drums, now);
 }
 
 async function preloadSamples() {
@@ -1682,7 +1754,7 @@ async function preloadSamples() {
   await Promise.all(drumPromises);
   await loadSampleList('cello', 'Cellos', celloNotes);
   await loadSampleList('violin', 'Violins', violinNotes);
-  await loadSampleList('piano', 'Piano', pianoNotes);
+  await loadPianoSampleList(pianoNotes);
 }
 
 function loadTrackedSample(category, key, loader) {
@@ -1711,6 +1783,36 @@ function loadSample(category, folder, midi) {
       console.warn('Sample load failed:', err);
       return null;
     }));
+}
+
+function loadPianoSample(layer, midi) {
+  const key = `${layer}:${midi}`;
+  const layeredUrl = `assets/Piano/${layer}/${midi}.mp3`;
+  const legacyUrl = `assets/MP3/Piano/${midi}.mp3`;
+  return loadTrackedSample('piano', key, () => loadBufferFromUrl(layeredUrl)
+    .catch(() => loadBufferFromUrl(legacyUrl))
+    .then(decoded => {
+      sampleBuffers.piano[key] = decoded;
+      if (!sampleBuffers.piano[midi]) {
+        sampleBuffers.piano[midi] = decoded;
+      }
+      return decoded;
+    })
+    .catch(err => {
+      console.warn('Sample load failed:', err);
+      return null;
+    }));
+}
+
+async function loadPianoSampleList(midiValues) {
+  const sortedMidis = [...midiValues].sort((a, b) => a - b);
+  const promises = [];
+  for (const midi of sortedMidis) {
+    promises.push(loadPianoSample('p', midi));
+    promises.push(loadPianoSample('mf', midi));
+    promises.push(loadPianoSample('f', midi));
+  }
+  await Promise.all(promises);
 }
 
 function loadFileSample(category, key, baseUrl) {
@@ -1761,16 +1863,65 @@ function loadBufferFromUrl(baseUrl) {
 
 const NOTE_FADEOUT = 0.26;  // seconds — bass fadeout before next note
 const BASS_NOTE_ATTACK = 0.005; // seconds — tiny fade-in to avoid clicks on re-attacks
-const BASS_NOTE_OVERLAP = 0.07; // seconds - let bass notes overlap slightly
+const BASS_NOTE_OVERLAP = 0.11; // seconds - let bass notes overlap slightly
+const BASS_NOTE_RELEASE = 0.075; // seconds - fixed tail fade for walking bass notes
+const BASS_GAIN_RELEASE_TIMECONSTANT = 0.012; // seconds - smooth release to avoid clicks
 const CHORD_FADE_BEFORE = 0.1; // seconds — chord fade starts this long before end
 const CHORD_FADE_DUR = 0.2;    // seconds — chord fade duration
-const CHORD_VOLUME_MULTIPLIER = 1.5;
-const BASS_GAIN = 0.8;
-const BASS_GAIN_WITH_CHORDS = BASS_GAIN * Math.pow(10, -8 / 20);
+const CHORD_VOLUME_MULTIPLIER = 1.35;
+const BASS_GAIN = 0.8 * Math.pow(10, -8 / 20);
 const STRING_LOOP_START = 2.0;
 const STRING_LOOP_END = 9.0;
 const STRING_LOOP_CROSSFADE = 0.12;
 const STRING_LEGATO_MAX_DISTANCE = 2; // semitones
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function clampRange(value, min, max, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function createDefaultPianoFadeSettings(overrides = {}) {
+  return {
+    ...DEFAULT_PIANO_FADE_SETTINGS,
+    ...overrides
+  };
+}
+
+function normalizePianoFadeSettings(candidate = {}) {
+  return {
+    timeConstantLow: clampRange(candidate.timeConstantLow, 0.01, 1.5, DEFAULT_PIANO_FADE_SETTINGS.timeConstantLow),
+    timeConstantHigh: clampRange(candidate.timeConstantHigh, 0.01, 1.5, DEFAULT_PIANO_FADE_SETTINGS.timeConstantHigh)
+  };
+}
+
+function normalizePianoMidiSettings(candidate = {}) {
+  return {
+    enabled: Boolean(candidate.enabled),
+    inputId: typeof candidate.inputId === 'string' ? candidate.inputId : DEFAULT_PIANO_MIDI_SETTINGS.inputId,
+    sustainPedalEnabled: candidate.sustainPedalEnabled !== undefined
+      ? Boolean(candidate.sustainPedalEnabled)
+      : DEFAULT_PIANO_MIDI_SETTINGS.sustainPedalEnabled
+  };
+}
+
+function getPianoFadeProfile(midi, volume, maxDuration) {
+  const midiNorm = clamp01(((Number(midi) || 60) - 45) / 44);
+  const volumeNorm = clamp01((Number(volume) || 0) / 0.42);
+  const timeConstantBase = pianoFadeSettings.timeConstantLow + ((pianoFadeSettings.timeConstantHigh - pianoFadeSettings.timeConstantLow) * midiNorm);
+  const timeConstant = Math.max(0.024, timeConstantBase + (volumeNorm * 0.006));
+  const fadeBefore = maxDuration > 0
+    ? Math.min(Math.max(0.02, timeConstant * 0.9), Math.max(0.02, maxDuration * 0.28))
+    : Math.max(0.02, timeConstant * 0.9);
+  return {
+    fadeBefore,
+    timeConstant
+  };
+}
 const STRING_LEGATO_GLIDE_TIME = 0.05; // seconds
 const STRING_LEGATO_PRE_DIP_TIME = 0.05; // seconds
 const STRING_LEGATO_PRE_DIP_RATIO = 0.7;
@@ -1779,6 +1930,16 @@ const STRING_LEGATO_FADE_TIME = 0.2; // seconds
 const AUTOMATION_CURVE_STEPS = 32;
 let activeNoteGain = null; // current bass note's GainNode for early cutoff
 let activeNoteFadeOut = NOTE_FADEOUT;
+let pianoFadeSettings = createDefaultPianoFadeSettings();
+let pianoMidiSettings = normalizePianoMidiSettings(DEFAULT_PIANO_MIDI_SETTINGS);
+let midiAccess = null;
+let midiAccessPromise = null;
+let currentMidiInput = null;
+let midiSustainPedalDown = false;
+let midiPianoRangePreloadPromise = null;
+const pendingMidiNoteTokens = new Map();
+const activeMidiPianoVoices = new Map();
+const sustainedMidiNotes = new Set();
 const scheduledAudioSources = new Set();
 const pendingDisplayTimeouts = new Set();
 
@@ -1840,8 +2001,22 @@ function getNearestLoadedBassSampleMidi(targetMidi) {
 }
 
 function getAdaptiveBassFadeDuration(maxDuration) {
-  if (!(maxDuration > 0)) return NOTE_FADEOUT;
-  return Math.max(0.04, Math.min(NOTE_FADEOUT, maxDuration * 0.28));
+  return BASS_NOTE_RELEASE;
+}
+
+function scheduleBassGainRelease(gainNode, fadeStart, fadeEnd) {
+  if (!gainNode) return;
+
+  if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') {
+    gainNode.gain.cancelAndHoldAtTime(fadeStart);
+  } else {
+    const currentValue = gainNode.gain.value;
+    gainNode.gain.cancelScheduledValues(fadeStart);
+    gainNode.gain.setValueAtTime(currentValue, fadeStart);
+  }
+
+  gainNode.gain.setTargetAtTime(0.0001, fadeStart, BASS_GAIN_RELEASE_TIMECONSTANT);
+  gainNode.gain.setValueAtTime(0, fadeEnd);
 }
 
 function playNote(midi, time, maxDuration, velocity = 127) {
@@ -1868,19 +2043,16 @@ function playNote(midi, time, maxDuration, velocity = 127) {
     return;
   }
 
+  const sustainedMaxDuration = maxDuration
+    ? (maxDuration + BASS_NOTE_OVERLAP)
+    : maxDuration;
   const noteFadeOut = getAdaptiveBassFadeDuration(maxDuration);
 
   // Fade out previous note before this one starts
   if (activeNoteGain) {
     const fadeEnd = time + BASS_NOTE_OVERLAP;
-    const fadeStart = Math.max(fadeEnd - activeNoteFadeOut, audioCtx.currentTime);
-    if (typeof activeNoteGain.gain.cancelAndHoldAtTime === 'function') {
-      activeNoteGain.gain.cancelAndHoldAtTime(fadeStart);
-    } else {
-      activeNoteGain.gain.cancelScheduledValues(fadeStart);
-      activeNoteGain.gain.setValueAtTime(activeNoteGain.gain.value, fadeStart);
-    }
-    activeNoteGain.gain.linearRampToValueAtTime(0, fadeEnd);
+    const fadeStart = Math.max(time, audioCtx.currentTime);
+    scheduleBassGainRelease(activeNoteGain, fadeStart, fadeEnd);
   }
 
   const src = audioCtx.createBufferSource();
@@ -1889,17 +2061,17 @@ function playNote(midi, time, maxDuration, velocity = 127) {
     src.playbackRate.value = Math.pow(2, (midi - sourceMidi) / 12);
   }
   const gain = audioCtx.createGain();
-  const bassGain = isChordsEnabled() ? BASS_GAIN_WITH_CHORDS : BASS_GAIN;
+  const bassGain = BASS_GAIN;
   const normalizedVelocity = Math.max(0, Math.min(127, Number(velocity) || 127)) / 127;
   const noteGain = bassGain * normalizedVelocity;
   gain.gain.setValueAtTime(0, time);
   gain.gain.linearRampToValueAtTime(noteGain, time + BASS_NOTE_ATTACK);
 
   // If the sample is longer than allowed, schedule a fadeout at the end
-  if (maxDuration && buf.duration > maxDuration - noteFadeOut) {
-    const fadeStart = time + maxDuration - noteFadeOut;
+  if (sustainedMaxDuration && buf.duration > sustainedMaxDuration - noteFadeOut) {
+    const fadeStart = time + sustainedMaxDuration - noteFadeOut;
     gain.gain.setValueAtTime(noteGain, Math.max(time + BASS_NOTE_ATTACK, fadeStart));
-    gain.gain.linearRampToValueAtTime(0, time + maxDuration);
+    scheduleBassGainRelease(gain, fadeStart, time + sustainedMaxDuration);
   }
 
   src.connect(gain).connect(getMixerDestination('bass'));
@@ -1999,8 +2171,11 @@ function playLoopedStringSample(buf, time, fadeEnd, volume) {
   };
 }
 
-function playSample(category, midi, time, maxDuration, volume) {
-  const buf = sampleBuffers[category][midi];
+function playSample(category, midi, time, maxDuration, volume, options = {}) {
+  const sampleKey = category === 'piano' && options.layer
+    ? `${options.layer}:${midi}`
+    : midi;
+  const buf = sampleBuffers[category][sampleKey] || sampleBuffers[category][midi];
   if (!buf) return null;
 
   const naturalEndTime = time + buf.duration;
@@ -2009,6 +2184,44 @@ function playSample(category, midi, time, maxDuration, volume) {
   const canLoop = isStringSample && loopEnd > STRING_LOOP_START;
 
   if (maxDuration) {
+    if (category === 'piano') {
+      const { fadeBefore, timeConstant } = getPianoFadeProfile(midi, volume, maxDuration);
+      const isLegato = Boolean(options.legato);
+      const fadeStart = isLegato
+        ? (time + maxDuration)
+        : Math.max(time, time + maxDuration - fadeBefore);
+      const fadeEnd = isLegato
+        ? (fadeStart + Math.max(0.03, timeConstant * 3.5))
+        : (time + maxDuration);
+
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(volume, time);
+      gain.gain.setValueAtTime(volume, fadeStart);
+      gain.gain.setTargetAtTime(0.0001, fadeStart, timeConstant);
+      src.connect(gain).connect(getMixerDestination('strings'));
+      src.start(time);
+      trackScheduledSource(src, [gain]);
+      return {
+        detuneParams: [src.detune],
+        gain,
+        midi,
+        category,
+        key: `${category}:${sampleKey}`,
+        volume,
+        audibleUntil: Math.min(naturalEndTime, fadeEnd),
+        endAnchor: src,
+        stop: (stopTime) => {
+          try {
+            src.stop(stopTime);
+          } catch (err) {
+            // Source may already be stopped; ignore duplicate stop scheduling.
+          }
+        },
+      };
+    }
+
     const fadeStart = time + maxDuration - CHORD_FADE_BEFORE;
     const fadeEnd = fadeStart + CHORD_FADE_DUR;
     const needsLoop = canLoop && maxDuration > buf.duration;
@@ -2037,7 +2250,7 @@ function playSample(category, midi, time, maxDuration, volume) {
       gain,
       midi,
       category,
-      key: `${category}:${midi}`,
+      key: `${category}:${sampleKey}`,
       volume,
       audibleUntil: Math.min(naturalEndTime, fadeEnd),
       endAnchor: src,
@@ -2063,7 +2276,7 @@ function playSample(category, midi, time, maxDuration, volume) {
     gain,
     midi,
     category,
-    key: `${category}:${midi}`,
+    key: `${category}:${sampleKey}`,
     volume,
     audibleUntil: naturalEndTime,
     endAnchor: src,
@@ -2078,21 +2291,25 @@ function playSample(category, midi, time, maxDuration, volume) {
 }
 
 const CHORD_ANTICIPATION = 0.25; // seconds — strings start before the beat
-const PIANO_COMP_DURATION_RATIO = 0.28;
-const PIANO_COMP_MIN_DURATION = 0.09;
-const PIANO_COMP_MAX_DURATION = 0.18;
-const PIANO_VOLUME_MULTIPLIER = 0.21;
+const PIANO_COMP_DURATION_RATIO = 0.4;
+const PIANO_COMP_MIN_DURATION = 0.12;
+const PIANO_COMP_MAX_DURATION = 0.24;
+const PIANO_VOLUME_MULTIPLIER = 0.27;
 
 function getNextDifferentChord(chords, startIdx) {
   const chord = chords[startIdx];
   if (!chord) return null;
+  const playedMajor = getPlayedChordQuality(chord, false);
+  const playedMinor = getPlayedChordQuality(chord, true);
 
   for (let i = startIdx + 1; i < chords.length; i++) {
     const candidate = chords[i];
+    const candidatePlayedMajor = getPlayedChordQuality(candidate, false);
+    const candidatePlayedMinor = getPlayedChordQuality(candidate, true);
     if (candidate.semitones !== chord.semitones
         || (candidate.bassSemitones ?? candidate.semitones) !== (chord.bassSemitones ?? chord.semitones)
-        || candidate.qualityMajor !== chord.qualityMajor
-        || candidate.qualityMinor !== chord.qualityMinor) {
+        || candidatePlayedMajor !== playedMajor
+        || candidatePlayedMinor !== playedMinor) {
       return candidate;
     }
   }
@@ -2141,6 +2358,9 @@ const compingEngine = createCompingEngine({
   helpers: {
     getAudioContext: () => audioCtx,
     getPreparedNextProgression,
+    getPianoVoicingMode,
+    getSecondsPerBeat,
+    getSwingRatio,
     getVoicingAtIndex,
     playSample,
   },
@@ -2249,10 +2469,11 @@ function scheduleDrumsForBeat(time, beatIndex, spb) {
     const isTwoOrFour = beatIndex === 1 || beatIndex === 3;
     const rideMainGain = [0.34, 0.28, 0.31, 0.25][beatIndex] || 0.28;
     const rideSkipGain = [0, 0.22, 0, 0.2][beatIndex] || 0;
+    const swingOffsetSeconds = spb * getSwingRatio();
 
     playRide(time, rideMainGain, beatIndex === 0 ? 1.01 : 1);
     if (isTwoOrFour) {
-      playRide(time + (spb * 2 / 3), rideSkipGain, 0.99);
+      playRide(time + swingOffsetSeconds, rideSkipGain, 0.99);
     }
     if (isTwoOrFour) {
       playHiHat(time, true);
@@ -2288,6 +2509,46 @@ function resolveDominantQuality(chord, quality, isMinor) {
   return defaults[chord.roman] || '13';
 }
 
+function matchesContextualQualityRule(chord, quality, rule) {
+  if (!rule || quality !== rule.from) return false;
+  if (rule.roman && chord?.roman !== rule.roman) return false;
+  if (Array.isArray(rule.romanIn) && !rule.romanIn.includes(chord?.roman)) return false;
+  if (Array.isArray(rule.excludeRoman) && rule.excludeRoman.includes(chord?.roman)) return false;
+  if (rule.inputType && chord?.inputType !== rule.inputType) return false;
+  return true;
+}
+
+function applyContextualQualityRules(chord, quality) {
+  if (!chord) return quality;
+  for (const rule of CONTEXTUAL_QUALITY_RULES) {
+    if (matchesContextualQualityRule(chord, quality, rule)) {
+      return rule.to || quality;
+    }
+  }
+  return quality;
+}
+
+function getCanonicalChordQuality(chord, isMinor) {
+  if (!chord) return '';
+  return isMinor ? chord.qualityMinor : chord.qualityMajor;
+}
+
+function getPlayedChordQuality(chord, isMinor) {
+  const canonicalQuality = getCanonicalChordQuality(chord, isMinor);
+  if (!canonicalQuality) return '';
+  const contextualQuality = applyContextualQualityRules(chord, canonicalQuality);
+  if (classifyQuality(contextualQuality) !== 'dom') return contextualQuality;
+  return resolveDominantQuality(chord, contextualQuality, isMinor);
+}
+
+function getDisplayAliasQuality(quality, displayMode) {
+  if (!quality) return quality;
+  if (displayMode === HARMONY_DISPLAY_MODE_RICH) {
+    return RICH_DISPLAY_QUALITY_ALIASES[quality] || quality;
+  }
+  return DEFAULT_DISPLAY_QUALITY_ALIASES[quality] || quality;
+}
+
 function resolveIntervalValue(interval) {
   if (typeof interval === 'number') return interval;
   if (typeof interval === 'string' && interval in INTERVAL_SEMITONES) {
@@ -2310,36 +2571,38 @@ function getBassPreloadRange() {
   return { low: BASS_LOW, high: BASS_HIGH };
 }
 
-const mediumSwingWalkingBassGenerator = createMediumSwingWalkingBassGenerator({
+const walkingBassGenerator = createWalkingBassGenerator({
   constants: {
     BASS_LOW,
     BASS_HIGH
   }
 });
 
-function ensureMediumSwingWalkingBassGenerator() {
-  return Promise.resolve(mediumSwingWalkingBassGenerator);
+function ensureWalkingBassGenerator() {
+  return Promise.resolve(walkingBassGenerator);
 }
 
 function buildPreparedBassPlan(initialPendingTargetMidi = null) {
-  if (!isCustomMediumSwingBassEnabled()) {
+  if (!isWalkingBassEnabled()) {
     currentBassPlan = [];
     return currentBassPlan;
   }
-  if (!mediumSwingWalkingBassGenerator) {
+  if (!walkingBassGenerator) {
     currentBassPlan = [];
     return currentBassPlan;
   }
 
-  currentBassPlan = mediumSwingWalkingBassGenerator.buildLine({
+  currentBassPlan = walkingBassGenerator.buildLine({
     chords: paddedChords,
     key: currentKey,
     beatsPerChord: getBeatsPerChord(),
+    tempoBpm: Number(dom.tempoSlider?.value || 120),
     isMinor: dom.majorMinor.checked,
     initialPendingTargetMidi,
     nextChords: nextPaddedChords,
     nextKey: nextKeyValue ?? currentKey,
-    nextIsMinor: dom.majorMinor.checked
+    nextIsMinor: dom.majorMinor.checked,
+    swingRatio: getSwingRatio()
   });
   return currentBassPlan;
 }
@@ -2375,7 +2638,9 @@ function buildAllSampleFetchDescriptors() {
     descriptors.push(`assets/MP3/Violins/${midi}.mp3`);
   }
   for (const midi of [...pianoNotes].sort((a, b) => a - b)) {
-    descriptors.push(`assets/MP3/Piano/${midi}.mp3`);
+    descriptors.push(`assets/Piano/p/${midi}.mp3`);
+    descriptors.push(`assets/Piano/mf/${midi}.mp3`);
+    descriptors.push(`assets/Piano/f/${midi}.mp3`);
   }
   for (const midi of [...bassNotes].sort((a, b) => a - b)) {
     descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
@@ -2449,7 +2714,7 @@ async function preloadStartupSamples() {
   await Promise.all(drumPromises);
   await loadSampleList('cello', 'Cellos', celloNotes);
   await loadSampleList('violin', 'Violins', violinNotes);
-  await loadSampleList('piano', 'Piano', pianoNotes);
+  await loadPianoSampleList(pianoNotes);
 }
 
 function getSafetyLeadChordCount() {
@@ -2471,7 +2736,7 @@ async function preloadNearTermSamples() {
 
   await loadSampleList('cello', 'Cellos', celloNotes);
   await loadSampleList('violin', 'Violins', violinNotes);
-  await loadSampleList('piano', 'Piano', pianoNotes);
+  await loadPianoSampleList(pianoNotes);
   await loadSampleList('bass', 'Bass', bassNotes);
 }
 
@@ -2792,7 +3057,7 @@ function createVoicingSlot(chord, key, isMinor, segment = 'current') {
     return { chord: null, key, segment, candidateSet: [null] };
   }
 
-  const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
+  const quality = getPlayedChordQuality(chord, isMinor);
   const qualityCategory = classifyQuality(quality);
   if (!qualityCategory) {
     return { chord, key, segment, candidateSet: [null] };
@@ -2803,9 +3068,8 @@ function createVoicingSlot(chord, key, isMinor, segment = 'current') {
   let colorIntervals;
   let guideIntervals = null;
   if (qualityCategory === 'dom') {
-    const dominantQuality = resolveDominantQuality(chord, quality, isMinor);
-    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[dominantQuality] || DOMINANT_COLOR_TONES['13']);
-    guideIntervals = DOMINANT_GUIDE_TONES[dominantQuality] || null;
+    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[quality] || DOMINANT_COLOR_TONES['13']);
+    guideIntervals = DOMINANT_GUIDE_TONES[quality] || null;
   } else {
     colorIntervals = resolveIntervalList(COLOR_TONES[qualityCategory] || []);
   }
@@ -3100,7 +3364,7 @@ function buildAllRequiredSampleNoteSets() {
 }
 
 function getVoicing(key, chord, isMinor) {
-  const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
+  const quality = getPlayedChordQuality(chord, isMinor);
   const cat = classifyQuality(quality);
   if (!cat) return null;
 
@@ -3110,9 +3374,8 @@ function getVoicing(key, chord, isMinor) {
   let colorIntervals;
   let guideIntervals = null;
   if (cat === 'dom') {
-    const dominantQuality = resolveDominantQuality(chord, quality, isMinor);
-    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[dominantQuality] || DOMINANT_COLOR_TONES['13']);
-    guideIntervals = DOMINANT_GUIDE_TONES[dominantQuality] || null;
+    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[quality] || DOMINANT_COLOR_TONES['13']);
+    guideIntervals = DOMINANT_GUIDE_TONES[quality] || null;
   } else {
     colorIntervals = resolveIntervalList(COLOR_TONES[cat] || []);
   }
@@ -3202,9 +3465,11 @@ function keyName(key) {
 }
 
 function getDisplayedQuality(chord, isMinor) {
-  const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
-  if (classifyQuality(quality) !== 'dom') return quality;
-  return resolveDominantQuality(chord, quality, isMinor);
+  const playedQuality = getPlayedChordQuality(chord, isMinor);
+  return getDisplayAliasQuality(
+    playedQuality,
+    normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value)
+  );
 }
 
 function normalizeDisplayedRootName(rootName) {
@@ -3231,7 +3496,7 @@ function getDisplayedBassName(key, chord, isMinor) {
 function chordSymbol(key, chord, isMinorOverride = null) {
   if (chord?.inputType === 'one-chord') {
     const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return rootName + (chord.qualityMajor || '');
+    return rootName + getDisplayedQuality(chord, false);
   }
   const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
   const rootName = normalizeDisplayedRootName(
@@ -3245,7 +3510,7 @@ function chordSymbol(key, chord, isMinorOverride = null) {
 function chordSymbolHtml(key, chord, isMinorOverride = null) {
   if (chord?.inputType === 'one-chord') {
     const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return renderChordSymbolHtml(rootName, chord.qualityMajor || '');
+    return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false));
   }
   const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
   const rootName = normalizeDisplayedRootName(
@@ -3435,6 +3700,14 @@ const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 
 function getSecondsPerBeat() {
   return 60 / Number(dom.tempoSlider.value);
+}
+
+function getSwingRatio() {
+  const tempo = Number(dom.tempoSlider?.value || 0);
+  if (!Number.isFinite(tempo) || tempo <= 150) return DEFAULT_SWING_RATIO;
+  if (tempo >= 300) return 0.5;
+  const progress = (tempo - 150) / 150;
+  return DEFAULT_SWING_RATIO + ((0.5 - DEFAULT_SWING_RATIO) * progress);
 }
 
 function normalizeNextPreviewUnit(unit) {
@@ -3762,8 +4035,8 @@ function applyWelcomeRecommendation() {
   if (dom.compingStyle) {
     dom.compingStyle.value = normalizeCompingStyle(recommendation.compingStyle);
   }
-  if (dom.customMediumSwingBass) {
-    dom.customMediumSwingBass.checked = recommendation.customMediumSwingBass !== false;
+  if (dom.walkingBass) {
+    dom.walkingBass.checked = recommendation.customMediumSwingBass !== false;
   }
   if (dom.drumsSelect) {
     dom.drumsSelect.value = recommendation.drumsMode || DRUM_MODE_FULL_SWING;
@@ -3829,6 +4102,7 @@ function skipWelcomeOverlay() {
 }
 
 function maybeShowWelcomeOverlay() {
+  if (IS_EMBEDDED_DRILL_MODE) return;
   if (!shouldShowWelcomeNextTime || !dom.welcomeOverlay) return;
   updateWelcomePanelVisibility();
   updateWelcomeSummary();
@@ -3927,6 +4201,7 @@ function getPlaybackAnalyticsProps() {
     comping_style: getCompingStyle(),
     drums_mode: dom.drumsSelect?.value || 'off',
     display_mode: normalizeDisplayMode(dom.displayMode?.value),
+    alternate_display: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
     transposition: dom.transpositionSelect?.value || '0',
     enabled_keys: getEnabledKeyCount(),
     chords_per_bar: chordsPerBar,
@@ -4285,7 +4560,7 @@ const {
     getSecondsPerBeat,
     hideNextCol,
     ensureNearTermSamplePreload,
-    isCustomMediumSwingBassEnabled,
+    isWalkingBassEnabled,
     isChordsEnabled,
     isVoiceLeadingV2Enabled,
     keyName,
@@ -4352,7 +4627,7 @@ const { start, stop, togglePause } = createPlaybackTransport({
     applyDisplaySideLayout,
     clearBeatDots,
     clearScheduledDisplays,
-    ensureMediumSwingWalkingBassGenerator,
+    ensureWalkingBassGenerator,
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
@@ -4385,6 +4660,11 @@ dom.tempoSlider.addEventListener('input', () => {
   dom.tempoValue.textContent = dom.tempoSlider.value;
   syncNextPreviewControlDisplay();
   refreshDisplayedHarmony();
+  if (isPlaying && audioCtx) {
+    stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
+    rebuildPreparedCompingPlans(currentKey);
+    buildPreparedBassPlan();
+  }
 });
 
 dom.nextPreviewValue?.addEventListener('change', () => {
@@ -4575,6 +4855,8 @@ const PATTERN_HELP_VERSION = APP_VERSION;
 const DISPLAY_MODE_SHOW_BOTH = 'show-both';
 const DISPLAY_MODE_CHORDS_ONLY = 'chords-only';
 const DISPLAY_MODE_KEY_ONLY = 'key-only';
+const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
+const HARMONY_DISPLAY_MODE_RICH = 'rich';
 
 function normalizeDisplayMode(mode) {
   return [
@@ -4586,6 +4868,15 @@ function normalizeDisplayMode(mode) {
     : DISPLAY_MODE_SHOW_BOTH;
 }
 
+function normalizeHarmonyDisplayMode(mode) {
+  return [
+    HARMONY_DISPLAY_MODE_DEFAULT,
+    HARMONY_DISPLAY_MODE_RICH
+  ].includes(mode)
+    ? mode
+    : HARMONY_DISPLAY_MODE_DEFAULT;
+}
+
 const DEFAULT_APP_SETTINGS = Object.freeze({
   majorMinor: false,
   tempo: 120,
@@ -4595,16 +4886,19 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS,
   chordsPerBar: DEFAULT_CHORDS_PER_BAR,
   displayMode: DISPLAY_MODE_SHOW_BOTH,
+  harmonyDisplayMode: HARMONY_DISPLAY_MODE_DEFAULT,
   showBeatIndicator: true,
   hideCurrentHarmony: false,
-  compingStyle: COMPING_STYLE_STRINGS,
+  compingStyle: COMPING_STYLE_PIANO,
   customMediumSwingBass: true,
   drumsMode: DRUM_MODE_FULL_SWING,
-  masterVolume: '100',
+  masterVolume: DEFAULT_MASTER_VOLUME_PERCENT,
   bassVolume: '100',
   stringsVolume: '100',
   drumsVolume: '100',
-  enabledKeys: Object.freeze(new Array(12).fill(true))
+  enabledKeys: Object.freeze(new Array(12).fill(true)),
+  pianoFadeSettings: Object.freeze({ ...DEFAULT_PIANO_FADE_SETTINGS }),
+  pianoMidiSettings: Object.freeze({ ...DEFAULT_PIANO_MIDI_SETTINGS })
 });
 
 function createDefaultAppSettings(overrides = {}) {
@@ -4656,17 +4950,20 @@ function buildSettingsSnapshot() {
     doubleTime: getSelectedChordsPerBar() > 1,
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
+    harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
     showBeatIndicator: dom.showBeatIndicator?.checked !== false,
     hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
     compingStyle: getCompingStyle(),
-    customMediumSwingBass: isCustomMediumSwingBassEnabled(),
+    customMediumSwingBass: isWalkingBassEnabled(),
     chordMode: isChordsEnabled(),
     drumsMode: getDrumsMode(),
     masterVolume: dom.masterVolume?.value,
     bassVolume: dom.bassVolume?.value,
     stringsVolume: dom.stringsVolume?.value,
     drumsVolume: dom.drumsVolume?.value,
-    enabledKeys: enabledKeys
+    enabledKeys: enabledKeys,
+    pianoFadeSettings,
+    pianoMidiSettings
   };
 }
 
@@ -4754,6 +5051,9 @@ function applyLoadedSettings(s) {
   } else if (s.hideChords !== undefined && dom.displayMode) {
     dom.displayMode.value = s.hideChords ? DISPLAY_MODE_KEY_ONLY : DISPLAY_MODE_SHOW_BOTH;
   }
+  if (s.harmonyDisplayMode !== undefined && dom.harmonyDisplayMode) {
+    dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(s.harmonyDisplayMode);
+  }
   if (s.showBeatIndicator !== undefined && dom.showBeatIndicator) {
     dom.showBeatIndicator.checked = Boolean(s.showBeatIndicator);
   }
@@ -4763,8 +5063,8 @@ function applyLoadedSettings(s) {
   if (s.compingStyle !== undefined && dom.compingStyle) {
     dom.compingStyle.value = normalizeCompingStyle(s.compingStyle);
   }
-  if (s.customMediumSwingBass !== undefined && dom.customMediumSwingBass) {
-    dom.customMediumSwingBass.checked = Boolean(s.customMediumSwingBass);
+  if (s.customMediumSwingBass !== undefined && dom.walkingBass) {
+    dom.walkingBass.checked = Boolean(s.customMediumSwingBass);
   }
   if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
     dom.stringsVolume.value = 0;
@@ -4774,13 +5074,20 @@ function applyLoadedSettings(s) {
   } else if (s.metronome !== undefined && dom.drumsSelect) {
     dom.drumsSelect.value = s.metronome ? DRUM_MODE_METRONOME_24 : DRUM_MODE_OFF;
   }
-  if (s.masterVolume !== undefined && dom.masterVolume) dom.masterVolume.value = s.masterVolume;
+  const shouldResetMasterVolumeOnce = shouldApplyMasterVolumeDefault50Migration();
+  if (dom.masterVolume) {
+    dom.masterVolume.value = shouldResetMasterVolumeOnce
+      ? DEFAULT_MASTER_VOLUME_PERCENT
+      : (s.masterVolume ?? DEFAULT_MASTER_VOLUME_PERCENT);
+  }
   if (s.bassVolume !== undefined && dom.bassVolume) dom.bassVolume.value = s.bassVolume;
   if (s.stringsVolume !== undefined && dom.stringsVolume) dom.stringsVolume.value = s.stringsVolume;
   if (s.drumsVolume !== undefined && dom.drumsVolume) dom.drumsVolume.value = s.drumsVolume;
   if (s.enabledKeys !== undefined && Array.isArray(s.enabledKeys) && s.enabledKeys.length === 12) {
     enabledKeys = s.enabledKeys;
   }
+  pianoFadeSettings = normalizePianoFadeSettings(s.pianoFadeSettings || DEFAULT_PIANO_FADE_SETTINGS);
+  pianoMidiSettings = normalizePianoMidiSettings(s.pianoMidiSettings || DEFAULT_PIANO_MIDI_SETTINGS);
 
   const storedEditingState = s.editingState && typeof s.editingState === 'object'
     ? s.editingState
@@ -4835,6 +5142,7 @@ function finalizeLoadedSettings() {
     appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
   }
 
+  syncPianoToolsUi();
   applyMixerSettings();
   syncNextPreviewControlDisplay();
   applyBeatIndicatorVisibility();
@@ -4869,6 +5177,440 @@ function loadSettings() {
   finalizeLoadedSettings();
 }
 
+function formatPianoSettingNumber(value) {
+  return String(Math.round(Number(value || 0) * 1000) / 1000);
+}
+
+function setPianoMidiStatus(message) {
+  if (dom.pianoMidiStatus) {
+    dom.pianoMidiStatus.textContent = message;
+  }
+}
+
+function syncPianoFadeControlsFromState() {
+  if (dom.pianoTimeConstantLow) dom.pianoTimeConstantLow.value = formatPianoSettingNumber(pianoFadeSettings.timeConstantLow);
+  if (dom.pianoTimeConstantHigh) dom.pianoTimeConstantHigh.value = formatPianoSettingNumber(pianoFadeSettings.timeConstantHigh);
+}
+
+function getPianoSettingsPresetObject() {
+  return {
+    version: PIANO_SETTINGS_PRESET_VERSION,
+    fadeSettings: { ...pianoFadeSettings },
+    midiSettings: { ...pianoMidiSettings }
+  };
+}
+
+function refreshPianoSettingsJson() {
+  if (!dom.pianoSettingsJson) return;
+  dom.pianoSettingsJson.value = JSON.stringify(getPianoSettingsPresetObject(), null, 2);
+}
+
+function syncPianoMidiControlsFromState() {
+  if (dom.pianoMidiEnabled) dom.pianoMidiEnabled.checked = pianoMidiSettings.enabled;
+  if (dom.pianoMidiSustain) dom.pianoMidiSustain.checked = pianoMidiSettings.sustainPedalEnabled;
+  if (dom.pianoMidiInput && pianoMidiSettings.inputId) {
+    dom.pianoMidiInput.value = pianoMidiSettings.inputId;
+  }
+}
+
+function syncPianoToolsUi() {
+  syncPianoFadeControlsFromState();
+  syncPianoMidiControlsFromState();
+  refreshPianoSettingsJson();
+}
+
+function readPianoFadeSettingsFromControls() {
+  return normalizePianoFadeSettings({
+    timeConstantLow: dom.pianoTimeConstantLow?.value,
+    timeConstantHigh: dom.pianoTimeConstantHigh?.value
+  });
+}
+
+function applyPianoFadeSettings(nextSettings, { persist = true } = {}) {
+  pianoFadeSettings = normalizePianoFadeSettings(nextSettings);
+  syncPianoFadeControlsFromState();
+  refreshPianoSettingsJson();
+  if (persist) saveSettings();
+}
+
+function dbToGain(db) {
+  return Math.pow(10, Number(db || 0) / 20);
+}
+
+function midiToPianoNoteLabel(midi) {
+  return bassMidiToNoteName(midi);
+}
+
+function getPianoSampleLayerForVolume(finalVolume) {
+  const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
+  if (finalVolume >= (thresholds.f ?? Number.POSITIVE_INFINITY)) return 'f';
+  if (finalVolume >= (thresholds.mf ?? Number.POSITIVE_INFINITY)) return 'mf';
+  return 'p';
+}
+
+function smoothstep01(value) {
+  const clamped = clamp01(value);
+  return clamped * clamped * (3 - (2 * clamped));
+}
+
+function getPianoSampleLayerBoundaryLiftDb(finalVolume, layer) {
+  const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
+  const smoothing = pianoRhythmConfig.pianoSampleLayerSmoothing || {};
+  const boundaryWindow = clampRange(smoothing.boundaryWindow, 0.001, 0.2, 0.045);
+
+  if (layer === 'p' && Number.isFinite(thresholds.mf)) {
+    const start = thresholds.mf - boundaryWindow;
+    return smoothstep01((finalVolume - start) / boundaryWindow)
+      * clampRange(smoothing.pToMfLiftDb, 0, 12, 2.25);
+  }
+
+  if (layer === 'mf') {
+    let liftDb = 0;
+    if (Number.isFinite(thresholds.mf)) {
+      liftDb += (1 - smoothstep01((finalVolume - thresholds.mf) / boundaryWindow))
+        * clampRange(smoothing.mfFromPLiftDb, 0, 12, 2.25);
+    }
+    if (Number.isFinite(thresholds.f)) {
+      const start = thresholds.f - boundaryWindow;
+      liftDb += smoothstep01((finalVolume - start) / boundaryWindow)
+        * clampRange(smoothing.mfToFLiftDb, 0, 12, 1.5);
+    }
+    return liftDb;
+  }
+
+  if (layer === 'f' && Number.isFinite(thresholds.f)) {
+    return (1 - smoothstep01((finalVolume - thresholds.f) / boundaryWindow))
+      * clampRange(smoothing.fFromMfLiftDb, 0, 12, 1.5);
+  }
+
+  return 0;
+}
+
+function getPianoSampleLayerGainForVolume(finalVolume) {
+  const layer = getPianoSampleLayerForVolume(finalVolume);
+  const layerGainDb = pianoRhythmConfig.pianoSampleLayerGainDb || {};
+  const boundaryLiftDb = getPianoSampleLayerBoundaryLiftDb(finalVolume, layer);
+  return {
+    layer,
+    adjustedVolume: finalVolume * dbToGain((layerGainDb[layer] ?? 0) + boundaryLiftDb)
+  };
+}
+
+function getMidiVelocityProfile(velocity) {
+  const midiVelocityConfig = pianoRhythmConfig.pianoMidiVelocity || {};
+  const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
+  const basePianoVolume = PIANO_VOLUME_MULTIPLIER;
+  const normalizedVelocity = clamp01((Number(velocity) || 0) / 127);
+  const curvePower = clampRange(midiVelocityConfig.curvePower, 0.3, 4, 1.9);
+  const shapedVelocity = Math.pow(normalizedVelocity, curvePower);
+  const fallbackMinVolume = Math.max(0.12, Math.min((thresholds.mf ?? basePianoVolume) * 0.9, basePianoVolume * 0.82));
+  const fallbackMaxVolume = Math.max((thresholds.f ?? basePianoVolume) * 1.12, basePianoVolume * 1.32);
+  const minVolume = clampRange(midiVelocityConfig.minVolume, 0, 1, fallbackMinVolume);
+  const maxVolume = clampRange(midiVelocityConfig.maxVolume, minVolume, 1, fallbackMaxVolume);
+  const attackMin = clampRange(midiVelocityConfig.attackMin, 0.0005, 0.03, 0.0015);
+  const attackMax = clampRange(midiVelocityConfig.attackMax, attackMin, 0.05, 0.006);
+
+  return {
+    normalizedVelocity,
+    shapedVelocity,
+    targetVolume: minVolume + (shapedVelocity * (maxVolume - minVolume)),
+    attackDuration: attackMax - (shapedVelocity * (attackMax - attackMin))
+  };
+}
+
+function getNearestPianoSourceMidi(targetMidi) {
+  return Math.round(clampRange(targetMidi, PIANO_SAMPLE_LOW, PIANO_SAMPLE_HIGH, 60));
+}
+
+async function ensurePianoSampleAvailable(midi, layer) {
+  const sourceMidi = getNearestPianoSourceMidi(midi);
+  const sampleKey = `${layer}:${sourceMidi}`;
+  if (sampleBuffers.piano[sampleKey]) {
+    return {
+      buffer: sampleBuffers.piano[sampleKey],
+      sourceMidi
+    };
+  }
+  await loadPianoSample(layer, sourceMidi);
+  return {
+    buffer: sampleBuffers.piano[sampleKey] || null,
+    sourceMidi
+  };
+}
+
+function ensureMidiPianoRangePreload() {
+  if (!audioCtx) return Promise.resolve(null);
+  if (midiPianoRangePreloadPromise) return midiPianoRangePreloadPromise;
+
+  const midiValues = [];
+  for (let midi = PIANO_SAMPLE_LOW; midi <= PIANO_SAMPLE_HIGH; midi++) {
+    midiValues.push(midi);
+  }
+
+  midiPianoRangePreloadPromise = loadPianoSampleList(new Set(midiValues))
+    .catch((err) => {
+      console.warn('Full MIDI piano preload failed:', err);
+      midiPianoRangePreloadPromise = null;
+      return null;
+    });
+
+  return midiPianoRangePreloadPromise;
+}
+
+function stopMidiPianoVoice(midi, releaseImmediately = false) {
+  const voice = activeMidiPianoVoices.get(midi);
+  if (!voice || !audioCtx) return;
+
+  activeMidiPianoVoices.delete(midi);
+  sustainedMidiNotes.delete(midi);
+
+  const releaseStart = audioCtx.currentTime;
+  const profile = getPianoFadeProfile(voice.midi, voice.volume, 0);
+  const releaseTimeConstant = releaseImmediately ? 0.012 : profile.timeConstant;
+  const releaseStopTime = releaseStart + Math.max(0.03, releaseTimeConstant * 6);
+
+  try {
+    if (typeof voice.gain.gain.cancelAndHoldAtTime === 'function') {
+      voice.gain.gain.cancelAndHoldAtTime(releaseStart);
+    } else {
+      const currentValue = voice.gain.gain.value;
+      voice.gain.gain.cancelScheduledValues(releaseStart);
+      voice.gain.gain.setValueAtTime(currentValue, releaseStart);
+    }
+    voice.gain.gain.setTargetAtTime(0.0001, releaseStart, releaseTimeConstant);
+  } catch (err) {
+    // Ignore already ended voices.
+  }
+
+  try {
+    voice.source.stop(releaseStopTime);
+  } catch (err) {
+    // Ignore duplicate stop scheduling.
+  }
+}
+
+function stopAllMidiPianoVoices(releaseImmediately = false) {
+  for (const midi of [...activeMidiPianoVoices.keys()]) {
+    stopMidiPianoVoice(midi, releaseImmediately);
+  }
+  sustainedMidiNotes.clear();
+  midiSustainPedalDown = false;
+}
+
+async function playMidiPianoNote(midi, velocity = 96) {
+  if (!pianoMidiSettings.enabled) return;
+  const noteToken = (pendingMidiNoteTokens.get(midi) || 0) + 1;
+  pendingMidiNoteTokens.set(midi, noteToken);
+
+  initAudio();
+  ensureMidiPianoRangePreload();
+  if (audioCtx.state === 'suspended') {
+    try {
+      await audioCtx.resume();
+    } catch (err) {
+      console.warn('Audio resume failed for MIDI piano:', err);
+    }
+  }
+
+  const velocityProfile = getMidiVelocityProfile(velocity);
+  const pianoLayer = getPianoSampleLayerGainForVolume(velocityProfile.targetVolume);
+  const { buffer, sourceMidi } = await ensurePianoSampleAvailable(midi, pianoLayer.layer);
+  if (!buffer || !audioCtx || pendingMidiNoteTokens.get(midi) !== noteToken) return;
+
+  stopMidiPianoVoice(midi, true);
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  if (sourceMidi !== midi) {
+    source.playbackRate.value = Math.pow(2, (midi - sourceMidi) / 12);
+  }
+
+  const gain = audioCtx.createGain();
+  const now = audioCtx.currentTime;
+  const attackEnd = now + velocityProfile.attackDuration;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(pianoLayer.adjustedVolume, attackEnd);
+  source.connect(gain).connect(getMixerDestination('strings'));
+  source.start(now);
+  trackScheduledSource(source, [gain]);
+
+  const voice = {
+    midi,
+    source,
+    gain,
+    volume: pianoLayer.adjustedVolume
+  };
+  activeMidiPianoVoices.set(midi, voice);
+  source.addEventListener('ended', () => {
+    if (activeMidiPianoVoices.get(midi) === voice) {
+      activeMidiPianoVoices.delete(midi);
+    }
+    sustainedMidiNotes.delete(midi);
+  }, { once: true });
+
+  setPianoMidiStatus(`MIDI: ${midiToPianoNoteLabel(midi)} vel ${velocity} layer ${pianoLayer.layer} vol ${pianoLayer.adjustedVolume.toFixed(3)}`);
+}
+
+function handleMidiNoteOff(midi) {
+  if (!pianoMidiSettings.enabled) return;
+  pendingMidiNoteTokens.set(midi, (pendingMidiNoteTokens.get(midi) || 0) + 1);
+  if (pianoMidiSettings.sustainPedalEnabled && midiSustainPedalDown) {
+    sustainedMidiNotes.add(midi);
+    return;
+  }
+  stopMidiPianoVoice(midi);
+}
+
+function handleMidiSustainChange(value) {
+  if (!pianoMidiSettings.sustainPedalEnabled) return;
+  const isDown = Number(value) >= 64;
+  midiSustainPedalDown = isDown;
+  if (isDown) return;
+  for (const midi of [...sustainedMidiNotes]) {
+    stopMidiPianoVoice(midi);
+  }
+  sustainedMidiNotes.clear();
+}
+
+function handleMidiMessage(event) {
+  const [status = 0, data1 = 0, data2 = 0] = event.data || [];
+  const command = status & 0xf0;
+
+  if (command === 0x90 && data2 > 0) {
+    playMidiPianoNote(data1, data2).catch((err) => {
+      console.warn('MIDI piano note-on failed:', err);
+    });
+    return;
+  }
+
+  if (command === 0x80 || (command === 0x90 && data2 === 0)) {
+    handleMidiNoteOff(data1);
+    return;
+  }
+
+  if (command === 0xb0 && data1 === 64) {
+    handleMidiSustainChange(data2);
+  }
+}
+
+function getAvailableMidiInputs() {
+  if (!midiAccess?.inputs) return [];
+  return [...midiAccess.inputs.values()];
+}
+
+function populateMidiInputs() {
+  if (!dom.pianoMidiInput) return;
+  const inputs = getAvailableMidiInputs();
+  const currentValue = pianoMidiSettings.inputId;
+  dom.pianoMidiInput.innerHTML = '';
+
+  const emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = inputs.length ? 'Choisir une entrée' : 'Aucune entrée détectée';
+  dom.pianoMidiInput.append(emptyOption);
+
+  for (const input of inputs) {
+    const option = document.createElement('option');
+    option.value = input.id;
+    option.textContent = input.name || `MIDI ${input.id}`;
+    dom.pianoMidiInput.append(option);
+  }
+
+  const nextValue = inputs.some((input) => input.id === currentValue)
+    ? currentValue
+    : (inputs[0]?.id || '');
+  dom.pianoMidiInput.value = nextValue;
+  pianoMidiSettings = normalizePianoMidiSettings({
+    ...pianoMidiSettings,
+    inputId: nextValue
+  });
+  refreshPianoSettingsJson();
+}
+
+function detachMidiInput() {
+  if (!currentMidiInput) return;
+  currentMidiInput.onmidimessage = null;
+  currentMidiInput = null;
+}
+
+function attachMidiInput() {
+  detachMidiInput();
+  if (!pianoMidiSettings.enabled) {
+    setPianoMidiStatus('MIDI inactif');
+    return;
+  }
+
+  const input = getAvailableMidiInputs().find((candidate) => candidate.id === pianoMidiSettings.inputId) || null;
+  if (!input) {
+    setPianoMidiStatus('Aucune entrée MIDI active');
+    return;
+  }
+
+  currentMidiInput = input;
+  currentMidiInput.onmidimessage = handleMidiMessage;
+  setPianoMidiStatus(`Entrée: ${input.name || 'MIDI'}`);
+}
+
+async function ensureMidiAccess() {
+  if (!navigator.requestMIDIAccess) {
+    setPianoMidiStatus('Web MIDI non supporté par ce navigateur');
+    return null;
+  }
+  if (midiAccess) return midiAccess;
+  if (!midiAccessPromise) {
+    midiAccessPromise = navigator.requestMIDIAccess()
+      .then((access) => {
+        midiAccess = access;
+        midiAccess.onstatechange = () => {
+          populateMidiInputs();
+          attachMidiInput();
+          refreshPianoSettingsJson();
+        };
+        return access;
+      })
+      .catch((err) => {
+        midiAccessPromise = null;
+        setPianoMidiStatus('Accès MIDI refusé');
+        throw err;
+      });
+  }
+  return midiAccessPromise;
+}
+
+async function refreshMidiInputs() {
+  try {
+    await ensureMidiAccess();
+    populateMidiInputs();
+    attachMidiInput();
+    if (pianoMidiSettings.enabled && audioCtx) {
+      ensureMidiPianoRangePreload();
+    }
+  } catch (err) {
+    console.warn('MIDI access failed:', err);
+  }
+}
+
+function applyPianoMidiSettings(nextSettings, { persist = true, reconnect = true } = {}) {
+  pianoMidiSettings = normalizePianoMidiSettings(nextSettings);
+  syncPianoMidiControlsFromState();
+  if (reconnect) {
+    attachMidiInput();
+  }
+  refreshPianoSettingsJson();
+  if (persist) saveSettings();
+}
+
+function applyPianoPresetFromJsonText(jsonText) {
+  const parsed = JSON.parse(jsonText);
+  const fadeSettings = normalizePianoFadeSettings(parsed.fadeSettings || parsed);
+  const midiSettings = normalizePianoMidiSettings(parsed.midiSettings || pianoMidiSettings);
+  pianoFadeSettings = fadeSettings;
+  pianoMidiSettings = midiSettings;
+  syncPianoToolsUi();
+  attachMidiInput();
+  saveSettings();
+}
+
 function resetPlaybackSettings() {
   const standardSettings = createDefaultAppSettings();
 
@@ -4891,17 +5633,23 @@ function resetPlaybackSettings() {
   if (dom.chordsPerBar) dom.chordsPerBar.value = String(standardSettings.chordsPerBar);
   syncDoubleTimeToggle();
   if (dom.compingStyle) dom.compingStyle.value = standardSettings.compingStyle;
-  if (dom.customMediumSwingBass) dom.customMediumSwingBass.checked = standardSettings.customMediumSwingBass;
+  if (dom.walkingBass) dom.walkingBass.checked = standardSettings.customMediumSwingBass;
   if (dom.drumsSelect) dom.drumsSelect.value = standardSettings.drumsMode;
   // Reset all keys to enabled
   applyEnabledKeys(standardSettings.enabledKeys);
   if (dom.displayMode) dom.displayMode.value = standardSettings.displayMode;
+  if (dom.harmonyDisplayMode) dom.harmonyDisplayMode.value = standardSettings.harmonyDisplayMode;
   if (dom.showBeatIndicator) dom.showBeatIndicator.checked = standardSettings.showBeatIndicator;
   if (dom.hideCurrentHarmony) dom.hideCurrentHarmony.checked = standardSettings.hideCurrentHarmony;
   if (dom.masterVolume) dom.masterVolume.value = standardSettings.masterVolume;
   if (dom.bassVolume) dom.bassVolume.value = standardSettings.bassVolume;
   if (dom.stringsVolume) dom.stringsVolume.value = standardSettings.stringsVolume;
   if (dom.drumsVolume) dom.drumsVolume.value = standardSettings.drumsVolume;
+  pianoFadeSettings = normalizePianoFadeSettings(standardSettings.pianoFadeSettings);
+  pianoMidiSettings = normalizePianoMidiSettings(standardSettings.pianoMidiSettings);
+  stopAllMidiPianoVoices(true);
+  syncPianoToolsUi();
+  attachMidiInput();
   nextPreviewLeadValue = standardSettings.nextPreviewLeadValue;
   setNextPreviewInputUnit(standardSettings.nextPreviewUnit);
   applyMixerSettings();
@@ -5151,10 +5899,10 @@ dom.compingStyle?.addEventListener('change', () => {
     comping_style: getCompingStyle()
   });
 });
-dom.customMediumSwingBass?.addEventListener('change', async () => {
-  if (isCustomMediumSwingBassEnabled()) {
+dom.walkingBass?.addEventListener('change', async () => {
+  if (isWalkingBassEnabled()) {
     try {
-      await ensureMediumSwingWalkingBassGenerator();
+      await ensureWalkingBassGenerator();
     } catch (err) {
       console.warn('Walking bass generator load failed:', err);
     }
@@ -5186,6 +5934,13 @@ dom.displayMode.addEventListener('change', () => {
     display_mode: normalizeDisplayMode(dom.displayMode.value)
   });
 });
+dom.harmonyDisplayMode?.addEventListener('change', () => {
+  refreshDisplayedHarmony();
+  saveSettings();
+  trackEvent('harmony_display_mode_changed', {
+    alternate_display: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode.value)
+  });
+});
 dom.showBeatIndicator?.addEventListener('change', () => {
   applyBeatIndicatorVisibility();
   saveSettings();
@@ -5201,6 +5956,93 @@ dom.debugToggle?.addEventListener('change', () => {
   setAnalyticsDebugEnabled(dom.debugToggle.checked);
 });
 dom.resetSettings?.addEventListener('click', resetPlaybackSettings);
+[
+  dom.pianoTimeConstantLow,
+  dom.pianoTimeConstantHigh
+].filter(Boolean).forEach((input) => {
+  input.addEventListener('input', () => {
+    pianoFadeSettings = readPianoFadeSettingsFromControls();
+    refreshPianoSettingsJson();
+  });
+  input.addEventListener('change', () => {
+    applyPianoFadeSettings(readPianoFadeSettingsFromControls());
+  });
+});
+dom.pianoMidiEnabled?.addEventListener('change', async () => {
+  if (dom.pianoMidiEnabled.checked) {
+    await refreshMidiInputs();
+  } else {
+    stopAllMidiPianoVoices(true);
+  }
+  applyPianoMidiSettings({
+    ...pianoMidiSettings,
+    enabled: dom.pianoMidiEnabled.checked
+  });
+  if (dom.pianoMidiEnabled.checked) {
+    ensureMidiPianoRangePreload();
+  }
+});
+dom.pianoMidiInput?.addEventListener('change', () => {
+  applyPianoMidiSettings({
+    ...pianoMidiSettings,
+    inputId: dom.pianoMidiInput.value
+  });
+});
+dom.pianoMidiSustain?.addEventListener('change', () => {
+  const sustainPedalEnabled = dom.pianoMidiSustain.checked;
+  if (!sustainPedalEnabled) {
+    midiSustainPedalDown = false;
+    for (const midi of [...sustainedMidiNotes]) {
+      stopMidiPianoVoice(midi);
+    }
+    sustainedMidiNotes.clear();
+  }
+  applyPianoMidiSettings({
+    ...pianoMidiSettings,
+    sustainPedalEnabled
+  }, { reconnect: false });
+});
+dom.pianoMidiRefresh?.addEventListener('click', () => {
+  refreshMidiInputs();
+});
+dom.pianoSettingsCopy?.addEventListener('click', async () => {
+  refreshPianoSettingsJson();
+  const presetText = dom.pianoSettingsJson?.value || '';
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(presetText);
+      setPianoMidiStatus('Preset piano copié');
+      return;
+    }
+  } catch (err) {
+    console.warn('Clipboard copy failed:', err);
+  }
+  if (dom.pianoSettingsJson) {
+    dom.pianoSettingsJson.focus();
+    dom.pianoSettingsJson.select();
+  }
+  setPianoMidiStatus('Preset prêt à copier');
+});
+dom.pianoSettingsApply?.addEventListener('click', async () => {
+  try {
+    applyPianoPresetFromJsonText(dom.pianoSettingsJson?.value || '{}');
+    if (pianoMidiSettings.enabled) {
+      await refreshMidiInputs();
+    }
+    setPianoMidiStatus('Preset piano appliqué');
+  } catch (err) {
+    window.alert(`Preset piano invalide: ${err.message}`);
+  }
+});
+dom.pianoSettingsReset?.addEventListener('click', () => {
+  pianoFadeSettings = normalizePianoFadeSettings(DEFAULT_PIANO_FADE_SETTINGS);
+  pianoMidiSettings = normalizePianoMidiSettings(DEFAULT_PIANO_MIDI_SETTINGS);
+  stopAllMidiPianoVoices(true);
+  syncPianoToolsUi();
+  attachMidiInput();
+  saveSettings();
+  setPianoMidiStatus('Réglages piano réinitialisés');
+});
 dom.masterVolume.addEventListener('input', applyMixerSettings);
 dom.bassVolume.addEventListener('input', applyMixerSettings);
 dom.drumsVolume.addEventListener('input', applyMixerSettings);
@@ -5268,6 +6110,278 @@ if (typeof ResizeObserver !== 'undefined') {
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fitHarmonyDisplay);
 }
+
+function applyEmbeddedPattern({
+  patternName = 'Chart Dev',
+  patternString = '',
+  patternMode = PATTERN_MODE_BOTH,
+  tempo = null,
+  transposition = null,
+  compingStyle = null,
+  drumsMode = null,
+  customMediumSwingBass = null,
+  repetitionsPerKey = 1,
+  displayMode = null,
+  harmonyDisplayMode = null,
+  showBeatIndicator = null,
+  hideCurrentHarmony = null,
+  masterVolume = null,
+  bassVolume = null,
+  stringsVolume = null,
+  drumsVolume = null
+} = {}) {
+  const normalizedPattern = normalizePatternString(patternString);
+
+  if (isPlaying) {
+    stop();
+  }
+
+  clearProgressionEditingState();
+  closeProgressionManager();
+
+  suppressPatternSelectChange = true;
+  setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
+  if (dom.patternName) {
+    dom.patternName.value = normalizePresetName(patternName);
+  }
+  dom.customPattern.value = normalizedPattern;
+  setEditorPatternMode(normalizePatternMode(patternMode || PATTERN_MODE_BOTH));
+  syncPatternSelectionFromInput();
+  suppressPatternSelectChange = false;
+  lastPatternSelectValue = dom.patternSelect.value;
+
+  if (tempo !== null && dom.tempoSlider) {
+    dom.tempoSlider.value = String(tempo);
+    dom.tempoValue.textContent = dom.tempoSlider.value;
+  }
+  if (transposition !== null && dom.transpositionSelect) {
+    dom.transpositionSelect.value = String(transposition);
+  }
+  applyEmbeddedPlaybackSettings({
+    tempo,
+    transposition,
+    compingStyle,
+    drumsMode,
+    customMediumSwingBass,
+    repetitionsPerKey,
+    displayMode,
+    harmonyDisplayMode,
+    showBeatIndicator,
+    hideCurrentHarmony,
+    masterVolume,
+    bassVolume,
+    stringsVolume,
+    drumsVolume
+  });
+
+  syncCustomPatternUI();
+  normalizeChordsPerBarForCurrentPattern();
+  applyPatternModeAvailability();
+  syncPatternPreview();
+  applyDisplayMode();
+  applyBeatIndicatorVisibility();
+  applyCurrentHarmonyVisibility();
+  updateKeyPickerLabels();
+  refreshDisplayedHarmony();
+  fitHarmonyDisplay();
+
+  const isValid = validateCustomPattern();
+  return {
+    ok: isValid,
+    errorMessage: isValid ? null : String(dom.patternError?.textContent || 'Invalid custom pattern'),
+    normalizedPattern,
+    currentPatternString: getCurrentPatternString()
+  };
+}
+
+function normalizeEmbeddedVolume(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return String(Math.max(0, Math.min(100, Math.round(parsed))));
+}
+
+function applyEmbeddedPlaybackSettings({
+  tempo = null,
+  transposition = null,
+  compingStyle = null,
+  drumsMode = null,
+  customMediumSwingBass = null,
+  repetitionsPerKey = null,
+  displayMode = null,
+  harmonyDisplayMode = null,
+  showBeatIndicator = null,
+  hideCurrentHarmony = null,
+  masterVolume = null,
+  bassVolume = null,
+  stringsVolume = null,
+  drumsVolume = null
+} = {}) {
+  if (tempo !== null && dom.tempoSlider) {
+    dom.tempoSlider.value = String(tempo);
+    dom.tempoValue.textContent = dom.tempoSlider.value;
+  }
+  if (transposition !== null && dom.transpositionSelect) {
+    dom.transpositionSelect.value = String(transposition);
+  }
+  if (compingStyle !== null && dom.compingStyle) {
+    dom.compingStyle.value = normalizeCompingStyle(compingStyle);
+  }
+  if (drumsMode !== null && dom.drumsSelect) {
+    dom.drumsSelect.value = drumsMode;
+  }
+  if (customMediumSwingBass !== null && dom.walkingBass) {
+    dom.walkingBass.checked = Boolean(customMediumSwingBass);
+  }
+  if (repetitionsPerKey !== null && dom.repetitionsPerKey) {
+    dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(repetitionsPerKey));
+  }
+  if (displayMode !== null && dom.displayMode) {
+    dom.displayMode.value = normalizeDisplayMode(displayMode);
+  }
+  if (harmonyDisplayMode !== null && dom.harmonyDisplayMode) {
+    dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(harmonyDisplayMode);
+  }
+  if (showBeatIndicator !== null && dom.showBeatIndicator) {
+    dom.showBeatIndicator.checked = Boolean(showBeatIndicator);
+  }
+  if (hideCurrentHarmony !== null && dom.hideCurrentHarmony) {
+    dom.hideCurrentHarmony.checked = Boolean(hideCurrentHarmony);
+  }
+
+  const normalizedMaster = normalizeEmbeddedVolume(masterVolume);
+  if (normalizedMaster !== null && dom.masterVolume) {
+    dom.masterVolume.value = normalizedMaster;
+  }
+  const normalizedBass = normalizeEmbeddedVolume(bassVolume);
+  if (normalizedBass !== null && dom.bassVolume) {
+    dom.bassVolume.value = normalizedBass;
+  }
+  const normalizedStrings = normalizeEmbeddedVolume(stringsVolume);
+  if (normalizedStrings !== null && dom.stringsVolume) {
+    dom.stringsVolume.value = normalizedStrings;
+  }
+  const normalizedDrums = normalizeEmbeddedVolume(drumsVolume);
+  if (normalizedDrums !== null && dom.drumsVolume) {
+    dom.drumsVolume.value = normalizedDrums;
+  }
+
+  applyMixerSettings();
+  return {
+    tempo: Number(dom.tempoSlider?.value || 0),
+    swingRatio: getSwingRatio(),
+    transposition: dom.transpositionSelect?.value || '0',
+    compingStyle: getCompingStyle(),
+    drumsMode: getDrumsMode(),
+    customMediumSwingBass: isWalkingBassEnabled(),
+    repetitionsPerKey: getRepetitionsPerKey(),
+    displayMode: normalizeDisplayMode(dom.displayMode?.value),
+    harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+    showBeatIndicator: dom.showBeatIndicator?.checked !== false,
+    hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
+    masterVolume: Number(dom.masterVolume?.value || 0),
+    bassVolume: Number(dom.bassVolume?.value || 0),
+    stringsVolume: Number(dom.stringsVolume?.value || 0),
+    drumsVolume: Number(dom.drumsVolume?.value || 0)
+  };
+}
+
+function getEmbeddedPlaybackState() {
+  return {
+    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE,
+    isPlaying,
+    isPaused,
+    isIntro,
+    currentBeat,
+    currentChordIdx,
+    paddedChordCount: Array.isArray(paddedChords) ? paddedChords.length : 0,
+    currentPatternString: getCurrentPatternString(),
+    currentPatternMode: getCurrentPatternMode(),
+    patternError: dom.patternError?.classList.contains('hidden')
+      ? null
+      : String(dom.patternError?.textContent || ''),
+    tempo: Number(dom.tempoSlider?.value || 0),
+    swingRatio: getSwingRatio()
+  };
+}
+
+window.__JPT_DRILL_API__ = {
+  version: 1,
+  applyEmbeddedPattern,
+  async applyEmbeddedPlaybackSettings(options = {}) {
+    const applied = applyEmbeddedPlaybackSettings(options);
+    if (options.customMediumSwingBass === true) {
+      try {
+        await ensureWalkingBassGenerator();
+      } catch (error) {
+        return {
+          ok: false,
+          errorMessage: error?.message || 'Walking bass generator failed to load.',
+          state: getEmbeddedPlaybackState(),
+          settings: applied
+        };
+      }
+    }
+    if (isPlaying && audioCtx) {
+      if (options.compingStyle !== null && options.compingStyle !== undefined) {
+        stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
+        rebuildPreparedCompingPlans(currentKey);
+      }
+      if (options.tempo !== null && options.tempo !== undefined) {
+        stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
+        rebuildPreparedCompingPlans(currentKey);
+        buildPreparedBassPlan();
+      }
+      if (options.customMediumSwingBass !== null && options.customMediumSwingBass !== undefined) {
+        buildPreparedBassPlan();
+      }
+    }
+    preloadNearTermSamples().catch((error) => {
+      console.warn('Embedded playback settings preload failed:', error);
+    });
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState(),
+      settings: applied
+    };
+  },
+  getPlaybackState: getEmbeddedPlaybackState,
+  async startPlayback() {
+    const isValid = validateCustomPattern();
+    if (!isValid) {
+      return {
+        ok: false,
+        errorMessage: String(dom.patternError?.textContent || 'Invalid custom pattern'),
+        state: getEmbeddedPlaybackState()
+      };
+    }
+    if (!isPlaying) {
+      await start();
+    }
+    return {
+      ok: true,
+      errorMessage: null,
+      state: getEmbeddedPlaybackState()
+    };
+  },
+  stopPlayback() {
+    if (isPlaying) {
+      stop();
+    }
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState()
+    };
+  },
+  togglePausePlayback() {
+    togglePause();
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState()
+    };
+  }
+};
+
+window.dispatchEvent(new CustomEvent('jpt-drill-api-ready'));
 
 
 

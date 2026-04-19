@@ -5,8 +5,12 @@ export function createCompingEngine({ constants, helpers }) {
   const stringsComping = createStringsComping({ constants, helpers });
   const pianoComping = createPianoComping({ constants, helpers });
 
+  function isPianoStyle(style) {
+    return style === 'piano';
+  }
+
   function getStyleModule(style) {
-    return style === 'piano' ? pianoComping : stringsComping;
+    return isPianoStyle(style) ? pianoComping : stringsComping;
   }
 
   function getLastEventTailBeats(plan, totalBeats) {
@@ -32,11 +36,15 @@ export function createCompingEngine({ constants, helpers }) {
       };
     }
 
-    if (style === 'piano') {
+    if (isPianoStyle(style)) {
       const currentPlan = pianoComping.buildPlan({
         chords: current.chords,
+        key: current.key,
+        isMinor: current.isMinor,
         beatsPerChord: current.beatsPerChord,
         nextFirstChord: next.chords[0] || null,
+        nextKey: next.key,
+        nextIsMinor: next.isMinor,
         nextStartsNewKey: next.key !== current.key,
         shouldReset: previousKey === null || previousKey !== current.key,
         hasIncomingAnticipation: currentHasIncomingAnticipation,
@@ -48,8 +56,12 @@ export function createCompingEngine({ constants, helpers }) {
       );
       const nextPlan = pianoComping.buildPlan({
         chords: next.chords,
+        key: next.key,
+        isMinor: next.isMinor,
         beatsPerChord: next.beatsPerChord,
         nextFirstChord: null,
+        nextKey: null,
+        nextIsMinor: next.isMinor,
         shouldReset: next.key !== current.key && !currentPlan.anticipatesNextStart,
         hasIncomingAnticipation: currentPlan.anticipatesNextStart,
         previousTailBeats,
@@ -73,6 +85,7 @@ export function createCompingEngine({ constants, helpers }) {
     progression,
     plan,
     nextProgression,
+    nextPlan,
     slotDuration,
     windowStartBeats,
     windowEndBeats,
@@ -88,6 +101,8 @@ export function createCompingEngine({ constants, helpers }) {
       styleModule.playEvent({
         progression,
         event,
+        plan,
+        nextPlan,
         time: eventTime,
         slotDuration,
         secondsPerBeat,

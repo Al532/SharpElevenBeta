@@ -47,6 +47,8 @@ function getDisplayPartsForQuality(quality) {
       return { base: '', sup: '13' };
     case '7b9':
       return { base: '', sup: '7(b9)' };
+    case '7b9b13':
+      return { base: '', sup: '7(b9b13)' };
     case '7alt':
       return { base: '', sup: '7 alt' };
     case '13b9':
