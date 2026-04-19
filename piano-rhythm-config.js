@@ -1,5 +1,6 @@
 const pianoRhythmConfig = {
   resetBeatStartProbability: 0.35,
+  pianoGlobalDelayMs: 50,
   noteTimingHumanizeMs: 15,
   shortNoteDurationRandomness: 0.18,
   forcedLegatoOverlapMs: 45,
@@ -32,7 +33,7 @@ const pianoRhythmConfig = {
     fFromMfLiftDb: 1.5,
   },
   onBeatOneStepRunProbability: 0,
-  offBeatOneStepRunProbability: 1,
+  offBeatOneStepRunProbability: 0,
   onBeatOneStepRunLengthWeights: {
     4: 1,
   },

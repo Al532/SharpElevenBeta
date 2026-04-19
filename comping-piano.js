@@ -2469,7 +2469,10 @@ export function createPianoComping({ constants, helpers }) {
     });
     if (!playbackEventData) return;
 
-    const startTime = Math.max(time, audioCtx.currentTime);
+    const globalDelayMs = Number.isFinite(rhythmConfig.pianoGlobalDelayMs)
+      ? rhythmConfig.pianoGlobalDelayMs
+      : 0;
+    const startTime = Math.max(time + (globalDelayMs / 1000), audioCtx.currentTime);
     const playbackState = buildPianoEventPlaybackState({
       event,
       entries: playbackEventData.entries,
