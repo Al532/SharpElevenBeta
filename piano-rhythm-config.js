@@ -68,7 +68,7 @@ const pianoRhythmConfig = {
     6: 5,
   },
   offBeatJumpWeights: {
-    1: 1,
+    1: 0,
     2: 3,
     3: 6,
     4: 4,
