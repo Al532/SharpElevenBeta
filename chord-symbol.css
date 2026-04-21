@@ -1,0 +1,335 @@
+@font-face {
+  font-family: "JazzTrainerChordText";
+  src: url("./assets/fonts/NotoSans-Latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF,
+    U+0131,
+    U+0152-0153,
+    U+02BB-02BC,
+    U+02C6,
+    U+02DA,
+    U+02DC,
+    U+0304,
+    U+0308,
+    U+0329,
+    U+2000-206F,
+    U+20AC,
+    U+2122,
+    U+2191,
+    U+2193,
+    U+2212,
+    U+2215,
+    U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: "JazzTrainerChordText";
+  src: url("./assets/fonts/NotoSans-Latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF,
+    U+0131,
+    U+0152-0153,
+    U+02BB-02BC,
+    U+02C6,
+    U+02DA,
+    U+02DC,
+    U+0304,
+    U+0308,
+    U+0329,
+    U+2000-206F,
+    U+20AC,
+    U+2122,
+    U+2191,
+    U+2193,
+    U+2212,
+    U+2215,
+    U+FEFF,
+    U+FFFD;
+}
+
+.chord-symbol {
+  --chord-symbol-font-family: "JazzTrainerChordText", sans-serif;
+  --chord-symbol-accidental-flat-width: 0.29em;
+  --chord-symbol-accidental-sharp-width: 0.36em;
+  --chord-symbol-accidental-margin-left: 0.004em;
+  --chord-symbol-accidental-margin-right: -0.006em;
+  --chord-symbol-accidental-shift: 0.02em;
+  --chord-symbol-root-scale-x: 1.08;
+  --chord-symbol-root-accidental-size: 0.78em;
+  --chord-symbol-root-accidental-margin-left: 0.035em;
+  --chord-symbol-root-accidental-margin-right: 0.025em;
+  --chord-symbol-root-accidental-shift: -0.18em;
+  --chord-symbol-base-size: 0.75em;
+  --chord-symbol-base-gap: 0.01em;
+  --chord-symbol-sup-size: 0.52em;
+  --chord-symbol-sup-root-shift: -0.24em;
+  --chord-symbol-sup-root-margin-left: 0.01em;
+  --chord-symbol-sup-root-reserve: 0.34em;
+  --chord-symbol-sup-base-shift: -0.06em;
+  --chord-symbol-sup-base-margin-left: 0.02em;
+  --chord-symbol-sup-base-reserve: 0.5em;
+  --chord-symbol-sup-padding-right: 0;
+  --chord-symbol-slash-column-width: 0.24em;
+  --chord-symbol-slash-row-offset: 0.4em;
+  --chord-symbol-slash-gap: 0.03em;
+  --chord-symbol-slash-stack-shift: 0.34em;
+  --chord-symbol-slash-top: 0.16em;
+  --chord-symbol-slash-height: 0.58em;
+  --chord-symbol-slash-stroke-width: 0.04em;
+  --chord-symbol-slash-stroke-height: 0.62em;
+  --chord-symbol-slash-stroke-top: -0.01em;
+  --chord-symbol-slash-angle: 36deg;
+  --chord-symbol-bass-size: 0.58em;
+  --chord-symbol-bass-shift: 0.08em;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+  letter-spacing: 0;
+  word-spacing: 0;
+  font-family: var(--chord-symbol-font-family);
+  font-kerning: none;
+  font-synthesis: none;
+}
+
+.chord-symbol-root-only {
+  padding-right: var(--chord-symbol-sup-root-reserve);
+}
+
+.chord-symbol-with-base {
+  padding-right: var(--chord-symbol-sup-base-reserve);
+}
+
+.chord-symbol-topline {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  gap: 0;
+}
+
+.chord-symbol-head {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.chord-symbol-main {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.chord-symbol-root,
+.chord-symbol-root-letter,
+.chord-symbol-root-accidental,
+.chord-symbol-accidental,
+.chord-symbol-base,
+.chord-symbol-sup,
+.chord-symbol-bass {
+  display: inline-block;
+}
+
+.chord-symbol-root-letter,
+.chord-symbol-base,
+.chord-symbol-sup,
+.chord-symbol-bass {
+  font-weight: 700;
+}
+
+.chord-symbol-root-letter {
+  transform: scaleX(var(--chord-symbol-root-scale-x));
+  transform-origin: center bottom;
+}
+
+.chord-symbol-accidental {
+  line-height: 1;
+  vertical-align: baseline;
+  speak: none;
+}
+
+.chord-symbol-accidental svg {
+  display: block;
+  width: 100%;
+  height: 1em;
+  overflow: visible;
+  transform: scaleY(-1);
+  transform-origin: center;
+}
+
+.chord-symbol-accidental-flat {
+  width: var(--chord-symbol-accidental-flat-width);
+  margin-left: var(--chord-symbol-accidental-margin-left);
+  margin-right: var(--chord-symbol-accidental-margin-right);
+  transform: translateY(var(--chord-symbol-accidental-shift));
+}
+
+.chord-symbol-accidental-sharp {
+  width: var(--chord-symbol-accidental-sharp-width);
+  margin-left: calc(var(--chord-symbol-accidental-margin-left) * 0.65);
+  margin-right: calc(var(--chord-symbol-accidental-margin-right) * 0.45);
+  transform: translateY(var(--chord-symbol-accidental-shift));
+}
+
+.chord-symbol-root-accidental {
+  font-size: var(--chord-symbol-root-accidental-size);
+  margin-left: var(--chord-symbol-root-accidental-margin-left);
+  margin-right: var(--chord-symbol-root-accidental-margin-right);
+  transform: translateY(var(--chord-symbol-root-accidental-shift));
+  transform-origin: left bottom;
+}
+
+.chord-symbol-base {
+  font-size: var(--chord-symbol-base-size);
+  margin-left: var(--chord-symbol-base-gap);
+}
+
+.chord-symbol-base-condensed-m {
+  letter-spacing: -0.04em;
+  transform: scaleX(0.86);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-base-condensed-maj {
+  letter-spacing: -0.06em;
+  transform: scaleX(0.76);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-base-condensed-mmaj {
+  letter-spacing: -0.06em;
+  transform: scaleX(0.76);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-base-condensed-dim {
+  letter-spacing: -0.05em;
+  transform: scaleX(0.84);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-base-condensed-sus {
+  letter-spacing: -0.05em;
+  transform: scaleX(0.84);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-sup {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  font-size: var(--chord-symbol-sup-size);
+  line-height: 1;
+  white-space: nowrap;
+  color: inherit;
+  transform-origin: left bottom;
+  padding-right: var(--chord-symbol-sup-padding-right);
+  pointer-events: none;
+}
+
+.chord-symbol-sup-condensed-11 {
+  letter-spacing: -0.05em;
+  transform: scaleX(0.86);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-sup-condensed-13 {
+  letter-spacing: -0.05em;
+  transform: scaleX(0.86);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-sup-condensed-alt {
+  letter-spacing: -0.045em;
+  transform: scaleX(0.86);
+  transform-origin: left bottom;
+}
+
+.chord-symbol-sup-after-root {
+  margin-left: var(--chord-symbol-sup-root-margin-left);
+  transform: translateY(var(--chord-symbol-sup-root-shift));
+}
+
+.chord-symbol-sup-after-base {
+  margin-left: var(--chord-symbol-sup-base-margin-left);
+  transform: translateY(var(--chord-symbol-sup-base-shift));
+}
+
+.chord-symbol-sup-anchor-condensed-m {
+  margin-left: -0.18em;
+}
+
+.chord-symbol-sup-anchor-condensed-maj {
+  margin-left: -0.38em;
+}
+
+.chord-symbol-sup-anchor-condensed-mmaj {
+  margin-left: -0.38em;
+}
+
+.chord-symbol-sup-anchor-condensed-dim {
+  margin-left: -0.24em;
+}
+
+.chord-symbol-sup-anchor-condensed-sus {
+  margin-left: -0.24em;
+}
+
+.chord-symbol-slash-stack {
+  display: inline-grid;
+  grid-template-columns: var(--chord-symbol-slash-column-width) auto;
+  grid-template-rows: var(--chord-symbol-slash-row-offset) auto;
+  align-self: flex-end;
+  align-items: start;
+  position: relative;
+  top: var(--chord-symbol-slash-top);
+  margin-left: var(--chord-symbol-slash-gap);
+  transform: translateY(var(--chord-symbol-slash-stack-shift));
+}
+
+.chord-symbol-slash-diagonal {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  position: relative;
+  width: var(--chord-symbol-slash-column-width);
+  height: var(--chord-symbol-slash-height);
+}
+
+.chord-symbol-slash-diagonal::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: var(--chord-symbol-slash-stroke-top);
+  width: var(--chord-symbol-slash-stroke-width);
+  height: var(--chord-symbol-slash-stroke-height);
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateX(-50%) rotate(var(--chord-symbol-slash-angle));
+  transform-origin: center;
+}
+
+.chord-symbol-bass {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--chord-symbol-bass-size);
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateY(var(--chord-symbol-bass-shift));
+  transform-origin: left top;
+}
+
+@media (max-width: 720px) {
+  .chord-symbol {
+    --chord-symbol-root-scale-x: 1.1;
+    --chord-symbol-base-size: 0.77em;
+    --chord-symbol-sup-size: 0.54em;
+    --chord-symbol-bass-size: 0.6em;
+  }
+}

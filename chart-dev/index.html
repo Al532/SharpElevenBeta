@@ -4,16 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chart Dev</title>
+  <link rel="stylesheet" href="../chord-symbol.css">
   <link rel="stylesheet" href="./chart-dev.css">
 </head>
 <body>
   <div class="chart-app">
+    <button class="chart-mobile-fab" id="mobile-menu-toggle" type="button" aria-label="Open settings">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="11" cy="11" r="3" stroke="currentColor" stroke-width="2"/>
+        <path d="M11 1v3M11 18v3M1 11h3M18 11h3M3.22 3.22l2.12 2.12M16.66 16.66l2.12 2.12M3.22 18.78l2.12-2.12M16.66 5.34l2.12-2.12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div class="chart-mobile-backdrop" id="chart-mobile-backdrop"></div>
+    <div class="chart-controls-drawer" id="chart-controls-drawer">
     <header class="chart-topbar">
+      <button class="chart-mobile-close" id="mobile-menu-close" type="button" aria-label="Close settings">Close</button>
       <div class="chart-brand">
         <span class="chart-brand-tag">Private</span>
         <h1>Chart Dev</h1>
       </div>
       <div class="chart-topbar-actions">
+        <div class="chart-import-actions">
+          <button id="import-ireal-backup-button" type="button" class="chart-action-button">Import iReal backup</button>
+          <button id="open-ireal-default-playlists-button" type="button" class="chart-action-button chart-action-button-secondary">Import iReal default playlist</button>
+          <button id="open-ireal-forum-button" type="button" class="chart-action-button chart-action-button-secondary">Import iReal track</button>
+        </div>
         <label class="chart-select-field chart-search-field">
           <span>Search</span>
           <input id="chart-search-input" type="search" placeholder="Title or composer">
@@ -31,6 +46,13 @@
             <option value="7">F</option>
           </select>
         </label>
+        <label class="chart-select-field">
+          <span>Chord symbols</span>
+          <select id="harmony-display-mode">
+            <option value="default" selected>Light</option>
+            <option value="rich">Rich</option>
+          </select>
+        </label>
         <label class="chart-select-field chart-tempo-field">
           <span>Tempo</span>
           <input id="tempo-input" type="number" min="40" max="320" step="1" value="120">
@@ -38,22 +60,6 @@
         <div class="chart-library-count" id="chart-library-count">Loading library...</div>
       </div>
     </header>
-
-    <main class="chart-workspace">
-      <section class="chart-sheet-panel">
-        <div class="chart-sheet-header">
-          <div class="chart-sheet-style" id="sheet-style"></div>
-          <div class="chart-sheet-title-group">
-            <h2 id="sheet-title"></h2>
-            <div class="chart-sheet-subtitle" id="sheet-subtitle"></div>
-          </div>
-          <div class="chart-sheet-meta">
-            <span id="sheet-time-signature"></span>
-            <span id="sheet-key"></span>
-          </div>
-        </div>
-        <div id="sheet-grid" class="chart-sheet-grid"></div>
-      </section>
 
       <aside class="chart-sidepanel">
         <section class="chart-card chart-transport-card">
@@ -71,12 +77,11 @@
           <h3>Playback</h3>
           <div class="chart-controls-grid">
             <label class="chart-select-field">
-              <span>Comping</span>
+              <span>Comping style</span>
               <select id="comping-style-select">
                 <option value="off">Off</option>
                 <option value="strings" selected>Strings</option>
-                <option value="piano-one-hand">Piano (small chords)</option>
-                <option value="piano-two-hand">Piano (big chords)</option>
+                <option value="piano">Piano</option>
               </select>
             </label>
             <label class="chart-select-field">
@@ -84,14 +89,14 @@
               <select id="drums-select">
                 <option value="off">Off</option>
                 <option value="metronome_2_4">Metronome 2 & 4</option>
-                <option value="hihats_2_4">Hi-hats 2 & 4</option>
-                <option value="full_swing" selected>Full swing</option>
+                <option value="hihats_2_4">Hi-hat on 2 & 4</option>
+                <option value="full_swing" selected>Full swing drum pattern</option>
               </select>
             </label>
           </div>
           <label class="chart-toggle chart-toggle-strong">
             <input id="walking-bass-toggle" type="checkbox" checked>
-            <span>Walking bass Drill</span>
+            <span>Walking bass</span>
           </label>
         </section>
 
@@ -135,20 +140,40 @@
         </section>
 
         <section class="chart-card">
-          <h3>Playback Plan</h3>
-          <div id="playback-grid" class="chart-playback-list"></div>
-        </section>
-
-        <section class="chart-card">
-          <h3>Drill Export</h3>
-          <pre id="drill-export"></pre>
-        </section>
-
-        <section class="chart-card">
           <h3>Diagnostics</h3>
           <ul id="diagnostics-list"></ul>
         </section>
       </aside>
+    </div><!-- /.chart-controls-drawer -->
+
+    <main class="chart-workspace">
+      <section class="chart-sheet-panel">
+        <section class="chart-import-panel">
+          <div class="chart-import-copy">
+            <strong>Paste an iReal link</strong>
+            <span>Use this after browsing the iReal default playlists or forum tracks.</span>
+          </div>
+          <div class="chart-import-inputs">
+            <input id="ireal-link-input" type="text" placeholder="Paste irealb://... here" spellcheck="false">
+            <button id="import-ireal-link-button" type="button" class="chart-action-button">Import link</button>
+          </div>
+          <div id="chart-import-status" class="chart-import-status" role="status" aria-live="polite"></div>
+          <input id="ireal-backup-input" type="file" accept=".html,.htm,.txt" hidden>
+        </section>
+
+        <div class="chart-sheet-header">
+          <div class="chart-sheet-style" id="sheet-style"></div>
+          <div class="chart-sheet-title-group">
+            <h2 id="sheet-title"></h2>
+            <div class="chart-sheet-subtitle" id="sheet-subtitle"></div>
+          </div>
+          <div class="chart-sheet-meta">
+            <span id="sheet-time-signature"></span>
+            <span id="sheet-key"></span>
+          </div>
+        </div>
+        <div id="sheet-grid" class="chart-sheet-grid"></div>
+      </section>
     </main>
   </div>
 

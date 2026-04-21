@@ -1,5 +1,153 @@
 import { createChartDocument } from './chart-types.js';
 
+const DEFAULT_CANONICAL_GROOVE = 'Jazz-Medium Swing';
+
+const CANONICAL_GROOVE_DEFAULT_TEMPOS = Object.freeze({
+  'Jazz-Afro 12/8': 110,
+  'Jazz-Ballad Swing': 60,
+  'Jazz-Bossa Nova': 140,
+  'Jazz-Even 8ths': 140,
+  'Jazz-Even 16ths': 90,
+  'Jazz-Latin': 180,
+  'Jazz-Latin/Swing': 180,
+  'Jazz-Medium Swing': 120,
+  'Jazz-Medium Up Swing': 160,
+  'Jazz-Up Tempo Swing': 240,
+  'Latin-Argentina: Tango': 130,
+  'Latin-Brazil: Samba': 220,
+  'Latin-Cuba: Bolero': 90,
+  'Pop-Country': 180,
+  'Pop-Disco': 120,
+  'Pop-Funk': 140,
+  'Pop-Reggae': 90,
+  'Pop-Rock': 115,
+  'Pop-Slow Rock': 70,
+  'Pop-Soul': 95
+});
+
+const EXPLICIT_GROOVE_TO_CANONICAL = Object.freeze({
+  'Jazz-Ballad Swing': { canonicalGroove: 'Jazz-Ballad Swing' },
+  'Jazz-Bossa Nova': { canonicalGroove: 'Jazz-Bossa Nova' },
+  'Jazz-Even 8ths': { canonicalGroove: 'Jazz-Even 8ths' },
+  'Jazz-Gypsy Jazz': { canonicalGroove: 'Pop-Rock', subStyle: 'gypsy-jazz' },
+  'Jazz-Latin': { canonicalGroove: 'Jazz-Latin' },
+  'Jazz-Medium Swing': { canonicalGroove: 'Jazz-Medium Swing' },
+  'Jazz-Medium Up Swing': { canonicalGroove: 'Jazz-Medium Up Swing' },
+  'Jazz-Slow Swing': { canonicalGroove: 'Jazz-Medium Swing', subStyle: 'slow-swing' },
+  'Jazz-Swing Two/Four': { canonicalGroove: 'Jazz-Latin/Swing', subStyle: 'two-four' },
+  'Jazz-Up Tempo Swing': { canonicalGroove: 'Jazz-Up Tempo Swing' },
+  'Latin-Argentina: Tango': { canonicalGroove: 'Latin-Argentina: Tango' },
+  'Latin-Brazil: Samba': { canonicalGroove: 'Latin-Brazil: Samba' },
+  'Latin-Brazil: Bossa Acoustic': { canonicalGroove: 'Jazz-Bossa Nova', subStyle: 'acoustic' },
+  'Latin-Brazil: Bossa Electric': { canonicalGroove: 'Jazz-Bossa Nova', subStyle: 'electric' },
+  'Latin-Cuba: Bolero': { canonicalGroove: 'Latin-Cuba: Bolero' },
+  'Latin-Cuba: Cha Cha Cha': { canonicalGroove: 'Latin-Cuba: Cha Cha Cha' },
+  'Latin-Cuba: Son Montuno 2–3': { canonicalGroove: 'Latin-Cuba: Son Montuno', subStyle: '2-3' },
+  'Latin-Cuba: Son Montuno 3–2': { canonicalGroove: 'Latin-Cuba: Son Montuno', subStyle: '3-2' },
+  'Pop-Bluegrass': { canonicalGroove: 'Pop-Bluegrass' },
+  'Pop-Country': { canonicalGroove: 'Pop-Country' },
+  'Pop-Disco': { canonicalGroove: 'Pop-Disco' },
+  'Pop-Funk': { canonicalGroove: 'Pop-Funk' },
+  'Pop-Reggae': { canonicalGroove: 'Pop-Reggae' },
+  'Pop-RnB': { canonicalGroove: 'Pop-Soul', subStyle: 'rnb' },
+  'Pop-Rock': { canonicalGroove: 'Pop-Rock' },
+  'Pop-Rock 12/8': { canonicalGroove: 'Pop-Rock', subStyle: '12-8' },
+  'Pop-Shuffle': { canonicalGroove: 'Pop-Rock', subStyle: 'shuffle' },
+  'Pop-Slow Rock': { canonicalGroove: 'Pop-Slow Rock' },
+  'Pop-Smooth': { canonicalGroove: 'Pop-Soul', subStyle: 'smooth' },
+  'Pop-Soul': { canonicalGroove: 'Pop-Soul' }
+});
+
+const STYLE_TO_CANONICAL = Object.freeze({
+  Afro: { canonicalGroove: 'Jazz-Afro 12/8' },
+  Ballad: { canonicalGroove: 'Jazz-Ballad Swing' },
+  'Baião': { canonicalGroove: 'Baião' },
+  Bluegrass: { canonicalGroove: 'Pop-Bluegrass' },
+  Bossa: { canonicalGroove: 'Jazz-Bossa Nova' },
+  'Bossa Nova': { canonicalGroove: 'Jazz-Bossa Nova' },
+  'Cha Cha': { canonicalGroove: 'Latin-Cuba: Cha Cha Cha' },
+  'Even 16ths': { canonicalGroove: 'Jazz-Even 16ths' },
+  'Even 8ths': { canonicalGroove: 'Jazz-Even 8ths' },
+  'Country Waltz': { canonicalGroove: 'Pop-Country', subStyle: 'waltz' },
+  'Electro Pop': { canonicalGroove: 'Pop-Rock', subStyle: 'electro-pop' },
+  Folk: { canonicalGroove: 'Pop-Rock', subStyle: 'folk' },
+  'Folk Rock': { canonicalGroove: 'Pop-Rock', subStyle: 'folk-rock' },
+  Funk: { canonicalGroove: 'Pop-Funk' },
+  Latin: { canonicalGroove: 'Jazz-Latin' },
+  'Latin-Swing': { canonicalGroove: 'Jazz-Latin/Swing' },
+  Bolero: { canonicalGroove: 'Latin-Cuba: Bolero' },
+  Country: { canonicalGroove: 'Pop-Country' },
+  Disco: { canonicalGroove: 'Pop-Disco' },
+  'Medium Country': { canonicalGroove: 'Pop-Country', subStyle: 'medium-country' },
+  'Medium Up Swing': { canonicalGroove: 'Jazz-Medium Up Swing' },
+  Pop: { canonicalGroove: 'Pop-Rock' },
+  'Pop Ballad': { canonicalGroove: 'Pop-Slow Rock', subStyle: 'ballad' },
+  'Pop Rock': { canonicalGroove: 'Pop-Rock' },
+  Reggae: { canonicalGroove: 'Pop-Reggae' },
+  "R'n'B": { canonicalGroove: 'Pop-Soul', subStyle: 'rnb' },
+  Rock: { canonicalGroove: 'Pop-Rock' },
+  'Rock Pop': { canonicalGroove: 'Pop-Rock' },
+  RnB: { canonicalGroove: 'Pop-Soul', subStyle: 'rnb' },
+  Salsa: { canonicalGroove: 'Latin-Cuba: Son Montuno', subStyle: 'salsa' },
+  Samba: { canonicalGroove: 'Latin-Brazil: Samba' },
+  'Samba Funk': { canonicalGroove: 'Latin-Brazil: Samba', subStyle: 'funk' },
+  Shuffle: { canonicalGroove: 'Pop-Rock', subStyle: 'shuffle' },
+  'Slow Rock': { canonicalGroove: 'Pop-Slow Rock' },
+  'Slow Bossa': { canonicalGroove: 'Jazz-Bossa Nova', subStyle: 'slow-bossa' },
+  Son: { canonicalGroove: 'Latin-Cuba: Son Montuno' },
+  Soul: { canonicalGroove: 'Pop-Soul' },
+  Tango: { canonicalGroove: 'Latin-Argentina: Tango' },
+  'Up Tempo Swing': { canonicalGroove: 'Jazz-Up Tempo Swing' }
+});
+
+const DEFAULT_STYLE_SUBSTYLES = Object.freeze({
+  Afoxe: 'afoxe',
+  Blues: 'blues',
+  Calypso: 'calypso',
+  Chacarera: 'chacarera',
+  Choro: 'choro',
+  Forro: 'forro',
+  Marchinha: 'marchinha',
+  'Medium Slow': 'medium-slow',
+  MPB: 'mpb',
+  'Slow Swing': 'slow-swing',
+  Waltz: 'waltz',
+  Xote: 'xote'
+});
+
+function normalizeGrooveMetadata(song) {
+  const styleReference = String(song?.style || '').trim();
+  const grooveReference = String(song?.groove || '').trim();
+  const explicitMapping = EXPLICIT_GROOVE_TO_CANONICAL[grooveReference];
+  const styleMapping = STYLE_TO_CANONICAL[styleReference];
+  const mapping = explicitMapping || styleMapping || null;
+  const canonicalGroove = mapping?.canonicalGroove || grooveReference || (styleReference ? DEFAULT_CANONICAL_GROOVE : '');
+  const subStyle = mapping?.subStyle || (!explicitMapping && !styleMapping && styleReference ? (DEFAULT_STYLE_SUBSTYLES[styleReference] || '') : '');
+  const grooveSource = explicitMapping
+    ? 'groove'
+    : styleMapping
+      ? 'style'
+      : grooveReference
+        ? 'groove-reference'
+        : styleReference
+          ? 'default'
+          : 'unknown';
+  const defaultTempo = CANONICAL_GROOVE_DEFAULT_TEMPOS[canonicalGroove] || 0;
+  const sourceTempo = Number(song?.bpm || 0);
+  const resolvedTempo = sourceTempo > 0 ? sourceTempo : defaultTempo;
+
+  return {
+    styleReference,
+    grooveReference,
+    canonicalGroove,
+    subStyle,
+    grooveSource,
+    defaultTempo,
+    sourceTempo,
+    resolvedTempo
+  };
+}
+
 function normalizeEndingTokens(tokens = []) {
   return tokens
     .map(token => String(token || '').trim())
@@ -29,6 +177,16 @@ function normalizeChordSlot(chord) {
     bass: chord?.bass || null,
     displayPrefix: chord?.display_prefix || '',
     alternate: chord?.alternate ? normalizeChordSlot(chord.alternate) : null
+  };
+}
+
+function normalizeCellSlot(cell) {
+  return {
+    bars: String(cell?.bars || ''),
+    annots: Array.isArray(cell?.annots) ? [...cell.annots] : [],
+    comments: Array.isArray(cell?.comments) ? [...cell.comments] : [],
+    spacer: Number(cell?.spacer || 0),
+    chord: cell?.chord ? normalizeChordSlot(cell.chord) : null
   };
 }
 
@@ -85,6 +243,7 @@ function createChartBar(rawBar, sectionId) {
     spacerCount: Number(rawBar.spacer_count || 0),
     endings: normalizeEndingTokens(rawBar.endings),
     chordSizes: Array.isArray(rawBar.chord_sizes) ? [...rawBar.chord_sizes] : [],
+    annotationMisc: Array.isArray(rawBar.annotation_misc) ? [...rawBar.annotation_misc] : [],
     flags,
     directives: (rawBar.directives || []).map(normalizeDirective).filter(Boolean),
     comments: Array.isArray(rawBar.comments) ? [...rawBar.comments] : [],
@@ -94,7 +253,8 @@ function createChartBar(rawBar, sectionId) {
     notation: createDisplayState(rawBar, playbackSlots, overlaySlots),
     playback: {
       slots: playbackSlots,
-      overlaySlots
+      overlaySlots,
+      cellSlots: Array.isArray(rawBar?.cell_slots) ? rawBar.cell_slots.map(normalizeCellSlot) : []
     }
   };
 }
@@ -112,8 +272,10 @@ export function createChartDocumentFromIReal({
   song,
   playlistName = '',
   sourceFile = '',
+  sourceType = 'ireal-decoded-clean',
   importedAt = new Date().toISOString()
 }) {
+  const grooveMetadata = normalizeGrooveMetadata(song);
   const sections = (song.sections || []).map(createSection);
   const bars = [];
 
@@ -132,16 +294,25 @@ export function createChartDocumentFromIReal({
         .replace(/^-+|-+$/g, ''),
       title: song.title || '',
       composer: song.composer || '',
-      style: song.style || '',
-      groove: song.groove || '',
+      style: grooveMetadata.styleReference,
+      groove: grooveMetadata.grooveReference,
+      styleReference: grooveMetadata.styleReference,
+      grooveReference: grooveMetadata.grooveReference,
+      canonicalGroove: grooveMetadata.canonicalGroove,
+      grooveSubStyle: grooveMetadata.subStyle,
+      grooveSource: grooveMetadata.grooveSource,
       sourceKey: song.source_key || '',
-      tempo: Number(song.bpm || 0),
+      sourceTranspose: Number(song.transpose || 0),
+      sourceRepeats: Number(song.repeats || 0),
+      tempo: grooveMetadata.resolvedTempo,
+      sourceTempo: grooveMetadata.sourceTempo,
+      defaultTempo: grooveMetadata.defaultTempo,
       timeSignatures: Array.isArray(song.time_signatures) ? [...song.time_signatures] : [],
       primaryTimeSignature: song.time_signatures?.[0] || '',
       barCount: Number(song.bar_count || bars.length || 0)
     },
     source: {
-      type: 'ireal-decoded-clean',
+      type: sourceType,
       playlistName,
       sourceFile,
       songIndex: song.index || 0,
@@ -150,4 +321,40 @@ export function createChartDocumentFromIReal({
     sections,
     bars
   });
+}
+
+export async function createChartDocumentsFromIRealText({
+  rawText,
+  sourceFile = '',
+  importedAt = new Date().toISOString()
+}) {
+  const { decodePlaylistRaw } = await import('./ireal-decoder.mjs');
+  const { cleanOutput } = decodePlaylistRaw(rawText, {
+    sourceFileName: sourceFile
+  });
+
+  return (cleanOutput.songs || []).map(song => createChartDocumentFromIReal({
+    song,
+    playlistName: cleanOutput.playlist_name || '',
+    sourceFile: cleanOutput.source_file || sourceFile,
+    sourceType: 'ireal-source',
+    importedAt
+  }));
+}
+
+export async function createChartDocumentsFromIRealSource({
+  sourcePath,
+  importedAt = new Date().toISOString()
+}) {
+  const sourceFile = sourcePath.split(/[/\\]/).pop() || '';
+  const { decodePlaylistFile } = await import('./ireal-decoder.mjs');
+  const { cleanOutput } = await decodePlaylistFile(sourcePath, { sourceFileName: sourceFile });
+
+  return (cleanOutput.songs || []).map(song => createChartDocumentFromIReal({
+    song,
+    playlistName: cleanOutput.playlist_name || '',
+    sourceFile: cleanOutput.source_file || sourceFile,
+    sourceType: 'ireal-source',
+    importedAt
+  }));
 }

@@ -20,9 +20,13 @@ import {
 } from './progression-storage.js';
 import { createCompingEngine } from './comping-engine.js';
 import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './display-placeholder-messages.js';
-import { renderChordSymbolHtml } from './chord-symbol-display.js';
+import { renderAccidentalTextHtml, renderChordSymbolHtml } from './chord-symbol-display.js';
 import pianoRhythmConfig from './piano-rhythm-config.js';
 import voicingConfig from './voicing-config.js';
+import {
+  applyContextualQualityRules,
+  applyPriorityDominantResolutionRules
+} from './harmony-context.js';
 import {
   DEFAULT_SWING_RATIO,
 } from './swing-utils.js';
@@ -64,7 +68,7 @@ const INTERVAL_SEMITONES = {
   b3: 3, '3': 4,
   '4': 5,
   '#11': 6, b5: 6, '5': 7,
-  '#5': 8, b13: 8, '6': 9, '13': 9, bb7: 9,
+  '#5': 8, b6: 8, b13: 8, '6': 9, '13': 9, bb7: 9,
   b7: 10, '7': 11
 };
 
@@ -107,8 +111,7 @@ const {
   DOMINANT_QUALITY_ALIASES = {},
   QUALITY_CATEGORY_ALIASES = {},
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
-  RICH_DISPLAY_QUALITY_ALIASES = {},
-  CONTEXTUAL_QUALITY_RULES = []
+  RICH_DISPLAY_QUALITY_ALIASES = {}
 } = voicingConfig;
 
 const PATTERN_MODE_BOTH = 'both';
@@ -714,7 +717,6 @@ async function loadWelcomeStandards() {
       welcomeStandards = parsed;
     }
   } catch (error) {
-    console.warn('Welcome standards load failed:', error);
     welcomeStandards = { ...WELCOME_STANDARDS_FALLBACK };
   }
 
@@ -724,6 +726,15 @@ async function loadWelcomeStandards() {
 function normalizePresetNameForInput(name) {
   return String(name || '')
     .replace(/\s{2,}/g, ' ');
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function normalizeMusicalText(value) {
@@ -800,7 +811,7 @@ function parseDefaultProgressionsText(source) {
 
 const ONE_CHORD_TAG = 'one:';
 const ONE_CHORD_DEFAULT_QUALITIES = [
-  '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mMaj7', 'm7b5', 'dim7',
+  '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mb6', 'mMaj7', 'm7b5', 'dim7',
   '9', '13', '7b9', '7alt', '13b9', '13#11', '7#5', '13sus', '9sus', '7b9sus'
 ];
 const ONE_CHORD_DOMINANT_QUALITIES = [
@@ -815,6 +826,7 @@ const ONE_CHORD_QUALITY_ALIASES = {
   m7: 'm7',
   m9: 'm9',
   m6: 'm6',
+  mb6: 'mb6',
   mmaj7: 'mMaj7',
   mMaj7: 'mMaj7',
   'ø7': 'm7b5',
@@ -1779,10 +1791,7 @@ function loadSample(category, folder, midi) {
       sampleBuffers[category][midi] = decoded;
       return decoded;
     })
-    .catch(err => {
-      console.warn('Sample load failed:', err);
-      return null;
-    }));
+    .catch(() => null));
 }
 
 function loadPianoSample(layer, midi) {
@@ -1798,10 +1807,7 @@ function loadPianoSample(layer, midi) {
       }
       return decoded;
     })
-    .catch(err => {
-      console.warn('Sample load failed:', err);
-      return null;
-    }));
+    .catch(() => null));
 }
 
 async function loadPianoSampleList(midiValues) {
@@ -1821,10 +1827,7 @@ function loadFileSample(category, key, baseUrl) {
       sampleBuffers[category][key] = decoded;
       return decoded;
     })
-    .catch(err => {
-      console.warn('Sample load failed:', err);
-      return null;
-    }));
+    .catch(() => null));
 }
 
 function fetchArrayBufferFromUrl(baseUrl) {
@@ -1869,7 +1872,9 @@ const BASS_GAIN_RELEASE_TIMECONSTANT = 0.012; // seconds - smooth release to avo
 const CHORD_FADE_BEFORE = 0.1; // seconds — chord fade starts this long before end
 const CHORD_FADE_DUR = 0.2;    // seconds — chord fade duration
 const CHORD_VOLUME_MULTIPLIER = 1.35;
-const BASS_GAIN = 0.8 * Math.pow(10, -8 / 20);
+// Bass samples are now loudness-normalized around LUFS-S -16, so we only keep a light trim here
+// instead of the stronger attenuation that made sense with the older peak-normalized files.
+const BASS_GAIN = 0.8 * Math.pow(10, -2 / 20);
 const STRING_LOOP_START = 2.0;
 const STRING_LOOP_END = 9.0;
 const STRING_LOOP_CROSSFADE = 0.12;
@@ -2020,9 +2025,6 @@ function scheduleBassGainRelease(gainNode, fadeStart, fadeEnd) {
 }
 
 function playNote(midi, time, maxDuration, velocity = 127) {
-  if (isWalkingBassDebugEnabled() && (midi < BASS_LOW || midi > BASS_HIGH)) {
-    console.warn(`[walking-bass] out-of-range note ${bassMidiToNoteName(midi)} (${midi}), sampled range ${BASS_LOW}-${BASS_HIGH}`);
-  }
   let sourceMidi = midi;
   let buf = sampleBuffers.bass[sourceMidi];
   if (!buf) {
@@ -2031,15 +2033,9 @@ function playNote(midi, time, maxDuration, velocity = 127) {
     if (fallbackMidi !== null) {
       sourceMidi = fallbackMidi;
       buf = sampleBuffers.bass[sourceMidi];
-      if (isWalkingBassDebugEnabled()) {
-        console.warn(`[walking-bass] fallback sample ${bassMidiToNoteName(sourceMidi)} (${sourceMidi}) used for ${bassMidiToNoteName(midi)} (${midi})`);
-      }
     }
   }
   if (!buf) {
-    if (isWalkingBassDebugEnabled()) {
-      console.warn(`[walking-bass] missing sample buffer for ${bassMidiToNoteName(midi)} (${midi}) at ${time.toFixed(3)}s, dur=${Number(maxDuration || 0).toFixed(3)}s, vel=${velocity}`);
-    }
     return;
   }
 
@@ -2299,13 +2295,13 @@ const PIANO_VOLUME_MULTIPLIER = 0.27;
 function getNextDifferentChord(chords, startIdx) {
   const chord = chords[startIdx];
   if (!chord) return null;
-  const playedMajor = getPlayedChordQuality(chord, false);
-  const playedMinor = getPlayedChordQuality(chord, true);
+  const playedMajor = getPlayedChordQuality(chord, false, chords[startIdx + 1] || null);
+  const playedMinor = getPlayedChordQuality(chord, true, chords[startIdx + 1] || null);
 
   for (let i = startIdx + 1; i < chords.length; i++) {
     const candidate = chords[i];
-    const candidatePlayedMajor = getPlayedChordQuality(candidate, false);
-    const candidatePlayedMinor = getPlayedChordQuality(candidate, true);
+    const candidatePlayedMajor = getPlayedChordQuality(candidate, false, chords[i + 1] || null);
+    const candidatePlayedMinor = getPlayedChordQuality(candidate, true, chords[i + 1] || null);
     if (candidate.semitones !== chord.semitones
         || (candidate.bassSemitones ?? candidate.semitones) !== (chord.bassSemitones ?? chord.semitones)
         || candidatePlayedMajor !== playedMajor
@@ -2322,7 +2318,7 @@ function getVoicingAtIndex(chords, key, chordIdx, isMinor) {
   if (!chord) return null;
   const plannedVoicing = getVoicingPlanForProgression(chords, key, isMinor)?.[chordIdx];
   if (plannedVoicing) return plannedVoicing;
-  return getVoicing(key, chord, isMinor);
+  return getVoicing(key, chord, isMinor, chords[chordIdx + 1] || null);
 }
 
 function getPreparedNextProgression() {
@@ -2509,34 +2505,29 @@ function resolveDominantQuality(chord, quality, isMinor) {
   return defaults[chord.roman] || '13';
 }
 
-function matchesContextualQualityRule(chord, quality, rule) {
-  if (!rule || quality !== rule.from) return false;
-  if (rule.roman && chord?.roman !== rule.roman) return false;
-  if (Array.isArray(rule.romanIn) && !rule.romanIn.includes(chord?.roman)) return false;
-  if (Array.isArray(rule.excludeRoman) && rule.excludeRoman.includes(chord?.roman)) return false;
-  if (rule.inputType && chord?.inputType !== rule.inputType) return false;
-  return true;
-}
-
-function applyContextualQualityRules(chord, quality) {
-  if (!chord) return quality;
-  for (const rule of CONTEXTUAL_QUALITY_RULES) {
-    if (matchesContextualQualityRule(chord, quality, rule)) {
-      return rule.to || quality;
-    }
-  }
-  return quality;
-}
-
 function getCanonicalChordQuality(chord, isMinor) {
   if (!chord) return '';
   return isMinor ? chord.qualityMinor : chord.qualityMajor;
 }
 
-function getPlayedChordQuality(chord, isMinor) {
+function getPlayedChordQuality(chord, isMinor, nextChord = null) {
   const canonicalQuality = getCanonicalChordQuality(chord, isMinor);
   if (!canonicalQuality) return '';
   const contextualQuality = applyContextualQualityRules(chord, canonicalQuality);
+  const nextCanonicalQuality = getCanonicalChordQuality(nextChord, isMinor);
+  const nextContextualQuality = nextCanonicalQuality
+    ? applyContextualQualityRules(nextChord, nextCanonicalQuality)
+    : '';
+  const prioritizedQuality = applyPriorityDominantResolutionRules({
+    chord,
+    quality: contextualQuality,
+    nextChord,
+    nextQuality: nextContextualQuality,
+    resolutionSemitones: nextChord
+      ? ((nextChord.semitones ?? 0) - (chord.semitones ?? 0) + 12) % 12
+      : null
+  });
+  if (prioritizedQuality !== contextualQuality) return prioritizedQuality;
   if (classifyQuality(contextualQuality) !== 'dom') return contextualQuality;
   return resolveDominantQuality(chord, contextualQuality, isMinor);
 }
@@ -2744,10 +2735,7 @@ function ensureNearTermSamplePreload() {
   if (nearTermSamplePreloadPromise) return nearTermSamplePreloadPromise;
 
   nearTermSamplePreloadPromise = preloadNearTermSamples()
-    .catch((err) => {
-      console.warn('Near-term sample preload failed:', err);
-      return null;
-    })
+    .catch(() => null)
     .finally(() => {
       nearTermSamplePreloadPromise = null;
       ensureBackgroundSamplePreload();
@@ -2764,9 +2752,7 @@ async function warmPageSampleCache() {
     }
     try {
       await fetchArrayBufferFromUrl(baseUrl);
-    } catch (err) {
-      console.warn('Sample warmup fetch failed:', err);
-    }
+    } catch {}
   }
 }
 
@@ -2774,10 +2760,7 @@ function ensurePageSampleWarmup() {
   if (pageSampleWarmupPromise) return pageSampleWarmupPromise;
 
   pageSampleWarmupPromise = warmPageSampleCache()
-    .catch((err) => {
-      console.warn('Page sample warmup failed:', err);
-      return null;
-    });
+    .catch(() => null);
 
   return pageSampleWarmupPromise;
 }
@@ -2786,10 +2769,7 @@ function ensureBackgroundSamplePreload() {
   if (backgroundSamplePreloadPromise) return backgroundSamplePreloadPromise;
 
   backgroundSamplePreloadPromise = preloadSamples()
-    .catch((err) => {
-      console.warn('Background sample preload failed:', err);
-      return null;
-    });
+    .catch(() => null);
 
   return backgroundSamplePreloadPromise;
 }
@@ -3052,12 +3032,12 @@ function getVoicingInnerMovement(fromVoicing, toVoicing) {
   return movement;
 }
 
-function createVoicingSlot(chord, key, isMinor, segment = 'current') {
+function createVoicingSlot(chord, key, isMinor, segment = 'current', nextChord = null) {
   if (!chord) {
     return { chord: null, key, segment, candidateSet: [null] };
   }
 
-  const quality = getPlayedChordQuality(chord, isMinor);
+  const quality = getPlayedChordQuality(chord, isMinor, nextChord);
   const qualityCategory = classifyQuality(quality);
   if (!qualityCategory) {
     return { chord, key, segment, candidateSet: [null] };
@@ -3263,7 +3243,7 @@ function pickVoicingScore(scores, randomizationChance = VOICING_RANDOMIZATION_CH
 function buildLegacyVoicingPlan(chords, key, isMinor) {
   if (!Array.isArray(chords) || chords.length === 0) return [];
 
-  const candidatesByIndex = chords.map(chord => createVoicingSlot(chord, key, isMinor, 'current').candidateSet);
+  const candidatesByIndex = chords.map((chord, index) => createVoicingSlot(chord, key, isMinor, 'current', chords[index + 1] || null).candidateSet);
 
   let previousScores = candidatesByIndex[0].map(candidate => ({
     candidate,
@@ -3324,7 +3304,7 @@ function buildVoicingPlan(chords, key, isMinor) {
   if (!isVoiceLeadingV2Enabled()) {
     return buildLegacyVoicingPlan(chords, key, isMinor);
   }
-  const slots = chords.map(chord => createVoicingSlot(chord, key, isMinor, 'current'));
+  const slots = chords.map((chord, index) => createVoicingSlot(chord, key, isMinor, 'current', chords[index + 1] || null));
   return buildVoicingPlanForSlots(slots);
 }
 
@@ -3363,8 +3343,8 @@ function buildAllRequiredSampleNoteSets() {
   return { celloNotes, violinNotes, pianoNotes };
 }
 
-function getVoicing(key, chord, isMinor) {
-  const quality = getPlayedChordQuality(chord, isMinor);
+function getVoicing(key, chord, isMinor, nextChord = null) {
+  const quality = getPlayedChordQuality(chord, isMinor, nextChord);
   const cat = classifyQuality(quality);
   if (!cat) return null;
 
@@ -3464,8 +3444,53 @@ function keyName(key) {
   return name + suffix;
 }
 
-function getDisplayedQuality(chord, isMinor) {
-  const playedQuality = getPlayedChordQuality(chord, isMinor);
+function keyNameHtml(key) {
+  const value = keyName(key);
+  const match = /^([A-G](?:[b#\u266D\u266F])?)(.*)$/.exec(value);
+  if (!match) {
+    return `<span class="display-key-note">${escapeHtml(value)}</span>`;
+  }
+  const noteMatch = /^([A-G])([b#\u266D\u266F]?)$/.exec(match[1] || '');
+  const letter = noteMatch?.[1] || match[1] || '';
+  const accidental = noteMatch?.[2] || '';
+  const suffix = match[2] || '';
+  const safeSuffix = suffix
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+  const accidentalKind = accidental === '#' || accidental === '\u266F' ? 'sharp' : 'flat';
+  const accidentalGlyph = accidentalKind === 'sharp' ? '\u266f' : '\u266d';
+  return [
+    '<span class="display-key-note">',
+    `<span class="display-key-letter">${escapeHtml(letter)}</span>`,
+    accidental
+      ? `<span class="display-key-accidental display-key-accidental-${accidentalKind}" aria-hidden="true">${accidentalGlyph}</span>`
+      : '',
+    '</span>',
+    safeSuffix ? `<span class="display-key-suffix">${safeSuffix}</span>` : ''
+  ].join('');
+}
+
+function renderPickerKeyHtml(value) {
+  const match = /^([A-G])([b#\u266D\u266F]?)$/.exec(String(value || ''));
+  if (!match) {
+    return `<span class="picker-key-note">${escapeHtml(value)}</span>`;
+  }
+  const [, letter, accidental = ''] = match;
+  return [
+    '<span class="picker-key-note">',
+    `<span class="picker-key-letter">${escapeHtml(letter)}</span>`,
+    accidental
+      ? `<span class="picker-key-accidental picker-key-accidental-${accidental === '#' || accidental === '\u266F' ? 'sharp' : 'flat'}" aria-hidden="true">${accidental === '#' || accidental === '\u266F' ? '\u266f' : '\u266d'}</span>`
+      : '',
+    '</span>'
+  ].join('');
+}
+
+function getDisplayedQuality(chord, isMinor, nextChord = null) {
+  const playedQuality = getPlayedChordQuality(chord, isMinor, nextChord);
   return getDisplayAliasQuality(
     playedQuality,
     normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value)
@@ -3493,30 +3518,30 @@ function getDisplayedBassName(key, chord, isMinor) {
   );
 }
 
-function chordSymbol(key, chord, isMinorOverride = null) {
+function chordSymbol(key, chord, isMinorOverride = null, nextChord = null) {
   if (chord?.inputType === 'one-chord') {
     const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return rootName + getDisplayedQuality(chord, false);
+    return rootName + getDisplayedQuality(chord, false, nextChord);
   }
   const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
   const rootName = normalizeDisplayedRootName(
     degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
   );
-  const quality = getDisplayedQuality(chord, isMinor);
+  const quality = getDisplayedQuality(chord, isMinor, nextChord);
   const bassName = getDisplayedBassName(key, chord, isMinor);
   return rootName + quality + (bassName ? `/${bassName}` : '');
 }
 
-function chordSymbolHtml(key, chord, isMinorOverride = null) {
+function chordSymbolHtml(key, chord, isMinorOverride = null, nextChord = null) {
   if (chord?.inputType === 'one-chord') {
     const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false));
+    return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false, nextChord));
   }
   const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
   const rootName = normalizeDisplayedRootName(
     degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
   );
-  const quality = getDisplayedQuality(chord, isMinor);
+  const quality = getDisplayedQuality(chord, isMinor, nextChord);
   const bassName = getDisplayedBassName(key, chord, isMinor);
   return renderChordSymbolHtml(rootName, quality, bassName);
 }
@@ -3836,7 +3861,7 @@ function syncSelectedKeysSummary() {
     return;
   }
 
-  dom.selectedKeysSummary.textContent = `Keys: ${selectedKeys.join(' \u00B7 ')}`;
+  dom.selectedKeysSummary.innerHTML = `Keys: ${selectedKeys.map(renderPickerKeyHtml).join(' &middot; ')}`;
   dom.selectedKeysSummary.setAttribute('aria-label', `Open key selection. Current selection: ${selectedKeys.join(', ')}`);
 }
 
@@ -3866,7 +3891,7 @@ function updateKeyCheckboxVisualState(label, checkbox, keyIndex) {
   );
 
   if (text) {
-    text.textContent = keyLabelForPicker(keyIndex);
+    text.innerHTML = renderAccidentalTextHtml(keyLabelForPicker(keyIndex));
   }
 }
 
@@ -4570,6 +4595,8 @@ const {
     parsePattern,
     playClick,
     playNote,
+    keyNameHtml,
+    renderAccidentalTextHtml,
     scheduleDrumsForBeat,
     shouldShowNextPreview,
     showNextCol,
@@ -4757,24 +4784,25 @@ function refreshDisplayedHarmony() {
     dom.chordDisplay.innerHTML = '';
     const firstChord = paddedChords[0];
     showNextCol();
-    dom.nextKeyDisplay.textContent = keyName(currentKey);
-    dom.nextChordDisplay.innerHTML = firstChord ? chordSymbolHtml(currentKey, firstChord) : '';
+    dom.nextKeyDisplay.innerHTML = keyNameHtml(currentKey);
+    dom.nextChordDisplay.innerHTML = firstChord ? chordSymbolHtml(currentKey, firstChord, null, paddedChords[1] || null) : '';
     fitHarmonyDisplay();
     return;
   }
 
   const chord = paddedChords[currentChordIdx] || paddedChords[paddedChords.length - 1];
   if (!chord) return;
+  const followingChord = paddedChords[currentChordIdx + 1] || null;
 
-  dom.keyDisplay.textContent = keyName(currentKey);
-  dom.chordDisplay.innerHTML = chordSymbolHtml(currentKey, chord);
+  dom.keyDisplay.innerHTML = keyNameHtml(currentKey);
+  dom.chordDisplay.innerHTML = chordSymbolHtml(currentKey, chord, null, followingChord);
   const remainingBeats = getRemainingBeatsUntilNextProgression();
 
   if (shouldShowNextPreview(currentKey, nextKeyValue, remainingBeats)) {
     showNextCol();
     const nextFirstChord = nextRawChords[0] || null;
-    dom.nextKeyDisplay.textContent = keyName(nextKeyValue);
-    dom.nextChordDisplay.innerHTML = nextFirstChord ? chordSymbolHtml(nextKeyValue, nextFirstChord) : '';
+    dom.nextKeyDisplay.innerHTML = keyNameHtml(nextKeyValue);
+    dom.nextChordDisplay.innerHTML = nextFirstChord ? chordSymbolHtml(nextKeyValue, nextFirstChord, null, nextRawChords[1] || null) : '';
   } else {
     hideNextCol();
   }
@@ -5348,8 +5376,7 @@ function ensureMidiPianoRangePreload() {
   }
 
   midiPianoRangePreloadPromise = loadPianoSampleList(new Set(midiValues))
-    .catch((err) => {
-      console.warn('Full MIDI piano preload failed:', err);
+    .catch(() => {
       midiPianoRangePreloadPromise = null;
       return null;
     });
@@ -5407,9 +5434,7 @@ async function playMidiPianoNote(midi, velocity = 96) {
   if (audioCtx.state === 'suspended') {
     try {
       await audioCtx.resume();
-    } catch (err) {
-      console.warn('Audio resume failed for MIDI piano:', err);
-    }
+    } catch {}
   }
 
   const velocityProfile = getMidiVelocityProfile(velocity);
@@ -5477,9 +5502,7 @@ function handleMidiMessage(event) {
   const command = status & 0xf0;
 
   if (command === 0x90 && data2 > 0) {
-    playMidiPianoNote(data1, data2).catch((err) => {
-      console.warn('MIDI piano note-on failed:', err);
-    });
+    playMidiPianoNote(data1, data2).catch(() => {});
     return;
   }
 
@@ -5585,9 +5608,7 @@ async function refreshMidiInputs() {
     if (pianoMidiSettings.enabled && audioCtx) {
       ensureMidiPianoRangePreload();
     }
-  } catch (err) {
-    console.warn('MIDI access failed:', err);
-  }
+  } catch {}
 }
 
 function applyPianoMidiSettings(nextSettings, { persist = true, reconnect = true } = {}) {
@@ -5712,9 +5733,7 @@ async function loadPatternHelp() {
     //   measure layout and the "Chords per bar" selector is ignored.
     // - Repeat bars are also supported with syntax like "[: Dm7 G7 | C :]" or "[ Dm7 | G7 || C | C ]".
     // - First and second endings are supported with measure markers like "[: A | B | [1 C :| [2 D | E ]".
-  } catch (err) {
-    console.warn('Pattern help load failed:', err);
-  }
+  } catch {}
 }
 
 async function loadDefaultProgressions() {
@@ -5733,7 +5752,6 @@ async function loadDefaultProgressions() {
   } catch (err) {
     defaultProgressionsVersion = '1';
     DEFAULT_PROGRESSIONS = {};
-    console.warn('Default progressions load failed:', err);
   }
   progressions = normalizeProgressionsMap(DEFAULT_PROGRESSIONS);
 }
@@ -5892,9 +5910,7 @@ dom.compingStyle?.addEventListener('change', () => {
     stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
     rebuildPreparedCompingPlans(currentKey);
   }
-  preloadNearTermSamples().catch((err) => {
-    console.warn('Comping style preload failed:', err);
-  });
+  preloadNearTermSamples().catch(() => {});
   trackEvent('comping_style_changed', {
     comping_style: getCompingStyle()
   });
@@ -5903,16 +5919,12 @@ dom.walkingBass?.addEventListener('change', async () => {
   if (isWalkingBassEnabled()) {
     try {
       await ensureWalkingBassGenerator();
-    } catch (err) {
-      console.warn('Walking bass generator load failed:', err);
-    }
+    } catch {}
   }
   if (isPlaying) {
     buildPreparedBassPlan();
   }
-  preloadNearTermSamples().catch((err) => {
-    console.warn('Custom bass preload failed:', err);
-  });
+  preloadNearTermSamples().catch(() => {});
   saveSettings();
 });
 dom.stringsVolume.addEventListener('input', () => {
@@ -6014,9 +6026,7 @@ dom.pianoSettingsCopy?.addEventListener('click', async () => {
       setPianoMidiStatus('Preset piano copié');
       return;
     }
-  } catch (err) {
-    console.warn('Clipboard copy failed:', err);
-  }
+  } catch {}
   if (dom.pianoSettingsJson) {
     dom.pianoSettingsJson.focus();
     dom.pianoSettingsJson.select();
@@ -6096,6 +6106,12 @@ function applyDisplayMode() {
 
 window.addEventListener('resize', fitHarmonyDisplay);
 window.addEventListener('pagehide', trackSessionDuration);
+
+if (document.fonts?.ready) {
+  document.fonts.ready.then(() => {
+    fitHarmonyDisplay();
+  }).catch(() => {});
+}
 
 if (typeof ResizeObserver !== 'undefined') {
   const harmonyDisplayResizeObserver = new ResizeObserver(() => {
@@ -6335,9 +6351,7 @@ window.__JPT_DRILL_API__ = {
         buildPreparedBassPlan();
       }
     }
-    preloadNearTermSamples().catch((error) => {
-      console.warn('Embedded playback settings preload failed:', error);
-    });
+    preloadNearTermSamples().catch(() => {});
     return {
       ok: true,
       state: getEmbeddedPlaybackState(),

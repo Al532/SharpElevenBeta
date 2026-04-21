@@ -283,6 +283,32 @@ h1 {
   display: none;
 }
 
+.picker-key-note {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.picker-key-letter {
+  display: inline-block;
+}
+
+.picker-key-accidental {
+  display: inline-block;
+  line-height: 1;
+  font-size: 0.9em;
+  transform: translateY(0.02em);
+}
+
+.picker-key-accidental-flat {
+  margin-left: 0.04em;
+  margin-right: 0.025em;
+}
+
+.picker-key-accidental-sharp {
+  margin-left: 0.028em;
+  margin-right: 0.02em;
+}
+
 .display-key-picker#key-picker {
   position: relative;
   padding: 0;
@@ -459,10 +485,42 @@ body.key-picker-open {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  position: relative;
+  top: -0.22rem;
   transition: color 0.15s;
 }
 #key-display      { grid-column: 1; }
 #next-key-display  { grid-column: 2; color: var(--accent-cool); }
+
+.display-key-note {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.display-key-letter {
+  display: inline-block;
+}
+
+.display-key-accidental {
+  display: inline-block;
+  line-height: 1;
+  font-size: 0.86em;
+  transform: translateY(0.02em);
+}
+
+.display-key-accidental-flat {
+  margin-left: 0.055em;
+  margin-right: 0.035em;
+}
+
+.display-key-accidental-sharp {
+  margin-left: 0.04em;
+  margin-right: 0.03em;
+}
+
+.display-key-suffix {
+  margin-left: 0.1em;
+}
 
 #key-display:not(:empty)::before,
 #next-key-display:not(:empty)::before {
@@ -491,46 +549,6 @@ body.key-picker-open {
 }
 #chord-display      { grid-column: 1; }
 #next-chord-display  { grid-column: 2; color: var(--text-soft); }
-
-.chord-symbol {
-  display: inline-grid;
-  grid-auto-flow: column;
-  align-items: start;
-  column-gap: 0.02em;
-}
-
-.chord-symbol-main {
-  display: inline-flex;
-  align-items: baseline;
-}
-
-.chord-symbol-root,
-.chord-symbol-root-letter,
-.chord-symbol-root-accidental,
-.chord-symbol-base,
-.chord-symbol-sup {
-  display: inline-block;
-}
-
-.chord-symbol-root-accidental {
-  font-size: 0.78em;
-  transform: translateY(-0.18em);
-  transform-origin: left bottom;
-}
-
-.chord-symbol-base {
-  font-size: 0.68em;
-  margin-left: 0.04em;
-}
-
-.chord-symbol-sup {
-  font-size: 0.5em;
-  line-height: 1;
-  white-space: nowrap;
-  color: inherit;
-  transform: translateY(-0.12em);
-  transform-origin: left bottom;
-}
 
 /* Hidden state for next-column cells */
 #next-header.hidden,

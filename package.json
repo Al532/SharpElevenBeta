@@ -5,8 +5,6 @@
   "scripts": {
     "dev": "vite",
     "dev:chart": "vite --config vite.chart.config.js",
-    "chart:fixtures": "node scripts/generate-chart-fixtures.mjs",
-    "chart:medium-swing": "node scripts/generate-chart-fixtures.mjs",
     "test:chart": "node scripts/test-chart-module.mjs",
     "prebuild": "node scripts/sync-public-files.mjs public",
     "build": "vite build",

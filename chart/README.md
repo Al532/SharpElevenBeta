@@ -12,11 +12,28 @@ Goals for v1:
 Useful commands:
 
 - `npm run dev:chart`
-- `npm run chart:fixtures`
-- `npm run chart:medium-swing`
 - `npm run test:chart`
 
-Generated fixture outputs:
+Entrypoints:
 
-- `chart-dev/fixtures/chart-fixtures.json`: small curated dev set
-- `chart-dev/fixtures/chart-medium-swing.json`: full `Medium Swing` conversion from the local iReal `Jazz 1460` database
+- `chart/index.js`: browser-safe API for `chart-dev`
+- `chart/node-index.mjs`: Node-only API including raw iReal source import helpers
+
+Default iReal style tempos to document when the source playlist does not expose an explicit BPM:
+
+- `Pop-Rock`: 115
+- `Jazz-Latin`: 180
+- `Jazz-Medium Swing`: 120
+- `Jazz-Afro 12/8`: 110
+- `Jazz-Up Tempo Swing`: 240
+- `Jazz-Ballad Swing`: 60
+- `Jazz-Bossa Nova`: 140
+- `Jazz-Even 8ths`: 140
+- `Pop-Soul`: 95
+- `Jazz-Medium Up Swing`: 160
+- `Pop-Funk`: 140
+- `Latin-Brazil: Samba`: 220
+- `Pop-Country`: 180
+- `Latin-Cuba: Bolero`: 90
+- `Pop-Disco`: 120
+- `Pop-Slow Rock`: 70

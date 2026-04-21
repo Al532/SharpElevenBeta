@@ -11,6 +11,7 @@ const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.js
 const appVersion = packageJson.version;
 
 const filesToSync = [
+  'chord-symbol.css',
   'default-progressions.txt',
   'demo.html',
   'favicon.svg',
@@ -51,7 +52,6 @@ async function syncToDirectory(targetDir, label) {
     } else {
       await copyFile(sourcePath, destinationPath);
     }
-    console.log(`Synced ${relativePath} -> ${label}/${relativePath}`);
   }
 }
 
@@ -60,7 +60,6 @@ async function syncDirectoriesToBuild(targetDir, label) {
     const sourcePath = path.join(projectRoot, relativePath);
     const destinationPath = path.join(targetDir, relativePath);
     await cp(sourcePath, destinationPath, { recursive: true, force: true });
-    console.log(`Synced ${relativePath}/ -> ${label}/${relativePath}/`);
   }
 }
 

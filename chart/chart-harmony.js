@@ -58,14 +58,29 @@ export function transposeNoteSymbol(symbol, semitoneOffset, { preferFlats = pref
   return semitoneToNoteName(parsed.semitone + semitoneOffset, { preferFlats });
 }
 
+export function splitChordSymbol(symbol) {
+  const raw = String(symbol || '').trim();
+  if (!raw || raw === '%' || raw === 'N.C.' || raw === 'NC') return null;
+
+  const match = raw.match(/^([A-G](?:b|#)?)(.*?)(?:\/([A-G](?:b|#)?))?$/);
+  if (!match) return null;
+
+  const [, root, descriptor = '', bass = ''] = match;
+  return {
+    root,
+    descriptor,
+    bass: bass || ''
+  };
+}
+
 export function transposeChordSymbol(symbol, semitoneOffset, options = {}) {
   const raw = String(symbol || '').trim();
   if (!raw || raw === '%' || raw === 'N.C.' || raw === 'NC') return raw;
 
-  const match = raw.match(/^([A-G](?:b|#)?)(.*?)(?:\/([A-G](?:b|#)?))?$/);
-  if (!match) return raw;
+  const split = splitChordSymbol(raw);
+  if (!split) return raw;
 
-  const [, root, descriptor = '', bass = ''] = match;
+  const { root, descriptor = '', bass = '' } = split;
   const transposedRoot = transposeNoteSymbol(root, semitoneOffset, options);
   const transposedBass = bass ? transposeNoteSymbol(bass, semitoneOffset, options) : '';
   return `${transposedRoot}${descriptor}${transposedBass ? `/${transposedBass}` : ''}`;

@@ -35,6 +35,7 @@ const JAZZ_TRAINER_CONFIG = {
     m7: ['b3', 'b7'],
     m9: ['b3', 'b7'],
     m6: ['b3', '6'],
+    mb6: ['b3', 'b6'],
     mMaj7: ['b3', '6'],
     maj7: ['3', '7'],
     '6': ['3', '6'],
@@ -48,6 +49,7 @@ const JAZZ_TRAINER_CONFIG = {
     m7: ['5', 'b7'],
     m9: ['5', '9'],
     m6: ['5', '9'],
+    mb6: ['5', '9'],
     mMaj7: ['9', '5', '7'],
     maj7: ['5', '9'],
     '6': ['5', '9'],
@@ -101,7 +103,7 @@ const JAZZ_TRAINER_CONFIG = {
     '13': ['7mixo', '13mixo', 'mixo'],
     '9': [],
     '7b9': [],
-    '7b9b13': [],
+    '7b9b13': ['7b13'],
     '7alt': ['alt'],
     '13b9': ['7oct', 'oct', '13oct'],
     '13#11': ['7#11', '7lyd', '13lyd'],
@@ -117,6 +119,7 @@ const JAZZ_TRAINER_CONFIG = {
     m7: [],
     m9: [],
     m6: [],
+    mb6: [],
     mMaj7: ['mmaj7', 'mmaj9'],
     maj7: ['maj9', 'triangle', 'triangle7', 'triangle9', '\u25b37', '\u25b39'],
     '6': [],
@@ -127,6 +130,7 @@ const JAZZ_TRAINER_CONFIG = {
 
   // Display aliases let the UI switch between simplified labels and richer played harmony.
   DEFAULT_DISPLAY_QUALITY_ALIASES: {
+    mb6: 'mb6',
     m9: 'm7',
     '9': '7',
     '13': '7',
@@ -143,20 +147,37 @@ const JAZZ_TRAINER_CONFIG = {
     maj7: 'maj9',
     lyd: 'maj#11',
     m6: 'm6',
+    mb6: 'mb6',
     '7': '13',
     '7b9': '7b9',
     '7b9b13': '7b9b13'
   },
 
-  // Contextual quality rules transform the played harmony after parsing.
-  // `from` is the canonical parsed quality, and `to` is the richer played quality.
-  CONTEXTUAL_QUALITY_RULES: [
-    {
-      from: 'm7',
-      to: 'm9',
-      excludeRoman: ['III']
-    }
-  ]
+  // Quality reassignment rules transform parsed harmony before display/voicing.
+  QUALITY_REASSIGNMENT_FAMILIES: {
+    minor: ['m7', 'm9', 'm6', 'mb6', 'mMaj7']
+  },
+
+  QUALITY_REASSIGNMENT_RULES: {
+    // Applied first to enrich or normalize the locally parsed quality.
+    contextual: [
+      {
+        from: 'm7',
+        to: 'm9',
+        excludeRoman: ['III']
+      }
+    ],
+
+    // Applied before degree-based dominant defaults when a resolution pattern wins.
+    dominantResolution: [
+      {
+        from: '7',
+        to: '7b9b13',
+        resolutionSemitones: [5],
+        nextQualityFamily: 'minor'
+      }
+    ]
+  }
 };
 
 export default JAZZ_TRAINER_CONFIG;

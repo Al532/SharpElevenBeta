@@ -180,27 +180,3 @@ for (let rootPc = 0; rootPc < 12; rootPc++) {
   }
 }
 
-const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-function midiName(m) { return noteNames[m%12] + (Math.floor(m/12)-1); }
-
-const vArr = [...violinNotes].sort((a,b)=>a-b);
-const pArr = [...pianoNotes].sort((a,b)=>a-b);
-const cArr = [...celloNotes].sort((a,b)=>a-b);
-
-console.log('=== VIOLIN (colorTones) ===');
-console.log(`  MIDI range: ${vArr[0]} (${midiName(vArr[0])}) — ${vArr[vArr.length-1]} (${midiName(vArr[vArr.length-1])})`);
-console.log(`  Count: ${vArr.length} notes`);
-console.log(`  Notes: ${vArr.map(m=>`${m}(${midiName(m)})`).join(' ')}`);
-
-console.log('\n=== PIANO (guideTones+colorTones) ===');
-console.log(`  MIDI range: ${pArr[0]} (${midiName(pArr[0])}) — ${pArr[pArr.length-1]} (${midiName(pArr[pArr.length-1])})`);
-console.log(`  Count: ${pArr.length} notes`);
-console.log(`  Notes: ${pArr.map(m=>`${m}(${midiName(m)})`).join(' ')}`);
-
-console.log('\n=== CELLO (bass+guideTones) ===');
-console.log(`  MIDI range: ${cArr[0]} (${midiName(cArr[0])}) — ${cArr[cArr.length-1]} (${midiName(cArr[cArr.length-1])})`);
-console.log(`  Count: ${cArr.length} notes`);
-
-console.log('\n=== RÉDUCTION vs plages actuelles ===');
-console.log(`  Violin:  56-96 (41 notes) → ${vArr[0]}-${vArr[vArr.length-1]} (${vArr.length} notes)`);
-console.log(`  Piano:   36-96 (61 notes) → ${pArr[0]}-${pArr[pArr.length-1]} (${pArr.length} notes)`);

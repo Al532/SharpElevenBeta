@@ -1,5 +1,9 @@
 import voicingConfig from './voicing-config.js';
 import {
+  applyContextualQualityRules,
+  applyPriorityDominantResolutionRules
+} from './harmony-context.js';
+import {
   DEFAULT_SWING_RATIO,
   getSwingFirstSubdivisionDurationBeats,
   getSwingSecondSubdivisionDurationBeats,
@@ -22,7 +26,7 @@ const INTERVAL_SEMITONES = {
   b3: 3, '3': 4,
   '4': 5,
   '#11': 6, b5: 6, '5': 7,
-  '#5': 8, b13: 8, '6': 9, '13': 9, bb7: 9,
+  '#5': 8, b6: 8, b13: 8, '6': 9, '13': 9, bb7: 9,
   b7: 10, '7': 11
 };
 
@@ -64,6 +68,7 @@ function classifyQuality(quality) {
     if ((aliases || []).map((alias) => String(alias).toLowerCase()).includes(normalizedQuality)) return category;
   }
   if (normalizedQuality.startsWith('13')) return 'dom';
+  if (normalizedQuality.startsWith('9')) return 'dom';
   if (normalizedQuality.startsWith('7')) return 'dom';
   return null;
 }
@@ -110,7 +115,7 @@ function buildRankPool(rootPitchClass, pitchClasses, rank, source, low, high) {
   return result;
 }
 
-function buildChordPools(chord, key, isMinor, low, high) {
+function buildChordPools(chord, key, isMinor, low, high, nextChord = null) {
   const quality = isMinor ? chord.qualityMinor : chord.qualityMajor;
   const qualityCategory = classifyQuality(quality);
   if (!qualityCategory) {
@@ -124,7 +129,21 @@ function buildChordPools(chord, key, isMinor, low, high) {
   let guideIntervals = [];
   let colorIntervals = [];
   if (qualityCategory === 'dom') {
-    const dominantQuality = resolveDominantQuality(chord, quality, isMinor);
+    const nextQuality = nextChord
+      ? applyContextualQualityRules(nextChord, isMinor ? nextChord.qualityMinor : nextChord.qualityMajor)
+      : '';
+    const prioritizedQuality = applyPriorityDominantResolutionRules({
+      chord,
+      quality,
+      nextChord,
+      nextQuality,
+      resolutionSemitones: nextChord
+        ? mod12((nextChord.semitones ?? 0) - (chord.semitones ?? 0))
+        : null
+    });
+    const dominantQuality = prioritizedQuality !== quality
+      ? prioritizedQuality
+      : resolveDominantQuality(chord, quality, isMinor);
     guideIntervals = resolveIntervalList(DOMINANT_GUIDE_TONES[dominantQuality] || GUIDE_TONES.dom);
     colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[dominantQuality] || DOMINANT_COLOR_TONES['13']);
   } else {
@@ -224,7 +243,7 @@ function appendSpans(spans, chords, beatsPerChord, key, isMinor, low, high, star
       lastSpan.durationBeats += beatsPerChord;
       continue;
     }
-    const pools = buildChordPools(chord, key, isMinor, low, high);
+    const pools = buildChordPools(chord, key, isMinor, low, high, chords[index + 1] || null);
     if (!pools) continue;
     spans.push({
       chord,

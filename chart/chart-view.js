@@ -1,5 +1,6 @@
 import { cloneChartDocument } from './chart-types.js';
 import { transposeChordSymbol, transposeKeySymbol } from './chart-harmony.js';
+import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
 
 function createDisplayToken(token, semitoneOffset) {
   if (!token || typeof token !== 'object') return token;
@@ -19,11 +20,18 @@ export function createChartViewModel(chartDocument, {
   pageSize = 8
 } = {}) {
   const sourceDocument = cloneChartDocument(chartDocument);
-  const viewBars = sourceDocument.bars.map(bar => ({
+  const contextualizedPlaybackSlotsByBar = contextualizeChordSlotCollections(
+    sourceDocument.bars.map(bar => bar?.playback?.slots || [])
+  );
+  const viewBars = sourceDocument.bars.map((bar, index) => ({
     ...bar,
     isSelected: bar.id === selectedBarId,
-    displayTokens: bar.notation.tokens.map(token => createDisplayToken(token, displayTransposeSemitones)),
-    displayPlaybackSlots: bar.playback.slots.map(slot => createDisplayToken(slot, displayTransposeSemitones))
+    displayTokens: (bar.notation.kind === 'written'
+      ? (contextualizedPlaybackSlotsByBar[index] || [])
+      : bar.notation.tokens
+    ).map(token => createDisplayToken(token, displayTransposeSemitones)),
+    displayPlaybackSlots: (contextualizedPlaybackSlotsByBar[index] || [])
+      .map(slot => createDisplayToken(slot, displayTransposeSemitones))
   }));
 
   const pages = [];

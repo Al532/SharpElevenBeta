@@ -1,13 +1,13 @@
 import rhythmConfig from './piano-rhythm-config.js';
 import voicingConfig from './voicing-config.js';
 import pianoVoicingConfig from './piano-voicing-config.js';
+import { applyContextualQualityRules } from './harmony-context.js';
 import {
   DEFAULT_SWING_RATIO,
   getSwingFirstSubdivisionDurationBeats,
   getSwingOffbeatPositionBeats,
 } from './swing-utils.js';
 
-const PIANO_RUN_DEBUG_LOGS = true;
 const PIANO_SHAPE_INVERSION_START_INDEX = 2;
 const INTERVAL_SEMITONES = {
   '1': 0,
@@ -639,7 +639,6 @@ export function createPianoComping({ constants, helpers }) {
     playSample
   } = helpers;
   const {
-    CONTEXTUAL_QUALITY_RULES = [],
     DOMINANT_DEFAULT_QUALITY_MAJOR = {},
     DOMINANT_DEFAULT_QUALITY_MINOR = {},
     QUALITY_CATEGORY_ALIASES = {},
@@ -649,8 +648,6 @@ export function createPianoComping({ constants, helpers }) {
     modes: pianoModes = {},
     ranges: pianoRanges = {},
   } = pianoVoicingConfig;
-  let lastLoggedPianoHarmonyKey = null;
-
   function dbToGain(db) {
     return Math.pow(10, db / 20);
   }
@@ -801,26 +798,10 @@ export function createPianoComping({ constants, helpers }) {
     return defaults[chord?.roman] || '13';
   }
 
-  function matchesContextualQualityRule(chord, quality, rule) {
-    if (!rule || quality !== rule.from) return false;
-    if (rule.roman && chord?.roman !== rule.roman) return false;
-    if (Array.isArray(rule.romanIn) && !rule.romanIn.includes(chord?.roman)) return false;
-    if (Array.isArray(rule.excludeRoman) && rule.excludeRoman.includes(chord?.roman)) return false;
-    if (rule.inputType && chord?.inputType !== rule.inputType) return false;
-    return true;
-  }
-
   function getPlayedChordQuality(chord, isMinor) {
     const canonicalQuality = isMinor ? chord?.qualityMinor : chord?.qualityMajor;
     if (!canonicalQuality) return '';
-
-    let contextualQuality = canonicalQuality;
-    for (const rule of CONTEXTUAL_QUALITY_RULES) {
-      if (matchesContextualQualityRule(chord, contextualQuality, rule)) {
-        contextualQuality = rule.to || contextualQuality;
-        break;
-      }
-    }
+    const contextualQuality = applyContextualQualityRules(chord, canonicalQuality);
 
     if (classifyQuality(contextualQuality) !== 'dom') {
       return contextualQuality;
@@ -1711,6 +1692,12 @@ export function createPianoComping({ constants, helpers }) {
     }
 
     let shortDuration = baseShortDuration * spacingMultiplier * randomMultiplier;
+    const offBeatShortNoteDurationMultiplier = Number.isFinite(rhythmConfig.offBeatShortNoteDurationMultiplier)
+      ? clamp(rhythmConfig.offBeatShortNoteDurationMultiplier, 0.5, 1)
+      : 1;
+    if (event?.slotKind === 'offbeat') {
+      shortDuration *= offBeatShortNoteDurationMultiplier;
+    }
     shortDuration = Math.max(PIANO_COMP_MIN_DURATION, shortDuration);
 
     if (Number.isFinite(nextGapSeconds)) {
@@ -1955,24 +1942,6 @@ export function createPianoComping({ constants, helpers }) {
       });
 
       scoreRows.push(nextScores);
-      if (PIANO_RUN_DEBUG_LOGS && nextScores.every(score => !score)) {
-        const previousEntry = sequence[rowIndex - 1] || null;
-        const currentEntry = sequence[rowIndex] || null;
-        console.log(`[piano run debug] solver-dead-row ${JSON.stringify({
-          rowIndex,
-          previousSlot: previousEntry?.slotIndex ?? null,
-          currentSlot: currentEntry?.slotIndex ?? null,
-          previousRun: Number.isInteger(previousEntry?.oneStepRunPosition) && Number.isInteger(previousEntry?.oneStepRunLength)
-            ? `${previousEntry.oneStepRunPosition}/${previousEntry.oneStepRunLength}`
-            : '-',
-          currentRun: Number.isInteger(currentEntry?.oneStepRunPosition) && Number.isInteger(currentEntry?.oneStepRunLength)
-            ? `${currentEntry.oneStepRunPosition}/${currentEntry.oneStepRunLength}`
-            : '-',
-          previousCandidates: (candidatesByIndex[rowIndex - 1] || []).map(formatPianoChoiceDebug),
-          currentCandidates: rowCandidates.map(formatPianoChoiceDebug),
-          reasons: debugReasons,
-        })}`);
-      }
       previousScores = nextScores;
     }
 
@@ -2128,53 +2097,6 @@ export function createPianoComping({ constants, helpers }) {
     return merged.map((choice, idx) => choice?.notes?.length ? choice : (fallbackChoices[idx] || null));
   }
 
-  function logPianoRunDiagnostics(label, sequence, choicesOrCandidateSets) {
-    if (!PIANO_RUN_DEBUG_LOGS || !Array.isArray(sequence) || !Array.isArray(choicesOrCandidateSets)) return;
-
-    let index = 0;
-    while (index < sequence.length) {
-      const entry = sequence[index];
-      if (!entry || entry.isSentinel || !Number.isInteger(entry.oneStepRunLength) || entry.oneStepRunLength < 2) {
-        index += 1;
-        continue;
-      }
-
-      let runEnd = index;
-      while (
-        runEnd + 1 < sequence.length
-        && sequence[runEnd + 1]
-        && !sequence[runEnd + 1].isSentinel
-        && (sequence[runEnd + 1].slotIndex - sequence[runEnd].slotIndex) === 1
-      ) {
-        runEnd += 1;
-      }
-
-      const runEntries = sequence.slice(index, runEnd + 1);
-      const runSummary = runEntries.map((runEntry, offset) => {
-        const payload = choicesOrCandidateSets[index + offset];
-        if (Array.isArray(payload)) {
-          return {
-            slot: runEntry.slotIndex,
-            run: `${runEntry.oneStepRunPosition}/${runEntry.oneStepRunLength}`,
-            candidateCount: payload.filter(choice => choice?.notes?.length).length,
-            candidates: payload
-              .filter(choice => choice?.notes?.length)
-              .slice(0, 6)
-              .map(formatPianoChoiceDebug),
-          };
-        }
-        return {
-          slot: runEntry.slotIndex,
-          run: `${runEntry.oneStepRunPosition}/${runEntry.oneStepRunLength}`,
-          choice: formatPianoChoiceDebug(payload),
-        };
-      });
-
-      console.log(`[piano run debug] ${label} ${JSON.stringify(runSummary)}`);
-      index = runEnd + 1;
-    }
-  }
-
   function buildPianoVoicingChoicePlan({
     events,
     nextFirstChord = null,
@@ -2213,28 +2135,6 @@ export function createPianoComping({ constants, helpers }) {
       const candidates = buildPianoShapeCandidates(entry.chord, entry.key, entry.isMinor);
       return Array.isArray(candidates) && candidates.length ? candidates : [null];
     });
-    if (PIANO_RUN_DEBUG_LOGS) {
-      const missingBaseCandidates = sequence
-        .map((entry, index) => ({
-          entry,
-          index,
-          candidates: candidatesByIndex[index],
-        }))
-        .filter(({ candidates }) => !candidates.some(candidate => candidate?.notes?.length))
-        .map(({ entry, index }) => ({
-          index,
-          slot: entry?.slotIndex ?? null,
-          run: Number.isInteger(entry?.oneStepRunPosition) && Number.isInteger(entry?.oneStepRunLength)
-            ? `${entry.oneStepRunPosition}/${entry.oneStepRunLength}`
-            : '-',
-          chord: entry?.chord ? formatPianoHarmonyLabel(entry.chord, entry.key, entry.isMinor) : null,
-          isSentinel: Boolean(entry?.isSentinel),
-          targetsNextProgression: Boolean(entry?.targetsNextProgression),
-        }));
-      if (missingBaseCandidates.length > 0) {
-        console.log(`[piano run debug] missing-base-candidates ${JSON.stringify(missingBaseCandidates)}`);
-      }
-    }
     const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
     const chosen = resolvePianoChoicePath(sequence, candidatesByIndex, activeMode, secondsPerBeat, {
       enforceRunMovement: false,
@@ -2242,28 +2142,24 @@ export function createPianoComping({ constants, helpers }) {
     });
     const repeatedMotionChoices = applyRepeatedChordMotion(sequence, chosen);
     const repeatedMotionCandidateSets = buildRepeatedChordMotionCandidateSets(sequence, chosen);
-    logPianoRunDiagnostics('normal-candidates', sequence, repeatedMotionCandidateSets);
     const constrainedNormalChoices = resolvePianoChoicePath(
       sequence,
       repeatedMotionCandidateSets,
       activeMode,
       secondsPerBeat
     );
-    logPianoRunDiagnostics('normal-solution', sequence, constrainedNormalChoices);
     const integratedCandidatesByIndex = buildIntegratedPassingDiminishedCandidates(
       sequence,
       repeatedMotionCandidateSets,
       activeMode,
       secondsPerBeat
     );
-    logPianoRunDiagnostics('integrated-candidates', sequence, integratedCandidatesByIndex);
     const adjustedChosen = resolvePianoChoicePath(
       sequence,
       integratedCandidatesByIndex,
       activeMode,
       secondsPerBeat
     );
-    logPianoRunDiagnostics('integrated-solution', sequence, adjustedChosen);
     const mergedChosen = mergePianoChoiceFallback(
       sequence,
       adjustedChosen,
@@ -2271,7 +2167,6 @@ export function createPianoComping({ constants, helpers }) {
         ? constrainedNormalChoices
         : repeatedMotionChoices
     );
-    logPianoRunDiagnostics('final-merged', sequence, mergedChosen);
     return mergedChosen.slice(0, events.length);
   }
 
@@ -2451,7 +2346,10 @@ export function createPianoComping({ constants, helpers }) {
     const beatParityMultiplier = isOddBeat
       ? (1 + (oddEvenBeatVolumeSpread / 2))
       : Math.max(0, 1 - (oddEvenBeatVolumeSpread / 2));
-    const eventVolumeMultiplier = slotVolumeMultiplier * beatParityMultiplier;
+    const twoHandGlobalVolumeBoost = activeMode === 'twoHand' && Number.isFinite(rhythmConfig.twoHandGlobalVolumeBoost)
+      ? Math.max(0, rhythmConfig.twoHandGlobalVolumeBoost)
+      : 1;
+    const eventVolumeMultiplier = slotVolumeMultiplier * beatParityMultiplier * twoHandGlobalVolumeBoost;
     const noteTimingHumanizeMs = Number.isFinite(rhythmConfig.noteTimingHumanizeMs)
       ? Math.max(0, rhythmConfig.noteTimingHumanizeMs)
       : 0;
@@ -2495,38 +2393,6 @@ export function createPianoComping({ constants, helpers }) {
       plan,
       nextPlan,
     });
-    const loggedHarmony = resolvePianoLoggedHarmony({
-      progression,
-      event,
-      playbackEventData,
-    });
-    const harmonyLabel = formatPianoHarmonyLabel(
-      loggedHarmony.chord,
-      loggedHarmony.key,
-      loggedHarmony.isMinor
-    );
-    const harmonyKey = [
-      harmonyLabel,
-      loggedHarmony.key ?? '?',
-      loggedHarmony.isMinor ? 'minor' : 'major',
-    ].join('|');
-    if (lastLoggedPianoHarmonyKey !== harmonyKey) {
-      console.log('________');
-      console.log(`harmony: ${harmonyLabel}`);
-      lastLoggedPianoHarmonyKey = harmonyKey;
-    }
-    const runPositionLabel = Number.isInteger(event.oneStepRunPosition) && Number.isInteger(event.oneStepRunLength)
-      ? `${event.oneStepRunPosition}/${event.oneStepRunLength}`
-      : '-';
-    const measurePositionLabel = Number.isFinite(event.timeBeats)
-      ? `${Math.floor(event.timeBeats) % 4}${(event.timeBeats % 1) === 0 ? '' : '.5'}`
-      : '?';
-    const playedVoicingLabel = formatPianoChoiceNotes({ notes: playbackState.selectedEntries.map((voice) => voice.midi) });
-    const fullVoicingLabel = formatPianoChoiceNotes({ notes: playbackState.fullEntries.map((voice) => voice.midi) });
-    const fullVoicingSuffix = playedVoicingLabel === fullVoicingLabel
-      ? ''
-      : ` full:${fullVoicingLabel}`;
-    console.log(`${playedVoicingLabel} run:${runPositionLabel} measure:${measurePositionLabel}${fullVoicingSuffix}`);
     const orderedEntries = shuffleArray(playbackState.selectedEntries);
     const tentativeNoteStartTimes = [];
 
@@ -2559,11 +2425,9 @@ export function createPianoComping({ constants, helpers }) {
 
   function stopAll() {
     // Piano comping uses short one-shot samples only; nothing persistent to stop.
-    lastLoggedPianoHarmonyKey = null;
   }
 
   function clear() {
-    lastLoggedPianoHarmonyKey = null;
   }
 
   return {

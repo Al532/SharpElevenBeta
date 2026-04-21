@@ -2,7 +2,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   const { SCHEDULE_AHEAD } = constants;
   const {
     applyDisplaySideLayout,
-    bassMidiToNoteName,
     buildPreparedBassPlan,
     buildLegacyVoicingPlan,
     buildPreparedCompingPlans,
@@ -26,16 +25,17 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     hideNextCol,
     ensureNearTermSamplePreload,
     isWalkingBassEnabled,
-    isWalkingBassDebugEnabled,
     isChordsEnabled,
     isVoiceLeadingV2Enabled,
     keyName,
+    keyNameHtml,
     nextKey,
     padProgression,
     parseOneChordSpec,
     parsePattern,
     playClick,
     playNote,
+    renderAccidentalTextHtml,
     scheduleDrumsForBeat,
     shouldShowNextPreview,
     showNextCol,
@@ -43,50 +43,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     trackProgressionOccurrence,
     updateBeatDots
   } = helpers;
-
-  function formatBassBeatValue(value) {
-    const rounded = Math.round(value * 1000) / 1000;
-    return Number.isInteger(rounded) ? String(rounded) : String(rounded);
-  }
-
-  function logWalkingBassMeasure(measureStartBeats, measureChordIndex) {
-    return;
-    if (!isWalkingBassDebugEnabled()) return;
-    if (!state.walkingBassLoggedMeasures) {
-      state.walkingBassLoggedMeasures = new Set();
-    }
-    if (state.walkingBassLoggedMeasures.has(measureStartBeats)) return;
-    state.walkingBassLoggedMeasures.add(measureStartBeats);
-
-    const measureEvents = state.currentBassPlan
-      .filter((event) => event.timeBeats >= measureStartBeats && event.timeBeats < measureStartBeats + 4);
-    const chord = state.paddedChords[measureChordIndex] || null;
-    const chordLabel = chord ? chordSymbol(state.currentKey, chord) : '?';
-    const lines = [`[walking-bass] measure ${measureStartBeats / 4 + 1} | beats ${measureStartBeats}-${measureStartBeats + 3} | ${chordLabel}`];
-
-    measureEvents.forEach((event) => {
-      const role = event.rank === 'approach'
-        ? `approach -> ${bassMidiToNoteName(event.targetMidi)} (${event.targetMidi})`
-        : `${event.rank}/${event.source}`;
-      lines.push(`beat ${formatBassBeatValue(event.timeBeats)}: ${bassMidiToNoteName(event.midi)} (${event.midi}), vel=${event.velocity}, ${role}`);
-    });
-
-    const wholeBeatStarts = new Set(
-      measureEvents
-        .filter((event) => Math.abs(event.timeBeats - Math.round(event.timeBeats)) < 0.001)
-        .map((event) => Math.round(event.timeBeats))
-    );
-    for (let beat = measureStartBeats; beat < measureStartBeats + 4; beat += 1) {
-      if (!wholeBeatStarts.has(beat)) {
-        lines.push(`beat ${beat}: (hole)`);
-      }
-    }
-
-    if (lines.length === 1) {
-      lines.push('(no events)');
-    }
-    console.log(lines.join('\n'));
-  }
 
   function prepareNextProgression() {
     const carriedBassTargetMidi = state.pendingBassTargetMidi ?? null;
@@ -238,8 +194,10 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           dom.keyDisplay.textContent = '';
           dom.chordDisplay.innerHTML = '';
           showNextCol();
-          dom.nextKeyDisplay.textContent = keyName(introKey);
-          dom.nextChordDisplay.innerHTML = introFirstChord ? chordSymbolHtml(introKey, introFirstChord) : '';
+          dom.nextKeyDisplay.innerHTML = keyNameHtml(introKey);
+          dom.nextChordDisplay.innerHTML = introFirstChord
+            ? chordSymbolHtml(introKey, introFirstChord, null, state.paddedChords[1] || null)
+            : '';
           fitHarmonyDisplay();
           updateBeatDots(introB, true);
         });
@@ -267,9 +225,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const measureStartChordIdx = Math.floor(state.currentChordIdx / chordsPerMeasure) * chordsPerMeasure;
       const measureStartBeats = Math.floor(windowStartBeats / 4) * 4;
 
-      if (customBassEnabled && isWalkingBassDebugEnabled() && state.currentBeat === 0) {
-        scheduleDisplay(state.nextBeatTime, () => logWalkingBassMeasure(measureStartBeats, measureStartChordIdx));
-      }
 
       if (customBassEnabled) {
         const bassEvents = state.currentBassPlan.filter((event) => event.timeBeats >= windowStartBeats && event.timeBeats < windowEndBeats);
@@ -351,6 +306,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         state.paddedChords.length
       );
       const dispNextFirstChord = state.nextRawChords[0] || null;
+      const dispFollowingChord = state.paddedChords[state.currentChordIdx + 1] || null;
+      const dispNextFollowingChord = state.nextRawChords[1] || null;
       scheduleDisplay(state.nextBeatTime, () => {
         if (!shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           dom.nextKeyDisplay.textContent = '';
@@ -358,12 +315,14 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           hideNextCol();
         }
         applyDisplaySideLayout();
-        dom.keyDisplay.textContent = keyName(dispKey);
-        dom.chordDisplay.innerHTML = chordSymbolHtml(dispKey, dispChord);
+        dom.keyDisplay.innerHTML = keyNameHtml(dispKey);
+        dom.chordDisplay.innerHTML = chordSymbolHtml(dispKey, dispChord, null, dispFollowingChord);
         if (shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           showNextCol();
-          dom.nextKeyDisplay.textContent = keyName(dispNextKey);
-          dom.nextChordDisplay.innerHTML = dispNextFirstChord ? chordSymbolHtml(dispNextKey, dispNextFirstChord) : '';
+          dom.nextKeyDisplay.innerHTML = keyNameHtml(dispNextKey);
+          dom.nextChordDisplay.innerHTML = dispNextFirstChord
+            ? chordSymbolHtml(dispNextKey, dispNextFirstChord, null, dispNextFollowingChord)
+            : '';
         } else {
           dom.nextKeyDisplay.textContent = '';
           dom.nextChordDisplay.innerHTML = '';

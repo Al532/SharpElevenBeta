@@ -1,4 +1,5 @@
 import { createChartPlaybackPlan } from './chart-types.js';
+import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
 
 const MAX_PLAYBACK_STEPS = 1024;
 
@@ -11,6 +12,21 @@ function buildRepeatMap(bars) {
     if (bar.flags.includes('repeat_end_barline')) {
       const startIndex = stack.pop();
       if (Number.isInteger(startIndex)) repeatMap.set(startIndex, index);
+    }
+  }
+
+  // Also treat section barlines as repeat boundaries when the enclosed range
+  // contains volta endings (e.g. iReal songs that use [ ] instead of { })
+  const sectionStack = [];
+  for (const [index, bar] of bars.entries()) {
+    if (bar.flags.includes('section_start_barline')) sectionStack.push(index);
+    if (bar.flags.includes('section_end_barline')) {
+      const startIndex = sectionStack.pop();
+      if (!Number.isInteger(startIndex) || repeatMap.has(startIndex)) continue;
+      const hasEndings = bars.slice(startIndex, index + 1).some(
+        b => Array.isArray(b?.endings) && b.endings.some(Number.isInteger)
+      );
+      if (hasEndings) repeatMap.set(startIndex, index);
     }
   }
 
@@ -75,12 +91,46 @@ function createEntry(bar, visitIndex) {
     timeSignature: bar.timeSignature,
     displayTokens: JSON.parse(JSON.stringify(bar.notation.tokens)),
     playbackSlots: JSON.parse(JSON.stringify(bar.playback.slots)),
+    playbackCellSlots: JSON.parse(JSON.stringify(bar.playback.cellSlots || [])),
     notationKind: bar.notation.kind,
     endings: [...bar.endings],
     flags: [...bar.flags],
     directives: JSON.parse(JSON.stringify(bar.directives)),
-    comments: [...bar.comments]
+    comments: [...bar.comments],
+    sourceEvent: bar.sourceEvent,
+    repeatedFromBar: bar.repeatedFromBar,
+    specialEvents: JSON.parse(JSON.stringify(bar.specialEvents || [])),
+    annotationMisc: [...(bar.annotationMisc || [])],
+    spacerCount: Number(bar.spacerCount || 0),
+    chordSizes: [...(bar.chordSizes || [])],
+    overlaySlots: JSON.parse(JSON.stringify(bar.playback.overlaySlots || []))
   };
+}
+
+function applyContextualizedPlaybackSlotsToCellSlots(playbackCellSlots = [], contextualizedPlaybackSlots = []) {
+  if (!Array.isArray(playbackCellSlots) || playbackCellSlots.length === 0) {
+    return JSON.parse(JSON.stringify(playbackCellSlots || []));
+  }
+
+  const remappedCellSlots = JSON.parse(JSON.stringify(playbackCellSlots));
+  let contextualizedIndex = 0;
+
+  for (const cellSlot of remappedCellSlots) {
+    if (!cellSlot?.chord) continue;
+    const contextualizedSlot = contextualizedPlaybackSlots[contextualizedIndex] || null;
+    contextualizedIndex += 1;
+    if (!contextualizedSlot) continue;
+    cellSlot.chord.symbol = contextualizedSlot.symbol || cellSlot.chord.symbol;
+    cellSlot.chord.modifier = contextualizedSlot.quality || cellSlot.chord.modifier;
+    if (Object.prototype.hasOwnProperty.call(contextualizedSlot, 'bass')) {
+      cellSlot.chord.bass = contextualizedSlot.bass;
+    }
+    if (Object.prototype.hasOwnProperty.call(contextualizedSlot, 'displayPrefix')) {
+      cellSlot.chord.display_prefix = contextualizedSlot.displayPrefix || '';
+    }
+  }
+
+  return remappedCellSlots;
 }
 
 function findDirective(bar, type) {
@@ -105,6 +155,15 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
   const endingMap = buildEndingMap(bars);
   const navigationTargets = collectNavigationTargets(bars);
   const diagnostics = [];
+  const unsupportedDirectiveTypes = new Set([
+    'repeat_hint',
+    'dc_on_cue',
+    'open_vamp',
+    'open_instruction',
+    'vamp_instruction',
+    'fade_out'
+  ]);
+  const reportedUnsupportedDirectives = new Set();
   const entries = [];
   let repeatContext = null;
   let pendingJump = null;
@@ -131,6 +190,18 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
     const dsAlCoda = findDirective(bar, 'ds_al_coda');
     const dsAlEnding = findDirective(bar, 'ds_al_ending');
 
+    for (const directive of bar.directives || []) {
+      if (!unsupportedDirectiveTypes.has(directive?.type)) continue;
+      const diagnosticKey = `${directive.type}:${bar.id}`;
+      if (reportedUnsupportedDirectives.has(diagnosticKey)) continue;
+      reportedUnsupportedDirectives.add(diagnosticKey);
+      diagnostics.push({
+        level: 'warning',
+        code: `unsupported_${directive.type}`,
+        message: `Bar ${bar.index} includes ${directive.type}, which is preserved but not yet interpreted by playback.`
+      });
+    }
+
     if (dcAlEnding) {
       pendingJump = { type: 'dc_al_ending', targetIndex: 0, ending: Number(dcAlEnding.ending || 2) };
     } else if (dcAlFine) {
@@ -146,7 +217,7 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
     }
 
     if (
-      bar.flags.includes('repeat_start_barline')
+      (bar.flags.includes('repeat_start_barline') || bar.flags.includes('section_start_barline'))
       && repeatMap.has(index)
       && (!repeatContext || repeatContext.startIndex !== index)
     ) {
@@ -159,7 +230,7 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
       };
     }
 
-    if (bar.flags.includes('repeat_end_barline') && repeatContext && repeatContext.endIndex === index) {
+    if ((bar.flags.includes('repeat_end_barline') || bar.flags.includes('section_end_barline')) && repeatContext && repeatContext.endIndex === index) {
       if (repeatContext.pass < repeatContext.maxPass) {
         repeatContext.pass += 1;
         index = repeatContext.startIndex;
@@ -213,6 +284,20 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
       message: 'Playback plan generation stopped after reaching the maximum step count.'
     });
   }
+
+  const contextualizedPlaybackSlotsByEntry = contextualizeChordSlotCollections(
+    entries.map(entry => entry?.playbackSlots || [])
+  );
+  entries.forEach((entry, index) => {
+    entry.playbackSlots = contextualizedPlaybackSlotsByEntry[index] || [];
+    entry.playbackCellSlots = applyContextualizedPlaybackSlotsToCellSlots(
+      entry.playbackCellSlots,
+      entry.playbackSlots
+    );
+    if (entry.notationKind === 'written') {
+      entry.displayTokens = JSON.parse(JSON.stringify(entry.playbackSlots));
+    }
+  });
 
   return createChartPlaybackPlan({
     document: chartDocument,
