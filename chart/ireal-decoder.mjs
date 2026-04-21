@@ -4,28 +4,6 @@ import chordQualityMap from './ireal-chord-qualities.json' with { type: 'json' }
 export const IREAL_SCHEMA_VERSION = '2.0.0';
 
 function normalizeModifier(rawModifier = '') {
-  if (!rawModifier) return '';
-
-  if (rawModifier === '+') return 'aug';
-  if (rawModifier === 'o') return 'dim';
-  if (rawModifier === 'o7') return 'dim7';
-  if (rawModifier === 'o^7') return 'dimMaj7';
-  if (rawModifier === 'h' || rawModifier === 'h7') return 'm7b5';
-  if (rawModifier === 'h9') return 'm9b5';
-  if (rawModifier === '-^') return 'mMaj';
-  if (rawModifier === '-^7') return 'mMaj7';
-  if (rawModifier === '-^9') return 'mMaj9';
-
-  if (rawModifier.startsWith('^')) {
-    const suffix = rawModifier.slice(1);
-    return suffix ? `maj${suffix}` : 'maj';
-  }
-
-  if (rawModifier.startsWith('-')) {
-    const normalizedMinor = `m${rawModifier.slice(1)}`;
-    return chordQualityMap[normalizedMinor] ?? normalizedMinor;
-  }
-
   return chordQualityMap[rawModifier] ?? rawModifier;
 }
 

@@ -62,8 +62,13 @@ const dom = {
   drumsVolumeValue: document.getElementById('drums-volume-value'),
   drillBridgeFrame: document.getElementById('drill-bridge-frame'),
   mobileMenuToggle: document.getElementById('mobile-menu-toggle'),
-  mobileMenuClose: document.getElementById('mobile-menu-close'),
   mobileBackdrop: document.getElementById('chart-mobile-backdrop'),
+  manageChartsButton: document.getElementById('manage-charts-button'),
+  manageChartsPopover: document.getElementById('manage-charts-popover'),
+  settingsButton: document.getElementById('settings-button'),
+  settingsPopover: document.getElementById('settings-popover'),
+  chartTopOverlay: document.getElementById('chart-top-overlay'),
+  chartBottomOverlay: document.getElementById('chart-bottom-overlay'),
   chartApp: document.querySelector('.chart-app')
 };
 
@@ -81,6 +86,7 @@ const state = {
   drillFrameReadyPromise: null,
   drillPollTimer: null,
   isPlaying: false,
+  isPaused: false,
   currentSearch: ''
 };
 
@@ -412,6 +418,7 @@ function syncPlaybackStateFromDrill() {
   const drillState = drillApi.getPlaybackState();
   const isPlaying = Boolean(drillState?.isPlaying);
   state.isPlaying = isPlaying;
+  state.isPaused = Boolean(drillState?.isPaused);
 
   const entryIndex = getPlaybackEntryIndexFromDrillState(drillState);
   const entry = entryIndex >= 0 ? state.currentPlaybackPlan?.entries?.[entryIndex] : null;
@@ -437,6 +444,7 @@ async function stopPlayback({ resetPosition = true } = {}) {
   }
 
   state.isPlaying = false;
+  state.isPaused = false;
   if (resetPosition) {
     resetActivePlaybackPosition();
   } else {
@@ -543,7 +551,6 @@ function getTokenVisualMetrics(token) {
   }
 
   const symbol = String(token.symbol || '').replace(/\s+/g, '');
-  const alternate = String(token.alternate?.symbol || '').replace(/\s+/g, '');
   const prefixWeight = token.displayPrefix ? 0.35 : 0;
   const accidentalCount = (symbol.match(/[b#]/g) || []).length;
   const slashCount = (symbol.match(/\//g) || []).length;
@@ -552,7 +559,6 @@ function getTokenVisualMetrics(token) {
   const longQualityCount = (symbol.match(/maj|sus|dim|alt|aug|add/gi) || []).length;
 
   const visualWeight = symbol.length
-    + (alternate ? alternate.length * 0.2 : 0)
     + prefixWeight
     + (accidentalCount * 0.18)
     + (slashCount * 1.1)
@@ -585,12 +591,12 @@ function renderToken(token, placement, harmonyDisplayMode) {
     ? renderChordMarkup(token, harmonyDisplayMode)
     : symbol;
   const alternateMarkup = token?.alternate?.symbol
-    ? `<span class="chart-token-alternate">${token.alternate.symbol}</span>`
+    ? `<span class="chart-token-alternate">${renderChordMarkup(token.alternate, harmonyDisplayMode)}</span>`
     : '';
 
   return `
     <span class="chart-token-slot" style="${slotStyle}">
-      <span class="chart-token ${tokenClass}">${tokenMarkup}${alternateMarkup}</span>
+      <span class="chart-token ${tokenClass}">${alternateMarkup}${tokenMarkup}</span>
     </span>
   `;
 }
@@ -812,7 +818,7 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   };
 }
 
-function renderBarCell(bar) {
+function renderBarCell(bar, displayTimeSignature = null) {
   const classes = ['chart-bar-cell'];
   if (bar.id === state.activeBarId) classes.push('is-active');
   if (bar.flags.includes('repeat_end_barline')) classes.push('is-repeat-end');
@@ -823,6 +829,7 @@ function renderBarCell(bar) {
   const harmonyDisplayMode = normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value);
   return `
     <article class="${classes.join(' ')}" data-bar-id="${bar.id}">
+      ${displayTimeSignature ? renderBarTimeSignature(displayTimeSignature) : ''}
       ${renderEndingMarkup(bar.endings)}
       ${renderBarCornerMarkers(bar)}
       <div class="chart-bar-head">
@@ -838,9 +845,53 @@ function renderBarCell(bar) {
   `;
 }
 
+const SHEET_GAP_MIN = 12;
+const SHEET_GAP_MAX = 80;
+
+function updateSheetGridGap() {
+  const grid = dom.sheetGrid;
+  if (!grid) return;
+  const rowEls = grid.querySelectorAll('.chart-row');
+  const rowCount = rowEls.length;
+  if (rowCount < 2) {
+    grid.style.rowGap = SHEET_GAP_MIN + 'px';
+    return;
+  }
+  // Reset to min gap first so row heights are natural (not inflated by previous gap)
+  grid.style.rowGap = SHEET_GAP_MIN + 'px';
+  // Measure available space: from grid top to bottom of visible workspace
+  const workspace = grid.closest('.chart-workspace');
+  const gridTop = grid.getBoundingClientRect().top;
+  const bottomBound = workspace ? workspace.getBoundingClientRect().bottom : window.innerHeight;
+  const availableForGrid = bottomBound - gridTop;
+  let totalRowHeight = 0;
+  rowEls.forEach((el) => { totalRowHeight += el.offsetHeight; });
+  const availableForGaps = availableForGrid - totalRowHeight;
+  const idealGap = Math.floor(availableForGaps / (rowCount - 1));
+  const clampedGap = Math.max(SHEET_GAP_MIN, Math.min(SHEET_GAP_MAX, idealGap));
+  grid.style.rowGap = clampedGap + 'px';
+}
+
+function renderBarTimeSignature(timeSig) {
+  const parts = timeSig.split('/');
+  if (parts.length !== 2) return '';
+  return `<div class="chart-bar-time-sig" aria-label="${timeSig}"><span class="chart-bar-time-sig-num">${parts[0].trim()}</span><span class="chart-bar-time-sig-den">${parts[1].trim()}</span></div>`;
+}
+
 function renderSheet(viewModel) {
   const bars = viewModel.bars || [];
   const groupSize = getDisplayedBarGroupSize();
+  const primaryTimeSig = viewModel.metadata.primaryTimeSignature || '';
+
+  // Pre-compute which bars should show a time signature (first bar + any change)
+  let lastEffectiveTimeSig = null;
+  const barTimeSigDisplay = bars.map(bar => {
+    const effectiveTimeSig = bar.timeSignature || primaryTimeSig;
+    const show = !!effectiveTimeSig && effectiveTimeSig !== lastEffectiveTimeSig;
+    if (effectiveTimeSig) lastEffectiveTimeSig = effectiveTimeSig;
+    return show ? effectiveTimeSig : null;
+  });
+
   const rows = [];
 
   for (let index = 0; index < bars.length; index += groupSize) {
@@ -854,7 +905,7 @@ function renderSheet(viewModel) {
         <div class="chart-section-marker">
           ${sectionChanged ? `<span class="chart-section-badge">${firstBar.sectionLabel}</span>` : '<span class="chart-section-spacer"></span>'}
         </div>
-        ${rowBars.map(renderBarCell).join('')}
+        ${rowBars.map((bar, i) => renderBarCell(bar, barTimeSigDisplay[index + i])).join('')}
       </div>
     `);
   }
@@ -862,7 +913,8 @@ function renderSheet(viewModel) {
   dom.sheetGrid.innerHTML = rows.join('');
 }
 
-function getVisualSymbolRect(slotEl) {
+function getVisualSymbolRect(mainTokenEl) {
+  // Query only within the main token element (not the alternate's sub-elements).
   // .chord-symbol-sup is position:absolute and overflows its parent, so
   // getBoundingClientRect() on .chord-symbol does NOT include it. We manually
   // compute the union rect of every visible sub-element instead.
@@ -870,12 +922,11 @@ function getVisualSymbolRect(slotEl) {
     '.chord-symbol-main',
     '.chord-symbol-sup',
     '.chord-symbol-slash-stack',
-    '.chart-token-alternate'
   ];
   let left = Infinity;
   let right = -Infinity;
   for (const sel of selectors) {
-    const el = slotEl.querySelector(sel);
+    const el = mainTokenEl.querySelector(sel);
     if (!el) continue;
     const r = el.getBoundingClientRect();
     if (r.width === 0) continue;
@@ -887,10 +938,14 @@ function getVisualSymbolRect(slotEl) {
 
 function measureTokenGeometry(slotEl) {
   const tokenEl = slotEl.querySelector('.chart-token');
-  const mainEl  = slotEl.querySelector('.chord-symbol-main');
+  // The main chord element — exclude anything inside .chart-token-alternate
+  const mainChordEl = tokenEl
+    ? Array.from(tokenEl.children).find(el => !el.classList.contains('chart-token-alternate'))
+    : null;
+  const mainEl = mainChordEl ? mainChordEl.querySelector('.chord-symbol-main') : null;
 
   const slotRect   = slotEl.getBoundingClientRect();
-  const symbolRect = getVisualSymbolRect(slotEl);
+  const symbolRect = mainChordEl ? getVisualSymbolRect(mainChordEl) : null;
   const mainRect   = mainEl ? mainEl.getBoundingClientRect() : null;
 
   // Optical anchor = horizontal centre of .chord-symbol-main (root + base only,
@@ -906,124 +961,93 @@ function measureTokenGeometry(slotEl) {
 }
 
 function resolveCollisions(rawLefts, rawRights, offsets, scales, symLefts, symRights, barRect) {
-  const isMobile = window.matchMedia('(max-width: 720px)').matches;
-  const MIN_GAP   = 1;
-  const MIN_SCALE = isMobile ? 0.64 : 0.72;
+  const MIN_GAP = 1;
   const n = rawLefts.length;
 
-  // Shrink symbol i so its right edge retreats by overlapPx.
-  // Scale is symmetric (transform-origin: center bottom), so both edges move.
-  function shrinkRight(i, overlapPx) {
-    const rawW = rawRights[i] - rawLefts[i];
-    if (rawW <= 0) return;
-    const center   = (symLefts[i] + symRights[i]) / 2;
-    const newHalfW = Math.max(symRights[i] - center - overlapPx, rawW / 2 * MIN_SCALE);
-    scales[i]    = (2 * newHalfW) / rawW;
-    symLefts[i]  = center - newHalfW;
-    symRights[i] = center + newHalfW;
-  }
+  // Phase 1 (font-size) is responsible for sizing. This function only nudges
+  // symbols horizontally via offset. No scale is applied here.
 
-  // Shrink symbol i so its left edge advances by overlapPx.
-  function shrinkLeft(i, overlapPx) {
-    const rawW = rawRights[i] - rawLefts[i];
-    if (rawW <= 0) return;
-    const center   = (symLefts[i] + symRights[i]) / 2;
-    const newHalfW = Math.max(center - symLefts[i] - overlapPx, rawW / 2 * MIN_SCALE);
-    scales[i]    = (2 * newHalfW) / rawW;
-    symLefts[i]  = center - newHalfW;
-    symRights[i] = center + newHalfW;
-  }
-
-  // Pass 1 (right→left): push right, then shrink left symbol's right edge.
+  // Pass 1 (right→left): push right neighbour if symbols overlap.
   for (let i = n - 2; i >= 0; i--) {
     let overlap = symRights[i] - symLefts[i + 1] + MIN_GAP;
     if (overlap <= 0) continue;
-
     const rightBound = i + 2 < n ? symLefts[i + 2] - MIN_GAP : barRect.right;
     const push = Math.min(overlap, Math.max(0, rightBound - symRights[i + 1]));
     offsets[i + 1]   += push;
     symLefts[i + 1]  += push;
     symRights[i + 1] += push;
-    overlap -= push;
-
-    if (overlap > 0) shrinkRight(i, overlap);
   }
 
-  // Pass 2 (left→right): pull left, then shrink the wider of the two.
+  // Pass 2 (left→right): pull left neighbour if symbols overlap.
   for (let i = 0; i < n - 1; i++) {
     let overlap = symRights[i] - symLefts[i + 1] + MIN_GAP;
     if (overlap <= 0) continue;
-
     const leftBound = i > 0 ? symRights[i - 1] + MIN_GAP : barRect.left;
     const pull = Math.min(overlap, Math.max(0, symLefts[i] - leftBound));
     offsets[i]   -= pull;
     symLefts[i]  -= pull;
     symRights[i] -= pull;
-    overlap -= pull;
-
-    if (overlap > 0) {
-      const rawWi  = rawRights[i]     - rawLefts[i];
-      const rawWi1 = rawRights[i + 1] - rawLefts[i + 1];
-      if (rawWi >= rawWi1) {
-        shrinkRight(i, overlap);
-      } else {
-        shrinkLeft(i + 1, overlap);
-      }
-    }
   }
 
+  // For n=2: centre each symbol in its half-slot, hard-capped to bar bounds.
   if (n === 2) {
     const rawW0 = rawRights[0] - rawLefts[0];
     const rawW1 = rawRights[1] - rawLefts[1];
-    const availableWidth = Math.max(0, barRect.right - barRect.left);
-    const pairGap = 1;
-    const sharedScale = Math.max(
-      MIN_SCALE,
-      Math.min(1, (availableWidth - pairGap) / Math.max(1, rawW0 + rawW1))
-    );
-    scales[0] = sharedScale;
-    scales[1] = sharedScale;
-
-    const width0 = rawW0 * sharedScale;
-    const width1 = rawW1 * sharedScale;
-    const slotWidth = availableWidth / 2;
+    const slotWidth = Math.max(0, barRect.right - barRect.left) / 2;
     const slot0Center = barRect.left + slotWidth / 2;
     const slot1Center = barRect.left + slotWidth * 1.5;
-    const leftLimit0 = barRect.left;
-    const rightLimit0 = barRect.left + slotWidth - pairGap / 2;
-    const leftLimit1 = barRect.left + slotWidth + pairGap / 2;
-    const rightLimit1 = barRect.right;
 
-    const center0 = Math.max(
-      leftLimit0 + width0 / 2,
-      Math.min(slot0Center, rightLimit0 - width0 / 2)
+    // Hard bounds first, then soft ideal position — right edge never overflows.
+    const center0 = Math.min(
+      barRect.left + slotWidth - rawW0 / 2,          // hard cap: stay in left half
+      Math.max(barRect.left + rawW0 / 2, slot0Center) // soft floor: don't clip left edge
     );
-    const center1 = Math.max(
-      leftLimit1 + width1 / 2,
-      Math.min(slot1Center, rightLimit1 - width1 / 2)
+    const center1 = Math.min(
+      barRect.right - rawW1 / 2,                      // hard cap: never overflow right
+      Math.max(barRect.left + slotWidth, slot1Center)  // soft floor: stay in right half
     );
 
     offsets[0] = center0 - (rawLefts[0] + rawRights[0]) / 2;
     offsets[1] = center1 - (rawLefts[1] + rawRights[1]) / 2;
-
-    symLefts[0] = center0 - width0 / 2;
-    symRights[0] = center0 + width0 / 2;
-    symLefts[1] = center1 - width1 / 2;
-    symRights[1] = center1 + width1 / 2;
     return;
   }
 
-  const reducedScales = scales.filter(scale => scale < 0.999);
-  if (reducedScales.length >= 2) {
-    const targetScale = Math.max(MIN_SCALE, Math.min(...reducedScales));
-    const blend = 0.7;
-
-    for (let i = 0; i < n; i++) {
-      if (scales[i] >= 0.999) continue;
-      scales[i] = Math.max(MIN_SCALE, scales[i] * (1 - blend) + targetScale * blend);
-    }
+  // General case: clamp rightmost symbol so it never overflows the right barline.
+  const projectedRight = rawRights[n - 1] + offsets[n - 1];
+  if (projectedRight > barRect.right - 1) {
+    offsets[n - 1] -= projectedRight - (barRect.right - 1);
   }
 }
+
+// ARCHITECTURE NOTE — two-pass rendering
+//
+// The goal is to display chord symbols as large as possible, reducing only when
+// necessary, and per-bar (not globally).
+//
+// KNOWN FUNDAMENTAL CONFLICT:
+//   Phase 1 sets font-size on .chart-bar-body to reduce a bar's content.
+//   Phase 2 applies CSS transform scale (--chart-token-scale) to individual tokens.
+//   These two mechanisms cancel each other out: if Phase 1 halves the font-size
+//   and Phase 2 measures the result and scales it back up (or vice-versa), the
+//   apparent visual size is unchanged. This is why changing the base CSS font-size
+//   (even to an absurd value like 20rem) has no visible effect on the result.
+//
+// ROOT CAUSE:
+//   applySingleChordAnchor and resolveCollisions both apply --chart-token-scale
+//   proportional to overflow. They always scale tokens to fit the bar width,
+//   regardless of the current font-size. The font-size only changes the threshold
+//   at which overflow is detected, but the final visual size is always bar-width-bound.
+//
+// CORRECT DESIGN (for the refactor):
+//   Phase 1 (font-size, per bar)   → sole size-reduction mechanism.
+//                                    Computes required font-size from natural content
+//                                    widths measured at the base (max) font-size.
+//   Phase 2 (offset-x only, per token) → sole positioning mechanism.
+//                                    Must NOT apply scale. Accepts minor overflow;
+//                                    clamps to bar bounds with offset only.
+//   Consequence: bars with few/short chords never trigger Phase 1 → full size.
+//                Bars with many/long chords get a smaller font-size → proportional.
+//                Window resize only matters through its effect on bar widths.
 
 function applySingleChordAnchor(barBodyEl) {
   const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
@@ -1031,7 +1055,9 @@ function applySingleChordAnchor(barBodyEl) {
   const tokenEl = slots[0].querySelector('.chart-token');
   if (!tokenEl) return;
   tokenEl.style.removeProperty('--chart-token-offset-x');
-  tokenEl.style.removeProperty('--chart-token-scale');
+  // NOTE: We intentionally no longer clear --chart-token-scale here. Phase 1 is
+  // responsible for sizing; this function only positions. The scale applied in
+  // getBarBodyLayout (pre-render, for subdivided layouts) is still respected.
   const barRect = barBodyEl.getBoundingClientRect();
   const geo = measureTokenGeometry(slots[0]);
   const rawLeft = geo.symbolRect ? geo.symbolRect.left : geo.slotRect.left;
@@ -1049,7 +1075,6 @@ function applySingleChordAnchor(barBodyEl) {
   let offsetPx = anchoredLeft - rawLeft;
   let scaledLeft = rawLeft + offsetPx;
   let scaledRight = rawRight + offsetPx;
-  let scale = 1;
 
   const leftSpace = Math.max(0, scaledLeft - leftBound);
   const rightSpace = Math.max(0, rightBound - scaledRight);
@@ -1068,41 +1093,129 @@ function applySingleChordAnchor(barBodyEl) {
     scaledRight = rawRight + offsetPx;
   }
 
+  // Phase 1 should have sized the bar so that the chord fits. If it still overflows
+  // (e.g. Phase 1 hit its minimum, or font-size is at the CSS base), clamp with offset
+  // only — do NOT apply scale here (see architecture note above).
   if (scaledRight > rightBound) {
-    const overflow = scaledRight - rightBound;
-    const candidateScale = Math.max(0.6, (rawWidth - overflow) / rawWidth);
-    scale = Math.min(scale, candidateScale);
-    const scaledWidth = rawWidth * scale;
-    scaledRight = scaledLeft + scaledWidth;
-    if (scaledRight > rightBound) {
-      offsetPx -= scaledRight - rightBound;
-      scaledLeft -= scaledRight - rightBound;
-      scaledRight = rightBound;
-    }
-  }
-
-  if (rawWidth * scale > availableWidth) {
-    scale = Math.min(scale, Math.max(0.6, availableWidth / rawWidth));
+    offsetPx -= scaledRight - rightBound;
   }
 
   tokenEl.style.setProperty('--chart-token-offset-x', `${(offsetPx / fontSizePx).toFixed(3)}em`);
-  if (scale < 0.999) {
-    tokenEl.style.setProperty('--chart-token-scale', scale.toFixed(3));
-  }
 }
 
 function applyOpticalPlacements() {
+  const isMobile = window.matchMedia('(max-width: 1200px)').matches;
+
+  // ── Reset all previous overrides (single baseline reflow) ────────────────
+  document.querySelectorAll('.chart-row').forEach(rowEl => {
+    rowEl.style.removeProperty('grid-template-columns');
+  });
+  document.querySelectorAll('.chart-bar-body').forEach(barBodyEl => {
+    barBodyEl.style.removeProperty('font-size');
+    barBodyEl.querySelectorAll('.chart-token').forEach(t => {
+      t.style.removeProperty('--chart-token-offset-x');
+      t.style.removeProperty('--chart-token-scale');
+    });
+  });
+  void document.documentElement.offsetHeight; // eslint-disable-line no-unused-expressions
+
+  // ── Phase 0: subtle column redistribution (last resort before sizing) ─────
+  // Bars stay equal as long as possible. Only minor deviations allowed (±20%).
+  // Triggered only when the spread of demands within a row is significant.
+  document.querySelectorAll('.chart-row').forEach(rowEl => {
+    const barCells = Array.from(rowEl.querySelectorAll(':scope > .chart-bar-cell'));
+    if (barCells.length < 2) return;
+
+    const demands = barCells.map(cell => {
+      const body = cell.querySelector('.chart-bar-body');
+      if (!body) return 1;
+      let total = 0;
+      body.querySelectorAll('.chart-token-slot').forEach(slot => {
+        const geo = measureTokenGeometry(slot);
+        const w = geo.symbolRect
+          ? Math.max(0, geo.symbolRect.right - geo.symbolRect.left)
+          : Math.max(0, geo.slotRect.width);
+        total += w;
+      });
+      return Math.max(1, total);
+    });
+
+    const n = demands.length;
+    const avg = demands.reduce((a, b) => a + b, 0) / n;
+    // Tight clamp: ±20% of row average — bars stay nearly equal.
+    const clamped = demands.map(d => Math.max(avg * 0.80, Math.min(avg * 1.20, d)));
+
+    const avg2 = clamped.reduce((a, b) => a + b, 0) / n;
+    const maxDev = Math.max(...clamped.map(c => Math.abs(c - avg2) / avg2));
+    if (maxDev < 0.04) return; // not worth the visual disruption
+
+    const cols = clamped.map(c => `${c.toFixed(1)}fr`).join(' ');
+    rowEl.style.gridTemplateColumns = isMobile ? cols : `56px ${cols}`;
+  });
+
+  void document.documentElement.offsetHeight; // eslint-disable-line no-unused-expressions
+
+  // ── Phase 1: global + per-row font-size reduction ────────────────────
+  // Global scale uses the geometric mean (sqrt) of the needed reduction:
+  //   - dense rows end up at the same final size as before
+  //   - sparse rows come down partway → narrower gap without full uniformity
+  // Per-row extra handles any remaining overflow after the global pass.
+  let globalMaxFitRatio = 0;
+  const rowData = Array.from(document.querySelectorAll('.chart-row')).map(rowEl => {
+    const barBodies = Array.from(rowEl.querySelectorAll('.chart-bar-body'));
+    let rowMaxFitRatio = 0;
+    barBodies.forEach(barBodyEl => {
+      const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
+      if (slots.length === 0) return;
+      const barRect = barBodyEl.getBoundingClientRect();
+      const availableWidth = Math.max(1, barRect.width - 4);
+      let totalSymWidth = 0;
+      slots.forEach(slot => {
+        const geo = measureTokenGeometry(slot);
+        const symWidth = geo.symbolRect
+          ? Math.max(0, geo.symbolRect.right - geo.symbolRect.left)
+          : Math.max(0, geo.slotRect.width);
+        totalSymWidth += symWidth;
+      });
+      const fitRatio = totalSymWidth / availableWidth;
+      if (fitRatio > rowMaxFitRatio) rowMaxFitRatio = fitRatio;
+    });
+    if (rowMaxFitRatio > globalMaxFitRatio) globalMaxFitRatio = rowMaxFitRatio;
+    return { rowEl, barBodies, rowMaxFitRatio };
+  });
+
+  const HEADROOM = 0.88;
+  // Geometric mean: halfway between “no reduction” and “full reduction”.
+  // Sparse rows shrink by sqrt factor; dense rows reach the same final size as
+  // before. This narrows the visual gap between sparse and dense rows.
+  const globalScale = globalMaxFitRatio > HEADROOM
+    ? Math.max(0.5, Math.sqrt(HEADROOM / globalMaxFitRatio))
+    : 1;
+
+  rowData.forEach(({ barBodies, rowMaxFitRatio }) => {
+    const effectiveFitRatio = rowMaxFitRatio * globalScale;
+    const rowExtraScale = effectiveFitRatio > HEADROOM
+      ? Math.max(0.38 / globalScale, HEADROOM / effectiveFitRatio)
+      : 1;
+    const finalScale = globalScale * rowExtraScale;
+    if (finalScale >= 0.999) return;
+    barBodies.forEach(barBodyEl => {
+      const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
+      if (!currentFontPx) return;
+      barBodyEl.style.fontSize = `${(currentFontPx * finalScale).toFixed(2)}px`;
+    });
+  });
+
+  // ── Phase 2: per-token optical positioning ────────────────────────────────
+  // Offset-x only — no scale. Phase 1 is the sole sizing mechanism.
   document.querySelectorAll('.chart-bar-body').forEach(applySingleChordAnchor);
 
   document.querySelectorAll('.chart-bar-body.chart-bar-body-subdivided, .chart-bar-body.chart-bar-body-halves').forEach(barBodyEl => {
     const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
 
     if (slots.length === 1) { applySingleChordAnchor(barBodyEl); return; }
-
     if (slots.length < 2) return;
 
-    // Reset previous corrections so we always measure the natural uncorrected layout.
-    // This eliminates the feedback loop on resize / zoom.
     slots.forEach(slotEl => {
       const tokenEl = slotEl.querySelector('.chart-token');
       if (!tokenEl) return;
@@ -1116,10 +1229,8 @@ function applyOpticalPlacements() {
     const rawLefts  = geometries.map(g => g.symbolRect ? g.symbolRect.left  : g.slotRect.left);
     const rawRights = geometries.map(g => g.symbolRect ? g.symbolRect.right : g.slotRect.right);
 
-    // Step 1: Optical centering — align mainRect centre to slot centre.
-    // Cap: never push in the direction where the symbol already overflows its slot.
     const offsets = geometries.map(geo => geo.beatTargetX - geo.anchorX);
-    const scales  = geometries.map(() => 1);
+    const scales  = geometries.map(() => 1); // unused by resolveCollisions; kept for compat
 
     for (let i = 0; i < geometries.length; i++) {
       const { slotRect } = geometries[i];
@@ -1130,19 +1241,16 @@ function applyOpticalPlacements() {
       }
     }
 
-    const symLefts  = rawLefts.map((l, i)  => l + offsets[i]);
+    const symLefts  = rawLefts.map((l, i) => l + offsets[i]);
     const symRights = rawRights.map((r, i) => r + offsets[i]);
 
-    // Step 2: Collision resolution — nudge then scale down if needed.
     resolveCollisions(rawLefts, rawRights, offsets, scales, symLefts, symRights, barRect);
 
-    // Step 3: Apply offsets (as em) and scales to each token.
     geometries.forEach((geo, i) => {
       if (!geo.tokenEl) return;
       const fontSizePx = parseFloat(getComputedStyle(geo.tokenEl).fontSize);
       if (!fontSizePx) return;
       geo.tokenEl.style.setProperty('--chart-token-offset-x', `${(offsets[i] / fontSizePx).toFixed(3)}em`);
-      geo.tokenEl.style.setProperty('--chart-token-scale', scales[i].toFixed(3));
     });
   });
 }
@@ -1162,6 +1270,13 @@ function renderTransport() {
   }
   dom.transportPosition.textContent = `Bar ${currentBar} / ${totalBars}`;
   dom.stopButton.disabled = !state.isPlaying && state.activePlaybackEntryIndex < 0;
+  if (state.isPlaying && state.isPaused) {
+    dom.playButton.textContent = 'Resume';
+  } else if (state.isPlaying) {
+    dom.playButton.textContent = 'Pause';
+  } else {
+    dom.playButton.textContent = 'Start';
+  }
 }
 
 function renderChartSelector(preferredId = null) {
@@ -1253,34 +1368,49 @@ function renderFixture() {
   state.currentDrillExport = drillExport;
   persistChartId(chartDocument.metadata.id);
 
-  dom.sheetStyle.textContent = `(${viewModel.metadata.styleReference || viewModel.metadata.style || 'Unknown Style'})`;
+  dom.sheetStyle.textContent = viewModel.metadata.composer || '';
   dom.sheetTitle.textContent = viewModel.metadata.title || '';
-  dom.sheetSubtitle.textContent = [
-    viewModel.metadata.composer || '',
-    chartDocument.source?.playlistName || ''
-  ].filter(Boolean).join(' • ');
+  dom.sheetSubtitle.textContent = viewModel.metadata.styleReference || viewModel.metadata.style || '';
   dom.sheetTimeSignature.textContent = viewModel.metadata.primaryTimeSignature || '';
   dom.sheetKey.textContent = viewModel.metadata.displayKey || viewModel.metadata.sourceKey || '';
   dom.tempoInput.value = String(chartDocument.metadata.tempo || dom.tempoInput.value || DEFAULT_TEMPO);
 
   renderMeta(viewModel);
   renderSheet(viewModel);
+  requestAnimationFrame(() => {
+    updateSheetGridGap();
+    applyOpticalPlacements();
+  });
   renderDiagnostics(playbackPlan);
   dom.transportStatus.textContent = 'Ready';
   renderTransport();
 }
 
-function openMobilePanel() {
-  dom.chartApp?.classList.add('mobile-open');
-  document.getElementById('chart-controls-drawer')?.setAttribute('aria-hidden', 'false');
+function closeAllPopovers() {
+  [dom.manageChartsPopover, dom.settingsPopover].forEach((popover) => {
+    if (popover) popover.setAttribute('hidden', '');
+  });
 }
 
-function closeMobilePanel() {
-  dom.chartApp?.classList.remove('mobile-open');
-  document.getElementById('chart-controls-drawer')?.setAttribute('aria-hidden', 'true');
-  document.querySelectorAll('.chart-menu-group[open]').forEach((element) => {
-    element.removeAttribute('open');
-  });
+function togglePopover(targetPopover, otherPopover) {
+  const isOpen = !targetPopover.hidden;
+  closeAllPopovers();
+  if (!isOpen) {
+    targetPopover.removeAttribute('hidden');
+  }
+}
+
+function openOverlay() {
+  dom.chartApp?.classList.add('overlay-open');
+  dom.chartTopOverlay?.setAttribute('aria-hidden', 'false');
+  dom.chartBottomOverlay?.setAttribute('aria-hidden', 'false');
+}
+
+function closeOverlay() {
+  dom.chartApp?.classList.remove('overlay-open');
+  dom.chartTopOverlay?.setAttribute('aria-hidden', 'true');
+  dom.chartBottomOverlay?.setAttribute('aria-hidden', 'true');
+  closeAllPopovers();
 }
 
 async function importDefaultFixtureLibrary() {
@@ -1383,8 +1513,17 @@ async function loadFixtures() {
     });
   });
   dom.playButton.addEventListener('click', async () => {
+    if (state.isPlaying) {
+      const drillApi = getDrillApi();
+      if (drillApi) {
+        drillApi.togglePausePlayback();
+        syncPlaybackStateFromDrill();
+      }
+      return;
+    }
     try {
       await startPlayback();
+      closeOverlay();
     } catch (error) {
       dom.transportStatus.textContent = `Drill error: ${error.message}`;
       state.isPlaying = false;
@@ -1399,13 +1538,22 @@ async function loadFixtures() {
     stopPlayback({ resetPosition: true });
   });
 
-  dom.mobileMenuToggle?.addEventListener('click', openMobilePanel);
-  dom.mobileMenuClose?.addEventListener('click', closeMobilePanel);
-  dom.mobileBackdrop?.addEventListener('click', closeMobilePanel);
+  dom.mobileMenuToggle?.addEventListener('click', openOverlay);
+  dom.mobileBackdrop?.addEventListener('click', closeOverlay);
+  dom.manageChartsButton?.addEventListener('click', () => togglePopover(dom.manageChartsPopover, dom.settingsPopover));
+  dom.settingsButton?.addEventListener('click', () => togglePopover(dom.settingsPopover, dom.manageChartsPopover));
 
-  window.addEventListener('resize', applyOpticalPlacements);
+  let _lastInnerWidth = window.innerWidth;
+  window.addEventListener('resize', () => {
+    updateSheetGridGap();
+    if (window.innerWidth !== _lastInnerWidth) {
+      _lastInnerWidth = window.innerWidth;
+      applyOpticalPlacements();
+    }
+  });
   if (typeof ResizeObserver !== 'undefined' && dom.sheetGrid) {
-    new ResizeObserver(applyOpticalPlacements).observe(dom.sheetGrid);
+    const sheetObserver = new ResizeObserver(() => { updateSheetGridGap(); });
+    sheetObserver.observe(dom.sheetGrid.closest('.chart-sheet-panel') || dom.sheetGrid);
   }
   if (document.fonts?.ready) {
     document.fonts.ready.then(() => {

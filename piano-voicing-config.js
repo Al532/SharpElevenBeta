@@ -21,6 +21,8 @@ const PIANO_VOICING_CONFIG = {
         '6': { A: ['3', '5', '6', '9'] },
         m7b5: { A: ['b3', 'b5', 'b7', '1'] },
         dim7: { A: ['b3', 'b5', '6', '1'] },
+        // TODO: add mb6 voicing (minor b6 / minor augmented — rare, from iReal -#5/-b6)
+        // mb6: { A: [...] },
         lyd: { A: ['3', '#11', '7', '9'] },
         '13': { A: ['3', '13', 'b7', '9'] },
         '9': { A: ['3', '5', 'b7', '9'] },
