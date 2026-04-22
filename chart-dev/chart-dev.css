@@ -8,14 +8,6 @@
   --paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);
 }
 
-@font-face {
-  font-family: "JazzTrainerMusicSymbols";
-  src:
-    url("../assets/fonts/BravuraText-Latin-400.woff2") format("woff2"),
-    url("../assets/fonts/BravuraText.otf") format("opentype");
-  font-display: block;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -800,7 +792,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: "JazzTrainerMusicSymbols", serif;
+  font-family: serif;
   font-size: 1.34em;
   line-height: 1;
   color: currentColor;

@@ -769,8 +769,8 @@ function isRepeatTokenKind(kind) {
 
 function renderRepeatTokenMarkup(token) {
   const isTwoBarRepeat = token?.kind === 'repeat_previous_two_bars';
-  const entity = isTwoBarRepeat ? '&#x1D10F;' : '&#x1D10E;';
   const label = isTwoBarRepeat ? 'Repeat previous two bars' : 'Repeat previous bar';
+  const entity = isTwoBarRepeat ? '&#x1D10F;' : '&#x1D10E;';
 
   return `
     <span class="chart-repeat-sign" aria-label="${label}">
