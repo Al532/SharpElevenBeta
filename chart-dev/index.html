@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chart Dev</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../chord-symbol.css">
   <link rel="stylesheet" href="./chart-dev.css">
 </head>
@@ -66,6 +67,21 @@
                 <input id="walking-bass-toggle" type="checkbox" checked>
                 <span>Walking bass</span>
               </label>
+              <div class="chart-settings-section chart-settings-section-tight">
+                <h3>Chord Symbols</h3>
+                <label class="chart-toggle">
+                  <input id="use-major-triangle-symbol" type="checkbox" checked>
+                  <span>Triangle for maj7</span>
+                </label>
+                <label class="chart-toggle">
+                  <input id="use-half-diminished-symbol" type="checkbox" checked>
+                  <span>Half-diminished symbol</span>
+                </label>
+                <label class="chart-toggle">
+                  <input id="use-diminished-symbol" type="checkbox" checked>
+                  <span>Diminished symbol</span>
+                </label>
+              </div>
               <div class="chart-settings-section">
                 <h3>Mixer</h3>
                 <div class="chart-mixer">
@@ -161,18 +177,32 @@
 
     <!-- Main chart area: always full screen, overlays float on top -->
     <main class="chart-workspace">
-      <section class="chart-sheet-panel">
-        <div class="chart-sheet-header">
+      <div class="chart-sheet-header">
+        <div class="chart-sheet-title-row">
+          <button
+            id="previous-chart-button"
+            class="chart-sheet-nav-button"
+            type="button"
+            aria-label="Previous chart">
+            &#8249;
+          </button>
           <h2 id="sheet-title" class="chart-sheet-title"></h2>
-          <div class="chart-sheet-header-row">
-            <div class="chart-sheet-style" id="sheet-style"></div>
-            <div class="chart-sheet-subtitle" id="sheet-subtitle"></div>
-          </div>
-          <span id="sheet-time-signature" hidden></span>
-          <span id="sheet-key" hidden></span>
+          <button
+            id="next-chart-button"
+            class="chart-sheet-nav-button"
+            type="button"
+            aria-label="Next chart">
+            &#8250;
+          </button>
         </div>
-        <div id="sheet-grid" class="chart-sheet-grid"></div>
-      </section>
+        <div class="chart-sheet-header-row">
+          <div class="chart-sheet-style" id="sheet-style"></div>
+          <div class="chart-sheet-subtitle" id="sheet-subtitle"></div>
+        </div>
+        <span id="sheet-time-signature" hidden></span>
+        <span id="sheet-key" hidden></span>
+      </div>
+      <div id="sheet-grid" class="chart-sheet-grid"></div>
     </main>
   </div>
 

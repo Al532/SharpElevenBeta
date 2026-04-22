@@ -190,6 +190,44 @@ function normalizeCellSlot(cell) {
   };
 }
 
+function normalizeSystemLayout(systemLayout, bars) {
+  if (!systemLayout || typeof systemLayout !== 'object') return null;
+
+  const barIdByIndex = new Map((bars || []).map(bar => [bar.index, bar.id]));
+  const normalizedRows = Array.isArray(systemLayout.rows)
+    ? systemLayout.rows.map(row => {
+      const barIndices = Array.isArray(row?.bar_indices)
+        ? row.bar_indices
+          .map(value => Number(value))
+          .filter(Number.isInteger)
+        : [];
+
+      return {
+        rowIndex: Number(row?.row_index || 0),
+        startCellIndex: Number(row?.start_cell_index || 0),
+        leadingEmptyCells: Number(row?.leading_empty_cells || 0),
+        leadingEmptyBars: Number(row?.leading_empty_bars || 0),
+        barIndices,
+        barIds: barIndices
+          .map(barIndex => barIdByIndex.get(barIndex))
+          .filter(Boolean)
+      };
+    }).filter(row => row.rowIndex > 0)
+    : [];
+
+  if (!normalizedRows.length) return null;
+
+  return {
+    source: 'ireal',
+    systems: {
+      cellsPerRow: Number(systemLayout.cells_per_row || 16),
+      totalCells: Number(systemLayout.total_cells || 0),
+      rowCount: normalizedRows.length,
+      rows: normalizedRows
+    }
+  };
+}
+
 function createDisplayState(bar, playbackSlots, overlaySlots) {
   const notationKind = bar?.source_event || 'written';
 
@@ -286,6 +324,8 @@ export function createChartDocumentFromIReal({
     }
   }
 
+  const layout = normalizeSystemLayout(song.system_layout, bars);
+
   return createChartDocument({
     metadata: {
       id: `${song.title || 'chart'}-${song.index || 0}`
@@ -319,7 +359,8 @@ export function createChartDocumentFromIReal({
       importedAt
     },
     sections,
-    bars
+    bars,
+    layout
   });
 }
 

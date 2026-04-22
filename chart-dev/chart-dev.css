@@ -8,6 +8,14 @@
   --paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);
 }
 
+@font-face {
+  font-family: "JazzTrainerMusicSymbols";
+  src:
+    url("../assets/fonts/BravuraText-Latin-400.woff2") format("woff2"),
+    url("../assets/fonts/BravuraText.otf") format("opentype");
+  font-display: block;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -257,6 +265,10 @@ select {
   gap: 12px;
 }
 
+.chart-settings-section-tight {
+  gap: 8px;
+}
+
 .chart-settings-section h3 {
   margin: 0;
   color: var(--sheet-muted);
@@ -389,9 +401,11 @@ select {
 
 .chart-workspace {
   height: 100dvh;
-  padding: 8px;
+  padding: 6px 6px 32px;
   overflow: auto;
   overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-sheet-panel,
@@ -406,8 +420,13 @@ select {
 }
 
 .chart-sheet-header {
+  padding: 18px 10px 14px;
   margin-bottom: 16px;
   text-align: center;
+}
+
+.chart-sheet-title-row {
+  display: block;
 }
 
 .chart-sheet-title {
@@ -416,6 +435,44 @@ select {
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.1;
+}
+
+.chart-sheet-nav-button {
+  position: fixed;
+  top: clamp(72px, 10dvh, 108px);
+  z-index: 140;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(244, 247, 251, 0.012);
+  color: rgba(13, 95, 186, 0.34);
+  box-shadow: 0 1px 6px rgba(25, 118, 201, 0.02);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+}
+
+.chart-sheet-nav-button:hover {
+  background: rgba(244, 247, 251, 0.04);
+  color: rgba(13, 95, 186, 0.52);
+}
+
+.chart-sheet-nav-button:active {
+  transform: scale(0.94);
+}
+
+.chart-sheet-nav-button:disabled {
+  opacity: 0.18;
+  cursor: default;
+  transform: none;
+}
+
+#previous-chart-button {
+  left: 10px;
+}
+
+#next-chart-button {
+  right: 10px;
 }
 
 .chart-sheet-header-row {
@@ -439,6 +496,8 @@ select {
 }
 
 .chart-sheet-grid {
+  flex: 1 1 auto;
+  width: 100%;
   display: grid;
   gap: 0;
   background: transparent;
@@ -449,8 +508,9 @@ select {
 /* --- Chart row & bars -------------------------------------------- */
 
 .chart-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 56px repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--chart-row-columns, 4), minmax(0, 1fr));
   align-items: stretch;
 }
 
@@ -459,11 +519,16 @@ select {
 }
 
 .chart-section-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: auto;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
-  padding-top: 8px;
-  background: linear-gradient(180deg, rgba(25, 118, 201, 0.06), rgba(25, 118, 201, 0.01));
+  justify-content: flex-start;
+  padding-top: 2px;
+  background: none;
+  z-index: 2;
 }
 
 .chart-section-badge {
@@ -481,7 +546,7 @@ select {
 }
 
 .chart-section-spacer {
-  width: 100%;
+  display: none;
 }
 
 .chart-bar-cell {
@@ -495,6 +560,10 @@ select {
   transition: background-color 120ms ease;
 }
 
+.chart-bar-cell.is-repeat-end {
+  padding-right: 14px;
+}
+
 .chart-bar-cell::before {
   content: "";
   position: absolute;
@@ -506,7 +575,11 @@ select {
   border-right: 2px solid var(--sheet-line);
 }
 
-.chart-row > .chart-bar-cell:first-of-type::after {
+.chart-bar-cell.is-repeat-end::before {
+  border-right-width: 4px;
+}
+
+.chart-bar-cell.is-row-start::after {
   content: "";
   position: absolute;
   top: var(--chart-bar-line-top);
@@ -517,6 +590,16 @@ select {
   border-left: 2px solid var(--sheet-line);
 }
 
+.chart-bar-cell.is-empty {
+  min-height: 138px;
+  padding: 0;
+}
+
+.chart-bar-cell.is-empty::before,
+.chart-bar-cell.is-empty::after {
+  content: none;
+}
+
 .chart-bar-cell.is-active {
   background: rgba(255, 248, 176, 0.42);
 }
@@ -525,41 +608,38 @@ select {
   background: rgba(238, 247, 255, 0.45);
 }
 
-/* --- Bar time signature ------------------------------------------ */
+/* --- Row time signature ------------------------------------------ */
 
-.chart-bar-time-sig {
+.chart-row-time-sig {
   position: absolute;
-  left: 0;
-  top: 40px;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 26px;
-  font-size: 1.05rem;
+  top: -0.1rem;
+  left: 2px;
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 1rem;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
   color: #111;
-  z-index: 3;
+  z-index: 4;
   pointer-events: none;
   user-select: none;
 }
 
-.chart-bar-time-sig-num,
-.chart-bar-time-sig-den {
-  display: block;
-  text-align: center;
-  line-height: 1;
+.chart-row.has-section-marker .chart-row-time-sig {
+  left: 34px;
 }
 
-.chart-repeat-end-marker {
+.chart-bar-cell.is-repeat-end::after {
+  content: "";
   position: absolute;
-  right: 4px;
+  right: 5px;
   top: 50%;
-  transform: translateY(-50%);
-  font-size: 2rem;
-  line-height: 0.8;
-  font-weight: 700;
+  width: 5px;
+  height: 20px;
+  transform: translateY(calc(-50% + 2px));
+  background:
+    radial-gradient(circle, #111 0 1.45px, transparent 1.65px) center 4px / 5px 5px no-repeat,
+    radial-gradient(circle, #111 0 1.45px, transparent 1.65px) center 15px / 5px 5px no-repeat;
 }
 
 .chart-bar-cell.is-final::after {
@@ -607,33 +687,56 @@ select {
 
 .chart-ending-stack {
   position: absolute;
-  top: 0;
+  top: -14px;
   left: 8px;
   right: 8px;
   display: grid;
-  gap: 6px;
+  gap: 2px;
   pointer-events: none;
+  z-index: 3;
 }
 
 .chart-ending {
   position: relative;
   display: inline-flex;
   align-items: center;
-  padding-left: 14px;
-  font-size: 0.95rem;
+  width: 100%;
+  min-height: 16px;
+  padding-left: 12px;
+  padding-right: 4px;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #111;
+  line-height: 1;
+  background: transparent;
 }
 
 .chart-ending::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.2em;
-  width: 10px;
-  height: 1.15em;
-  border-top: 4px solid #111;
-  border-left: 4px solid #111;
+  top: 0.05em;
+  width: 9px;
+  height: 1em;
+  border-top: 2px solid #111;
+  border-left: 2px solid #111;
+}
+
+.chart-ending::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 0;
+  top: 0.05em;
+  border-top: 2px solid #111;
+}
+
+.chart-bar-cell.is-repeat-end .chart-ending::after {
+  right: 12px;
+}
+
+.chart-ending-2::after {
+  display: none;
 }
 
 /* --- Bar body & tokens ------------------------------------------- */
@@ -668,6 +771,10 @@ select {
   overflow: visible;
 }
 
+.chart-token-slot.repeat-slot {
+  justify-content: center;
+}
+
 .chart-token {
   display: inline-flex;
   align-items: flex-end;
@@ -683,7 +790,23 @@ select {
 }
 
 .chart-token.repeat {
-  letter-spacing: -0.14em;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  transform-origin: center center;
+}
+
+.chart-repeat-sign {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "JazzTrainerMusicSymbols", serif;
+  font-size: 1.34em;
+  line-height: 1;
+  color: currentColor;
+  text-rendering: geometricPrecision;
+  font-variant-ligatures: none;
+  transform: translate(0.08em, 0.1em);
 }
 
 .chart-token .chord-symbol {
@@ -751,6 +874,10 @@ select {
   align-items: center;
   gap: 10px;
   font-size: 0.95rem;
+}
+
+.chart-toggle input[type="checkbox"] {
+  accent-color: var(--blue-ui);
 }
 
 .chart-toggle-strong {
@@ -861,13 +988,23 @@ select {
     gap: 2px;
   }
 
+  .chart-sheet-title-row {
+    display: block;
+  }
+
+  .chart-sheet-nav-button {
+    top: clamp(78px, 12dvh, 118px);
+    width: 42px;
+    height: 42px;
+  }
+
   .chart-sheet-subtitle {
     text-align: left;
   }
 
   .chart-row {
     position: relative;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--chart-row-columns, 4), minmax(0, 1fr));
     align-items: start;
     min-height: 0;
   }
@@ -883,7 +1020,7 @@ select {
   .chart-section-marker {
     position: absolute;
     top: 0;
-    left: 5px;
+    left: 0;
     width: auto;
     padding-top: 0;
     justify-content: flex-start;
@@ -917,7 +1054,7 @@ select {
     border-right-width: 1.5px;
   }
 
-  .chart-row > .chart-bar-cell:first-of-type::after {
+  .chart-bar-cell.is-row-start::after {
     border-left-width: 1.5px;
   }
 
@@ -943,13 +1080,14 @@ select {
 
   /* Density classes removed: Phase 1 JS sets font-size per-bar based on actual content. */
 
-  .chart-bar-time-sig {
-    /* Centre on the visible barline segment rather than using the desktop top offset. */
-    top: calc(var(--chart-bar-line-top) + var(--chart-mobile-bar-line-height) * 0.5);
-    transform: translate(-50%, -50%);
-    font-size: 0.85rem;
-    line-height: 1;
-    width: 22px;
+  .chart-row-time-sig {
+    top: 0;
+    left: 1px;
+    font-size: 0.8rem;
+  }
+
+  .chart-row.has-section-marker .chart-row-time-sig {
+    left: 24px;
   }
 
   .chart-bar-index,
@@ -976,5 +1114,13 @@ select {
     grid-auto-rows: auto;
     row-gap: 16px;
     align-content: start;
+  }
+
+  .chart-workspace {
+    padding: 4px 4px 28px;
+  }
+
+  .chart-sheet-header {
+    padding: 12px 6px 10px;
   }
 }

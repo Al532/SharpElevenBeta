@@ -36,12 +36,17 @@ const dom = {
   fixtureSelect: document.getElementById('fixture-select'),
   transposeSelect: document.getElementById('transpose-select'),
   harmonyDisplayMode: document.getElementById('harmony-display-mode'),
+  useMajorTriangleSymbol: document.getElementById('use-major-triangle-symbol'),
+  useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol'),
+  useDiminishedSymbol: document.getElementById('use-diminished-symbol'),
   tempoInput: document.getElementById('tempo-input'),
   sheetStyle: document.getElementById('sheet-style'),
   sheetTitle: document.getElementById('sheet-title'),
   sheetSubtitle: document.getElementById('sheet-subtitle'),
   sheetTimeSignature: document.getElementById('sheet-time-signature'),
   sheetKey: document.getElementById('sheet-key'),
+  previousChartButton: document.getElementById('previous-chart-button'),
+  nextChartButton: document.getElementById('next-chart-button'),
   sheetGrid: document.getElementById('sheet-grid'),
   chartMeta: document.getElementById('chart-meta'),
   diagnosticsList: document.getElementById('diagnostics-list'),
@@ -87,7 +92,13 @@ const state = {
   drillPollTimer: null,
   isPlaying: false,
   isPaused: false,
-  currentSearch: ''
+  currentSearch: '',
+  swipeGesture: {
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    active: false
+  }
 };
 
 function loadPersistedChartId() {
@@ -125,7 +136,10 @@ function persistPlaybackSettings() {
       compingStyle: dom.compingStyleSelect.value || 'strings',
       drumsMode: dom.drumsSelect.value || 'full_swing',
       customMediumSwingBass: dom.walkingBassToggle.checked !== false,
-      harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value)
+      harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+      useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
+      useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
+      useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
     }));
   } catch {
     // Ignore storage failures so chart-dev still works in restricted contexts.
@@ -151,6 +165,18 @@ function applyPersistedPlaybackSettings() {
   if (dom.harmonyDisplayMode && persisted.harmonyDisplayMode) {
     dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(persisted.harmonyDisplayMode);
   }
+
+  if (dom.useMajorTriangleSymbol && persisted.useMajorTriangleSymbol !== undefined) {
+    dom.useMajorTriangleSymbol.checked = Boolean(persisted.useMajorTriangleSymbol);
+  }
+
+  if (dom.useHalfDiminishedSymbol && persisted.useHalfDiminishedSymbol !== undefined) {
+    dom.useHalfDiminishedSymbol.checked = Boolean(persisted.useHalfDiminishedSymbol);
+  }
+
+  if (dom.useDiminishedSymbol && persisted.useDiminishedSymbol !== undefined) {
+    dom.useDiminishedSymbol.checked = Boolean(persisted.useDiminishedSymbol);
+  }
 }
 
 function normalizeHarmonyDisplayMode(mode) {
@@ -174,6 +200,99 @@ function getAvailableDocuments() {
   return state.filteredDocuments.length > 0
     ? state.filteredDocuments
     : (state.fixtureLibrary?.documents || []);
+}
+
+function getCurrentChartIndex() {
+  const documents = getAvailableDocuments();
+  const selectedId = dom.fixtureSelect?.value || state.currentChartDocument?.metadata?.id || '';
+  return documents.findIndex((document) => document.metadata.id === selectedId);
+}
+
+function updateChartNavigationState() {
+  const documents = getAvailableDocuments();
+  const currentIndex = getCurrentChartIndex();
+  const hasCharts = documents.length > 0 && currentIndex >= 0;
+
+  if (dom.previousChartButton) {
+    dom.previousChartButton.disabled = !hasCharts || currentIndex <= 0;
+  }
+  if (dom.nextChartButton) {
+    dom.nextChartButton.disabled = !hasCharts || currentIndex >= documents.length - 1;
+  }
+}
+
+function goToAdjacentChart(direction) {
+  const step = Number(direction);
+  if (!Number.isFinite(step) || step === 0) return false;
+
+  const documents = getAvailableDocuments();
+  const currentIndex = getCurrentChartIndex();
+  if (documents.length === 0 || currentIndex < 0) return false;
+
+  const nextIndex = currentIndex + (step > 0 ? 1 : -1);
+  if (nextIndex < 0 || nextIndex >= documents.length) return false;
+
+  dom.fixtureSelect.value = documents[nextIndex].metadata.id;
+  renderFixture();
+  return true;
+}
+
+function isEditableTarget(target) {
+  if (!(target instanceof Element)) return false;
+  if (target instanceof HTMLInputElement) {
+    return target.type !== 'range';
+  }
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="textbox"]'));
+}
+
+function resetSwipeGesture() {
+  state.swipeGesture.pointerId = null;
+  state.swipeGesture.startX = 0;
+  state.swipeGesture.startY = 0;
+  state.swipeGesture.active = false;
+}
+
+function bindChartNavigationControls() {
+  dom.previousChartButton?.addEventListener('click', () => {
+    goToAdjacentChart(-1);
+  });
+  dom.nextChartButton?.addEventListener('click', () => {
+    goToAdjacentChart(1);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (isEditableTarget(event.target)) return;
+    if (event.key === 'ArrowLeft') {
+      if (goToAdjacentChart(-1)) event.preventDefault();
+    } else if (event.key === 'ArrowRight') {
+      if (goToAdjacentChart(1)) event.preventDefault();
+    }
+  });
+
+  dom.sheetGrid?.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+    state.swipeGesture.pointerId = event.pointerId;
+    state.swipeGesture.startX = event.clientX;
+    state.swipeGesture.startY = event.clientY;
+    state.swipeGesture.active = true;
+  });
+
+  dom.sheetGrid?.addEventListener('pointerup', (event) => {
+    if (!state.swipeGesture.active || state.swipeGesture.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - state.swipeGesture.startX;
+    const deltaY = event.clientY - state.swipeGesture.startY;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    if (absX >= 56 && absX > absY * 1.35) {
+      goToAdjacentChart(deltaX < 0 ? 1 : -1);
+    }
+    resetSwipeGesture();
+  });
+
+  dom.sheetGrid?.addEventListener('pointercancel', resetSwipeGesture);
 }
 
 function slugify(value) {
@@ -285,6 +404,60 @@ function getTempo() {
 
 function getDisplayedBarGroupSize() {
   return DEFAULT_BAR_GROUP_SIZE;
+}
+
+function buildRenderedRows(viewModel, barTimeSigDisplay) {
+  const bars = Array.isArray(viewModel?.bars) ? viewModel.bars : [];
+  const layoutRows = Array.isArray(viewModel?.layout?.systems?.rows) ? viewModel.layout.systems.rows : [];
+  const cellsPerRow = Number(viewModel?.layout?.systems?.cellsPerRow || 0);
+  const defaultSlotsPerRow = getDisplayedBarGroupSize();
+  const inferredSlotsPerRow = Number.isFinite(cellsPerRow) && cellsPerRow > 0
+    ? Math.max(1, Math.round(cellsPerRow / 4))
+    : defaultSlotsPerRow;
+
+  if (layoutRows.length > 0) {
+    const barsById = new Map(bars.map(bar => [bar.id, bar]));
+    const barsByIndex = new Map(bars.map(bar => [bar.index, bar]));
+
+    return layoutRows.map((row) => {
+      const rowBars = (Array.isArray(row?.barIds) ? row.barIds.map(barId => barsById.get(barId)) : [])
+        .filter(Boolean);
+      const fallbackBars = rowBars.length === 0 && Array.isArray(row?.barIndices)
+        ? row.barIndices.map(barIndex => barsByIndex.get(Number(barIndex))).filter(Boolean)
+        : [];
+      const resolvedBars = rowBars.length > 0 ? rowBars : fallbackBars;
+      const firstBar = resolvedBars[0] || null;
+      const rowStartIndex = firstBar ? bars.findIndex(bar => bar.id === firstBar.id) : -1;
+
+      return {
+        bars: resolvedBars,
+        firstBar,
+        previousBar: rowStartIndex > 0 ? bars[rowStartIndex - 1] : null,
+        rowTimeSignature: rowStartIndex >= 0 ? (barTimeSigDisplay[rowStartIndex] || null) : null,
+        leadingEmptyBars: Math.max(0, Number(row?.leadingEmptyBars || 0)),
+        totalSlots: Math.max(
+          inferredSlotsPerRow,
+          Math.max(0, Number(row?.leadingEmptyBars || 0)) + resolvedBars.length
+        )
+      };
+    }).filter(row => row.firstBar);
+  }
+
+  const rows = [];
+  for (let index = 0; index < bars.length; index += defaultSlotsPerRow) {
+    const rowBars = bars.slice(index, index + defaultSlotsPerRow);
+    const firstBar = rowBars[0] || null;
+    if (!firstBar) continue;
+    rows.push({
+      bars: rowBars,
+      firstBar,
+      previousBar: index > 0 ? bars[index - 1] : null,
+      rowTimeSignature: barTimeSigDisplay[index] || null,
+      leadingEmptyBars: 0,
+      totalSlots: defaultSlotsPerRow
+    });
+  }
+  return rows;
 }
 
 function setActivePlaybackPosition(barId, entryIndex) {
@@ -537,8 +710,17 @@ function renderChordMarkup(token, harmonyDisplayMode) {
   return renderChordSymbolHtml(
     token.root || '',
     getDisplayAliasQuality(token.quality || '', harmonyDisplayMode),
-    token.bass || null
+    token.bass || null,
+    getChordSymbolRenderOptions()
   );
+}
+
+function getChordSymbolRenderOptions() {
+  return {
+    useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
+    useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
+    useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
+  };
 }
 
 function getTokenVisualMetrics(token) {
@@ -581,21 +763,37 @@ function getTokenScaleForSubdividedLayout(tokenMetrics) {
   return 0.97;
 }
 
+function isRepeatTokenKind(kind) {
+  return kind === 'repeat_previous_bar' || kind === 'repeat_previous_two_bars';
+}
+
+function renderRepeatTokenMarkup(token) {
+  const isTwoBarRepeat = token?.kind === 'repeat_previous_two_bars';
+  const entity = isTwoBarRepeat ? '&#x1D10F;' : '&#x1D10E;';
+  const label = isTwoBarRepeat ? 'Repeat previous two bars' : 'Repeat previous bar';
+
+  return `
+    <span class="chart-repeat-sign" aria-label="${label}">
+      ${entity}
+    </span>
+  `;
+}
+
 function renderToken(token, placement, harmonyDisplayMode) {
-  const symbol = token?.symbol || '';
-  const tokenClass = token?.kind === 'repeat_previous_bar' ? 'repeat' : 'chord';
+  const tokenClass = isRepeatTokenKind(token?.kind) ? 'repeat' : 'chord';
   const slotStart = Math.max(1, Number(placement?.start || 1));
   const slotEnd = Math.max(slotStart + 1, Number(placement?.end || (slotStart + 1)));
   const slotStyle = `grid-column: ${slotStart} / ${slotEnd};`;
   const tokenMarkup = tokenClass === 'chord'
     ? renderChordMarkup(token, harmonyDisplayMode)
-    : symbol;
+    : renderRepeatTokenMarkup(token);
   const alternateMarkup = token?.alternate?.symbol
     ? `<span class="chart-token-alternate">${renderChordMarkup(token.alternate, harmonyDisplayMode)}</span>`
     : '';
+  const slotClass = tokenClass === 'repeat' ? 'chart-token-slot repeat-slot' : 'chart-token-slot';
 
   return `
-    <span class="chart-token-slot" style="${slotStyle}">
+    <span class="${slotClass}" style="${slotStyle}">
       <span class="chart-token ${tokenClass}">${alternateMarkup}${tokenMarkup}</span>
     </span>
   `;
@@ -605,7 +803,7 @@ function renderEndingMarkup(endings = []) {
   if (!Array.isArray(endings) || endings.length === 0) return '';
   return `
     <div class="chart-ending-stack">
-      ${endings.map(ending => `<span class="chart-ending">${ending}.</span>`).join('')}
+      ${endings.map(ending => `<span class="chart-ending chart-ending-${ending}">${ending}.</span>`).join('')}
     </div>
   `;
 }
@@ -818,18 +1016,18 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   };
 }
 
-function renderBarCell(bar, displayTimeSignature = null) {
+function renderBarCell(bar, options = {}) {
   const classes = ['chart-bar-cell'];
   if (bar.id === state.activeBarId) classes.push('is-active');
   if (bar.flags.includes('repeat_end_barline')) classes.push('is-repeat-end');
   if (bar.flags.includes('final_bar') || bar.flags.includes('end')) classes.push('is-final');
+  if (options.isRowStart) classes.push('is-row-start');
 
   const footPills = getBarFootPills(bar);
   const bodyLayout = getBarBodyLayout(bar, state.currentViewModel?.metadata?.primaryTimeSignature || '');
   const harmonyDisplayMode = normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value);
   return `
     <article class="${classes.join(' ')}" data-bar-id="${bar.id}">
-      ${displayTimeSignature ? renderBarTimeSignature(displayTimeSignature) : ''}
       ${renderEndingMarkup(bar.endings)}
       ${renderBarCornerMarkers(bar)}
       <div class="chart-bar-head">
@@ -843,6 +1041,10 @@ function renderBarCell(bar, displayTimeSignature = null) {
       </div>
     </article>
   `;
+}
+
+function renderEmptyBarCell() {
+  return '<article class="chart-bar-cell is-empty" aria-hidden="true"></article>';
 }
 
 const SHEET_GAP_MIN = 12;
@@ -873,14 +1075,13 @@ function updateSheetGridGap() {
 }
 
 function renderBarTimeSignature(timeSig) {
-  const parts = timeSig.split('/');
-  if (parts.length !== 2) return '';
-  return `<div class="chart-bar-time-sig" aria-label="${timeSig}"><span class="chart-bar-time-sig-num">${parts[0].trim()}</span><span class="chart-bar-time-sig-den">${parts[1].trim()}</span></div>`;
+  const value = String(timeSig || '').trim();
+  if (!/^\d+\s*\/\s*\d+$/.test(value)) return '';
+  return `<div class="chart-row-time-sig" aria-label="${value}">${value.replace(/\s+/g, '')}</div>`;
 }
 
 function renderSheet(viewModel) {
   const bars = viewModel.bars || [];
-  const groupSize = getDisplayedBarGroupSize();
   const primaryTimeSig = viewModel.metadata.primaryTimeSignature || '';
 
   // Pre-compute which bars should show a time signature (first bar + any change)
@@ -892,23 +1093,25 @@ function renderSheet(viewModel) {
     return show ? effectiveTimeSig : null;
   });
 
-  const rows = [];
+  const rows = buildRenderedRows(viewModel, barTimeSigDisplay).map((row) => {
+    const sectionChanged = !row.previousBar || row.previousBar.sectionId !== row.firstBar.sectionId;
+    const cells = [
+      ...Array.from({ length: row.leadingEmptyBars }, () => renderEmptyBarCell()),
+      ...row.bars.map((bar, index) => renderBarCell(bar, {
+        isRowStart: index === 0
+      }))
+    ];
 
-  for (let index = 0; index < bars.length; index += groupSize) {
-    const rowBars = bars.slice(index, index + groupSize);
-    const firstBar = rowBars[0];
-    const previousBar = index > 0 ? bars[index - 1] : null;
-    const sectionChanged = !previousBar || previousBar.sectionId !== firstBar.sectionId;
-
-    rows.push(`
-      <div class="chart-row${sectionChanged ? ' has-section-marker' : ''}">
+    return `
+      <div class="chart-row${sectionChanged ? ' has-section-marker' : ''}" style="--chart-row-columns: ${row.totalSlots};">
+        ${row.rowTimeSignature ? renderBarTimeSignature(row.rowTimeSignature) : ''}
         <div class="chart-section-marker">
-          ${sectionChanged ? `<span class="chart-section-badge">${firstBar.sectionLabel}</span>` : '<span class="chart-section-spacer"></span>'}
+          ${sectionChanged ? `<span class="chart-section-badge">${row.firstBar.sectionLabel}</span>` : '<span class="chart-section-spacer"></span>'}
         </div>
-        ${rowBars.map((bar, i) => renderBarCell(bar, barTimeSigDisplay[index + i])).join('')}
+        ${cells.join('')}
       </div>
-    `);
-  }
+    `;
+  });
 
   dom.sheetGrid.innerHTML = rows.join('');
 }
@@ -945,7 +1148,10 @@ function measureTokenGeometry(slotEl) {
   const mainEl = mainChordEl ? mainChordEl.querySelector('.chord-symbol-main') : null;
 
   const slotRect   = slotEl.getBoundingClientRect();
-  const symbolRect = mainChordEl ? getVisualSymbolRect(mainChordEl) : null;
+  const tokenRect  = tokenEl ? tokenEl.getBoundingClientRect() : null;
+  const symbolRect = mainChordEl
+    ? getVisualSymbolRect(mainChordEl)
+    : (tokenRect && tokenRect.width > 0 ? { left: tokenRect.left, right: tokenRect.right } : null);
   const mainRect   = mainEl ? mainEl.getBoundingClientRect() : null;
 
   // Optical anchor = horizontal centre of .chord-symbol-main (root + base only,
@@ -1104,7 +1310,6 @@ function applySingleChordAnchor(barBodyEl) {
 }
 
 function applyOpticalPlacements() {
-  const isMobile = window.matchMedia('(max-width: 1200px)').matches;
 
   // ── Reset all previous overrides (single baseline reflow) ────────────────
   document.querySelectorAll('.chart-row').forEach(rowEl => {
@@ -1150,7 +1355,7 @@ function applyOpticalPlacements() {
     if (maxDev < 0.04) return; // not worth the visual disruption
 
     const cols = clamped.map(c => `${c.toFixed(1)}fr`).join(' ');
-    rowEl.style.gridTemplateColumns = isMobile ? cols : `56px ${cols}`;
+    rowEl.style.gridTemplateColumns = cols;
   });
 
   void document.documentElement.offsetHeight; // eslint-disable-line no-unused-expressions
@@ -1303,6 +1508,7 @@ function renderChartSelector(preferredId = null) {
     dom.diagnosticsList.innerHTML = '<li>No diagnostics.</li>';
     resetActivePlaybackPosition();
     renderTransport();
+    updateChartNavigationState();
     return;
   }
 
@@ -1325,6 +1531,7 @@ function renderChartSelector(preferredId = null) {
   dom.chartLibraryCount.textContent = state.currentSearch
     ? `${resultLabel} charts match${suffix}`
     : `${resultLabel} charts${suffix}`;
+  updateChartNavigationState();
 }
 
 function applySearchFilter() {
@@ -1384,6 +1591,7 @@ function renderFixture() {
   renderDiagnostics(playbackPlan);
   dom.transportStatus.textContent = 'Ready';
   renderTransport();
+  updateChartNavigationState();
 }
 
 function closeAllPopovers() {
@@ -1494,6 +1702,7 @@ function bindImportControls() {
 async function loadFixtures() {
   applyPersistedPlaybackSettings();
   bindImportControls();
+  bindChartNavigationControls();
   await importDefaultFixtureLibrary();
   dom.chartSearchInput.addEventListener('input', applySearchFilter);
   dom.fixtureSelect.addEventListener('change', renderFixture);
@@ -1501,6 +1710,16 @@ async function loadFixtures() {
   dom.harmonyDisplayMode?.addEventListener('change', () => {
     persistPlaybackSettings();
     renderFixture();
+  });
+  [
+    dom.useMajorTriangleSymbol,
+    dom.useHalfDiminishedSymbol,
+    dom.useDiminishedSymbol
+  ].filter(Boolean).forEach((toggle) => {
+    toggle.addEventListener('change', () => {
+      persistPlaybackSettings();
+      renderFixture();
+    });
   });
   dom.tempoInput.addEventListener('change', renderTransport);
   dom.compingStyleSelect.addEventListener('change', syncDrillPlaybackSettings);

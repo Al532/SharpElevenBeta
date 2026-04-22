@@ -207,6 +207,9 @@ const dom = {
   majorMinor:      document.getElementById('major-minor'),
   displayMode:     document.getElementById('display-mode'),
   harmonyDisplayMode: document.getElementById('harmony-display-mode'),
+  useMajorTriangleSymbol: document.getElementById('use-major-triangle-symbol'),
+  useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol'),
+  useDiminishedSymbol: document.getElementById('use-diminished-symbol'),
   debugToggle:     document.getElementById('debug-toggle'),
   keyPicker:       document.getElementById('key-picker'),
   keyPickerBackdrop: document.getElementById('key-picker-backdrop'),
@@ -1345,6 +1348,13 @@ function expandRepeatedMeasureStrings(body) {
   return measures;
 }
 
+function tokenizeDrillSegment(segment) {
+  return String(segment || '')
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .flatMap((token) => (/^[%/]+$/.test(token) ? token.split('') : [token]));
+}
+
 function analyzePattern(str) {
   const oneChordSpec = parseOneChordSpec(str);
   if (oneChordSpec.active) {
@@ -1378,7 +1388,7 @@ function analyzePattern(str) {
   }
 
   const usesBarLines = base.body.includes('|');
-  const tokens = base.body ? base.body.split(/(?:\|+|[\s-]+)/).filter(Boolean) : [];
+  const tokens = base.body ? tokenizeDrillSegment(base.body.replace(/\|+/g, ' ')) : [];
   const chords = [];
   const invalidTokens = [];
 
@@ -1388,7 +1398,7 @@ function analyzePattern(str) {
 
     let previousChord = null;
     measures.forEach((measure, index) => {
-      const measureTokens = measure.split(/[\s-]+/).filter(Boolean);
+      const measureTokens = tokenizeDrillSegment(measure);
       const measureChords = [];
 
       for (const token of measureTokens) {
@@ -3535,7 +3545,7 @@ function chordSymbol(key, chord, isMinorOverride = null, nextChord = null) {
 function chordSymbolHtml(key, chord, isMinorOverride = null, nextChord = null) {
   if (chord?.inputType === 'one-chord') {
     const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false, nextChord));
+    return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false, nextChord), null, getChordSymbolRenderOptions());
   }
   const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
   const rootName = normalizeDisplayedRootName(
@@ -3543,7 +3553,15 @@ function chordSymbolHtml(key, chord, isMinorOverride = null, nextChord = null) {
   );
   const quality = getDisplayedQuality(chord, isMinor, nextChord);
   const bassName = getDisplayedBassName(key, chord, isMinor);
-  return renderChordSymbolHtml(rootName, quality, bassName);
+  return renderChordSymbolHtml(rootName, quality, bassName, getChordSymbolRenderOptions());
+}
+
+function getChordSymbolRenderOptions() {
+  return {
+    useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
+    useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
+    useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
+  };
 }
 
 function refreshChordDisplayLayout(element, baseRem) {
@@ -4915,6 +4933,9 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   chordsPerBar: DEFAULT_CHORDS_PER_BAR,
   displayMode: DISPLAY_MODE_SHOW_BOTH,
   harmonyDisplayMode: HARMONY_DISPLAY_MODE_DEFAULT,
+  useMajorTriangleSymbol: true,
+  useHalfDiminishedSymbol: true,
+  useDiminishedSymbol: true,
   showBeatIndicator: true,
   hideCurrentHarmony: false,
   compingStyle: COMPING_STYLE_PIANO,
@@ -4979,6 +5000,9 @@ function buildSettingsSnapshot() {
     majorMinor: dom.majorMinor.checked,
     displayMode: normalizeDisplayMode(dom.displayMode?.value),
     harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+    useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
+    useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
+    useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false,
     showBeatIndicator: dom.showBeatIndicator?.checked !== false,
     hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
     compingStyle: getCompingStyle(),
@@ -5081,6 +5105,15 @@ function applyLoadedSettings(s) {
   }
   if (s.harmonyDisplayMode !== undefined && dom.harmonyDisplayMode) {
     dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(s.harmonyDisplayMode);
+  }
+  if (s.useMajorTriangleSymbol !== undefined && dom.useMajorTriangleSymbol) {
+    dom.useMajorTriangleSymbol.checked = Boolean(s.useMajorTriangleSymbol);
+  }
+  if (s.useHalfDiminishedSymbol !== undefined && dom.useHalfDiminishedSymbol) {
+    dom.useHalfDiminishedSymbol.checked = Boolean(s.useHalfDiminishedSymbol);
+  }
+  if (s.useDiminishedSymbol !== undefined && dom.useDiminishedSymbol) {
+    dom.useDiminishedSymbol.checked = Boolean(s.useDiminishedSymbol);
   }
   if (s.showBeatIndicator !== undefined && dom.showBeatIndicator) {
     dom.showBeatIndicator.checked = Boolean(s.showBeatIndicator);
@@ -5660,6 +5693,9 @@ function resetPlaybackSettings() {
   applyEnabledKeys(standardSettings.enabledKeys);
   if (dom.displayMode) dom.displayMode.value = standardSettings.displayMode;
   if (dom.harmonyDisplayMode) dom.harmonyDisplayMode.value = standardSettings.harmonyDisplayMode;
+  if (dom.useMajorTriangleSymbol) dom.useMajorTriangleSymbol.checked = standardSettings.useMajorTriangleSymbol;
+  if (dom.useHalfDiminishedSymbol) dom.useHalfDiminishedSymbol.checked = standardSettings.useHalfDiminishedSymbol;
+  if (dom.useDiminishedSymbol) dom.useDiminishedSymbol.checked = standardSettings.useDiminishedSymbol;
   if (dom.showBeatIndicator) dom.showBeatIndicator.checked = standardSettings.showBeatIndicator;
   if (dom.hideCurrentHarmony) dom.hideCurrentHarmony.checked = standardSettings.hideCurrentHarmony;
   if (dom.masterVolume) dom.masterVolume.value = standardSettings.masterVolume;
@@ -5951,6 +5987,16 @@ dom.harmonyDisplayMode?.addEventListener('change', () => {
   saveSettings();
   trackEvent('harmony_display_mode_changed', {
     alternate_display: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode.value)
+  });
+});
+[
+  dom.useMajorTriangleSymbol,
+  dom.useHalfDiminishedSymbol,
+  dom.useDiminishedSymbol
+].filter(Boolean).forEach((toggle) => {
+  toggle.addEventListener('change', () => {
+    refreshDisplayedHarmony();
+    saveSettings();
   });
 });
 dom.showBeatIndicator?.addEventListener('change', () => {

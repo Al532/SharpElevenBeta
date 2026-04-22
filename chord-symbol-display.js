@@ -25,6 +25,31 @@ const ACCIDENTAL_SVGS = Object.freeze({
   ].join('')
 });
 
+const QUALITY_SYMBOL_SVGS = Object.freeze({
+  majorTriangle: [
+    '<svg viewBox="0 0 100 86" focusable="false" aria-hidden="true">',
+    '<path d="M50 8L92 78H8Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>',
+    '</svg>'
+  ].join(''),
+  diminished: [
+    '<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true">',
+    '<circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-width="10"/>',
+    '</svg>'
+  ].join(''),
+  halfDiminished: [
+    '<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true">',
+    '<circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-width="10"/>',
+    '<path d="M22 78L78 22" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>',
+    '</svg>'
+  ].join('')
+});
+
+const DEFAULT_CHORD_SYMBOL_RENDER_OPTIONS = Object.freeze({
+  useHalfDiminishedSymbol: true,
+  useDiminishedSymbol: true,
+  useMajorTriangleSymbol: true
+});
+
 function createAccidentalSpan(kind) {
   if (kind === 'flat') {
     return `<span class="chord-symbol-accidental chord-symbol-accidental-flat" aria-hidden="true">${ACCIDENTAL_SVGS.flat}</span>`;
@@ -61,70 +86,113 @@ function splitRootName(rootName) {
   };
 }
 
-function getDisplayPartsForQuality(quality) {
+function normalizeChordSymbolRenderOptions(options = {}) {
+  return {
+    useHalfDiminishedSymbol: options.useHalfDiminishedSymbol !== undefined
+      ? Boolean(options.useHalfDiminishedSymbol)
+      : DEFAULT_CHORD_SYMBOL_RENDER_OPTIONS.useHalfDiminishedSymbol,
+    useDiminishedSymbol: options.useDiminishedSymbol !== undefined
+      ? Boolean(options.useDiminishedSymbol)
+      : DEFAULT_CHORD_SYMBOL_RENDER_OPTIONS.useDiminishedSymbol,
+    useMajorTriangleSymbol: options.useMajorTriangleSymbol !== undefined
+      ? Boolean(options.useMajorTriangleSymbol)
+      : DEFAULT_CHORD_SYMBOL_RENDER_OPTIONS.useMajorTriangleSymbol
+  };
+}
+
+function createQualityBasePart(text) {
+  return { type: 'text', text, symbolName: '' };
+}
+
+function createQualitySymbolPart(symbolName) {
+  return { type: 'symbol', text: '', symbolName };
+}
+
+function createQualitySupPart(text) {
+  return { type: 'text', text, symbolName: '' };
+}
+
+function createQualitySupSymbolPart(symbolName) {
+  return { type: 'symbol', text: '', symbolName };
+}
+
+function getDisplayPartsForQuality(quality, options = {}) {
+  const renderOptions = normalizeChordSymbolRenderOptions(options);
+
   if (/^\d+$/.test(String(quality || ''))) {
-    return { base: '', sup: String(quality) };
+    return { base: createQualityBasePart(''), sup: createQualitySupPart(String(quality)) };
   }
 
   switch (quality) {
     case 'maj7':
-      return { base: 'maj', sup: '7' };
+      return renderOptions.useMajorTriangleSymbol
+        ? { base: createQualitySymbolPart('majorTriangle'), sup: createQualitySupPart('') }
+        : { base: createQualityBasePart('maj'), sup: createQualitySupPart('7') };
     case 'lyd':
-      return { base: 'maj', sup: '7(#11)' };
     case 'maj#11':
-      return { base: 'maj', sup: '7(#11)' };
     case 'maj7#11':
-      return { base: 'maj', sup: '7(#11)' };
     case 'triangle#11':
-      return { base: 'maj', sup: '7(#11)' };
     case '\u25B3#11':
-      return { base: 'maj', sup: '7(#11)' };
+      return renderOptions.useMajorTriangleSymbol
+        ? { base: createQualitySymbolPart('majorTriangle'), sup: createQualitySupPart('(#11)') }
+        : { base: createQualityBasePart('maj'), sup: createQualitySupPart('7(#11)') };
+    case '69':
+    case '6/9':
+      return { base: createQualityBasePart(''), sup: createQualitySupSymbolPart('sixNine') };
     case 'm7':
-      return { base: 'm', sup: '7' };
+      return { base: createQualityBasePart('m'), sup: createQualitySupPart('7') };
     case 'm9':
-      return { base: 'm', sup: '9' };
+      return { base: createQualityBasePart('m'), sup: createQualitySupPart('9') };
     case 'm6':
-      return { base: 'm', sup: '6' };
+      return { base: createQualityBasePart('m'), sup: createQualitySupPart('6') };
     case 'mMaj7':
-      return { base: 'mMaj', sup: '7' };
+      return { base: createQualityBasePart('mMaj'), sup: createQualitySupPart('7') };
     case 'mMaj9':
-      return { base: 'mMaj', sup: '9' };
+      return { base: createQualityBasePart('mMaj'), sup: createQualitySupPart('9') };
     case 'm7b5':
-      return { base: 'm', sup: '7(b5)' };
+      return renderOptions.useHalfDiminishedSymbol
+        ? { base: createQualitySymbolPart('halfDiminished'), sup: createQualitySupPart('') }
+        : { base: createQualityBasePart('m'), sup: createQualitySupPart('7(b5)') };
+    case 'dim':
+      return renderOptions.useDiminishedSymbol
+        ? { base: createQualitySymbolPart('diminished'), sup: createQualitySupPart('') }
+        : { base: createQualityBasePart('dim'), sup: createQualitySupPart('') };
     case 'dim7':
-      return { base: 'dim', sup: '7' };
+      return renderOptions.useDiminishedSymbol
+        ? { base: createQualitySymbolPart('diminished'), sup: createQualitySupPart('7') }
+        : { base: createQualityBasePart('dim'), sup: createQualitySupPart('7') };
     case '13':
-      return { base: '', sup: '13' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('13') };
     case '7b9':
-      return { base: '', sup: '7(b9)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7(b9)') };
     case '7b9b13':
-      return { base: '', sup: '7(b9b13)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7(b9b13)') };
     case '7alt':
-      return { base: '', sup: '7 alt' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7 alt') };
     case '13b9':
-      return { base: '', sup: '13(b9)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('13(b9)') };
     case '13#11':
-      return { base: '', sup: '13(#11)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('13(#11)') };
     case '7#5':
-      return { base: '', sup: '7(#5)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7(#5)') };
     case '7#9':
-      return { base: '', sup: '7(#9)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7(#9)') };
     case '7sus':
-      return { base: 'sus', sup: '7' };
+      return { base: createQualityBasePart('sus'), sup: createQualitySupPart('7') };
     case '9sus':
-      return { base: 'sus', sup: '9' };
+      return { base: createQualityBasePart('sus'), sup: createQualitySupPart('9') };
     case '13sus':
-      return { base: 'sus', sup: '13' };
+      return { base: createQualityBasePart('sus'), sup: createQualitySupPart('13') };
     case '7#11':
-      return { base: '', sup: '7(#11)' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7(#11)') };
     case 'alt':
-      return { base: '', sup: '7 alt' };
+      return { base: createQualityBasePart(''), sup: createQualitySupPart('7 alt') };
     case 'mb6':
-      return { base: 'm', sup: '(b6)' };
+      return { base: createQualityBasePart('m'), sup: createQualitySupPart('(b6)') };
     case '7b9sus':
-      return { base: 'sus', sup: '7(b9)' };
+      return { base: createQualityBasePart('sus'), sup: createQualitySupPart('7(b9)') };
     default:
-      return { base: quality || '', sup: '' };
+      return { base: createQualityBasePart(quality || ''), sup: createQualitySupPart('') };
   }
 }
 
@@ -174,19 +242,24 @@ function getSupAnchorCompressionClass(base) {
   }
 }
 
-export function renderChordSymbolHtml(rootName, quality, bassName = null) {
+export function renderChordSymbolHtml(rootName, quality, bassName = null, options = {}) {
   const { letter, accidental } = splitRootName(rootName);
   const safeRootLetter = escapeHtml(letter);
   const safeRootAccidental = formatAccidentals(accidental);
-  const { base, sup } = getDisplayPartsForQuality(quality || '');
-  const safeBase = formatAccidentals(base);
-  const safeSup = formatAccidentals(sup);
+  const { base, sup } = getDisplayPartsForQuality(quality || '', options);
+  const safeBase = base.type === 'symbol'
+    ? `<span class="chord-symbol-quality-glyph chord-symbol-quality-glyph-${base.symbolName}" aria-hidden="true">${QUALITY_SYMBOL_SVGS[base.symbolName] || ''}</span>`
+    : formatAccidentals(base.text);
+  const safeSup = sup.type === 'symbol'
+    ? createQualitySupSymbolMarkup(sup.symbolName)
+    : formatAccidentals(sup.text);
   const safeBass = bassName ? formatAccidentals(bassName) : '';
   const supContextClass = safeBase ? ' chord-symbol-sup-after-base' : ' chord-symbol-sup-after-root';
   const symbolContextClass = safeBase ? ' chord-symbol-with-base' : ' chord-symbol-root-only';
-  const baseCompressionClass = getSegmentCompressionClass(base, 'base');
-  const supCompressionClass = getSegmentCompressionClass(sup, 'sup');
-  const supAnchorCompressionClass = safeBase ? getSupAnchorCompressionClass(base) : '';
+  const baseCompressionClass = base.type === 'text' ? getSegmentCompressionClass(base.text, 'base') : '';
+  const supCompressionClass = sup.type === 'text' ? getSegmentCompressionClass(sup.text, 'sup') : '';
+  const supAnchorCompressionClass = safeBase && base.type === 'text' ? getSupAnchorCompressionClass(base.text) : '';
+  const baseSymbolClass = base.type === 'symbol' ? ` chord-symbol-base-symbol chord-symbol-base-symbol-${base.symbolName}` : '';
 
   return [
     `<span class="chord-symbol${symbolContextClass}">`,
@@ -197,9 +270,9 @@ export function renderChordSymbolHtml(rootName, quality, bassName = null) {
     `<span class="chord-symbol-root-letter">${safeRootLetter}</span>`,
     safeRootAccidental ? `<span class="chord-symbol-root-accidental">${safeRootAccidental}</span>` : '',
     '</span>',
-    safeBase ? `<span class="chord-symbol-base${baseCompressionClass}">${safeBase}</span>` : '',
+    safeBase ? `<span class="chord-symbol-base${baseCompressionClass}${baseSymbolClass}">${safeBase}</span>` : '',
     '</span>',
-    safeSup ? `<span class="chord-symbol-sup${supContextClass}${supCompressionClass}${supAnchorCompressionClass}">${safeSup}</span>` : '',
+    safeSup ? `<span class="chord-symbol-sup${supContextClass}${supAnchorCompressionClass}"><span class="chord-symbol-sup-content${supCompressionClass}">${safeSup}</span></span>` : '',
     '</span>',
     safeBass
       ? [
@@ -212,4 +285,18 @@ export function renderChordSymbolHtml(rootName, quality, bassName = null) {
     '</span>',
     '</span>'
   ].join('');
+}
+
+function createQualitySupSymbolMarkup(symbolName) {
+  if (symbolName === 'sixNine') {
+    return [
+      '<span class="chord-symbol-figure69" aria-hidden="true">',
+      '<span class="chord-symbol-figure69-top">6</span>',
+      '<span class="chord-symbol-figure69-slash"></span>',
+      '<span class="chord-symbol-figure69-bottom">9</span>',
+      '</span>'
+    ].join('');
+  }
+
+  return '';
 }

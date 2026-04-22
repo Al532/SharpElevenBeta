@@ -1827,6 +1827,14 @@ body.welcome-open {
   min-width: 0;
 }
 
+.chord-symbol-options-row {
+  gap: 1rem;
+}
+
+.chord-symbol-options-row .toggle-label {
+  font-size: 0.86rem !important;
+}
+
 /* Transport buttons */
 #transport-buttons {
   display: flex;

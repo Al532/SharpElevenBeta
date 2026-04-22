@@ -48,6 +48,7 @@ export function createChartViewModel(chartDocument, {
       displayKey: transposeKeySymbol(sourceDocument.metadata.sourceKey, displayTransposeSemitones),
       displayTransposeSemitones
     },
+    layout: sourceDocument.layout || null,
     sections: sourceDocument.sections,
     bars: viewBars,
     pages

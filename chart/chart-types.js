@@ -9,14 +9,16 @@ export function createChartDocument({
   metadata,
   source,
   sections,
-  bars
+  bars,
+  layout = null
 }) {
   return {
     schemaVersion: CHART_DOCUMENT_SCHEMA_VERSION,
     metadata: deepClone(metadata),
     source: deepClone(source),
     sections: deepClone(sections),
-    bars: deepClone(bars)
+    bars: deepClone(bars),
+    layout: deepClone(layout)
   };
 }
 

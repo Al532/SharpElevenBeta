@@ -348,6 +348,36 @@ function extractBarAnnotations(annots = []) {
   };
 }
 
+function buildSystemLayout(cells = [], bars = []) {
+  const CELLS_PER_ROW = 16;
+  const rowsByIndex = new Map();
+
+  for (const bar of bars) {
+    const startCellIndex = Number(bar?.start_cell_index);
+    if (!Number.isInteger(startCellIndex) || startCellIndex < 0) continue;
+    const rowIndex = Math.floor(startCellIndex / CELLS_PER_ROW);
+    const leadingEmptyCells = startCellIndex % CELLS_PER_ROW;
+    if (!rowsByIndex.has(rowIndex)) {
+      rowsByIndex.set(rowIndex, {
+        row_index: rowIndex + 1,
+        start_cell_index: rowIndex * CELLS_PER_ROW,
+        leading_empty_cells: leadingEmptyCells,
+        leading_empty_bars: Math.floor(leadingEmptyCells / 4),
+        bar_indices: []
+      });
+    }
+    rowsByIndex.get(rowIndex).bar_indices.push(bar.index);
+  }
+
+  const rows = [...rowsByIndex.values()].sort((left, right) => left.row_index - right.row_index);
+
+  return {
+    cells_per_row: CELLS_PER_ROW,
+    total_cells: Array.isArray(cells) ? cells.length : 0,
+    rows
+  };
+}
+
 function decodeSong(song, index) {
   const bars = [];
   let currentBar = null;
@@ -380,6 +410,7 @@ function decodeSong(song, index) {
 
       const normalizedBar = {
         index: bars.length + 1,
+        start_cell_index: currentBar.start_cell_index,
         open_bar: currentBar.open_bar || '',
         close_bar: currentBar.close_bar || '',
         comments: currentBar.comments,
@@ -397,12 +428,13 @@ function decodeSong(song, index) {
     currentBar = null;
   };
 
-  for (const cell of song.cells) {
+  for (const [cellIndex, cell] of song.cells.entries()) {
     const opensBar = cell.bars && /[\(\[\{]/.test(cell.bars);
     const closesBar = cell.bars && /[\)\]\}Z]/.test(cell.bars);
 
     if (!currentBar && (opensBar || cell.chord || (cell.annots && cell.annots.length))) {
       currentBar = {
+        start_cell_index: cellIndex,
         open_bar: opensBar ? cell.bars : '',
         close_bar: '',
         annotations: [],
@@ -455,6 +487,7 @@ function decodeSong(song, index) {
     time_signatures: uniqueTimeSignatures,
     bars,
     sections,
+    system_layout: buildSystemLayout(song.cells, bars),
     linear_progression: linearProgression.join(' '),
     linear_progression_symbols: linearProgression
   };
@@ -511,6 +544,7 @@ export function buildCleanSong(song) {
     repeats: song.repeats,
     time_signatures: song.time_signatures,
     bar_count: song.bars.length,
+    system_layout: song.system_layout || null,
     sections: machineSections
   };
 }
