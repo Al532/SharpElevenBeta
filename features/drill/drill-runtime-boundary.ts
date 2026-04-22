@@ -1,20 +1,14 @@
-// @ts-check
+import type {
+  DrillPlaybackControllerOptions,
+  EmbeddedDrillRuntimeOptions,
+  EmbeddedPatternAdapterOptions,
+  EmbeddedPlaybackSettingsAdapterOptions,
+  EmbeddedPlaybackStateOptions
+} from '../../core/types/contracts';
 
-/** @typedef {import('../../core/types/contracts').DrillPlaybackControllerOptions} DrillPlaybackControllerOptions */
-/** @typedef {import('../../core/types/contracts').EmbeddedDrillRuntimeOptions} EmbeddedDrillRuntimeOptions */
-/** @typedef {import('../../core/types/contracts').EmbeddedPatternAdapterOptions} EmbeddedPatternAdapterOptions */
-/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackSettingsAdapterOptions} EmbeddedPlaybackSettingsAdapterOptions */
-/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackStateOptions} EmbeddedPlaybackStateOptions */
-
-/**
- * Creates the direct playback-controller options used by the shared
- * playback runtime adapter. Keeping this in one place makes the runtime/audio
- * boundary explicit for the future TS extraction.
- *
- * @param {DrillPlaybackControllerOptions} options
- * @returns {DrillPlaybackControllerOptions}
- */
-export function createDrillPlaybackControllerOptions(options = {}) {
+export function createDrillPlaybackControllerOptions(
+  options: DrillPlaybackControllerOptions = {}
+): DrillPlaybackControllerOptions {
   return {
     ensureWalkingBassGenerator: options.ensureWalkingBassGenerator,
     isPlaying: options.isPlaying,
@@ -34,15 +28,9 @@ export function createDrillPlaybackControllerOptions(options = {}) {
 
 export const createDirectPlaybackControllerOptions = createDrillPlaybackControllerOptions;
 
-/**
- * Creates the embedded playback-state getter options used by the shared
- * embedded playback runtime. This isolates the direct app-state lookups from the
- * runtime boundary setup in `app.js`.
- *
- * @param {EmbeddedPlaybackStateOptions} options
- * @returns {EmbeddedPlaybackStateOptions}
- */
-export function createEmbeddedPlaybackStateOptions(options = {}) {
+export function createEmbeddedPlaybackStateOptions(
+  options: EmbeddedPlaybackStateOptions = {}
+): EmbeddedPlaybackStateOptions {
   return {
     isEmbeddedMode: options.isEmbeddedMode,
     getIsPlaying: options.getIsPlaying,
@@ -60,15 +48,9 @@ export function createEmbeddedPlaybackStateOptions(options = {}) {
   };
 }
 
-/**
- * Creates the embedded pattern-adapter options used by the shared embedded
- * Drill runtime. This isolates the UI mutation surface from the runtime setup
- * in `app.js`.
- *
- * @param {EmbeddedPatternAdapterOptions} options
- * @returns {EmbeddedPatternAdapterOptions}
- */
-export function createEmbeddedPatternAdapterOptions(options = {}) {
+export function createEmbeddedPatternAdapterOptions(
+  options: EmbeddedPatternAdapterOptions = {}
+): EmbeddedPatternAdapterOptions {
   return {
     stopIfPlaying: options.stopIfPlaying,
     clearProgressionEditingState: options.clearProgressionEditingState,
@@ -99,15 +81,9 @@ export function createEmbeddedPatternAdapterOptions(options = {}) {
   };
 }
 
-/**
- * Creates the embedded playback-settings adapter options used by the shared
- * embedded playback runtime. This keeps the control-synchronization surface
- * explicit outside `app.js`.
- *
- * @param {EmbeddedPlaybackSettingsAdapterOptions} options
- * @returns {EmbeddedPlaybackSettingsAdapterOptions}
- */
-export function createEmbeddedPlaybackSettingsAdapterOptions(options = {}) {
+export function createEmbeddedPlaybackSettingsAdapterOptions(
+  options: EmbeddedPlaybackSettingsAdapterOptions = {}
+): EmbeddedPlaybackSettingsAdapterOptions {
   return {
     setTempo: options.setTempo,
     setTransposition: options.setTransposition,
@@ -129,15 +105,9 @@ export function createEmbeddedPlaybackSettingsAdapterOptions(options = {}) {
   };
 }
 
-/**
- * Creates the full options object consumed by `initializeEmbeddedDrillRuntime`.
- * This keeps the runtime boundary assembly explicit and contained in one place
- * instead of rebuilding the object inline in `app.js`.
- *
- * @param {EmbeddedDrillRuntimeOptions} options
- * @returns {EmbeddedDrillRuntimeOptions}
- */
-export function createEmbeddedDrillRuntimeOptions(options = {}) {
+export function createEmbeddedDrillRuntimeOptions(
+  options: EmbeddedDrillRuntimeOptions = {}
+): EmbeddedDrillRuntimeOptions {
   return {
     patternAdapterOptions: createEmbeddedPatternAdapterOptions(options.patternAdapterOptions || {}),
     playbackSettingsAdapterOptions: createEmbeddedPlaybackSettingsAdapterOptions(options.playbackSettingsAdapterOptions || {}),
@@ -146,71 +116,6 @@ export function createEmbeddedDrillRuntimeOptions(options = {}) {
   };
 }
 
-/**
- * Creates the embedded playback runtime options from the app-level UI/runtime
- * context. This consolidates the large `initializeEmbeddedDrillRuntime(...)`
- * assembly block so `app.js` no longer rebuilds the whole boundary inline.
- *
- * @param {{
- *   dom: Record<string, any>,
- *   stopIfPlaying: () => void,
- *   clearProgressionEditingState: () => void,
- *   closeProgressionManager: () => void,
- *   setCustomPatternSelection: () => void,
- *   setPatternName: (value: string) => void,
- *   setCustomPatternValue: (value: string) => void,
- *   setEditorPatternMode: (value: string) => void,
- *   syncPatternSelectionFromInput: () => void,
- *   setLastPatternSelectValue: () => void,
- *   syncCustomPatternUI: () => void,
- *   normalizeChordsPerBarForCurrentPattern: () => void,
- *   applyPatternModeAvailability: () => void,
- *   syncPatternPreview: () => void,
- *   applyDisplayMode: () => void,
- *   applyBeatIndicatorVisibility: () => void,
- *   applyCurrentHarmonyVisibility: () => void,
- *   updateKeyPickerLabels: () => void,
- *   refreshDisplayedHarmony: () => void,
- *   fitHarmonyDisplay: () => void,
- *   validateCustomPattern: () => boolean,
- *   getPatternErrorText: () => string,
- *   getCurrentPatternString: () => string,
- *   getCurrentPatternMode: () => string,
- *   normalizePatternString: (value: string) => string,
- *   normalizePresetName: (value: string) => string,
- *   normalizePatternMode: (value: string) => string,
- *   normalizeCompingStyle: (value: string) => string,
- *   normalizeRepetitionsPerKey: (value: number | string) => number,
- *   normalizeDisplayMode: (value: string) => string,
- *   normalizeHarmonyDisplayMode: (value: string) => string,
- *   getSwingRatio: () => number,
- *   getCompingStyle: () => string,
- *   getDrumsMode: () => string,
- *   isWalkingBassEnabled: () => boolean,
- *   getRepetitionsPerKey: () => number,
- *   isEmbeddedMode: boolean,
- *   getIsPlaying: () => boolean,
- *   getIsPaused: () => boolean,
- *   getIsIntro: () => boolean,
- *   getCurrentBeat: () => number,
- *   getCurrentChordIdx: () => number,
- *   getPaddedChordCount: () => number,
- *   getTempo: () => number,
- *   ensureWalkingBassGenerator: () => Promise<unknown>,
- *   getAudioContext: () => BaseAudioContext | null,
- *   noteFadeout: number,
- *   stopActiveChordVoices: (audioTime: number, fadeout: number) => void,
- *   rebuildPreparedCompingPlans: (currentKey: number) => void,
- *   buildPreparedBassPlan: () => void,
- *   getCurrentKey: () => number,
- *   preloadNearTermSamples: () => Promise<unknown>,
- *   startPlayback: () => Promise<void>,
- *   stopPlayback: () => void,
- *   togglePausePlayback: () => void,
- *   applyMixerSettings: () => void
- * }} options
- * @returns {EmbeddedDrillRuntimeOptions}
- */
 export function createEmbeddedDrillRuntimeAppOptions({
   dom,
   stopIfPlaying,
@@ -268,7 +173,64 @@ export function createEmbeddedDrillRuntimeAppOptions({
   stopPlayback,
   togglePausePlayback,
   applyMixerSettings
-}) {
+}: {
+  dom: Record<string, any>;
+  stopIfPlaying: () => void;
+  clearProgressionEditingState: () => void;
+  closeProgressionManager: () => void;
+  setCustomPatternSelection: () => void;
+  setPatternName: (value: string) => void;
+  setCustomPatternValue: (value: string) => void;
+  setEditorPatternMode: (value: string) => void;
+  syncPatternSelectionFromInput: () => void;
+  setLastPatternSelectValue: () => void;
+  syncCustomPatternUI: () => void;
+  normalizeChordsPerBarForCurrentPattern: () => void;
+  applyPatternModeAvailability: () => void;
+  syncPatternPreview: () => void;
+  applyDisplayMode: () => void;
+  applyBeatIndicatorVisibility: () => void;
+  applyCurrentHarmonyVisibility: () => void;
+  updateKeyPickerLabels: () => void;
+  refreshDisplayedHarmony: () => void;
+  fitHarmonyDisplay: () => void;
+  validateCustomPattern: () => boolean;
+  getPatternErrorText: () => string;
+  getCurrentPatternString: () => string;
+  getCurrentPatternMode: () => string;
+  normalizePatternString: (value: string) => string;
+  normalizePresetName: (value: string) => string;
+  normalizePatternMode: (value: string) => string;
+  normalizeCompingStyle: (value: string) => string;
+  normalizeRepetitionsPerKey: (value: number | string) => number;
+  normalizeDisplayMode: (value: string) => string;
+  normalizeHarmonyDisplayMode: (value: string) => string;
+  getSwingRatio: () => number;
+  getCompingStyle: () => string;
+  getDrumsMode: () => string;
+  isWalkingBassEnabled: () => boolean;
+  getRepetitionsPerKey: () => number;
+  isEmbeddedMode: boolean;
+  getIsPlaying: () => boolean;
+  getIsPaused: () => boolean;
+  getIsIntro: () => boolean;
+  getCurrentBeat: () => number;
+  getCurrentChordIdx: () => number;
+  getPaddedChordCount: () => number;
+  getTempo: () => number;
+  ensureWalkingBassGenerator: () => Promise<unknown>;
+  getAudioContext: () => BaseAudioContext | null;
+  noteFadeout: number;
+  stopActiveChordVoices: (audioTime: number, fadeout: number) => void;
+  rebuildPreparedCompingPlans: (currentKey: number) => void;
+  buildPreparedBassPlan: () => void;
+  getCurrentKey: () => number;
+  preloadNearTermSamples: () => Promise<unknown>;
+  startPlayback: () => Promise<void>;
+  stopPlayback: () => void;
+  togglePausePlayback: () => void;
+  applyMixerSettings: () => void;
+}): EmbeddedDrillRuntimeOptions {
   return createEmbeddedDrillRuntimeOptions({
     patternAdapterOptions: {
       stopIfPlaying,

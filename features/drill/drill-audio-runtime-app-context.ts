@@ -1,23 +1,18 @@
-// @ts-check
-
 import { createDrillAudioRuntime } from './drill-audio-runtime.js';
 
-/**
- * Creates the shared audio runtime from grouped app concerns so `app.js`
- * no longer assembles the sample-loading runtime inline.
- *
- * @param {object} [options]
- * @param {Record<string, any>} [options.audioState]
- * @param {Record<string, any>} [options.cacheState]
- * @param {Record<string, any>} [options.constants]
- * @param {typeof fetch} [options.fetchImpl]
- */
+type DrillAudioRuntimeAppContextOptions = {
+  audioState?: Record<string, any>;
+  cacheState?: Record<string, any>;
+  constants?: Record<string, any>;
+  fetchImpl?: typeof fetch;
+};
+
 export function createDrillAudioRuntimeAppContext({
   audioState = {},
   cacheState = {},
   constants = {},
   fetchImpl
-} = {}) {
+}: DrillAudioRuntimeAppContextOptions = {}) {
   return createDrillAudioRuntime({
     sampleBuffers: cacheState.sampleBuffers,
     sampleLoadPromises: cacheState.sampleLoadPromises,

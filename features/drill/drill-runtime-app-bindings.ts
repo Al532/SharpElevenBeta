@@ -1,10 +1,4 @@
-// @ts-check
-
-/**
- * @param {object} [bindings]
- * @returns {Record<string, any>}
- */
-export function createDrillPlaybackStateBindings(bindings = {}) {
+export function createDrillPlaybackStateBindings(bindings: Record<string, any> = {}) {
   return {
     isEmbeddedMode: Boolean(bindings.isEmbeddedMode),
     getIsPlaying: bindings.getIsPlaying,
@@ -17,11 +11,7 @@ export function createDrillPlaybackStateBindings(bindings = {}) {
   };
 }
 
-/**
- * @param {object} [bindings]
- * @returns {Record<string, any>}
- */
-export function createDrillPatternUiBindings(bindings = {}) {
+export function createDrillPatternUiBindings(bindings: Record<string, any> = {}) {
   return {
     clearProgressionEditingState: bindings.clearProgressionEditingState,
     closeProgressionManager: bindings.closeProgressionManager,
@@ -48,11 +38,7 @@ export function createDrillPatternUiBindings(bindings = {}) {
   };
 }
 
-/**
- * @param {object} [bindings]
- * @returns {Record<string, any>}
- */
-export function createDrillNormalizationBindings(bindings = {}) {
+export function createDrillNormalizationBindings(bindings: Record<string, any> = {}) {
   return {
     normalizePatternString: bindings.normalizePatternString,
     normalizePresetName: bindings.normalizePresetName,
@@ -64,11 +50,7 @@ export function createDrillNormalizationBindings(bindings = {}) {
   };
 }
 
-/**
- * @param {object} [bindings]
- * @returns {Record<string, any>}
- */
-export function createDrillPlaybackSettingsBindings(bindings = {}) {
+export function createDrillPlaybackSettingsBindings(bindings: Record<string, any> = {}) {
   return {
     getSwingRatio: bindings.getSwingRatio,
     getCompingStyle: bindings.getCompingStyle,
@@ -79,11 +61,7 @@ export function createDrillPlaybackSettingsBindings(bindings = {}) {
   };
 }
 
-/**
- * @param {object} [bindings]
- * @returns {Record<string, any>}
- */
-export function createDrillPlaybackRuntimeBindings(bindings = {}) {
+export function createDrillPlaybackRuntimeBindings(bindings: Record<string, any> = {}) {
   return {
     ensureWalkingBassGenerator: bindings.ensureWalkingBassGenerator,
     getAudioContext: bindings.getAudioContext,
@@ -96,11 +74,7 @@ export function createDrillPlaybackRuntimeBindings(bindings = {}) {
   };
 }
 
-/**
- * @param {object} [bindings]
- * @returns {Record<string, any>}
- */
-export function createDrillTransportActionBindings(bindings = {}) {
+export function createDrillTransportActionBindings(bindings: Record<string, any> = {}) {
   return {
     startPlayback: bindings.startPlayback,
     stopPlayback: bindings.stopPlayback,
@@ -108,19 +82,7 @@ export function createDrillTransportActionBindings(bindings = {}) {
   };
 }
 
-/**
- * @param {object} [bindings]
- * @returns {{
- *   dom?: Record<string, any>,
- *   patternUi: Record<string, any>,
- *   normalization: Record<string, any>,
- *   playbackSettings: Record<string, any>,
- *   playbackState: Record<string, any>,
- *   playbackRuntime: Record<string, any>,
- *   transportActions: Record<string, any>
- * }}
- */
-export function createDrillEmbeddedRuntimeContextBindings(bindings = {}) {
+export function createDrillEmbeddedRuntimeContextBindings(bindings: Record<string, any> = {}) {
   return {
     dom: bindings.dom,
     patternUi: createDrillPatternUiBindings(bindings.patternUi || {}),

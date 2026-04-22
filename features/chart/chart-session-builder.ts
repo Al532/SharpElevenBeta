@@ -1,0 +1,188 @@
+import type {
+  ChartDocument,
+  ChartPlaybackPlan,
+  ChartSelection,
+  PracticeSessionDisplay,
+  PracticeSessionOrigin,
+  PracticeSessionSelection,
+  PracticeSessionSpec
+} from '../../core/types/contracts';
+
+import {
+  createPracticePlaybackBarsFromChartEntries,
+  createPracticeSessionSpec
+} from '../../core/models/practice-session.js';
+import { createChartPlaybackPlanFromDocument } from '../../chart/chart-interpreter.js';
+import { createChartDocument } from '../../chart/chart-types.js';
+
+function buildSelectionTitle(baseTitle: string, startIndex: number | null, endIndex: number | null): string {
+  if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) {
+    return baseTitle || 'Chart selection';
+  }
+  if (startIndex === endIndex) {
+    return `${baseTitle} - bar ${startIndex}`;
+  }
+  return `${baseTitle} - bars ${startIndex}-${endIndex}`;
+}
+
+function createSelectionMetadata(
+  selectedBars: Array<{ id: string; index: number }> = [],
+  fallbackSelection: ChartSelection | Record<string, never> = {}
+): PracticeSessionSelection {
+  const fallbackSelectionRecord = fallbackSelection as Partial<ChartSelection>;
+  const normalizedFallbackSelection: ChartSelection = {
+    barIds: Array.isArray(fallbackSelectionRecord?.barIds) ? fallbackSelectionRecord.barIds : [],
+    startBarId: 'startBarId' in fallbackSelectionRecord ? fallbackSelectionRecord.startBarId ?? null : null,
+    endBarId: 'endBarId' in fallbackSelectionRecord ? fallbackSelectionRecord.endBarId ?? null : null
+  };
+  const startIndex = selectedBars[0]?.index ?? null;
+  const endIndex = selectedBars[selectedBars.length - 1]?.index ?? null;
+  return {
+    startBarId: normalizedFallbackSelection.startBarId || selectedBars[0]?.id || null,
+    endBarId: normalizedFallbackSelection.endBarId || selectedBars[selectedBars.length - 1]?.id || null,
+    barIds: selectedBars.map((bar) => bar.id),
+    startBarIndex: startIndex,
+    endBarIndex: endIndex
+  };
+}
+
+export function createSelectedChartDocument(
+  chartDocument: ChartDocument,
+  selectedBarIds: string[] = []
+): ChartDocument {
+  const selectedBars = (chartDocument?.bars || []).filter((bar) => selectedBarIds.includes(bar.id));
+  const nextChartDocument: ChartDocument = {
+    schemaVersion: chartDocument?.schemaVersion || '1.0.0',
+    metadata: {
+      id: chartDocument?.metadata?.id || '',
+      title: chartDocument?.metadata?.title || '',
+      composer: chartDocument?.metadata?.composer || '',
+      style: chartDocument?.metadata?.style || '',
+      styleReference: chartDocument?.metadata?.styleReference || '',
+      sourceKey: chartDocument?.metadata?.sourceKey || '',
+      displayKey: chartDocument?.metadata?.displayKey || '',
+      primaryTimeSignature: chartDocument?.metadata?.primaryTimeSignature || '',
+      tempo: chartDocument?.metadata?.tempo || 0,
+      barCount: selectedBars.length
+    },
+    source: chartDocument?.source || {},
+    sections: chartDocument?.sections || [],
+    bars: selectedBars,
+    layout: null
+  };
+  return createChartDocument(nextChartDocument) as ChartDocument;
+}
+
+export function createPracticeSessionFromChartPlaybackPlan({
+  chartDocument,
+  playbackPlan,
+  source,
+  title,
+  tempo,
+  selection = null,
+  origin = null
+}: {
+  chartDocument: ChartDocument;
+  playbackPlan: ChartPlaybackPlan;
+  source: string;
+  title: string;
+  tempo?: number;
+  selection?: PracticeSessionSelection | null;
+  origin?: PracticeSessionOrigin | null;
+}): PracticeSessionSpec {
+  const bars = createPracticePlaybackBarsFromChartEntries(playbackPlan?.entries || []);
+  const display: PracticeSessionDisplay = {
+    sourceKey: chartDocument?.metadata?.sourceKey || '',
+    displayKey: chartDocument?.metadata?.displayKey || chartDocument?.metadata?.sourceKey || '',
+    composer: chartDocument?.metadata?.composer || '',
+    style: chartDocument?.metadata?.styleReference || chartDocument?.metadata?.style || ''
+  };
+  return createPracticeSessionSpec({
+    id: `${chartDocument?.metadata?.id || 'chart'}-${source}`,
+    source,
+    title,
+    tempo: Number(tempo || chartDocument?.metadata?.tempo || 120),
+    timeSignature: chartDocument?.metadata?.primaryTimeSignature || playbackPlan?.timeSignature || '',
+    playback: { bars },
+    display,
+    selection,
+    origin
+  });
+}
+
+export function createPracticeSessionFromChartDocumentWithPlaybackPlan(
+  chartDocument: ChartDocument,
+  playbackPlan: ChartPlaybackPlan,
+  options: { tempo?: number } = {}
+): PracticeSessionSpec {
+  return createPracticeSessionFromChartPlaybackPlan({
+    chartDocument,
+    playbackPlan,
+    source: 'chart',
+    title: chartDocument?.metadata?.title || 'Chart',
+    tempo: options.tempo,
+    origin: {
+      chartId: chartDocument?.metadata?.id || '',
+      mode: 'chart-document'
+    }
+  });
+}
+
+export function createPracticeSessionFromChartDocument(
+  chartDocument: ChartDocument,
+  options: { playbackPlan?: ChartPlaybackPlan; tempo?: number } = {}
+): PracticeSessionSpec {
+  const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(chartDocument) as ChartPlaybackPlan;
+  return createPracticeSessionFromChartDocumentWithPlaybackPlan(chartDocument, playbackPlan, options);
+}
+
+export function createPracticeSessionFromSelectedChartDocument(
+  selectedChartDocument: ChartDocument,
+  options: {
+    playbackPlan?: ChartPlaybackPlan;
+    title?: string;
+    tempo?: number;
+    selection?: ChartSelection | Record<string, never>;
+    origin?: PracticeSessionOrigin;
+  } = {}
+): PracticeSessionSpec {
+  const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(selectedChartDocument) as ChartPlaybackPlan;
+  const selectedBars = selectedChartDocument?.bars || [];
+  const selection = createSelectionMetadata(selectedBars, options.selection || {});
+  return createPracticeSessionFromChartPlaybackPlan({
+    chartDocument: selectedChartDocument,
+    playbackPlan,
+    source: 'chart-selection',
+    title: options.title || buildSelectionTitle(selectedChartDocument?.metadata?.title || 'Chart', selection.startBarIndex, selection.endBarIndex),
+    tempo: options.tempo,
+    selection,
+    origin: options.origin || {
+      chartId: selectedChartDocument?.metadata?.id || '',
+      sourceKey: selectedChartDocument?.metadata?.sourceKey || '',
+      mode: 'chart-selection'
+    }
+  });
+}
+
+export function createPracticeSessionFromChartSelection(
+  chartDocument: ChartDocument,
+  selection: ChartSelection,
+  options: { tempo?: number } = {}
+): PracticeSessionSpec {
+  const selectedBarIds = Array.isArray(selection?.barIds) ? selection.barIds : [];
+  const selectedDocument = createSelectedChartDocument(chartDocument, selectedBarIds);
+  return createPracticeSessionFromSelectedChartDocument(selectedDocument, {
+    ...options,
+    title: buildSelectionTitle(
+      chartDocument?.metadata?.title || selectedDocument?.metadata?.title || 'Chart',
+      selectedDocument?.bars?.[0]?.index ?? null,
+      selectedDocument?.bars?.[selectedDocument.bars.length - 1]?.index ?? null
+    ),
+    selection,
+    origin: {
+      chartId: chartDocument?.metadata?.id || '',
+      sourceKey: chartDocument?.metadata?.sourceKey || '',
+      mode: 'chart-selection'
+    }
+  });
+}
