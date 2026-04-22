@@ -29,14 +29,12 @@ import {
   DEFAULT_SWING_RATIO,
 } from './swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
-import { createDrillAudioFacadeAppSurface } from './features/drill/drill-audio-facade-app-surface.js';
-import { createDrillAudioStackAppAssembly } from './features/drill/drill-audio-stack-app-assembly.js';
-import { createDrillAudioStackAppBindings } from './features/drill/drill-audio-stack-app-bindings.js';
-import { createDrillAudioStackAppFacade } from './features/drill/drill-audio-stack-app-facade.js';
-import { createDrillAudioStackFacadeAppBindings } from './features/drill/drill-audio-stack-facade-app-bindings.js';
+import { createDrillAudioRuntimeAppAssembly } from './features/drill/drill-audio-runtime-app-assembly.js';
+import { createDrillAudioRuntimeAppBindings } from './features/drill/drill-audio-runtime-app-bindings.js';
 import { createDrillCompingEngineAppBindings } from './features/drill/drill-comping-engine-app-bindings.js';
 import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
 import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
+import { createDrillPlaybackResourcesRuntimeAppBindings } from './features/drill/drill-playback-resources-runtime-app-bindings.js';
 import { createDrillPlaybackResourcesAppBindings } from './features/drill/drill-playback-resources-app-bindings.js';
 import { createDrillPlaybackResourcesAppAssembly } from './features/drill/drill-playback-resources-app-assembly.js';
 import {
@@ -69,6 +67,7 @@ import {
   saveDrillSettings
 } from './features/drill/drill-settings.js';
 import { createDrillSettingsAppBindings } from './features/drill/drill-settings-app-bindings.js';
+import { createDrillSettingsRuntimeAppBindings } from './features/drill/drill-settings-runtime-app-bindings.js';
 import { createDrillSettingsAppAssembly } from './features/drill/drill-settings-app-assembly.js';
 import { initializeAppShell } from './features/app/app-shell.js';
 import { consumePendingDrillSessionIntoUi } from './features/drill/drill-session-import.js';
@@ -79,11 +78,15 @@ import {
   initializeSocialShareLinks
 } from './features/drill/drill-ui-runtime.js';
 import { createDrillSharedPlaybackAppBindings } from './features/drill/drill-shared-playback-app-bindings.js';
+import { createDrillSharedPlaybackRuntimeAppBindings } from './features/drill/drill-shared-playback-runtime-app-bindings.js';
 import { createDrillSharedPlaybackAppAssembly } from './features/drill/drill-shared-playback-app-assembly.js';
+import { createDrillPlaybackRuntimeAppBindings } from './features/drill/drill-playback-runtime-app-bindings.js';
 import { createDrillPlaybackRuntimeHostAppBindings } from './features/drill/drill-playback-runtime-host-app-bindings.js';
 import { createDrillPlaybackRuntimeAppHostAssembly } from './features/drill/drill-playback-runtime-app-host-assembly.js';
 import { createDrillRuntimePrimitivesAppBindings } from './features/drill/drill-runtime-primitives-app-bindings.js';
+import { createDrillRuntimePrimitivesRuntimeAppBindings } from './features/drill/drill-runtime-primitives-runtime-app-bindings.js';
 import { createDrillRuntimePrimitivesAppAssembly } from './features/drill/drill-runtime-primitives-app-assembly.js';
+import { createDrillRuntimeStateAppBindings } from './features/drill/drill-runtime-state-app-bindings.js';
 import { createDrillRuntimeStateAppAssembly } from './features/drill/drill-runtime-state-app-assembly.js';
 
 /* ============================================================
@@ -840,7 +843,7 @@ const {
     getBeatsPerChord: getBeatsPerChordBase,
     padProgression: padProgressionBase
   }
-} = createDrillRuntimePrimitivesAppAssembly(createDrillRuntimePrimitivesAppBindings({
+} = createDrillRuntimePrimitivesAppAssembly(createDrillRuntimePrimitivesAppBindings(createDrillRuntimePrimitivesRuntimeAppBindings({
   patternAnalysis: {
     romanToSemitones: ROMAN_TO_SEMITONES,
     noteLetterToSemitone: NOTE_LETTER_TO_SEMITONE,
@@ -854,7 +857,7 @@ const {
     defaultChordsPerBar: DEFAULT_CHORDS_PER_BAR,
     supportedChordsPerBar: SUPPORTED_CHORDS_PER_BAR
   }
-}));
+})));
 
 function clearOneChordCycleState() {
   currentRawChords = [];
@@ -1126,7 +1129,7 @@ const DRUM_RIDE_SAMPLE_URLS = [
 let applyDrillAudioMixerSettingsDelegate = null;
 const {
   playbackSettingsRuntime: drillPlaybackSettingsRuntime
-} = createDrillRuntimePrimitivesAppAssembly(createDrillRuntimePrimitivesAppBindings({
+} = createDrillRuntimePrimitivesAppAssembly(createDrillRuntimePrimitivesAppBindings(createDrillRuntimePrimitivesRuntimeAppBindings({
   playbackSettings: {
     dom,
     mixer: {
@@ -1144,7 +1147,7 @@ const {
       bassLow: BASS_LOW
     }
   }
-}));
+})));
 const {
   sliderValueToGain,
   getCompingStyle,
@@ -1242,8 +1245,8 @@ let midiPianoRangePreloadPromise = null;
 const pendingMidiNoteTokens = new Map();
 const activeMidiPianoVoices = new Map();
 const sustainedMidiNotes = new Set();
-const drillAudioStack = createDrillAudioStackAppAssembly({
-  ...createDrillAudioStackAppBindings({
+const drillAudioRuntimeAssembly = createDrillAudioRuntimeAppAssembly(createDrillAudioRuntimeAppBindings({
+  audioStack: {
     audioRuntime: {
     audioState: {
       getAudioContext: () => audioCtx
@@ -1317,7 +1320,7 @@ const drillAudioStack = createDrillAudioStackAppAssembly({
     audioHelpers: {
       createAudioContext: () => new (window.AudioContext || window.webkitAudioContext)(),
       applyMixerSettings,
-      trackScheduledSource: (source, gainNodes) => drillAudioStack.scheduledAudio.trackScheduledSource(source, gainNodes)
+      trackScheduledSource: (source, gainNodes) => drillAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes)
     },
     playbackSettings: {
       getDrumsMode,
@@ -1339,8 +1342,8 @@ const drillAudioStack = createDrillAudioStackAppAssembly({
       sampleBuffers
     },
     audioHelpers: {
-      getMixerDestination: (channel) => drillAudioStack.audioPlayback.getMixerDestination(channel),
-      trackScheduledSource: (source, gainNodes) => drillAudioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
+      getMixerDestination: (channel) => drillAudioRuntimeAssembly.audioStack.audioPlayback.getMixerDestination(channel),
+      trackScheduledSource: (source, gainNodes) => drillAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
       loadSample: (category, folder, midi) => loadDrillAudioSample(category, folder, midi),
       getPianoFadeProfile
     },
@@ -1363,15 +1366,17 @@ const drillAudioStack = createDrillAudioStackAppAssembly({
       stringLoopCrossfade: STRING_LOOP_CROSSFADE
     }
     }
-  })
-});
-const drillAudioFacade = createDrillAudioStackAppFacade({
-  ...createDrillAudioStackFacadeAppBindings({
-    audioStack: drillAudioStack,
+  },
+  audioFacade: {
     getCurrentTime: () => audioCtx?.currentTime ?? 0,
     defaultFadeDuration: NOTE_FADEOUT
-  })
-});
+  }
+}));
+const {
+  audioStack: drillAudioStack,
+  audioFacade: drillAudioFacade,
+  audioSurface: drillAudioSurface
+} = drillAudioRuntimeAssembly;
 const {
   applyDrillAudioMixerSettings,
   loadDrillAudioSample,
@@ -1411,7 +1416,7 @@ const {
   scheduleDrillSampleSegment,
   playDrillLoopedStringSample,
   playDrillSample
-} = createDrillAudioFacadeAppSurface(drillAudioFacade);
+} = drillAudioSurface;
 applyDrillAudioMixerSettingsDelegate = applyDrillAudioMixerSettings;
 const trackScheduledSource = trackDrillScheduledSource;
 const clearScheduledDisplays = clearDrillScheduledDisplays;
@@ -1561,7 +1566,7 @@ const {
   },
   playbackResourcesFacade: drillPlaybackResourcesFacade
 } = createDrillPlaybackResourcesAppAssembly({
-  ...createDrillPlaybackResourcesAppBindings({
+  ...createDrillPlaybackResourcesAppBindings(createDrillPlaybackResourcesRuntimeAppBindings({
     harmony: {
     getPlayedChordQuality: getSharedPlayedChordQuality,
     getVoicingPlanForProgression: getSharedVoicingPlanForProgression,
@@ -1595,7 +1600,7 @@ const {
     walkingBassGenerator
   },
     audioFacade: drillAudioFacade
-  })
+  }))
 });
 
 const {
@@ -1994,13 +1999,13 @@ const {
   shuffleArray,
   getEffectiveKeyPool,
   nextKey
-} = createDrillRuntimeStateAppAssembly({
+} = createDrillRuntimeStateAppAssembly(createDrillRuntimeStateAppBindings({
   keyPool: {
     getEnabledKeys: () => enabledKeys,
     getKeyPool: () => keyPool,
     setKeyPool: (value) => { keyPool = value; }
   }
-}).keyPoolRuntime;
+})).keyPoolRuntime;
 
 // ---- Display helpers ----
 
@@ -2658,7 +2663,7 @@ const {
   getPlaybackAnalyticsProps,
   trackProgressionEvent,
   trackProgressionOccurrence
-} = createDrillRuntimeStateAppAssembly({
+} = createDrillRuntimeStateAppAssembly(createDrillRuntimeStateAppBindings({
   sessionAnalytics: {
     dom,
     state: {
@@ -2694,7 +2699,7 @@ const {
       oneChordDominantQualities: ONE_CHORD_DOMINANT_QUALITIES
     }
   }
-}).sessionAnalytics;
+})).sessionAnalytics;
 
 
 const progressionEditorState = {
@@ -2957,7 +2962,7 @@ const {
   togglePause
 } = createDrillPlaybackRuntimeAppHostAssembly({
   dom,
-  ...createDrillPlaybackRuntimeHostAppBindings({
+  ...createDrillPlaybackRuntimeHostAppBindings(createDrillPlaybackRuntimeAppBindings({
     state: {
     getAudioContext: () => audioCtx,
     getCurrentBassPlan: () => currentBassPlan,
@@ -3097,7 +3102,7 @@ const {
     trackEvent,
     trackProgressionEvent
     }
-  })
+  }))
 });
 
 // ---- UI Wiring ----
@@ -3235,7 +3240,7 @@ const {
   applyLoadedSettings,
   finalizeLoadedSettings,
   resetPlaybackSettings
-} = createDrillSettingsAppAssembly(createDrillSettingsAppBindings({
+} = createDrillSettingsAppAssembly(createDrillSettingsAppBindings(createDrillSettingsRuntimeAppBindings({
   defaults: {
     majorMinor: false,
     tempo: 120,
@@ -3442,7 +3447,7 @@ const {
       trackEvent
     }
   }
-}));
+})));
 
 function saveSettings() {
   saveDrillSettings({
@@ -4244,7 +4249,7 @@ const {
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState
 } = createDrillSharedPlaybackAppAssembly({
-  ...createDrillSharedPlaybackAppBindings({
+  ...createDrillSharedPlaybackAppBindings(createDrillSharedPlaybackRuntimeAppBindings({
     embedded: {
     dom,
     host: {
@@ -4336,7 +4341,7 @@ const {
       togglePausePlayback: () => togglePause()
     }
     }
-  })
+  }))
 });
 
 function getPlaybackSessionController() {

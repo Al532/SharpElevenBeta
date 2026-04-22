@@ -4,6 +4,39 @@ Status: approved execution plan
 
 Instruction to executor: if anything deviates from this plan, stop immediately and ask for help.
 
+## Execution Update
+
+Etat reel du repo au moment de cette mise a jour:
+
+- le chart tourne deja en `direct` depuis `chart-dev/main.js`
+- le chart ne depend plus nominalement de `window.__JPT_DRILL_API__`
+- le host chart direct prefere deja un runtime same-page quand des `DirectPlaybackControllerOptions` sont publiees sur la fenetre courante
+- le fallback iframe transitoire existe encore et reste autorise
+- `app.js` et `chart-dev/main.js` ont deja ete fortement decomprimes en modules de seams/bindings/app-assembly
+- la batterie suivante reste verte:
+  - `npm run typecheck`
+  - `npm run test:chart`
+  - `node --check app.js`
+  - `node --check chart-dev/main.js`
+
+Decision d'execution a partir de maintenant:
+
+- ne plus poursuivre les micro-extractions JS purement structurelles qui n'ameliorent pas directement:
+  - le runtime playback partage,
+  - la suppression du backend nominal iframe cote chart,
+  - la migration TypeScript,
+  - ou la preparation mobile Android/iOS
+- considerer que la phase preparatoire de decomposition JS est deja suffisamment avancee pour sortir du mode "extractions opportunistes"
+- prioriser desormais les etapes a plus forte valeur:
+  1. finaliser le host direct same-page chart comme backend nominal reel, avec iframe seulement en fallback technique
+  2. ouvrir la vraie migration TypeScript sur les boundaries imposees
+  3. continuer les extractions `app.js` uniquement si elles debloquent explicitement 1 ou 2
+
+Regle supplementaire:
+
+- si une extraction envisagee ne reduit pas un couplage runtime/audio/playback reel, ne la pas faire
+- si une modification touche seulement a l'orchestration UI, au confort de lecture, ou a des seams deja suffisantes, la remettre apres la migration TS
+
 ## Title
 
 Plan Detaille Restant Vers Android Play Store, Puis iOS App Store

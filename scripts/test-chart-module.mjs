@@ -62,15 +62,36 @@ import {
 import { createChartDirectPlaybackControllerOptions } from '../features/chart/chart-direct-playback-options.js';
 import { createChartDirectPlaybackHostResolver } from '../features/chart/chart-direct-playback-host.js';
 import { createChartDirectPlaybackFrameHost } from '../features/chart/chart-direct-playback-frame.js';
+import { createChartNavigationBindings } from '../features/chart/chart-navigation-bindings.js';
+import { createChartNavigationStateBindings } from '../features/chart/chart-navigation-state-bindings.js';
 import { createChartDirectPlaybackWindowHost } from '../features/chart/chart-direct-playback-window-host.js';
+import { createChartLibraryImportBindings } from '../features/chart/chart-library-import-bindings.js';
+import { createChartFixtureRenderBindings } from '../features/chart/chart-fixture-render-bindings.js';
 import { createChartDirectPlaybackRuntimeHostBindings } from '../features/chart/chart-direct-playback-runtime-host-bindings.js';
+import { createChartImportedLibraryBindings } from '../features/chart/chart-imported-library-bindings.js';
 import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
 import { createChartImportControlsBindings } from '../features/chart/chart-import-controls-bindings.js';
+import { createChartDefaultLibraryBindings } from '../features/chart/chart-default-library-bindings.js';
+import { createChartRuntimeControlsAppBindings } from '../features/chart/chart-runtime-controls-app-bindings.js';
+import { createChartOverlayControlsBindings } from '../features/chart/chart-overlay-controls-bindings.js';
+import { createChartLayoutObserversBindings } from '../features/chart/chart-layout-observers-bindings.js';
+import { createChartSelectionRenderBindings } from '../features/chart/chart-selection-render-bindings.js';
+import { createChartMixerBindings } from '../features/chart/chart-mixer-bindings.js';
+import { createChartOverlayShellBindings } from '../features/chart/chart-overlay-shell-bindings.js';
+import { createChartBarSelectionBindings } from '../features/chart/chart-bar-selection-bindings.js';
+import { createChartPopoverBindings } from '../features/chart/chart-popover-bindings.js';
+import { createChartMetaBindings } from '../features/chart/chart-meta-bindings.js';
+import { createChartImportStatusBindings } from '../features/chart/chart-import-status-bindings.js';
+import { createChartScreenAppBindings } from '../features/chart/chart-screen-app-bindings.js';
 import { createChartRuntimeControlsBindings } from '../features/chart/chart-runtime-controls-bindings.js';
+import { createChartTransportBindings } from '../features/chart/chart-transport-bindings.js';
 import { createChartScreenBindings } from '../features/chart/chart-screen-bindings.js';
+import { createChartSelectorBindings } from '../features/chart/chart-selector-bindings.js';
 import { createChartSheetRendererBindings } from '../features/chart/chart-sheet-renderer-bindings.js';
+import { createChartSheetRendererAppBindings } from '../features/chart/chart-sheet-renderer-app-bindings.js';
 import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
+import { createAppShellBindings } from '../features/app/app-shell-bindings.js';
 import { initializeEmbeddedDrillRuntime } from '../features/drill/drill-embedded-runtime.js';
 import { createDrillAudioRuntime } from '../features/drill/drill-audio-runtime.js';
 import { createEmbeddedDrillRuntimeAppContextOptions } from '../features/drill/drill-embedded-runtime-app-context.js';
@@ -99,6 +120,7 @@ import {
   createDrillSettingsSnapshotBuilder
 } from '../features/drill/drill-settings.js';
 import { createDrillSettingsAppBindings } from '../features/drill/drill-settings-app-bindings.js';
+import { createDrillSettingsRuntimeAppBindings } from '../features/drill/drill-settings-runtime-app-bindings.js';
 import {
   createDrillEmbeddedRuntimeContextBindings,
   createDrillNormalizationBindings,
@@ -109,6 +131,8 @@ import {
   createDrillTransportActionBindings
 } from '../features/drill/drill-runtime-app-bindings.js';
 import { createDrillAudioRuntimeAppContext } from '../features/drill/drill-audio-runtime-app-context.js';
+import { createDrillAudioRuntimeAppAssembly } from '../features/drill/drill-audio-runtime-app-assembly.js';
+import { createDrillAudioRuntimeAppBindings } from '../features/drill/drill-audio-runtime-app-bindings.js';
 import { createDrillAudioFacadeAppSurface } from '../features/drill/drill-audio-facade-app-surface.js';
 import { createDrillAudioStackAppAssembly } from '../features/drill/drill-audio-stack-app-assembly.js';
 import { createDrillAudioStackAppBindings } from '../features/drill/drill-audio-stack-app-bindings.js';
@@ -122,6 +146,7 @@ import { createDrillEmbeddedRuntimeHostBindings } from '../features/drill/drill-
 import { createDrillPianoToolsAppBindings } from '../features/drill/drill-piano-tools-app-bindings.js';
 import { createDrillPianoToolsAppFacade } from '../features/drill/drill-piano-tools.js';
 import { createDrillPlaybackResourcesAppBindings } from '../features/drill/drill-playback-resources-app-bindings.js';
+import { createDrillPlaybackResourcesRuntimeAppBindings } from '../features/drill/drill-playback-resources-runtime-app-bindings.js';
 import { createDrillSamplePlaybackRuntime } from '../features/drill/drill-sample-playback-runtime.js';
 import { createDrillSamplePlaybackAppContext } from '../features/drill/drill-sample-playback-app-context.js';
 import { createDrillSamplePreloadAppContext } from '../features/drill/drill-sample-preload-app-context.js';
@@ -134,11 +159,15 @@ import { createDrillPlaybackRuntimeAppAssembly } from '../features/drill/drill-p
 import { createDrillPlaybackRuntimeHostAppBindings } from '../features/drill/drill-playback-runtime-host-app-bindings.js';
 import { createDrillPlaybackStateAppContext } from '../features/drill/drill-playback-state-app-context.js';
 import { createDrillRuntimePrimitivesAppBindings } from '../features/drill/drill-runtime-primitives-app-bindings.js';
+import { createDrillRuntimePrimitivesRuntimeAppBindings } from '../features/drill/drill-runtime-primitives-runtime-app-bindings.js';
+import { createDrillRuntimeStateAppBindings } from '../features/drill/drill-runtime-state-app-bindings.js';
 import {
   createDrillPlaybackSchedulerState,
   createDrillPlaybackTransportState
 } from '../features/drill/drill-playback-runtime-engine.js';
 import { createDrillSharedPlaybackAppBindings } from '../features/drill/drill-shared-playback-app-bindings.js';
+import { createDrillSharedPlaybackRuntimeAppBindings } from '../features/drill/drill-shared-playback-runtime-app-bindings.js';
+import { createDrillPlaybackRuntimeAppBindings } from '../features/drill/drill-playback-runtime-app-bindings.js';
 import { createDrillVoicingRuntimeAppBindings } from '../features/drill/drill-voicing-runtime-app-bindings.js';
 import { createDrillWalkingBassAppBindings } from '../features/drill/drill-walking-bass-app-bindings.js';
 import { createWalkingBassGenerator } from '../walking-bass.js';
@@ -1592,11 +1621,40 @@ assert.equal(
   'Drill audio-stack facade app bindings preserve facade timing defaults.'
 );
 assert.equal(
+  createDrillAudioRuntimeAppBindings({
+    audioFacade: { defaultFadeDuration: 0.25 }
+  }).audioFacade.defaultFadeDuration,
+  0.25,
+  'Drill audio runtime app bindings preserve grouped runtime concerns for the shared audio seam.'
+);
+assert.equal(
   createDrillAudioFacadeAppSurface({
     loadSample: () => 'sample-loaded'
   }).loadDrillAudioSample(),
   'sample-loaded',
   'Drill audio facade app surface materializes stable app-local aliases over the shared audio facade.'
+);
+const drillAudioRuntimeAssembly = createDrillAudioRuntimeAppAssembly({
+  audioStack: {
+    audioRuntime: {
+      audioState: { getAudioContext: () => null },
+      cacheState: {},
+      constants: {}
+    },
+    samplePreload: {},
+    scheduledAudio: {},
+    audioPlayback: {},
+    samplePlayback: {}
+  },
+  audioFacade: {
+    getCurrentTime: () => 0,
+    defaultFadeDuration: 0.25
+  }
+});
+assert.equal(
+  typeof drillAudioRuntimeAssembly.audioSurface.stopDrillScheduledAudio,
+  'function',
+  'Drill audio runtime app assembly materializes the shared audio stack, facade, and app-facing surface through one boundary.'
 );
 assert.equal(
   createDrillCompingEngineAppBindings({
@@ -1632,6 +1690,48 @@ assert.equal(
   }).direct.playbackState.getIsPlaying(),
   true,
   'Drill shared-playback app bindings preserve grouped direct-runtime concerns for the shared playback assembly.'
+);
+assert.equal(
+  createDrillSharedPlaybackRuntimeAppBindings({
+    embedded: { playbackState: { isEmbeddedMode: true } }
+  }).embedded.playbackState.isEmbeddedMode,
+  true,
+  'Drill shared-playback runtime app bindings preserve grouped embedded/direct runtime concerns before the shared playback boundary.'
+);
+assert.equal(
+  createDrillPlaybackRuntimeAppBindings({
+    constants: { scheduleAhead: 0.2 }
+  }).constants.scheduleAhead,
+  0.2,
+  'Drill playback-runtime app bindings preserve grouped runtime-host concerns before the shared host boundary.'
+);
+assert.equal(
+  createDrillPlaybackResourcesRuntimeAppBindings({
+    runtime: { compingEngine: { id: 'comping' } }
+  }).runtime.compingEngine.id,
+  'comping',
+  'Drill playback-resources runtime app bindings preserve grouped playback-resource concerns before the shared resources boundary.'
+);
+assert.equal(
+  createDrillRuntimeStateAppBindings({
+    keyPool: { getEnabledKeys: () => [true] }
+  }).keyPool.getEnabledKeys()[0],
+  true,
+  'Drill runtime-state app bindings preserve grouped runtime-state concerns before the shared runtime-state boundary.'
+);
+assert.equal(
+  createDrillRuntimePrimitivesRuntimeAppBindings({
+    playbackSettings: { constants: { compingStyleOff: 'off' } }
+  }).playbackSettings.constants.compingStyleOff,
+  'off',
+  'Drill runtime-primitives runtime app bindings preserve grouped primitive-runtime concerns before the shared primitives boundary.'
+);
+assert.equal(
+  createDrillSettingsRuntimeAppBindings({
+    defaults: { tempo: 120 }
+  }).defaults.tempo,
+  120,
+  'Drill settings runtime app bindings preserve grouped settings concerns before the shared settings boundary.'
 );
 assert.equal(
   createDrillVoicingRuntimeAppBindings({
@@ -4443,11 +4543,81 @@ assert.equal(
   'Chart runtime-controls bindings preserve grouped chart event handlers for the shared controls seam.'
 );
 assert.equal(
+  createChartRuntimeControlsAppBindings({
+    chartSearchInput: { id: 'chart-search-input' }
+  }).chartSearchInput.id,
+  'chart-search-input',
+  'Chart runtime-controls app bindings preserve grouped app-level control wiring for the shared controls seam.'
+);
+assert.equal(
+  createChartTransportBindings({
+    totalBars: 32
+  }).totalBars,
+  32,
+  'Chart transport bindings preserve grouped transport-rendering concerns for the shared transport seam.'
+);
+assert.equal(
+  createChartMetaBindings({
+    chartMeta: { id: 'chart-meta' }
+  }).chartMeta.id,
+  'chart-meta',
+  'Chart meta bindings preserve grouped meta-rendering concerns for the shared meta seam.'
+);
+assert.equal(
   createChartImportControlsBindings({
     defaultPlaylistsUrl: 'https://example.test'
   }).defaultPlaylistsUrl,
   'https://example.test',
   'Chart import-controls bindings preserve grouped import-control concerns for the shared import seam.'
+);
+assert.equal(
+  createChartImportStatusBindings({
+    message: 'Loaded'
+  }).message,
+  'Loaded',
+  'Chart import-status bindings preserve grouped import-status concerns for the shared import seam.'
+);
+assert.equal(
+  createChartLibraryImportBindings({
+    sourceFile: 'test.irealb'
+  }).sourceFile,
+  'test.irealb',
+  'Chart library-import bindings preserve grouped parsing concerns for the shared library-import seam.'
+);
+assert.equal(
+  createChartImportedLibraryBindings({
+    source: 'pasted iReal link'
+  }).source,
+  'pasted iReal link',
+  'Chart imported-library bindings preserve grouped library-application concerns for the shared imported-library seam.'
+);
+assert.equal(
+  createChartFixtureRenderBindings({
+    fixtureSelect: { value: 'autumn-leaves' }
+  }).fixtureSelect.value,
+  'autumn-leaves',
+  'Chart fixture-render bindings preserve grouped fixture-rendering concerns for the shared fixture seam.'
+);
+assert.equal(
+  createChartDefaultLibraryBindings({
+    sourceUrl: 'https://example.test/default.txt'
+  }).sourceUrl,
+  'https://example.test/default.txt',
+  'Chart default-library bindings preserve grouped bundled-library import concerns for the shared default-library seam.'
+);
+assert.equal(
+  createChartNavigationBindings({
+    getSelectedId: () => 'autumn-leaves'
+  }).getSelectedId(),
+  'autumn-leaves',
+  'Chart navigation bindings preserve grouped navigation concerns for the shared navigation seam.'
+);
+assert.equal(
+  createChartNavigationStateBindings({
+    selectedId: 'autumn-leaves'
+  }).selectedId,
+  'autumn-leaves',
+  'Chart navigation-state bindings preserve grouped navigation-state concerns for the shared navigation seam.'
 );
 assert.equal(
   createChartSheetRendererBindings({
@@ -4457,11 +4627,88 @@ assert.equal(
   'Chart sheet-renderer bindings preserve grouped chart-renderer concerns for the shared sheet seam.'
 );
 assert.equal(
+  createChartSheetRendererAppBindings({
+    sheetGrid: { id: 'sheet-grid' }
+  }).sheetGrid.id,
+  'sheet-grid',
+  'Chart sheet-renderer app bindings preserve grouped renderer-factory concerns for the shared sheet seam.'
+);
+assert.equal(
   createChartScreenBindings({
     renderFixture: () => 'rendered'
   }).renderFixture(),
   'rendered',
   'Chart screen bindings preserve grouped chart-screen boot concerns for the shared initialization seam.'
+);
+assert.equal(
+  createChartScreenAppBindings({
+    syncPlaybackSettings: () => 'synced'
+  }).syncPlaybackSettings(),
+  'synced',
+  'Chart screen app bindings preserve grouped screen-initialization concerns for the shared initialization seam.'
+);
+assert.equal(
+  createChartOverlayControlsBindings({
+    onOpenOverlay: () => 'opened'
+  }).onOpenOverlay(),
+  'opened',
+  'Chart overlay-controls bindings preserve grouped overlay wiring concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartLayoutObserversBindings({
+    applyOpticalPlacements: () => 'applied'
+  }).applyOpticalPlacements(),
+  'applied',
+  'Chart layout-observers bindings preserve grouped layout wiring concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartSelectionRenderBindings({
+    selectionSummaryElement: { id: 'selection-summary' }
+  }).selectionSummaryElement.id,
+  'selection-summary',
+  'Chart selection-render bindings preserve grouped selection UI concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartMixerBindings({
+    masterVolumeValue: { id: 'master-volume-value' }
+  }).masterVolumeValue.id,
+  'master-volume-value',
+  'Chart mixer bindings preserve grouped mixer-output concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartOverlayShellBindings({
+    chartApp: { id: 'chart-app' }
+  }).chartApp.id,
+  'chart-app',
+  'Chart overlay-shell bindings preserve grouped overlay-shell concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartBarSelectionBindings({
+    renderSelectionState: () => 'rendered'
+  }).renderSelectionState(),
+  'rendered',
+  'Chart bar-selection bindings preserve grouped selection-handler concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartPopoverBindings({
+    popovers: ['manage', 'settings']
+  }).popovers.length,
+  2,
+  'Chart popover bindings preserve grouped popover-shell concerns for the shared screen seam.'
+);
+assert.equal(
+  createChartSelectorBindings({
+    previousId: 'autumn-leaves'
+  }).previousId,
+  'autumn-leaves',
+  'Chart selector bindings preserve grouped selector-rendering concerns for the shared selector seam.'
+);
+assert.equal(
+  createAppShellBindings({
+    mode: 'chart'
+  }).mode,
+  'chart',
+  'App-shell bindings preserve grouped shell-initialization concerns for the shared app-shell seam.'
 );
 let embeddedBridgeFrameLookups = 0;
 const chartEmbeddedRuntimeContext = createChartPlaybackRuntimeContext({
