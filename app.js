@@ -30,12 +30,14 @@ import {
 } from './swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
 import { initializeEmbeddedDrillRuntime } from './features/drill/drill-embedded-runtime.js';
-import { createEmbeddedDrillRuntimeAppContextOptions } from './features/drill/drill-embedded-runtime-app-context.js';
-import {
-  initializeDrillPlaybackRuntimeEngine
-} from './features/drill/drill-playback-runtime-engine.js';
-import { createDrillPlaybackEngineAppContext } from './features/drill/drill-playback-engine-app-context.js';
-import { createDrillPlaybackStateAppContext } from './features/drill/drill-playback-state-app-context.js';
+import { createDrillAudioStackAppAssembly } from './features/drill/drill-audio-stack-app-assembly.js';
+import { createDrillAudioStackAppFacade } from './features/drill/drill-audio-stack-app-facade.js';
+import { createDrillEmbeddedRuntimeAppAssembly } from './features/drill/drill-embedded-runtime-app-assembly.js';
+import { createDrillPatternAnalysis } from './features/drill/drill-pattern-analysis.js';
+import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
+import { createDrillPlaybackPreparationAppContext } from './features/drill/drill-playback-preparation-app-context.js';
+import { createDrillPlaybackResourcesAppFacade } from './features/drill/drill-playback-resources-app-facade.js';
+import { createDrillPlaybackRuntimeAppAssembly } from './features/drill/drill-playback-runtime-app-assembly.js';
 import {
   buildDrillKeyCheckboxes,
   invertDrillKeysEnabled,
@@ -546,8 +548,6 @@ let oneChordQualityPool = [];
 let oneChordQualityPoolSignature = '';
 let currentOneChordQualityValue = '';
 let nextOneChordQualityValue = '';
-let cachedPatternAnalysisInput = null;
-let cachedPatternAnalysisResult = null;
 let appliedDefaultProgressionsFingerprint = '';
 let hadStoredProgressions = false;
 let shouldPromptForDefaultProgressionsUpdate = false;
@@ -755,23 +755,6 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
-function normalizeMusicalText(value) {
-  return String(value || '')
-    .replace(/\u266d[\ufe0e\ufe0f]?/g, 'b')
-    .replace(/\u266f[\ufe0e\ufe0f]?/g, '#')
-    .replace(/\u2013|\u2014/g, '-');
-}
-
-function normalizePatternString(pattern) {
-  const normalized = normalizeMusicalText(pattern).replace(/\r\n?/g, '\n');
-  const lineBreakReplacement = normalized.includes('|') ? ' | ' : ' ';
-  return normalized
-    .replace(/\n+/g, lineBreakReplacement)
-    .replace(/-/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
 function normalizeCompingStyle(style) {
   if (style === 'piano-one-hand' || style === 'piano-two-hand') return COMPING_STYLE_PIANO;
   return [
@@ -827,46 +810,33 @@ function parseDefaultProgressionsText(source) {
   });
 }
 
-const ONE_CHORD_TAG = 'one:';
-const ONE_CHORD_DEFAULT_QUALITIES = [
-  '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mb6', 'mMaj7', 'm7b5', 'dim7',
-  '9', '13', '7b9', '7alt', '13b9', '13#11', '7#5', '13sus', '9sus', '7b9sus'
-];
-const ONE_CHORD_DOMINANT_QUALITIES = [
-  '9', '13', '7b9', '7alt', '13b9', '13#11', '7#5', '13sus', '9sus', '7b9sus'
-];
-const ONE_CHORD_QUALITY_ALIASES = {
-  '6': '6',
-  maj7: 'maj7',
-  '△7': 'maj7',
-  '△9': 'maj7',
-  lyd: 'lyd',
-  m7: 'm7',
-  m9: 'm9',
-  m6: 'm6',
-  mb6: 'mb6',
-  mmaj7: 'mMaj7',
-  mMaj7: 'mMaj7',
-  'ø7': 'm7b5',
-  m7b5: 'm7b5',
-  dim7: 'dim7',
-  '°7': 'dim7',
-  '9': '9',
-  '7mixo': '13',
-  '13mixo': '13',
-  '7oct': '13b9',
-  oct: '13b9',
-  '13alt': '7alt',
-  '13oct': '13b9',
-  '7lyd': '13#11',
-  '7#11': '13#11',
-  '13lyd': '13#11',
-  '13#5': '7#5',
-  '7sus': '9sus',
-  '13sus': '13sus',
-  '9sus': '9sus',
-  '13b9sus': '7b9sus'
-};
+const {
+  ONE_CHORD_DEFAULT_QUALITIES,
+  ONE_CHORD_DOMINANT_QUALITIES,
+  normalizePatternString,
+  parseOneChordSpec,
+  isOneChordModeActive: isOneChordModeActiveBase,
+  createOneChordToken,
+  analyzePattern,
+  analyzePatternCached,
+  parsePattern,
+  normalizeChordsPerBar: normalizeChordsPerBarBase,
+  getPatternKeyOverridePitchClass: getPatternKeyOverridePitchClassBase,
+  getBeatsPerChord: getBeatsPerChordBase,
+  padProgression: padProgressionBase
+} = createDrillPatternAnalysis({
+  romanToSemitones: ROMAN_TO_SEMITONES,
+  noteLetterToSemitone: NOTE_LETTER_TO_SEMITONE,
+  semitoneToRomanTokenMap: SEMITONE_TO_ROMAN_TOKEN,
+  degreeQualityMajor: DEGREE_QUALITY_MAJOR,
+  alteredSemitoneQualityMajor: ALTERED_SEMITONE_QUALITY_MAJOR,
+  degreeQualityMinor: DEGREE_QUALITY_MINOR,
+  alteredSemitoneQualityMinor: ALTERED_SEMITONE_QUALITY_MINOR,
+  dominantQualityAliases: DOMINANT_QUALITY_ALIASES,
+  qualityCategoryAliases: QUALITY_CATEGORY_ALIASES,
+  defaultChordsPerBar: DEFAULT_CHORDS_PER_BAR,
+  supportedChordsPerBar: SUPPORTED_CHORDS_PER_BAR
+});
 
 function clearOneChordCycleState() {
   currentRawChords = [];
@@ -941,93 +911,8 @@ function shouldApplyMasterVolumeDefault50Migration() {
   return true;
 }
 
-function normalizeOneChordQualityToken(token) {
-  const normalized = normalizeMusicalText(token).trim().toLowerCase();
-  if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalized)) return normalized;
-  for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
-    if ((aliases || []).includes(normalized)) return canonicalQuality;
-  }
-  if (Object.prototype.hasOwnProperty.call(QUALITY_CATEGORY_ALIASES, normalized)) return normalized;
-  for (const [canonicalQuality, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
-    if ((aliases || []).includes(normalized)) return canonicalQuality;
-  }
-  return ONE_CHORD_QUALITY_ALIASES[normalized] || null;
-}
-
-function parseOneChordSpec(str) {
-  const normalized = String(str || '').trim();
-  if (!normalized.toLowerCase().startsWith(ONE_CHORD_TAG)) {
-    return {
-      active: false,
-      qualities: [],
-      invalidTokens: [],
-      errorMessage: null
-    };
-  }
-
-  const body = normalized.slice(ONE_CHORD_TAG.length).trim();
-  if (!body) {
-    return {
-      active: true,
-      qualities: [...ONE_CHORD_DEFAULT_QUALITIES],
-      invalidTokens: [],
-      errorMessage: null
-    };
-  }
-
-  const rawTokens = body
-    .split(',')
-    .map(token => token.trim())
-    .filter(Boolean);
-
-  const qualities = [];
-  const invalidTokens = [];
-  for (const token of rawTokens) {
-    const normalizedToken = token.toLowerCase();
-    if (['all', 'all chords'].includes(normalizedToken)) {
-      qualities.push(...ONE_CHORD_DEFAULT_QUALITIES);
-      continue;
-    }
-    if (['dominant', 'dominants', 'all dominant', 'all dominants'].includes(normalizedToken)) {
-      qualities.push(...ONE_CHORD_DOMINANT_QUALITIES);
-      continue;
-    }
-
-    const canonicalQuality = normalizeOneChordQualityToken(token);
-    if (canonicalQuality) {
-      qualities.push(canonicalQuality);
-    } else {
-      invalidTokens.push(token);
-    }
-  }
-
-  const uniqueQualities = [...new Set(qualities)];
-  return {
-    active: true,
-    qualities: uniqueQualities.length > 0 ? uniqueQualities : [...ONE_CHORD_DEFAULT_QUALITIES],
-    invalidTokens,
-    errorMessage: invalidTokens.length > 0
-      ? `Unknown one-chord quality(ies): ${invalidTokens.join(', ')}`
-      : null
-  };
-}
-
 function isOneChordModeActive(pattern = getCurrentPatternString()) {
-  return parseOneChordSpec(pattern).active;
-}
-
-function createOneChordToken(quality) {
-  return {
-    label: quality,
-    roman: 'I',
-    modifier: '',
-    semitones: 0,
-    bassSemitones: 0,
-    qualityMajor: quality,
-    qualityMinor: quality,
-    inputType: 'one-chord',
-    slashBassLabel: null
-  };
+  return isOneChordModeActiveBase(pattern);
 }
 
 function getOneChordQualitySignature(qualities) {
@@ -1077,462 +962,8 @@ function takeNextOneChordQuality(qualities, excludedQuality = null) {
 
 // ---- Pattern Parser ----
 
-function noteNameToPitchClass(letter, accidental = '') {
-  const base = NOTE_LETTER_TO_SEMITONE[String(letter || '').toUpperCase()];
-  if (base === undefined) return null;
-  const normalizedAccidental = normalizeMusicalText(accidental);
-  if (normalizedAccidental === 'b') return (base + 11) % 12;
-  if (normalizedAccidental === '#') return (base + 1) % 12;
-  return base;
-}
-
-function semitoneToRomanToken(semitones) {
-  return SEMITONE_TO_ROMAN_TOKEN[((semitones % 12) + 12) % 12] || null;
-}
-
-function buildParsedToken({ label, roman, modifier, semitones, customQuality = null, inputType = 'degree' }) {
-  let qualityMajor;
-  let qualityMinor;
-
-  if (customQuality) {
-    if (!isAcceptedCustomQuality(customQuality)) return null;
-    qualityMajor = normalizeParsedQuality(customQuality, roman);
-    qualityMinor = qualityMajor;
-  } else if (modifier) {
-    qualityMajor = ALTERED_SEMITONE_QUALITY_MAJOR[semitones] || 'â–³7';
-    qualityMinor = ALTERED_SEMITONE_QUALITY_MINOR[semitones] || 'm7';
-    qualityMajor = normalizeParsedQuality(qualityMajor, roman);
-    qualityMinor = normalizeParsedQuality(qualityMinor, roman);
-  } else {
-    qualityMajor = DEGREE_QUALITY_MAJOR[roman] || 'â–³7';
-    qualityMinor = DEGREE_QUALITY_MINOR[roman] || 'm7';
-    qualityMajor = normalizeParsedQuality(qualityMajor, roman);
-    qualityMinor = normalizeParsedQuality(qualityMinor, roman);
-  }
-
-  return {
-    label,
-    roman,
-    modifier,
-    semitones,
-    bassSemitones: semitones,
-    qualityMajor,
-    qualityMinor,
-    inputType,
-    slashBassLabel: null
-  };
-}
-
-function isAcceptedCustomQuality(quality) {
-  return true;
-}
-
-function normalizeParsedQuality(quality, roman) {
-  const normalizedQuality = String(quality).toLowerCase();
-  if (Object.prototype.hasOwnProperty.call(DOMINANT_QUALITY_ALIASES, normalizedQuality)) return normalizedQuality;
-  for (const [canonicalQuality, aliases] of Object.entries(DOMINANT_QUALITY_ALIASES)) {
-    if ((aliases || []).includes(normalizedQuality)) return canonicalQuality;
-  }
-  if (normalizedQuality === 'm') {
-    if (roman === 'I') return 'm6';
-    return 'm7';
-  }
-  if (Object.prototype.hasOwnProperty.call(QUALITY_CATEGORY_ALIASES, normalizedQuality)) return normalizedQuality;
-  for (const [canonicalQuality, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
-    if ((aliases || []).includes(normalizedQuality)) return canonicalQuality;
-  }
-  return quality;
-}
-
-function parseDegreeToken(token) {
-  // Syntax: [b|#]<roman>[quality]  e.g. II, bVI, IIdim7, V9, VI7
-  // Roman numerals listed longest-first to avoid partial matches (VII before VI before V, etc.)
-  const normalizedToken = normalizeMusicalText(token).trim();
-  const match = normalizedToken.match(/^([b#]?)(VII|VI|IV|V|III|II|I)(.+)?$/i);
-  if (!match) return null;
-  const modifier = match[1] || '';
-  const roman = match[2].toUpperCase();
-  const customQuality = match[3] || null; // user-specified quality override
-  if (!(roman in ROMAN_TO_SEMITONES)) return null;
-  let semitones = ROMAN_TO_SEMITONES[roman];
-  if (modifier === 'b') semitones = (semitones - 1 + 12) % 12;
-  else if (modifier === '#') semitones = (semitones + 1) % 12;
-
-  return buildParsedToken({
-    label: modifier + roman,
-    roman,
-    modifier,
-    semitones,
-    customQuality,
-    inputType: 'degree'
-  });
-}
-
-function parseNoteToken(token, basePitchClass = 0) {
-  const normalizedToken = normalizeMusicalText(token).trim();
-  const match = normalizedToken.match(/^([A-Ga-g])([b#]?)(.*)?$/);
-  if (!match) return null;
-
-  const letter = match[1].toUpperCase();
-  const accidental = match[2] || '';
-  const customQuality = match[3] || null;
-  const absolutePitchClass = noteNameToPitchClass(letter, accidental);
-  if (absolutePitchClass === null) return null;
-
-  const semitones = (absolutePitchClass - basePitchClass + 12) % 12;
-  const degreeToken = semitoneToRomanToken(semitones);
-  if (!degreeToken) return null;
-
-  return buildParsedToken({
-    label: `${letter}${accidental}`,
-    roman: degreeToken.roman,
-    modifier: degreeToken.modifier,
-    semitones,
-    customQuality,
-    inputType: 'note'
-  });
-}
-
-function extractPatternBase(str) {
-  const normalized = normalizeMusicalText(str).trim();
-  const equalsOverrideMatch = normalized.match(/^key\s*=\s*([A-Ga-g])([b#]?)\s*:\s*(.*)$/);
-  const colonOverrideMatch = normalized.match(/^key\s*:\s*([A-Ga-g])([b#]?)(?:\s*\|\s*|\s+)(.*)$/);
-  const overrideMatch = equalsOverrideMatch || colonOverrideMatch;
-  if (!overrideMatch) {
-    if ((/^key\s*=/.test(normalized) && !/:/.test(normalized)) || /^key\s*:\s*$/.test(normalized)) {
-      return {
-        body: normalized,
-        basePitchClass: 0,
-        hasOverride: true,
-        overrideToken: normalized,
-        error: 'Missing ":" after key override'
-      };
-    }
-    if (/^key\s*=/.test(normalized) || /^key\s*:/.test(normalized)) {
-      const rawOverride = normalized.match(/^key\s*(?:=\s*|:\s*)([^:\s]+)/);
-      return {
-        body: normalized,
-        basePitchClass: 0,
-        hasOverride: true,
-        overrideToken: rawOverride ? rawOverride[1] : normalized,
-        error: 'Invalid key override'
-      };
-    }
-    return { body: normalized, basePitchClass: 0, hasOverride: false, overrideToken: null, error: null };
-  }
-
-  const letter = overrideMatch[1].toUpperCase();
-  const accidental = overrideMatch[2] || '';
-  const basePitchClass = noteNameToPitchClass(letter, accidental);
-
-  return {
-    body: overrideMatch[3].trim(),
-    basePitchClass,
-    hasOverride: true,
-    overrideToken: `${letter}${accidental}`,
-    error: basePitchClass === null ? `Invalid key override: ${letter}${accidental}` : null
-  };
-}
-
-function parseSlashBassToken(token, basePitchClass = 0) {
-  const normalized = normalizeMusicalText(token).trim();
-  if (!/^([b#]?(?:VII|VI|IV|V|III|II|I)|[A-Ga-g][b#]?)$/i.test(normalized)) {
-    return null;
-  }
-  return parseDegreeToken(normalized) || parseNoteToken(normalized, basePitchClass);
-}
-
-function parseToken(token, basePitchClass = 0) {
-  const normalized = normalizeMusicalText(token).trim();
-  if (!normalized) return null;
-
-  const parts = normalized.split('/');
-  if (parts.length === 1) {
-    return parseDegreeToken(normalized) || parseNoteToken(normalized, basePitchClass);
-  }
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    return null;
-  }
-
-  const parsedChord = parseDegreeToken(parts[0]) || parseNoteToken(parts[0], basePitchClass);
-  const parsedBass = parseSlashBassToken(parts[1], basePitchClass);
-  if (!parsedChord || !parsedBass) return null;
-
-  return {
-    ...parsedChord,
-    bassSemitones: parsedBass.semitones,
-    slashBassLabel: parsedBass.label
-  };
-}
-
-function expandRepeatedMeasureStrings(body) {
-  const normalized = String(body || '')
-    .replace(/\r?\n/g, ' ')
-    .replace(/:\]/g, ' __REPEAT_END__ ')
-    .replace(/:\|/g, ' __REPEAT_END__ ')
-    .replace(/\]\s*\[\:/g, '] | [:')
-    .replace(/\|\|/g, '| || |');
-
-  const rawSegments = normalized
-    .split('|')
-    .map(segment => segment.trim())
-    .filter(Boolean);
-
-  const measures = [];
-  let repeatFrame = null;
-  let skippingUntilSecondEnding = false;
-
-  const processSegment = (segment) => {
-    if (segment === '||') return;
-
-    const startsFirstEnding = /\[1\b/.test(segment);
-    const startsSecondEnding = /\[2\b/.test(segment);
-    const startRepeat = segment.includes('[:') || /^\[(?![12]\b)/.test(segment);
-    const explicitRepeatEnd = segment.includes('__REPEAT_END__');
-    const closesBracket = /\]$/.test(segment);
-    const cleaned = segment
-      .replace(/\[:/g, '')
-      .replace(/__REPEAT_END__/g, '')
-      .replace(/\[1\b/g, '')
-      .replace(/\[2\b/g, '')
-      .replace(/^\[(?![12]\b)/g, '')
-      .replace(/\]$/g, '')
-      .trim();
-
-    if (startRepeat && !repeatFrame) {
-      repeatFrame = {
-        startIndex: measures.length,
-        firstEndingStartIndex: null,
-        duplicated: false
-      };
-      skippingUntilSecondEnding = false;
-    }
-
-    if (startsFirstEnding && repeatFrame && !repeatFrame.duplicated) {
-      repeatFrame.firstEndingStartIndex = measures.length;
-      skippingUntilSecondEnding = false;
-    }
-
-    if (startsSecondEnding) {
-      skippingUntilSecondEnding = false;
-    }
-
-    if (cleaned && !skippingUntilSecondEnding) {
-      measures.push(cleaned);
-    }
-
-    if (explicitRepeatEnd && repeatFrame && !repeatFrame.duplicated) {
-      const repeatBodyEnd = repeatFrame.firstEndingStartIndex ?? measures.length;
-      measures.push(...measures.slice(repeatFrame.startIndex, repeatBodyEnd));
-      if (repeatFrame.firstEndingStartIndex === null) {
-        repeatFrame = null;
-        skippingUntilSecondEnding = false;
-      } else {
-        repeatFrame.duplicated = true;
-        skippingUntilSecondEnding = true;
-      }
-    }
-
-    if (closesBracket && repeatFrame) {
-      if (!repeatFrame.duplicated) {
-        const repeatBodyEnd = repeatFrame.firstEndingStartIndex ?? measures.length;
-        measures.push(...measures.slice(repeatFrame.startIndex, repeatBodyEnd));
-      }
-      repeatFrame = null;
-      skippingUntilSecondEnding = false;
-    }
-  };
-
-  rawSegments.forEach((segment) => {
-    if (segment.includes('__REPEAT_END__') && /\[2\b/.test(segment)) {
-      const secondEndingIndex = segment.indexOf('[2');
-      const firstPart = segment.slice(0, secondEndingIndex).trim();
-      const secondPart = segment.slice(secondEndingIndex).trim();
-      if (firstPart) processSegment(firstPart);
-      if (secondPart) processSegment(secondPart);
-      return;
-    }
-    processSegment(segment);
-  });
-
-  if (repeatFrame && !repeatFrame.duplicated) {
-    const repeatBodyEnd = repeatFrame.firstEndingStartIndex ?? measures.length;
-    measures.push(...measures.slice(repeatFrame.startIndex, repeatBodyEnd));
-  }
-
-  return measures;
-}
-
-function tokenizeDrillSegment(segment) {
-  return String(segment || '')
-    .split(/[\s-]+/)
-    .filter(Boolean)
-    .flatMap((token) => (/^[%/]+$/.test(token) ? token.split('') : [token]));
-}
-
-function analyzePattern(str) {
-  const oneChordSpec = parseOneChordSpec(str);
-  if (oneChordSpec.active) {
-    return {
-      body: String(str || '').trim(),
-      basePitchClass: 0,
-      hasOverride: false,
-      overrideToken: null,
-      usesBarLines: false,
-      resolvedChordsPerBar: null,
-      expandedMeasures: null,
-      tokens: oneChordSpec.qualities,
-      chords: oneChordSpec.qualities.length > 0 ? [createOneChordToken(oneChordSpec.qualities[0])] : [],
-      invalidTokens: oneChordSpec.invalidTokens,
-      errorMessage: oneChordSpec.errorMessage
-    };
-  }
-
-  const base = extractPatternBase(str);
-  if (base.error) {
-    return {
-      ...base,
-      usesBarLines: false,
-      resolvedChordsPerBar: null,
-      expandedMeasures: null,
-      tokens: [],
-      chords: [],
-      invalidTokens: [],
-      errorMessage: base.error
-    };
-  }
-
-  const usesBarLines = base.body.includes('|');
-  const tokens = base.body ? tokenizeDrillSegment(base.body.replace(/\|+/g, ' ')) : [];
-  const chords = [];
-  const invalidTokens = [];
-
-  if (usesBarLines) {
-    const measures = expandRepeatedMeasureStrings(base.body);
-    const expandedMeasures = [];
-
-    let previousChord = null;
-    measures.forEach((measure, index) => {
-      const measureTokens = tokenizeDrillSegment(measure);
-      const measureChords = [];
-
-      for (const token of measureTokens) {
-        if (token === '%' || token === '/') {
-          if (measureChords.length > 0) {
-            const repeated = { ...measureChords[measureChords.length - 1] };
-            measureChords.push(repeated);
-            previousChord = repeated;
-          } else if (previousChord) {
-            const repeated = { ...previousChord };
-            measureChords.push(repeated);
-            previousChord = repeated;
-          } else {
-            invalidTokens.push(`${token} (measure ${index + 1})`);
-          }
-          continue;
-        }
-
-        const parsed = parseToken(token, base.basePitchClass);
-        if (parsed) {
-          measureChords.push(parsed);
-          previousChord = parsed;
-        } else if (containsRejectedQuality(token)) {
-          invalidTokens.push(`${token} (use m, m7, or m9; richer harmony may be applied by context)`);
-        } else {
-          invalidTokens.push(`${token} (measure ${index + 1})`);
-        }
-      }
-
-      if (measureChords.length === 0) return;
-      expandedMeasures.push(measureChords.map(chord => ({ ...chord })));
-      if (measureChords.length === 1) {
-        chords.push(
-          { ...measureChords[0] },
-          { ...measureChords[0] },
-          { ...measureChords[0] },
-          { ...measureChords[0] }
-        );
-        return;
-      }
-      if (measureChords.length === 2) {
-        chords.push(
-          { ...measureChords[0] },
-          { ...measureChords[0] },
-          { ...measureChords[1] },
-          { ...measureChords[1] }
-        );
-        return;
-      }
-      if (measureChords.length === 4) {
-        measureChords.forEach(chord => chords.push({ ...chord }));
-        return;
-      }
-
-      invalidTokens.push(`measure ${index + 1} has ${measureChords.length} chords (use 1, 2, or 4 per bar)`);
-    });
-
-    return {
-      ...base,
-      usesBarLines,
-      resolvedChordsPerBar: 4,
-      expandedMeasures,
-      tokens,
-      chords,
-      invalidTokens,
-      errorMessage: invalidTokens.length > 0 ? `Unknown token(s): ${invalidTokens.join(', ')}` : null
-    };
-  }
-
-  for (const t of tokens) {
-    if (t === '%') {
-      if (chords.length > 0) chords.push({ ...chords[chords.length - 1] });
-      continue;
-    }
-
-    const parsed = parseToken(t, base.basePitchClass);
-    if (parsed) {
-      chords.push(parsed);
-    } else if (containsRejectedQuality(t)) {
-      invalidTokens.push(`${t} (use m, m7, or m9; richer harmony may be applied by context)`);
-    } else {
-      invalidTokens.push(t);
-    }
-  }
-
-  return {
-    ...base,
-    usesBarLines,
-    resolvedChordsPerBar: null,
-    expandedMeasures: null,
-    tokens,
-    chords,
-    invalidTokens,
-    errorMessage: invalidTokens.length > 0 ? `Unknown token(s): ${invalidTokens.join(', ')}` : null
-  };
-}
-
-function analyzePatternCached(str) {
-  const normalized = String(str || '');
-  if (cachedPatternAnalysisInput === normalized && cachedPatternAnalysisResult) {
-    return cachedPatternAnalysisResult;
-  }
-  const analysis = analyzePattern(normalized);
-  cachedPatternAnalysisInput = normalized;
-  cachedPatternAnalysisResult = analysis;
-  return analysis;
-}
-
-function parsePattern(str) {
-  return analyzePattern(str).chords;
-}
-
-function containsRejectedQuality(token) {
-  return false;
-}
-
 function normalizeChordsPerBar(value) {
-  const parsed = Number.parseInt(String(value ?? DEFAULT_CHORDS_PER_BAR), 10);
-  return SUPPORTED_CHORDS_PER_BAR.includes(parsed) ? parsed : DEFAULT_CHORDS_PER_BAR;
+  return normalizeChordsPerBarBase(value);
 }
 
 function syncDoubleTimeToggle() {
@@ -1562,13 +993,7 @@ function getSelectedChordsPerBar() {
 }
 
 function getPatternKeyOverridePitchClass(patternString = getCurrentPatternString()) {
-  const oneChordSpec = parseOneChordSpec(patternString);
-  if (oneChordSpec.active) return null;
-
-  const base = extractPatternBase(patternString);
-  return base.hasOverride && Number.isFinite(base.basePitchClass)
-    ? base.basePitchClass
-    : null;
+  return getPatternKeyOverridePitchClassBase(patternString);
 }
 
 function getChordsPerBar(patternString = getCurrentPatternString()) {
@@ -1577,27 +1002,11 @@ function getChordsPerBar(patternString = getCurrentPatternString()) {
 }
 
 function getBeatsPerChord(chordsPerBar = getChordsPerBar()) {
-  return 4 / normalizeChordsPerBar(chordsPerBar);
+  return getBeatsPerChordBase(chordsPerBar);
 }
 
 function padProgression(chords, chordsPerBar = getChordsPerBar()) {
-  if (chords.length === 0) return [];
-  const result = chords.slice();
-  const chordsPerMeasure = normalizeChordsPerBar(chordsPerBar);
-
-  // Fill last measure if needed
-  while (result.length % chordsPerMeasure !== 0) {
-    result.push(result[result.length - 1]);
-  }
-  // Ensure even number of measures
-  let measures = result.length / chordsPerMeasure;
-  while (measures % 2 !== 0) {
-    for (let i = 0; i < chordsPerMeasure; i++) {
-      result.push(result[result.length - 1]);
-    }
-    measures = result.length / chordsPerMeasure;
-  }
-  return result;
+  return padProgressionBase(chords, chordsPerBar);
 }
 
 // Check if a progression can be loop-trimmed: last chord == first chord
@@ -1665,10 +1074,6 @@ const sampleLoadPromises = {
   drums: new Map()
 };
 const sampleFileFetchPromises = new Map();
-let backgroundSamplePreloadPromise = null;
-let pageSampleWarmupPromise = null;
-let nearTermSamplePreloadPromise = null;
-let startupSamplePreloadInProgress = false;
 const DRUM_MODE_OFF = 'off';
 const DRUM_MODE_METRONOME_24 = 'metronome_2_4';
 const DRUM_MODE_HIHATS_24 = 'hihats_2_4';
@@ -1700,34 +1105,6 @@ const DRUM_RIDE_SAMPLE_URLS = [
   'assets/ride/22_dry_ride_body.mp3',
   'assets/ride/22_mellow_ride_body.mp3',
 ];
-let rideSampleCursor = Math.floor(Math.random() * DRUM_RIDE_SAMPLE_URLS.length);
-
-function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  initMixerNodes();
-}
-
-function initMixerNodes() {
-  if (!audioCtx || mixerNodes) return;
-
-  const master = audioCtx.createGain();
-  const bass = audioCtx.createGain();
-  const strings = audioCtx.createGain();
-  const drums = audioCtx.createGain();
-
-  bass.connect(master);
-  strings.connect(master);
-  drums.connect(master);
-  master.connect(audioCtx.destination);
-
-  mixerNodes = { master, bass, strings, drums };
-  applyMixerSettings();
-}
-
-function getMixerDestination(channel) {
-  return mixerNodes?.[channel] || audioCtx?.destination || null;
-}
 
 function sliderValueToGain(slider) {
   const percent = Number(slider?.value ?? 100);
@@ -1765,129 +1142,15 @@ function updateMixerValueLabel(slider, output) {
 }
 
 function applyMixerSettings() {
-  updateMixerValueLabel(dom.masterVolume, dom.masterVolumeValue);
-  updateMixerValueLabel(dom.bassVolume, dom.bassVolumeValue);
-  updateMixerValueLabel(dom.stringsVolume, dom.stringsVolumeValue);
-  updateMixerValueLabel(dom.drumsVolume, dom.drumsVolumeValue);
-
-  if (!mixerNodes || !audioCtx) return;
-
-  const now = audioCtx.currentTime;
-  mixerNodes.master.gain.setValueAtTime(sliderValueToGain(dom.masterVolume) * MIXER_CHANNEL_CALIBRATION.master, now);
-  mixerNodes.bass.gain.setValueAtTime(sliderValueToGain(dom.bassVolume) * MIXER_CHANNEL_CALIBRATION.bass, now);
-  mixerNodes.strings.gain.setValueAtTime(sliderValueToGain(dom.stringsVolume) * MIXER_CHANNEL_CALIBRATION.strings, now);
-  mixerNodes.drums.gain.setValueAtTime(sliderValueToGain(dom.drumsVolume) * MIXER_CHANNEL_CALIBRATION.drums, now);
-}
-
-async function preloadSamples() {
-  const bassRange = getBassPreloadRange();
-  const { celloNotes, violinNotes, pianoNotes } = buildAllRequiredSampleNoteSets();
-
-  await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
-  const drumPromises = [loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL)];
-  DRUM_RIDE_SAMPLE_URLS.forEach((url, index) => {
-    drumPromises.push(loadFileSample('drums', `ride_${index}`, url));
+  return applyDrillAudioMixerSettings({
+    dom,
+    mixerNodes,
+    audioCtx,
+    sliderValueToGain,
+    mixerChannelCalibration: MIXER_CHANNEL_CALIBRATION
   });
-  await Promise.all(drumPromises);
-  await loadSampleList('cello', 'Cellos', celloNotes);
-  await loadSampleList('violin', 'Violins', violinNotes);
-  await loadPianoSampleList(pianoNotes);
 }
 
-function loadTrackedSample(category, key, loader) {
-  if (sampleBuffers[category][key]) {
-    return Promise.resolve(sampleBuffers[category][key]);
-  }
-
-  const pendingLoad = sampleLoadPromises[category].get(key);
-  if (pendingLoad) return pendingLoad;
-
-  const loadPromise = loader().finally(() => {
-    sampleLoadPromises[category].delete(key);
-  });
-  sampleLoadPromises[category].set(key, loadPromise);
-  return loadPromise;
-}
-
-function loadSample(category, folder, midi) {
-  const baseUrl = `assets/MP3/${folder}/${midi}.mp3`;
-  return loadTrackedSample(category, midi, () => loadBufferFromUrl(baseUrl)
-    .then(decoded => {
-      sampleBuffers[category][midi] = decoded;
-      return decoded;
-    })
-    .catch(() => null));
-}
-
-function loadPianoSample(layer, midi) {
-  const key = `${layer}:${midi}`;
-  const layeredUrl = `assets/Piano/${layer}/${midi}.mp3`;
-  const legacyUrl = `assets/MP3/Piano/${midi}.mp3`;
-  return loadTrackedSample('piano', key, () => loadBufferFromUrl(layeredUrl)
-    .catch(() => loadBufferFromUrl(legacyUrl))
-    .then(decoded => {
-      sampleBuffers.piano[key] = decoded;
-      if (!sampleBuffers.piano[midi]) {
-        sampleBuffers.piano[midi] = decoded;
-      }
-      return decoded;
-    })
-    .catch(() => null));
-}
-
-async function loadPianoSampleList(midiValues) {
-  const sortedMidis = [...midiValues].sort((a, b) => a - b);
-  const promises = [];
-  for (const midi of sortedMidis) {
-    promises.push(loadPianoSample('p', midi));
-    promises.push(loadPianoSample('mf', midi));
-    promises.push(loadPianoSample('f', midi));
-  }
-  await Promise.all(promises);
-}
-
-function loadFileSample(category, key, baseUrl) {
-  return loadTrackedSample(category, key, () => loadBufferFromUrl(baseUrl)
-    .then(decoded => {
-      sampleBuffers[category][key] = decoded;
-      return decoded;
-    })
-    .catch(() => null));
-}
-
-function fetchArrayBufferFromUrl(baseUrl) {
-  if (sampleFileBuffers.has(baseUrl)) {
-    return Promise.resolve(sampleFileBuffers.get(baseUrl));
-  }
-
-  const pendingFetch = sampleFileFetchPromises.get(baseUrl);
-  if (pendingFetch) return pendingFetch;
-
-  const versionedUrl = `${baseUrl}?v=${encodeURIComponent(APP_VERSION)}`;
-  const fetchPromise = fetch(versionedUrl)
-    .then(r => {
-      if (r.ok) return r.arrayBuffer();
-      return fetch(baseUrl).then(r2 => {
-        if (!r2.ok) throw new Error(`HTTP ${r2.status} for ${baseUrl}`);
-        return r2.arrayBuffer();
-      });
-    })
-    .then(buf => {
-      sampleFileBuffers.set(baseUrl, buf);
-      return buf;
-    })
-    .finally(() => {
-      sampleFileFetchPromises.delete(baseUrl);
-    });
-
-  sampleFileFetchPromises.set(baseUrl, fetchPromise);
-  return fetchPromise;
-}
-
-function loadBufferFromUrl(baseUrl) {
-  return fetchArrayBufferFromUrl(baseUrl)
-    .then(buf => audioCtx.decodeAudioData(buf.slice(0)));
-}
 
 const NOTE_FADEOUT = 0.26;  // seconds — bass fadeout before next note
 const BASS_NOTE_ATTACK = 0.005; // seconds — tiny fade-in to avoid clicks on re-attacks
@@ -1970,391 +1233,214 @@ let midiPianoRangePreloadPromise = null;
 const pendingMidiNoteTokens = new Map();
 const activeMidiPianoVoices = new Map();
 const sustainedMidiNotes = new Set();
-const scheduledAudioSources = new Set();
-const pendingDisplayTimeouts = new Set();
-
-function trackScheduledSource(source, gainNodes = []) {
-  const entry = { source, gainNodes };
-  scheduledAudioSources.add(entry);
-  source.addEventListener('ended', () => {
-    scheduledAudioSources.delete(entry);
-  }, { once: true });
-  return entry;
-}
-
-function clearScheduledDisplays() {
-  for (const timeoutId of pendingDisplayTimeouts) {
-    clearTimeout(timeoutId);
-  }
-  pendingDisplayTimeouts.clear();
-}
-
-function stopScheduledAudio(stopTime = audioCtx?.currentTime ?? 0) {
-  for (const entry of scheduledAudioSources) {
-    for (const gainNode of entry.gainNodes) {
-      try {
-        const currentValue = gainNode.gain.value;
-        gainNode.gain.cancelScheduledValues(stopTime);
-        gainNode.gain.setValueAtTime(currentValue, stopTime);
-        gainNode.gain.linearRampToValueAtTime(0, stopTime + 0.02);
-      } catch (err) {
-        // Ignore nodes that have already been disconnected or stopped.
-      }
+const drillAudioStack = createDrillAudioStackAppAssembly({
+  audioRuntime: {
+    audioState: {
+      getAudioContext: () => audioCtx
+    },
+    cacheState: {
+      sampleBuffers,
+      sampleLoadPromises,
+      sampleFileBuffers,
+      sampleFileFetchPromises
+    },
+    constants: {
+      appVersion: APP_VERSION
     }
-
-    try {
-      entry.source.stop(stopTime + 0.02);
-    } catch (err) {
-      // Source may already be stopped; ignore duplicate stop scheduling.
-    }
-  }
-
-  scheduledAudioSources.clear();
-}
-
-function stopActiveChordVoices(stopTime = audioCtx?.currentTime ?? 0, fadeDuration = NOTE_FADEOUT) {
-  compingEngine.stopActiveComping(stopTime, fadeDuration);
-}
-
-function getNearestLoadedBassSampleMidi(targetMidi) {
-  const loadedMidis = Object.keys(sampleBuffers.bass)
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value) && sampleBuffers.bass[value]);
-  if (!loadedMidis.length) return null;
-  loadedMidis.sort((left, right) => {
-    const leftDistance = Math.abs(left - targetMidi);
-    const rightDistance = Math.abs(right - targetMidi);
-    if (leftDistance !== rightDistance) return leftDistance - rightDistance;
-    return left - right;
-  });
-  return loadedMidis[0];
-}
-
-function getAdaptiveBassFadeDuration(maxDuration) {
-  return BASS_NOTE_RELEASE;
-}
-
-function scheduleBassGainRelease(gainNode, fadeStart, fadeEnd) {
-  if (!gainNode) return;
-
-  if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') {
-    gainNode.gain.cancelAndHoldAtTime(fadeStart);
-  } else {
-    const currentValue = gainNode.gain.value;
-    gainNode.gain.cancelScheduledValues(fadeStart);
-    gainNode.gain.setValueAtTime(currentValue, fadeStart);
-  }
-
-  gainNode.gain.setTargetAtTime(0.0001, fadeStart, BASS_GAIN_RELEASE_TIMECONSTANT);
-  gainNode.gain.setValueAtTime(0, fadeEnd);
-}
-
-function playNote(midi, time, maxDuration, velocity = 127) {
-  let sourceMidi = midi;
-  let buf = sampleBuffers.bass[sourceMidi];
-  if (!buf) {
-    loadSample('bass', 'Bass', midi).catch(() => null);
-    const fallbackMidi = getNearestLoadedBassSampleMidi(midi);
-    if (fallbackMidi !== null) {
-      sourceMidi = fallbackMidi;
-      buf = sampleBuffers.bass[sourceMidi];
-    }
-  }
-  if (!buf) {
-    return;
-  }
-
-  const sustainedMaxDuration = maxDuration
-    ? (maxDuration + BASS_NOTE_OVERLAP)
-    : maxDuration;
-  const noteFadeOut = getAdaptiveBassFadeDuration(maxDuration);
-
-  // Fade out previous note before this one starts
-  if (activeNoteGain) {
-    const fadeEnd = time + BASS_NOTE_OVERLAP;
-    const fadeStart = Math.max(time, audioCtx.currentTime);
-    scheduleBassGainRelease(activeNoteGain, fadeStart, fadeEnd);
-  }
-
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-  if (sourceMidi !== midi) {
-    src.playbackRate.value = Math.pow(2, (midi - sourceMidi) / 12);
-  }
-  const gain = audioCtx.createGain();
-  const bassGain = BASS_GAIN;
-  const normalizedVelocity = Math.max(0, Math.min(127, Number(velocity) || 127)) / 127;
-  const noteGain = bassGain * normalizedVelocity;
-  gain.gain.setValueAtTime(0, time);
-  gain.gain.linearRampToValueAtTime(noteGain, time + BASS_NOTE_ATTACK);
-
-  // If the sample is longer than allowed, schedule a fadeout at the end
-  if (sustainedMaxDuration && buf.duration > sustainedMaxDuration - noteFadeOut) {
-    const fadeStart = time + sustainedMaxDuration - noteFadeOut;
-    gain.gain.setValueAtTime(noteGain, Math.max(time + BASS_NOTE_ATTACK, fadeStart));
-    scheduleBassGainRelease(gain, fadeStart, time + sustainedMaxDuration);
-  }
-
-  src.connect(gain).connect(getMixerDestination('bass'));
-  src.start(time);
-  trackScheduledSource(src, [gain]);
-  activeNoteGain = gain;
-  activeNoteFadeOut = noteFadeOut;
-}
-
-function scheduleSampleSegment(buf, destination, startTime, offset, duration, fadeInDuration = 0, fadeOutDuration = 0) {
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-
-  const segmentGain = audioCtx.createGain();
-  const segmentEnd = startTime + duration;
-  segmentGain.gain.setValueAtTime(fadeInDuration > 0 ? 0 : 1, startTime);
-
-  if (fadeInDuration > 0) {
-    segmentGain.gain.linearRampToValueAtTime(1, startTime + fadeInDuration);
-  }
-
-  if (fadeOutDuration > 0) {
-    const fadeOutStart = Math.max(startTime, segmentEnd - fadeOutDuration);
-    segmentGain.gain.setValueAtTime(1, fadeOutStart);
-    segmentGain.gain.linearRampToValueAtTime(0, segmentEnd);
-  }
-
-  src.connect(segmentGain).connect(destination);
-  src.start(startTime, offset, duration);
-  src.stop(segmentEnd);
-  trackScheduledSource(src, [segmentGain]);
-  return src;
-}
-
-function playLoopedStringSample(buf, time, fadeEnd, volume) {
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(volume, time);
-  const detuneParams = [];
-
-  const loopEnd = Math.min(STRING_LOOP_END, buf.duration);
-  const loopLength = loopEnd - STRING_LOOP_START;
-  const crossfade = Math.min(STRING_LOOP_CROSSFADE, loopLength / 2);
-  const loopStarts = [];
-
-  for (let start = time + loopEnd - crossfade; start < fadeEnd; start += loopLength - crossfade) {
-    loopStarts.push(start);
-  }
-
-  const sources = [];
-  const hasLoopSegments = loopStarts.length > 0;
-  const firstSource = scheduleSampleSegment(
-      buf,
-      gain,
-      time,
-      0,
-      loopEnd,
-      0,
-      hasLoopSegments ? crossfade : 0
-    );
-  sources.push(firstSource);
-  detuneParams.push(firstSource.detune);
-
-  loopStarts.forEach((start, index) => {
-    const hasNextSegment = index < loopStarts.length - 1;
-    const loopSource = scheduleSampleSegment(
-        buf,
-        gain,
-        start,
-        STRING_LOOP_START,
-        loopLength,
-        crossfade,
-        hasNextSegment ? crossfade : 0
-      );
-    sources.push(loopSource);
-    detuneParams.push(loopSource.detune);
-  });
-
-  const stop = (stopTime) => {
-    for (const source of sources) {
-      try {
-        source.stop(stopTime);
-      } catch (err) {
-        // Source may already be stopped; ignore duplicate stop scheduling.
-      }
-    }
-  };
-
-  stop(fadeEnd);
-  gain.connect(getMixerDestination('strings'));
-  return {
-    detuneParams,
-    gain,
-    volume,
-    audibleUntil: fadeEnd,
-    endAnchor: sources[sources.length - 1],
-    stop,
-  };
-}
-
-function playSample(category, midi, time, maxDuration, volume, options = {}) {
-  const sampleKey = category === 'piano' && options.layer
-    ? `${options.layer}:${midi}`
-    : midi;
-  const buf = sampleBuffers[category][sampleKey] || sampleBuffers[category][midi];
-  if (!buf) return null;
-
-  const naturalEndTime = time + buf.duration;
-  const isStringSample = category === 'cello' || category === 'violin';
-  const loopEnd = Math.min(STRING_LOOP_END, buf.duration);
-  const canLoop = isStringSample && loopEnd > STRING_LOOP_START;
-
-  if (maxDuration) {
-    if (category === 'piano') {
-      const { fadeBefore, timeConstant } = getPianoFadeProfile(midi, volume, maxDuration);
-      const isLegato = Boolean(options.legato);
-      const fadeStart = isLegato
-        ? (time + maxDuration)
-        : Math.max(time, time + maxDuration - fadeBefore);
-      const fadeEnd = isLegato
-        ? (fadeStart + Math.max(0.03, timeConstant * 3.5))
-        : (time + maxDuration);
-
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf;
-      const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(volume, time);
-      gain.gain.setValueAtTime(volume, fadeStart);
-      gain.gain.setTargetAtTime(0.0001, fadeStart, timeConstant);
-      src.connect(gain).connect(getMixerDestination('strings'));
-      src.start(time);
-      trackScheduledSource(src, [gain]);
-      return {
-        detuneParams: [src.detune],
-        gain,
-        midi,
-        category,
-        key: `${category}:${sampleKey}`,
-        volume,
-        audibleUntil: Math.min(naturalEndTime, fadeEnd),
-        endAnchor: src,
-        stop: (stopTime) => {
-          try {
-            src.stop(stopTime);
-          } catch (err) {
-            // Source may already be stopped; ignore duplicate stop scheduling.
-          }
-        },
-      };
-    }
-
-    const fadeStart = time + maxDuration - CHORD_FADE_BEFORE;
-    const fadeEnd = fadeStart + CHORD_FADE_DUR;
-    const needsLoop = canLoop && maxDuration > buf.duration;
-
-    if (needsLoop) {
-      const activeVoice = playLoopedStringSample(buf, time, fadeEnd, volume);
-      activeVoice.midi = midi;
-      activeVoice.category = category;
-      activeVoice.key = `${category}:${midi}`;
-      activeVoice.gain.gain.setValueAtTime(volume, fadeStart);
-      activeVoice.gain.gain.linearRampToValueAtTime(0, fadeEnd);
-      return activeVoice;
-    }
-
-    const src = audioCtx.createBufferSource();
-    src.buffer = buf;
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(volume, time);
-    gain.gain.setValueAtTime(volume, fadeStart);
-    gain.gain.linearRampToValueAtTime(0, fadeEnd);
-    src.connect(gain).connect(getMixerDestination(category === 'bass' ? 'bass' : 'strings'));
-    src.start(time);
-    trackScheduledSource(src, [gain]);
-    return {
-      detuneParams: [src.detune],
-      gain,
-      midi,
-      category,
-      key: `${category}:${sampleKey}`,
-      volume,
-      audibleUntil: Math.min(naturalEndTime, fadeEnd),
-      endAnchor: src,
-      stop: (stopTime) => {
-        try {
-          src.stop(stopTime);
-        } catch (err) {
-          // Source may already be stopped; ignore duplicate stop scheduling.
-        }
+  },
+  samplePreload: {
+    playbackSettings: {
+      getBassPreloadRange,
+      getBassMidi,
+      getBeatsPerChord,
+      getChordsPerBar,
+      getCompingStyle,
+      getDrumsMode
+    },
+    progressionState: {
+      getCurrentChords: () => paddedChords,
+      getCurrentKey: () => currentKey,
+      getCurrentVoicingPlan: () => currentVoicingPlan,
+      getCurrentBassPlan: () => currentBassPlan,
+      getNextChords: () => nextPaddedChords,
+      getNextKey: () => nextKeyValue,
+      getNextVoicingPlan: () => nextVoicingPlan
+    },
+    sampleLoading: {
+      collectCompingSampleNotes: (style, voicing, noteSets) => {
+        compingEngine.collectSampleNotes(style, voicing, noteSets);
       },
-    };
-  }
-
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(volume, time);
-  src.connect(gain).connect(getMixerDestination(category === 'bass' ? 'bass' : 'strings'));
-  src.start(time);
-  trackScheduledSource(src, [gain]);
-  return {
-    detuneParams: [src.detune],
-    gain,
-    midi,
-    category,
-    key: `${category}:${sampleKey}`,
-    volume,
-    audibleUntil: naturalEndTime,
-    endAnchor: src,
-    stop: (stopTime) => {
-      try {
-        src.stop(stopTime);
-      } catch (err) {
-        // Source may already be stopped; ignore duplicate stop scheduling.
+      loadSample: (category, folder, midi) => loadDrillAudioSample(category, folder, midi),
+      loadPianoSampleList: (midiValues) => loadDrillPianoSampleList(midiValues),
+      loadFileSample: (category, key, baseUrl) => loadDrillFileSample(category, key, baseUrl),
+      fetchArrayBufferFromUrl: (baseUrl) => fetchDrillSampleArrayBuffer(baseUrl)
+    },
+    constants: {
+      drumHihatSampleUrl: DRUM_HIHAT_SAMPLE_URL,
+      drumRideSampleUrls: DRUM_RIDE_SAMPLE_URLS,
+      drumModeHihats24: DRUM_MODE_HIHATS_24,
+      drumModeFullSwing: DRUM_MODE_FULL_SWING,
+      safePreloadMeasures: SAFE_PRELOAD_MEASURES
+    }
+  },
+  scheduledAudio: {
+    audioState: {
+      getAudioContext: () => audioCtx
+    },
+    audioHelpers: {
+      stopActiveComping: (stopTime, fadeDuration) => {
+        compingEngine.stopActiveComping(stopTime, fadeDuration);
       }
     },
-  };
-}
+    constants: {
+      getDefaultFadeDuration: () => NOTE_FADEOUT
+    }
+  },
+  audioPlayback: {
+    audioState: {
+      getAudioContext: () => audioCtx,
+      setAudioContext: (value) => { audioCtx = value; },
+      getMixerNodes: () => mixerNodes,
+      setMixerNodes: (value) => { mixerNodes = value; },
+      sampleBuffers
+    },
+    audioHelpers: {
+      createAudioContext: () => new (window.AudioContext || window.webkitAudioContext)(),
+      applyMixerSettings,
+      trackScheduledSource: (source, gainNodes) => drillAudioStack.scheduledAudio.trackScheduledSource(source, gainNodes)
+    },
+    playbackSettings: {
+      getDrumsMode,
+      getSwingRatio
+    },
+    constants: {
+      metronomeGainMultiplier: METRONOME_GAIN_MULTIPLIER,
+      drumsGainMultiplier: DRUMS_GAIN_MULTIPLIER,
+      drumModeOff: DRUM_MODE_OFF,
+      drumModeMetronome24: DRUM_MODE_METRONOME_24,
+      drumModeHihats24: DRUM_MODE_HIHATS_24,
+      drumModeFullSwing: DRUM_MODE_FULL_SWING,
+      drumRideSampleUrls: DRUM_RIDE_SAMPLE_URLS
+    }
+  },
+  samplePlayback: {
+    audioState: {
+      getAudioContext: () => audioCtx,
+      sampleBuffers
+    },
+    audioHelpers: {
+      getMixerDestination: (channel) => drillAudioStack.audioPlayback.getMixerDestination(channel),
+      trackScheduledSource: (source, gainNodes) => drillAudioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
+      loadSample: (category, folder, midi) => loadDrillAudioSample(category, folder, midi),
+      getPianoFadeProfile
+    },
+    playbackState: {
+      getActiveNoteGain: () => activeNoteGain,
+      setActiveNoteGain: (value) => { activeNoteGain = value; },
+      setActiveNoteFadeOut: (value) => { activeNoteFadeOut = value; }
+    },
+    constants: {
+      noteFadeout: NOTE_FADEOUT,
+      bassNoteAttack: BASS_NOTE_ATTACK,
+      bassNoteOverlap: BASS_NOTE_OVERLAP,
+      bassNoteRelease: BASS_NOTE_RELEASE,
+      bassGainReleaseTimeConstant: BASS_GAIN_RELEASE_TIMECONSTANT,
+      chordFadeBefore: CHORD_FADE_BEFORE,
+      chordFadeDuration: CHORD_FADE_DUR,
+      bassGain: BASS_GAIN,
+      stringLoopStart: STRING_LOOP_START,
+      stringLoopEnd: STRING_LOOP_END,
+      stringLoopCrossfade: STRING_LOOP_CROSSFADE
+    }
+  }
+});
+const drillAudioFacade = createDrillAudioStackAppFacade({
+  audioStack: drillAudioStack,
+  getCurrentTime: () => audioCtx?.currentTime ?? 0,
+  defaultFadeDuration: NOTE_FADEOUT
+});
+const {
+  applyMixerSettings: applyDrillAudioMixerSettings,
+  loadSample: loadDrillAudioSample,
+  loadPianoSample: loadDrillPianoSample,
+  loadPianoSampleList: loadDrillPianoSampleList,
+  loadFileSample: loadDrillFileSample,
+  fetchArrayBufferFromUrl: fetchDrillSampleArrayBuffer,
+  loadBufferFromUrl: loadDrillBufferFromUrl
+} = drillAudioFacade;
+const {
+  preloadSamples: preloadAllDrillSamples,
+  preloadStartupSamples: preloadDrillStartupSamples,
+  preloadNearTermSamples: preloadDrillNearTermSamples,
+  ensureNearTermSamplePreload: ensureDrillNearTermSamplePreload,
+  ensurePageSampleWarmup: ensureDrillPageSampleWarmup,
+  ensureBackgroundSamplePreload: ensureDrillBackgroundSamplePreload,
+  getNearTermSamplePreloadPromise: getDrillNearTermSamplePreloadPromise,
+  setNearTermSamplePreloadPromise: setDrillNearTermSamplePreloadPromise,
+  getStartupSamplePreloadInProgress: getDrillStartupSamplePreloadInProgress,
+  setStartupSamplePreloadInProgress: setDrillStartupSamplePreloadInProgress
+} = drillAudioFacade;
+const {
+  trackScheduledSource: trackDrillScheduledSource,
+  clearScheduledDisplays: clearDrillScheduledDisplays,
+  stopScheduledAudio: stopDrillScheduledAudio,
+  stopActiveChordVoices: stopDrillActiveChordVoices,
+  getPendingDisplayTimeouts: getDrillPendingDisplayTimeouts
+} = drillAudioFacade;
+const {
+  initAudio: initDrillAudioPlayback,
+  initMixerNodes: initDrillMixerNodes,
+  getMixerDestination: getDrillMixerDestination,
+  playClick: playDrillClick,
+  playDrumSample: playDrillDrumSample,
+  playHiHat: playDrillHiHat,
+  getNextRideSampleName: getNextDrillRideSampleName,
+  playRide: playDrillRide,
+  scheduleDrumsForBeat: scheduleDrillDrumsForBeat
+} = drillAudioFacade;
+const trackScheduledSource = trackDrillScheduledSource;
+const clearScheduledDisplays = clearDrillScheduledDisplays;
+const stopScheduledAudio = stopDrillScheduledAudio;
+const stopActiveChordVoices = stopDrillActiveChordVoices;
+const initAudio = initDrillAudioPlayback;
+const initMixerNodes = initDrillMixerNodes;
+const getMixerDestination = getDrillMixerDestination;
+const preloadSamples = preloadAllDrillSamples;
+const loadSample = loadDrillAudioSample;
+const loadPianoSample = loadDrillPianoSample;
+const loadPianoSampleList = loadDrillPianoSampleList;
+const loadFileSample = loadDrillFileSample;
+const fetchArrayBufferFromUrl = fetchDrillSampleArrayBuffer;
+const loadBufferFromUrl = loadDrillBufferFromUrl;
+
+const {
+  getNearestLoadedBassSampleMidi: getDrillNearestLoadedBassSampleMidi,
+  getAdaptiveBassFadeDuration: getDrillAdaptiveBassFadeDuration,
+  scheduleBassGainRelease: scheduleDrillBassGainRelease,
+  playNote: playDrillNote,
+  scheduleSampleSegment: scheduleDrillSampleSegment,
+  playLoopedStringSample: playDrillLoopedStringSample,
+  playSample: playDrillSample
+} = drillAudioFacade;
 
 const CHORD_ANTICIPATION = 0.25; // seconds — strings start before the beat
+const playSample = playDrillSample;
+const playNote = playDrillNote;
 const PIANO_COMP_DURATION_RATIO = 0.4;
 const PIANO_COMP_MIN_DURATION = 0.12;
 const PIANO_COMP_MAX_DURATION = 0.24;
 const PIANO_VOLUME_MULTIPLIER = 0.27;
 
 function getNextDifferentChord(chords, startIdx) {
-  const chord = chords[startIdx];
-  if (!chord) return null;
-  const playedMajor = getPlayedChordQuality(chord, false, chords[startIdx + 1] || null);
-  const playedMinor = getPlayedChordQuality(chord, true, chords[startIdx + 1] || null);
-
-  for (let i = startIdx + 1; i < chords.length; i++) {
-    const candidate = chords[i];
-    const candidatePlayedMajor = getPlayedChordQuality(candidate, false, chords[i + 1] || null);
-    const candidatePlayedMinor = getPlayedChordQuality(candidate, true, chords[i + 1] || null);
-    if (candidate.semitones !== chord.semitones
-        || (candidate.bassSemitones ?? candidate.semitones) !== (chord.bassSemitones ?? chord.semitones)
-        || candidatePlayedMajor !== playedMajor
-        || candidatePlayedMinor !== playedMinor) {
-      return candidate;
-    }
-  }
-
-  return null;
+  return getNextDifferentDrillChord(chords, startIdx);
 }
 
 function getVoicingAtIndex(chords, key, chordIdx, isMinor) {
-  const chord = chords[chordIdx];
-  if (!chord) return null;
-  const plannedVoicing = getVoicingPlanForProgression(chords, key, isMinor)?.[chordIdx];
-  if (plannedVoicing) return plannedVoicing;
-  return getVoicing(key, chord, isMinor, chords[chordIdx + 1] || null);
+  return getDrillVoicingAtIndex(chords, key, chordIdx, isMinor);
 }
 
 function getPreparedNextProgression() {
-  if (nextKeyValue === null || !nextPaddedChords) return null;
-  return {
-    key: nextKeyValue,
-    chords: nextPaddedChords,
-    voicingPlan: nextVoicingPlan,
-    compingPlan: nextCompingPlan,
-    isMinor: dom.majorMinor.checked,
-  };
+  return getDrillPreparedNextProgression();
 }
 
 const compingEngine = createCompingEngine({
@@ -2387,84 +1473,24 @@ const compingEngine = createCompingEngine({
   },
 });
 
-function rebuildPreparedCompingPlans(
-  previousKey = currentKey,
-  currentHasIncomingAnticipation = false,
-  currentPreviousTailBeats = null
-) {
-  const beatsPerChord = getBeatsPerChord();
-  const isMinor = dom.majorMinor.checked;
-  const { currentPlan, nextPlan } = compingEngine.buildPreparedPlans({
-    style: getCompingStyle(),
-    previousKey,
-    currentHasIncomingAnticipation,
-    currentPreviousTailBeats,
-    current: {
-      chords: paddedChords,
-      key: currentKey,
-      isMinor,
-      voicingPlan: currentVoicingPlan,
-      beatsPerChord,
-    },
-    next: {
-      chords: nextPaddedChords,
-      key: nextKeyValue,
-      isMinor,
-      voicingPlan: nextVoicingPlan,
-      beatsPerChord,
-    },
-  });
-  currentCompingPlan = currentPlan;
-  nextCompingPlan = nextPlan;
-}
-
 function playClick(time, accent) {
-  // Synthesize a short click/cross-stick sound
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.value = accent ? 1200 : 1000;
-  gain.gain.setValueAtTime((accent ? 0.18 : 0.11) * METRONOME_GAIN_MULTIPLIER, time);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
-  osc.connect(gain).connect(getMixerDestination('drums'));
-  osc.start(time);
-  osc.stop(time + 0.05);
-  trackScheduledSource(osc, [gain]);
+  playDrillClick(time, accent);
 }
 
 function playDrumSample(name, time, gainValue = 1, playbackRate = 1) {
-  const buf = sampleBuffers.drums[name];
-  if (!buf) return;
-
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-  src.playbackRate.value = playbackRate;
-
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(gainValue, time);
-
-  src.connect(gain).connect(getMixerDestination('drums'));
-  src.start(time);
-  trackScheduledSource(src, [gain]);
+  playDrillDrumSample(name, time, gainValue, playbackRate);
 }
 
 function playHiHat(time, accent = false) {
-  playDrumSample('hihat', time, (accent ? 0.45 : 0.33) * DRUMS_GAIN_MULTIPLIER, accent ? 1.01 : 0.98);
+  playDrillHiHat(time, accent);
 }
 
 function getNextRideSampleName() {
-  const startIndex = rideSampleCursor;
-  do {
-    const sampleName = `ride_${rideSampleCursor}`;
-    rideSampleCursor = (rideSampleCursor + 1 + Math.floor(Math.random() * 3)) % DRUM_RIDE_SAMPLE_URLS.length;
-    if (sampleBuffers.drums[sampleName]) return sampleName;
-  } while (rideSampleCursor !== startIndex);
-
-  return 'ride_0';
+  return getNextDrillRideSampleName();
 }
 
 function playRide(time, gainValue = 0.3, playbackRate = 1) {
-  playDrumSample(getNextRideSampleName(), time, gainValue * DRUMS_GAIN_MULTIPLIER, playbackRate);
+  playDrillRide(time, gainValue, playbackRate);
 }
 
 function getDrumsMode() {
@@ -2472,34 +1498,7 @@ function getDrumsMode() {
 }
 
 function scheduleDrumsForBeat(time, beatIndex, spb) {
-  const mode = getDrumsMode();
-  if (mode === DRUM_MODE_OFF) return;
-
-  const isTwoOrFour = beatIndex === 1 || beatIndex === 3;
-  if (mode === DRUM_MODE_METRONOME_24) {
-    if (isTwoOrFour) playClick(time, false);
-    return;
-  }
-
-  if (mode === DRUM_MODE_HIHATS_24) {
-    if (isTwoOrFour) playHiHat(time, true);
-    return;
-  }
-
-  if (mode === DRUM_MODE_FULL_SWING) {
-    const isTwoOrFour = beatIndex === 1 || beatIndex === 3;
-    const rideMainGain = [0.34, 0.28, 0.31, 0.25][beatIndex] || 0.28;
-    const rideSkipGain = [0, 0.22, 0, 0.2][beatIndex] || 0;
-    const swingOffsetSeconds = spb * getSwingRatio();
-
-    playRide(time, rideMainGain, beatIndex === 0 ? 1.01 : 1);
-    if (isTwoOrFour) {
-      playRide(time + swingOffsetSeconds, rideSkipGain, 0.99);
-    }
-    if (isTwoOrFour) {
-      playHiHat(time, true);
-    }
-  }
+  scheduleDrillDrumsForBeat(time, beatIndex, spb);
 }
 
 function getBassMidi(key, semitoneOffset) {
@@ -2594,210 +1593,65 @@ const walkingBassGenerator = createWalkingBassGenerator({
   }
 });
 
-function ensureWalkingBassGenerator() {
-  return Promise.resolve(walkingBassGenerator);
-}
-
-function buildPreparedBassPlan(initialPendingTargetMidi = null) {
-  if (!isWalkingBassEnabled()) {
-    currentBassPlan = [];
-    return currentBassPlan;
+const {
+  getNextDifferentChord: getNextDifferentDrillChord,
+  getVoicingAtIndex: getDrillVoicingAtIndex,
+  getPreparedNextProgression: getDrillPreparedNextProgression,
+  rebuildPreparedCompingPlans: rebuildDrillPreparedCompingPlans,
+  ensureWalkingBassGenerator: ensureDrillWalkingBassGenerator,
+  buildPreparedBassPlan: buildDrillPreparedBassPlan
+} = createDrillPlaybackPreparationAppContext({
+  harmony: {
+    getPlayedChordQuality,
+    getVoicingPlanForProgression,
+    getVoicing
+  },
+  progressionState: {
+    getNextKeyValue: () => nextKeyValue,
+    getNextPaddedChords: () => nextPaddedChords,
+    getNextVoicingPlan: () => nextVoicingPlan,
+    getNextCompingPlan: () => nextCompingPlan,
+    setCurrentCompingPlan: (value) => { currentCompingPlan = value; },
+    setNextCompingPlan: (value) => { nextCompingPlan = value; },
+    getPaddedChords: () => paddedChords,
+    getCurrentKey: () => currentKey,
+    getCurrentVoicingPlan: () => currentVoicingPlan,
+    getCurrentBassPlan: () => currentBassPlan,
+    setCurrentBassPlan: (value) => { currentBassPlan = value; },
+    getNextPaddedChordsForBass: () => nextPaddedChords,
+    getNextKeyForBass: () => nextKeyValue
+  },
+  playbackSettings: {
+    getIsMinorMode: () => dom.majorMinor.checked,
+    getBeatsPerChord,
+    getCompingStyle,
+    getTempoBpm: () => Number(dom.tempoSlider?.value || 120),
+    isWalkingBassEnabled,
+    getSwingRatio
+  },
+  runtime: {
+    compingEngine,
+    walkingBassGenerator
   }
-  if (!walkingBassGenerator) {
-    currentBassPlan = [];
-    return currentBassPlan;
+});
+const drillPlaybackResourcesFacade = createDrillPlaybackResourcesAppFacade({
+  audioFacade: drillAudioFacade,
+  playbackPreparation: {
+    rebuildPreparedCompingPlans: rebuildDrillPreparedCompingPlans,
+    ensureWalkingBassGenerator: ensureDrillWalkingBassGenerator,
+    buildPreparedBassPlan: buildDrillPreparedBassPlan
   }
-
-  currentBassPlan = walkingBassGenerator.buildLine({
-    chords: paddedChords,
-    key: currentKey,
-    beatsPerChord: getBeatsPerChord(),
-    tempoBpm: Number(dom.tempoSlider?.value || 120),
-    isMinor: dom.majorMinor.checked,
-    initialPendingTargetMidi,
-    nextChords: nextPaddedChords,
-    nextKey: nextKeyValue ?? currentKey,
-    nextIsMinor: dom.majorMinor.checked,
-    swingRatio: getSwingRatio()
-  });
-  return currentBassPlan;
-}
-
-async function loadSampleRange(category, folder, low, high) {
-  for (let midi = low; midi <= high; midi++) {
-    await loadSample(category, folder, midi);
-  }
-}
-
-async function loadSampleList(category, folder, midiValues) {
-  const sortedMidiValues = [...midiValues].sort((a, b) => a - b);
-  for (const midi of sortedMidiValues) {
-    await loadSample(category, folder, midi);
-  }
-}
-
-function buildAllSampleFetchDescriptors() {
-  const descriptors = [];
-  const startupChordLimit = getChordsPerBar();
-  const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
-    includeCurrent: true,
-    includeNext: false,
-    currentChordLimit: startupChordLimit
-  });
-
-  descriptors.push(DRUM_HIHAT_SAMPLE_URL);
-  DRUM_RIDE_SAMPLE_URLS.forEach(url => descriptors.push(url));
-  for (const midi of [...celloNotes].sort((a, b) => a - b)) {
-    descriptors.push(`assets/MP3/Cellos/${midi}.mp3`);
-  }
-  for (const midi of [...violinNotes].sort((a, b) => a - b)) {
-    descriptors.push(`assets/MP3/Violins/${midi}.mp3`);
-  }
-  for (const midi of [...pianoNotes].sort((a, b) => a - b)) {
-    descriptors.push(`assets/Piano/p/${midi}.mp3`);
-    descriptors.push(`assets/Piano/mf/${midi}.mp3`);
-    descriptors.push(`assets/Piano/f/${midi}.mp3`);
-  }
-  for (const midi of [...bassNotes].sort((a, b) => a - b)) {
-    descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
-  }
-  return descriptors;
-}
-
-function collectRequiredSampleNotes({ includeCurrent = true, includeNext = true, currentChordLimit = null, nextChordLimit = null } = {}) {
-  const bassNotes = new Set();
-  const celloNotes = new Set();
-  const violinNotes = new Set();
-  const pianoNotes = new Set();
-  const compingStyle = getCompingStyle();
-  const beatsPerChord = getBeatsPerChord();
-
-  const registerProgression = (chords, key, voicingPlan, chordLimit = null, bassPlan = null) => {
-    if (!Array.isArray(chords) || key === null || key === undefined) return;
-    const limitedChords = Number.isInteger(chordLimit) && chordLimit >= 0
-      ? chords.slice(0, chordLimit)
-      : chords;
-    const beatLimit = Number.isInteger(chordLimit) && chordLimit >= 0
-      ? chordLimit * beatsPerChord
-      : Infinity;
-
-    for (const chord of limitedChords) {
-      bassNotes.add(getBassMidi(key, chord.bassSemitones ?? chord.semitones));
-    }
-    for (const bassEvent of bassPlan || []) {
-      if (bassEvent?.timeBeats < beatLimit && Number.isFinite(bassEvent.midi)) {
-        bassNotes.add(bassEvent.midi);
-      }
-    }
-
-    for (const voicing of (voicingPlan || []).slice(0, limitedChords.length)) {
-      if (!voicing) continue;
-      compingEngine.collectSampleNotes(compingStyle, voicing, { celloNotes, violinNotes, pianoNotes });
-    }
-  };
-
-  if (includeCurrent) {
-    registerProgression(paddedChords, currentKey, currentVoicingPlan, currentChordLimit, currentBassPlan);
-  }
-  if (includeNext) {
-    registerProgression(nextPaddedChords, nextKeyValue, nextVoicingPlan, nextChordLimit);
-  }
-
-  return { bassNotes, celloNotes, violinNotes, pianoNotes };
-}
-
-async function preloadStartupSamples() {
-  const startupChordLimit = getChordsPerBar();
-  const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
-    includeCurrent: true,
-    includeNext: false,
-    currentChordLimit: startupChordLimit
-  });
-  await loadSampleList('bass', 'Bass', bassNotes);
-
-  const drumsMode = getDrumsMode();
-  const drumPromises = [];
-  if (drumsMode === DRUM_MODE_HIHATS_24 || drumsMode === DRUM_MODE_FULL_SWING) {
-    drumPromises.push(loadFileSample('drums', 'hihat', DRUM_HIHAT_SAMPLE_URL));
-  }
-  if (drumsMode === DRUM_MODE_FULL_SWING) {
-    const startupRideCount = Math.min(3, DRUM_RIDE_SAMPLE_URLS.length);
-    for (let i = 0; i < startupRideCount; i++) {
-      drumPromises.push(loadFileSample('drums', `ride_${i}`, DRUM_RIDE_SAMPLE_URLS[i]));
-    }
-  }
-
-  await Promise.all(drumPromises);
-  await loadSampleList('cello', 'Cellos', celloNotes);
-  await loadSampleList('violin', 'Violins', violinNotes);
-  await loadPianoSampleList(pianoNotes);
-}
-
-function getSafetyLeadChordCount() {
-  const chordsPerMeasure = getChordsPerBar();
-  return SAFE_PRELOAD_MEASURES * chordsPerMeasure;
-}
-
-async function preloadNearTermSamples() {
-  const targetChordCount = getSafetyLeadChordCount();
-  const currentChordLimit = Math.min(paddedChords.length, targetChordCount);
-  const remainingChordCount = Math.max(0, targetChordCount - currentChordLimit);
-  const nextChordLimit = Math.min(nextPaddedChords.length, remainingChordCount);
-  const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
-    includeCurrent: currentChordLimit > 0,
-    includeNext: nextChordLimit > 0,
-    currentChordLimit,
-    nextChordLimit
-  });
-
-  await loadSampleList('cello', 'Cellos', celloNotes);
-  await loadSampleList('violin', 'Violins', violinNotes);
-  await loadPianoSampleList(pianoNotes);
-  await loadSampleList('bass', 'Bass', bassNotes);
-}
-
-function ensureNearTermSamplePreload() {
-  if (nearTermSamplePreloadPromise) return nearTermSamplePreloadPromise;
-
-  nearTermSamplePreloadPromise = preloadNearTermSamples()
-    .catch(() => null)
-    .finally(() => {
-      nearTermSamplePreloadPromise = null;
-      ensureBackgroundSamplePreload();
-    });
-
-  return nearTermSamplePreloadPromise;
-}
-
-async function warmPageSampleCache() {
-  const descriptors = buildAllSampleFetchDescriptors();
-  for (const baseUrl of descriptors) {
-    if (startupSamplePreloadInProgress) {
-      break;
-    }
-    try {
-      await fetchArrayBufferFromUrl(baseUrl);
-    } catch {}
-  }
-}
-
-function ensurePageSampleWarmup() {
-  if (pageSampleWarmupPromise) return pageSampleWarmupPromise;
-
-  pageSampleWarmupPromise = warmPageSampleCache()
-    .catch(() => null);
-
-  return pageSampleWarmupPromise;
-}
-
-function ensureBackgroundSamplePreload() {
-  if (backgroundSamplePreloadPromise) return backgroundSamplePreloadPromise;
-
-  backgroundSamplePreloadPromise = preloadSamples()
-    .catch(() => null);
-
-  return backgroundSamplePreloadPromise;
-}
+});
+const {
+  rebuildPreparedCompingPlans,
+  ensureWalkingBassGenerator,
+  buildPreparedBassPlan,
+  preloadStartupSamples,
+  preloadNearTermSamples,
+  ensureNearTermSamplePreload,
+  ensurePageSampleWarmup,
+  ensureBackgroundSamplePreload
+} = drillPlaybackResourcesFacade;
 
 function buildChordVoicingBase(
   rootPitchClass,
@@ -4540,9 +3394,14 @@ function buildProgression() {
 }
 
 const {
-  schedulerState: playbackSchedulerState,
-  transportState: playbackTransportState
-} = createDrillPlaybackStateAppContext({
+  prepareNextProgressionPlayback,
+  scheduleBeatPlayback,
+  scheduleDisplayPlayback,
+  start,
+  stop,
+  togglePause
+} = createDrillPlaybackRuntimeAppAssembly({
+  dom,
   schedulerBindings: {
     getAudioContext: () => audioCtx,
     setAudioContext: (value) => { audioCtx = value; },
@@ -4588,7 +3447,7 @@ const {
     setNextVoicingPlan: (value) => { nextVoicingPlan = value; },
     getPaddedChords: () => paddedChords,
     setPaddedChords: (value) => { paddedChords = value; },
-    getPendingDisplayTimeouts: () => pendingDisplayTimeouts
+    getPendingDisplayTimeouts: getDrillPendingDisplayTimeouts
   },
   transportBindings: {
     getActiveNoteGain: () => activeNoteGain,
@@ -4615,30 +3474,17 @@ const {
     setKeyPool: (value) => { keyPool = value; },
     getLoopVoicingTemplate: () => loopVoicingTemplate,
     setLoopVoicingTemplate: (value) => { loopVoicingTemplate = value; },
-    getNearTermSamplePreloadPromise: () => nearTermSamplePreloadPromise,
-    setNearTermSamplePreloadPromise: (value) => { nearTermSamplePreloadPromise = value; },
+    getNearTermSamplePreloadPromise: getDrillNearTermSamplePreloadPromise,
+    setNearTermSamplePreloadPromise: setDrillNearTermSamplePreloadPromise,
     getNextBeatTime: () => nextBeatTime,
     setNextBeatTime: (value) => { nextBeatTime = value; },
     getNextKeyValue: () => nextKeyValue,
     setNextKeyValue: (value) => { nextKeyValue = value; },
     getSchedulerTimer: () => schedulerTimer,
     setSchedulerTimer: (value) => { schedulerTimer = value; },
-    getStartupSamplePreloadInProgress: () => startupSamplePreloadInProgress,
-    setStartupSamplePreloadInProgress: (value) => { startupSamplePreloadInProgress = value; }
-  }
-});
-
-const {
-  prepareNextProgressionPlayback,
-  scheduleBeatPlayback,
-  scheduleDisplayPlayback,
-  start,
-  stop,
-  togglePause
-} = initializeDrillPlaybackRuntimeEngine(createDrillPlaybackEngineAppContext({
-  dom,
-  schedulerState: playbackSchedulerState,
-  transportState: playbackTransportState,
+    getStartupSamplePreloadInProgress: getDrillStartupSamplePreloadInProgress,
+    setStartupSamplePreloadInProgress: setDrillStartupSamplePreloadInProgress
+  },
   scheduleAhead: SCHEDULE_AHEAD,
   noteFadeout: NOTE_FADEOUT,
   scheduleInterval: SCHEDULE_INTERVAL,
@@ -4709,7 +3555,7 @@ const {
     trackEvent,
     trackProgressionEvent
   }
-}));
+});
 
 // ---- UI Wiring ----
 
@@ -4791,26 +3637,13 @@ function refreshDisplayedHarmony() {
 }
 
 function validateCustomPattern() {
-  if (!isCustomPatternSelected()) {
-    dom.patternError.classList.add('hidden');
-    return true;
-  }
-
-  const str = normalizePatternString(dom.customPattern.value);
-  if (!str) {
-    dom.patternError.classList.add('hidden');
-    return true;
-  }
-
-  const analysis = analyzePattern(str);
-  if (analysis.errorMessage) {
-    dom.patternError.textContent = analysis.errorMessage;
-    dom.patternError.classList.remove('hidden');
-    return false;
-  }
-
-  dom.patternError.classList.add('hidden');
-  return true;
+  return validateDrillCustomPattern({
+    isCustomPatternSelected,
+    getCustomPatternValue: () => String(dom.customPattern?.value || ''),
+    normalizePatternString,
+    analyzePattern,
+    patternErrorElement: dom.patternError
+  });
 }
 
 
@@ -5807,9 +4640,6 @@ async function initializeApp() {
   });
 }
 
-initializeApp();
-setDisplayPlaceholderVisible(true);
-
 document.querySelector('[data-analytics-link="demo"]')?.addEventListener('click', () => {
   trackEvent('demo_link_clicked', {
     location: 'header'
@@ -6111,33 +4941,32 @@ const {
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState
-} = initializeEmbeddedDrillRuntime(createEmbeddedDrillRuntimeAppContextOptions({
+} = initializeEmbeddedDrillRuntime(createDrillEmbeddedRuntimeAppAssembly({
   dom,
+  host: {
+    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE,
+    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+    setPatternSelectValue,
+    setEditorPatternMode,
+    syncPatternSelectionFromInput,
+    getLastPatternSelectValue: () => lastPatternSelectValue,
+    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
+    getIsPlaying: () => isPlaying,
+    getIsPaused: () => isPaused,
+    getIsIntro: () => isIntro,
+    getCurrentBeat: () => currentBeat,
+    getCurrentChordIdx: () => currentChordIdx,
+    getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
+    getTempo: () => Number(dom.tempoSlider?.value || 0),
+    getAudioContext: () => audioCtx,
+    getCurrentKey: () => currentKey,
+    startPlayback: () => start(),
+    stopPlayback: () => stop(),
+    togglePausePlayback: () => togglePause()
+  },
   patternUi: {
     clearProgressionEditingState,
     closeProgressionManager,
-    setCustomPatternSelection: () => {
-      suppressPatternSelectChange = true;
-      setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
-    },
-    setPatternName: (value) => {
-      if (dom.patternName) {
-        dom.patternName.value = value;
-      }
-    },
-    setCustomPatternValue: (value) => {
-      dom.customPattern.value = value;
-    },
-    setEditorPatternMode: (value) => {
-      setEditorPatternMode(value);
-    },
-    syncPatternSelectionFromInput: () => {
-      syncPatternSelectionFromInput();
-      suppressPatternSelectChange = false;
-    },
-    setLastPatternSelectValue: () => {
-      lastPatternSelectValue = dom.patternSelect.value;
-    },
     syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability,
@@ -6149,7 +4978,6 @@ const {
     refreshDisplayedHarmony,
     fitHarmonyDisplay,
     validateCustomPattern: () => validateCustomPattern(),
-    getPatternErrorText: () => String(dom.patternError?.textContent || 'Invalid custom pattern'),
     getCurrentPatternString,
     getCurrentPatternMode
   },
@@ -6171,30 +4999,17 @@ const {
     applyMixerSettings
   },
   playbackState: {
-    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE,
-    getIsPlaying: () => isPlaying,
-    getIsPaused: () => isPaused,
-    getIsIntro: () => isIntro,
-    getCurrentBeat: () => currentBeat,
-    getCurrentChordIdx: () => currentChordIdx,
-    getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
-    getTempo: () => Number(dom.tempoSlider?.value || 0)
+    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE
   },
   playbackRuntime: {
     ensureWalkingBassGenerator,
-    getAudioContext: () => audioCtx,
-    noteFadeout: NOTE_FADEOUT,
     stopActiveChordVoices,
+    noteFadeout: NOTE_FADEOUT,
     rebuildPreparedCompingPlans,
     buildPreparedBassPlan,
-    getCurrentKey: () => currentKey,
     preloadNearTermSamples
   },
-  transportActions: {
-    startPlayback: () => start(),
-    stopPlayback: () => stop(),
-    togglePausePlayback: () => togglePause()
-  },
+  transportActions: {}
 }));
 
 function getPlaybackSessionController() {
@@ -6205,6 +5020,10 @@ function getPlaybackSessionController() {
   playbackSessionController = embeddedPlaybackController;
   return playbackSessionController;
 }
+
+initializeApp();
+setDisplayPlaceholderVisible(true);
+
 
 
 

@@ -38,7 +38,28 @@ Recent extractions from `app.js` that now exist as reusable boundaries:
 - `features/drill/drill-playback-runtime-helpers.js`
 - `features/drill/drill-playback-engine-app-context.js`
 - `features/drill/drill-playback-state-app-context.js`
+- `features/drill/drill-playback-runtime-app-assembly.js`
 - `features/drill/drill-embedded-runtime-app-context.js`
+- `features/drill/drill-pattern-analysis.js`
+- `features/drill/drill-pattern-validation.js`
+- `features/drill/drill-playback-preparation-runtime.js`
+- `features/drill/drill-playback-preparation-app-context.js`
+- `features/drill/drill-runtime-app-bindings.js`
+- `features/drill/drill-embedded-runtime-host.js`
+- `features/drill/drill-embedded-runtime-app-assembly.js`
+- `features/drill/drill-audio-stack-app-assembly.js`
+- `features/drill/drill-audio-stack-app-facade.js`
+- `features/drill/drill-audio-runtime-app-context.js`
+- `features/drill/drill-audio-runtime.js`
+- `features/drill/drill-audio-playback-runtime.js`
+- `features/drill/drill-audio-playback-app-context.js`
+- `features/drill/drill-playback-resources-app-facade.js`
+- `features/drill/drill-sample-playback-runtime.js`
+- `features/drill/drill-sample-playback-app-context.js`
+- `features/drill/drill-scheduled-audio-app-context.js`
+- `features/drill/drill-scheduled-audio-runtime.js`
+- `features/drill/drill-sample-preload-runtime.js`
+- `features/drill/drill-sample-preload-app-context.js`
 
 ## Important Architectural Reality
 
@@ -95,7 +116,28 @@ These should become the first-class typed contracts during the TS migration.
 - `features/drill/drill-playback-runtime-helpers.js`
 - `features/drill/drill-playback-engine-app-context.js`
 - `features/drill/drill-playback-state-app-context.js`
+- `features/drill/drill-playback-runtime-app-assembly.js`
 - `features/drill/drill-embedded-runtime-app-context.js`
+- `features/drill/drill-pattern-analysis.js`
+- `features/drill/drill-pattern-validation.js`
+- `features/drill/drill-playback-preparation-runtime.js`
+- `features/drill/drill-playback-preparation-app-context.js`
+- `features/drill/drill-runtime-app-bindings.js`
+- `features/drill/drill-embedded-runtime-host.js`
+- `features/drill/drill-embedded-runtime-app-assembly.js`
+- `features/drill/drill-audio-stack-app-assembly.js`
+- `features/drill/drill-audio-stack-app-facade.js`
+- `features/drill/drill-audio-runtime-app-context.js`
+- `features/drill/drill-audio-runtime.js`
+- `features/drill/drill-audio-playback-runtime.js`
+- `features/drill/drill-audio-playback-app-context.js`
+- `features/drill/drill-playback-resources-app-facade.js`
+- `features/drill/drill-sample-playback-runtime.js`
+- `features/drill/drill-sample-playback-app-context.js`
+- `features/drill/drill-scheduled-audio-app-context.js`
+- `features/drill/drill-scheduled-audio-runtime.js`
+- `features/drill/drill-sample-preload-runtime.js`
+- `features/drill/drill-sample-preload-app-context.js`
 - `features/drill/drill-session-import.js`
 - `features/drill/drill-embedded-api.js`
 - `features/drill/drill-embedded-bootstrap.js`
@@ -198,7 +240,27 @@ node --check app.js
 node --check chart-dev/main.js
 node --check features/drill/drill-playback-engine-app-context.js
 node --check features/drill/drill-playback-state-app-context.js
+node --check features/drill/drill-playback-runtime-app-assembly.js
 node --check features/drill/drill-embedded-runtime-app-context.js
+node --check features/drill/drill-pattern-validation.js
+node --check features/drill/drill-playback-preparation-runtime.js
+node --check features/drill/drill-playback-preparation-app-context.js
+node --check features/drill/drill-runtime-app-bindings.js
+node --check features/drill/drill-embedded-runtime-host.js
+node --check features/drill/drill-embedded-runtime-app-assembly.js
+node --check features/drill/drill-audio-stack-app-assembly.js
+node --check features/drill/drill-audio-stack-app-facade.js
+node --check features/drill/drill-audio-runtime-app-context.js
+node --check features/drill/drill-audio-runtime.js
+node --check features/drill/drill-audio-playback-runtime.js
+node --check features/drill/drill-audio-playback-app-context.js
+node --check features/drill/drill-playback-resources-app-facade.js
+node --check features/drill/drill-sample-playback-runtime.js
+node --check features/drill/drill-sample-playback-app-context.js
+node --check features/drill/drill-scheduled-audio-app-context.js
+node --check features/drill/drill-scheduled-audio-runtime.js
+node --check features/drill/drill-sample-preload-runtime.js
+node --check features/drill/drill-sample-preload-app-context.js
 node --check features/drill/drill-piano-tools.js
 npm run test:chart
 ```
