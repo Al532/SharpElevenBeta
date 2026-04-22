@@ -1,0 +1,216 @@
+// @ts-check
+
+import { initializeDrillPlaybackEngine } from './drill-playback-engine.js';
+
+/**
+ * @param {{
+ *   getAudioContext: () => BaseAudioContext | null,
+ *   setAudioContext: (value: BaseAudioContext | null) => void,
+ *   getCurrentBassPlan: () => unknown[],
+ *   setCurrentBassPlan: (value: unknown[]) => void,
+ *   getCurrentBeat: () => number,
+ *   setCurrentBeat: (value: number) => void,
+ *   getCurrentChordIdx: () => number,
+ *   setCurrentChordIdx: (value: number) => void,
+ *   getCurrentCompingPlan: () => unknown,
+ *   setCurrentCompingPlan: (value: unknown) => void,
+ *   getCurrentKey: () => number,
+ *   setCurrentKey: (value: number) => void,
+ *   getCurrentKeyRepetition: () => number,
+ *   setCurrentKeyRepetition: (value: number) => void,
+ *   getCurrentOneChordQualityValue: () => string,
+ *   setCurrentOneChordQualityValue: (value: string) => void,
+ *   getCurrentRawChords: () => unknown[],
+ *   setCurrentRawChords: (value: unknown[]) => void,
+ *   getCurrentVoicingPlan: () => unknown[],
+ *   setCurrentVoicingPlan: (value: unknown[]) => void,
+ *   getIsIntro: () => boolean,
+ *   setIsIntro: (value: boolean) => void,
+ *   getIsPaused: () => boolean,
+ *   getIsPlaying: () => boolean,
+ *   getLastPlayedChordIdx: () => number,
+ *   setLastPlayedChordIdx: (value: number) => void,
+ *   getLoopVoicingTemplate: () => unknown,
+ *   setLoopVoicingTemplate: (value: unknown) => void,
+ *   getNextBeatTime: () => number,
+ *   setNextBeatTime: (value: number) => void,
+ *   getNextCompingPlan: () => unknown,
+ *   setNextCompingPlan: (value: unknown) => void,
+ *   getNextKeyValue: () => number | null,
+ *   setNextKeyValue: (value: number | null) => void,
+ *   getNextOneChordQualityValue: () => string,
+ *   setNextOneChordQualityValue: (value: string) => void,
+ *   getNextPaddedChords: () => unknown[],
+ *   setNextPaddedChords: (value: unknown[]) => void,
+ *   getNextRawChords: () => unknown[],
+ *   setNextRawChords: (value: unknown[]) => void,
+ *   getNextVoicingPlan: () => unknown[],
+ *   setNextVoicingPlan: (value: unknown[]) => void,
+ *   getPaddedChords: () => unknown[],
+ *   setPaddedChords: (value: unknown[]) => void,
+ *   getPendingDisplayTimeouts: () => Set<number>
+ * }} bindings
+ */
+export function createDrillPlaybackSchedulerState(bindings) {
+  return {
+    get audioCtx() { return bindings.getAudioContext(); },
+    get currentBassPlan() { return bindings.getCurrentBassPlan(); },
+    set currentBassPlan(value) { bindings.setCurrentBassPlan(Array.isArray(value) ? value : []); },
+    get currentBeat() { return bindings.getCurrentBeat(); },
+    set currentBeat(value) { bindings.setCurrentBeat(value); },
+    get currentChordIdx() { return bindings.getCurrentChordIdx(); },
+    set currentChordIdx(value) { bindings.setCurrentChordIdx(value); },
+    get currentCompingPlan() { return bindings.getCurrentCompingPlan(); },
+    set currentCompingPlan(value) { bindings.setCurrentCompingPlan(value); },
+    get currentKey() { return bindings.getCurrentKey(); },
+    set currentKey(value) { bindings.setCurrentKey(value); },
+    get currentKeyRepetition() { return bindings.getCurrentKeyRepetition(); },
+    set currentKeyRepetition(value) { bindings.setCurrentKeyRepetition(value); },
+    get currentOneChordQualityValue() { return bindings.getCurrentOneChordQualityValue(); },
+    set currentOneChordQualityValue(value) { bindings.setCurrentOneChordQualityValue(value); },
+    get currentRawChords() { return bindings.getCurrentRawChords(); },
+    set currentRawChords(value) { bindings.setCurrentRawChords(value); },
+    get currentVoicingPlan() { return bindings.getCurrentVoicingPlan(); },
+    set currentVoicingPlan(value) { bindings.setCurrentVoicingPlan(value); },
+    get isIntro() { return bindings.getIsIntro(); },
+    set isIntro(value) { bindings.setIsIntro(value); },
+    get isPaused() { return bindings.getIsPaused(); },
+    get isPlaying() { return bindings.getIsPlaying(); },
+    get lastPlayedChordIdx() { return bindings.getLastPlayedChordIdx(); },
+    set lastPlayedChordIdx(value) { bindings.setLastPlayedChordIdx(value); },
+    get loopVoicingTemplate() { return bindings.getLoopVoicingTemplate(); },
+    set loopVoicingTemplate(value) { bindings.setLoopVoicingTemplate(value); },
+    get nextBeatTime() { return bindings.getNextBeatTime(); },
+    set nextBeatTime(value) { bindings.setNextBeatTime(value); },
+    get nextCompingPlan() { return bindings.getNextCompingPlan(); },
+    set nextCompingPlan(value) { bindings.setNextCompingPlan(value); },
+    get nextKeyValue() { return bindings.getNextKeyValue(); },
+    set nextKeyValue(value) { bindings.setNextKeyValue(value); },
+    get nextOneChordQualityValue() { return bindings.getNextOneChordQualityValue(); },
+    set nextOneChordQualityValue(value) { bindings.setNextOneChordQualityValue(value); },
+    get nextPaddedChords() { return bindings.getNextPaddedChords(); },
+    set nextPaddedChords(value) { bindings.setNextPaddedChords(value); },
+    get nextRawChords() { return bindings.getNextRawChords(); },
+    set nextRawChords(value) { bindings.setNextRawChords(value); },
+    get nextVoicingPlan() { return bindings.getNextVoicingPlan(); },
+    set nextVoicingPlan(value) { bindings.setNextVoicingPlan(value); },
+    get paddedChords() { return bindings.getPaddedChords(); },
+    set paddedChords(value) { bindings.setPaddedChords(value); },
+    get pendingDisplayTimeouts() { return bindings.getPendingDisplayTimeouts(); }
+  };
+}
+
+/**
+ * @param {{
+ *   getActiveNoteGain: () => GainNode | null,
+ *   setActiveNoteGain: (value: GainNode | null) => void,
+ *   getAudioContext: () => BaseAudioContext | null,
+ *   setAudioContext: (value: BaseAudioContext | null) => void,
+ *   getCurrentBeat: () => number,
+ *   setCurrentBeat: (value: number) => void,
+ *   getCurrentChordIdx: () => number,
+ *   setCurrentChordIdx: (value: number) => void,
+ *   getCurrentKeyRepetition: () => number,
+ *   setCurrentKeyRepetition: (value: number) => void,
+ *   getFirstPlayStartTracked: () => boolean,
+ *   setFirstPlayStartTracked: (value: boolean) => void,
+ *   getPlayStopSuggestionCount: () => number,
+ *   setPlayStopSuggestionCount: (value: number) => void,
+ *   getIsIntro: () => boolean,
+ *   setIsIntro: (value: boolean) => void,
+ *   getIsPaused: () => boolean,
+ *   setIsPaused: (value: boolean) => void,
+ *   getIsPlaying: () => boolean,
+ *   setIsPlaying: (value: boolean) => void,
+ *   getKeyPool: () => unknown[],
+ *   setKeyPool: (value: unknown[]) => void,
+ *   getLoopVoicingTemplate: () => unknown,
+ *   setLoopVoicingTemplate: (value: unknown) => void,
+ *   getNearTermSamplePreloadPromise: () => Promise<unknown> | null,
+ *   setNearTermSamplePreloadPromise: (value: Promise<unknown> | null) => void,
+ *   getNextBeatTime: () => number,
+ *   setNextBeatTime: (value: number) => void,
+ *   getNextKeyValue: () => number | null,
+ *   setNextKeyValue: (value: number | null) => void,
+ *   getSchedulerTimer: () => number | null,
+ *   setSchedulerTimer: (value: number | null) => void,
+ *   getStartupSamplePreloadInProgress: () => boolean,
+ *   setStartupSamplePreloadInProgress: (value: boolean) => void
+ * }} bindings
+ */
+export function createDrillPlaybackTransportState(bindings) {
+  return {
+    get activeNoteGain() { return bindings.getActiveNoteGain(); },
+    set activeNoteGain(value) { bindings.setActiveNoteGain(value); },
+    get audioCtx() { return bindings.getAudioContext(); },
+    set audioCtx(value) { bindings.setAudioContext(value); },
+    get currentBeat() { return bindings.getCurrentBeat(); },
+    set currentBeat(value) { bindings.setCurrentBeat(value); },
+    get currentChordIdx() { return bindings.getCurrentChordIdx(); },
+    set currentChordIdx(value) { bindings.setCurrentChordIdx(value); },
+    get currentKeyRepetition() { return bindings.getCurrentKeyRepetition(); },
+    set currentKeyRepetition(value) { bindings.setCurrentKeyRepetition(value); },
+    get firstPlayStartTracked() { return bindings.getFirstPlayStartTracked(); },
+    set firstPlayStartTracked(value) { bindings.setFirstPlayStartTracked(value); },
+    get playStopSuggestionCount() { return bindings.getPlayStopSuggestionCount(); },
+    set playStopSuggestionCount(value) { bindings.setPlayStopSuggestionCount(value); },
+    get isIntro() { return bindings.getIsIntro(); },
+    set isIntro(value) { bindings.setIsIntro(value); },
+    get isPaused() { return bindings.getIsPaused(); },
+    set isPaused(value) { bindings.setIsPaused(value); },
+    get isPlaying() { return bindings.getIsPlaying(); },
+    set isPlaying(value) { bindings.setIsPlaying(value); },
+    get keyPool() { return bindings.getKeyPool(); },
+    set keyPool(value) { bindings.setKeyPool(value); },
+    get loopVoicingTemplate() { return bindings.getLoopVoicingTemplate(); },
+    set loopVoicingTemplate(value) { bindings.setLoopVoicingTemplate(value); },
+    get nearTermSamplePreloadPromise() { return bindings.getNearTermSamplePreloadPromise(); },
+    set nearTermSamplePreloadPromise(value) { bindings.setNearTermSamplePreloadPromise(value); },
+    get nextBeatTime() { return bindings.getNextBeatTime(); },
+    set nextBeatTime(value) { bindings.setNextBeatTime(value); },
+    get nextKeyValue() { return bindings.getNextKeyValue(); },
+    set nextKeyValue(value) { bindings.setNextKeyValue(value); },
+    get schedulerTimer() { return bindings.getSchedulerTimer(); },
+    set schedulerTimer(value) { bindings.setSchedulerTimer(value); },
+    get startupSamplePreloadInProgress() { return bindings.getStartupSamplePreloadInProgress(); },
+    set startupSamplePreloadInProgress(value) { bindings.setStartupSamplePreloadInProgress(value); }
+  };
+}
+
+/**
+ * @param {{
+ *   dom: Record<string, any>,
+ *   schedulerState: ReturnType<typeof createDrillPlaybackSchedulerState>,
+ *   transportState: ReturnType<typeof createDrillPlaybackTransportState>,
+ *   noteFadeout: number,
+ *   scheduleInterval: number,
+ *   scheduleAhead: number,
+ *   schedulerHelpers: Record<string, any>,
+ *   transportHelpers: Record<string, any>
+ * }} options
+ */
+export function initializeDrillPlaybackRuntimeEngine({
+  dom,
+  schedulerState,
+  transportState,
+  noteFadeout,
+  scheduleInterval,
+  scheduleAhead,
+  schedulerHelpers,
+  transportHelpers
+}) {
+  return initializeDrillPlaybackEngine({
+    dom,
+    schedulerState,
+    transportState,
+    schedulerConstants: {
+      SCHEDULE_AHEAD: scheduleAhead
+    },
+    transportConstants: {
+      NOTE_FADEOUT: noteFadeout,
+      SCHEDULE_INTERVAL: scheduleInterval
+    },
+    schedulerHelpers,
+    transportHelpers
+  });
+}

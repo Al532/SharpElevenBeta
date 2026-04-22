@@ -315,7 +315,7 @@ export interface ChartScreenState {
   chartPlaybackController: ChartPlaybackController | null;
   chartSheetRenderer: ChartSheetRenderer | null;
   selectionController: ChartSelectionController;
-  drillPollTimer: number | null;
+  playbackPollTimer: number | null;
   isPlaying: boolean;
   isPaused: boolean;
   currentSearch: string;
@@ -385,6 +385,11 @@ export interface PlaybackBridgeProvider {
   getBridge(): PlaybackBridge;
 }
 
+export interface RuntimePlaybackBridgeProvider extends PlaybackBridgeProvider {}
+
+export interface DrillPlaybackBridgeProvider extends RuntimePlaybackBridgeProvider {}
+export interface DirectPlaybackBridgeProvider extends DrillPlaybackBridgeProvider {}
+
 export interface EmbeddedPlaybackBridge extends PlaybackRuntimeBindings {
   apiClient: EmbeddedPlaybackApiClient;
   playbackRuntime: EmbeddedPlaybackRuntime;
@@ -399,13 +404,54 @@ export interface EmbeddedPlaybackRuntimeProvider extends PlaybackRuntimeProvider
 }
 
 export interface DrillPlaybackRuntimeProvider extends PlaybackRuntimeProvider {}
+export interface DirectPlaybackRuntimeProvider extends DrillPlaybackRuntimeProvider {}
+
+export interface DrillPlaybackControllerOptions {
+  ensureWalkingBassGenerator?: () => Promise<unknown>;
+  isPlaying?: () => boolean;
+  getAudioContext?: () => BaseAudioContext | null;
+  noteFadeout?: number;
+  stopActiveChordVoices?: (audioTime: number, fadeout: number) => void;
+  rebuildPreparedCompingPlans?: (currentKey: number) => void;
+  buildPreparedBassPlan?: () => void;
+  getCurrentKey?: () => number;
+  preloadNearTermSamples?: () => Promise<unknown>;
+  validateCustomPattern?: () => boolean;
+  startPlayback?: () => Promise<void>;
+  stopPlayback?: () => void;
+  togglePausePlayback?: () => void;
+}
+
+export interface DirectPlaybackControllerOptions extends DrillPlaybackControllerOptions {}
+
+export interface EmbeddedPlaybackBridgeOptions {
+  getTargetWindow?: () => Window | null;
+  getHostFrame?: () => HTMLIFrameElement | null;
+  readyEventName?: string;
+  timeoutMs?: number;
+  buildPatternPayload: (sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) => EmbeddedPatternPayload;
+}
+
+export type ChartPlaybackBridgeMode = 'embedded' | 'direct';
+
+export interface ChartPlaybackBridgeOptions {
+  mode?: ChartPlaybackBridgeMode;
+  bridgeFrame?: HTMLIFrameElement | null;
+  getTempo?: () => number;
+  getCurrentChartTitle?: () => string;
+  directPlaybackOptions?: DirectPlaybackControllerOptions;
+}
 
 export interface DrillPlaybackAssembly extends PlaybackRuntimeBindings {
   playbackRuntime: PlaybackRuntime;
 }
+export interface DirectPlaybackAssembly extends DrillPlaybackAssembly {}
 
 export interface DrillPlaybackAssemblyProvider extends PlaybackAssemblyProvider {
   getAssembly(): DrillPlaybackAssembly;
+}
+export interface DirectPlaybackAssemblyProvider extends DrillPlaybackAssemblyProvider {
+  getAssembly(): DirectPlaybackAssembly;
 }
 
 export interface EmbeddedPlaybackAssembly extends PlaybackRuntimeBindings {
@@ -413,6 +459,10 @@ export interface EmbeddedPlaybackAssembly extends PlaybackRuntimeBindings {
 }
 
 export interface EmbeddedPlaybackAssemblyProvider extends PlaybackAssemblyProvider {
+  getAssembly(): EmbeddedPlaybackAssembly;
+}
+
+export interface PublishedEmbeddedPlaybackAssemblyProvider extends PlaybackAssemblyProvider {
   getAssembly(): EmbeddedPlaybackAssembly;
 }
 
@@ -433,6 +483,78 @@ export interface EmbeddedPlaybackRuntimeState extends PlaybackRuntimeState {
   patternError?: string | null;
   tempo?: number;
   swingRatio?: number;
+}
+
+export interface EmbeddedPlaybackStateOptions {
+  isEmbeddedMode?: boolean;
+  getIsPlaying?: () => boolean;
+  getIsPaused?: () => boolean;
+  getIsIntro?: () => boolean;
+  getCurrentBeat?: () => number;
+  getCurrentChordIdx?: () => number;
+  getPaddedChordCount?: () => number;
+  getCurrentPatternString?: () => string;
+  getCurrentPatternMode?: () => string;
+  getPatternErrorText?: () => string;
+  hasPatternError?: () => boolean;
+  getTempo?: () => number;
+  getSwingRatio?: () => number;
+}
+
+export interface EmbeddedPatternAdapterOptions {
+  stopIfPlaying?: () => void;
+  clearProgressionEditingState?: () => void;
+  closeProgressionManager?: () => void;
+  setCustomPatternSelection?: () => void;
+  setPatternName?: (name: string) => void;
+  setCustomPatternValue?: (pattern: string) => void;
+  setEditorPatternMode?: (mode: string) => void;
+  syncPatternSelectionFromInput?: () => void;
+  setLastPatternSelectValue?: () => void;
+  applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
+  syncCustomPatternUI?: () => void;
+  normalizeChordsPerBarForCurrentPattern?: () => void;
+  applyPatternModeAvailability?: () => void;
+  syncPatternPreview?: () => void;
+  applyDisplayMode?: () => void;
+  applyBeatIndicatorVisibility?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  updateKeyPickerLabels?: () => void;
+  refreshDisplayedHarmony?: () => void;
+  fitHarmonyDisplay?: () => void;
+  validateCustomPattern?: () => boolean;
+  getPatternErrorText?: () => string;
+  getCurrentPatternString?: () => string;
+  normalizePatternString?: (pattern: string) => string;
+  normalizePresetName?: (name: string) => string;
+  normalizePatternMode?: (mode: string) => string;
+}
+
+export interface EmbeddedPlaybackSettingsAdapterOptions {
+  setTempo?: (tempo: number | string) => void;
+  setTransposition?: (transposition: number | string) => void;
+  setCompingStyle?: (style: string) => void;
+  setDrumsMode?: (mode: string) => void;
+  setWalkingBassEnabled?: (enabled: boolean) => void;
+  setRepetitionsPerKey?: (count: number) => void;
+  setDisplayMode?: (mode: string) => void;
+  setHarmonyDisplayMode?: (mode: string) => void;
+  setShowBeatIndicator?: (visible: boolean) => void;
+  setHideCurrentHarmony?: (hidden: boolean) => void;
+  setMasterVolume?: (value: string | number) => void;
+  setBassVolume?: (value: string | number) => void;
+  setStringsVolume?: (value: string | number) => void;
+  setDrumsVolume?: (value: string | number) => void;
+  applyMixerSettings?: () => void;
+  getPlaybackSettingsSnapshot?: () => PlaybackSettings;
+  normalizeEmbeddedVolume?: (value: unknown) => string | null;
+}
+
+export interface EmbeddedDrillRuntimeOptions {
+  patternAdapterOptions?: EmbeddedPatternAdapterOptions;
+  playbackSettingsAdapterOptions?: EmbeddedPlaybackSettingsAdapterOptions;
+  playbackStateOptions?: EmbeddedPlaybackStateOptions;
+  playbackControllerOptions?: DrillPlaybackControllerOptions;
 }
 
 export interface EmbeddedRuntimeBindings extends PlaybackRuntimeBindings {
@@ -467,7 +589,7 @@ export interface ChartPlaybackControllerOptions {
 export interface ChartPlaybackController {
   ensureReady(): Promise<unknown>;
   ensurePlaybackController(): PlaybackSessionController;
-  syncPlaybackStateFromDrill(): TransportPlaybackStatus;
+  syncPlaybackState(): TransportPlaybackStatus;
   stopPlayback(options?: { resetPosition?: boolean }): Promise<TransportPlaybackStatus>;
   startPlayback(): Promise<{ ok: boolean } | TransportPlaybackStatus>;
   syncPlaybackSettings(): Promise<PlaybackOperationResult>;
@@ -495,6 +617,7 @@ export interface DrillExport {
 
 declare global {
   interface Window {
+    __JPT_PLAYBACK_API__?: EmbeddedPlaybackApi;
     __JPT_DRILL_API__?: EmbeddedPlaybackApi;
     __JPT_PLAYBACK_RUNTIME__?: PlaybackRuntime;
     __JPT_PLAYBACK_SESSION_CONTROLLER__?: PlaybackSessionController;

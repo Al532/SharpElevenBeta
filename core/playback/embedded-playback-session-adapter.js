@@ -7,7 +7,7 @@
 /** @typedef {import('../types/contracts').PracticeSessionSpec} PracticeSessionSpec */
 
 /**
- * Creates a playback-session adapter backed by the legacy embedded Drill API.
+ * Creates a playback-session adapter backed by the legacy embedded playback API.
  * Keeping this boundary in `core/playback` makes it easier to replace the
  * iframe-specific API client later without rewriting chart-side transport code.
  *
@@ -68,7 +68,9 @@ export function createEmbeddedPlaybackSessionAdapter({
     },
     getRuntimeState() {
       const embeddedApi = apiClient.getApi();
-      return embeddedApi ? embeddedApi.getPlaybackState() : null;
+      return embeddedApi && typeof embeddedApi.getPlaybackState === 'function'
+        ? embeddedApi.getPlaybackState()
+        : null;
     }
   };
 }

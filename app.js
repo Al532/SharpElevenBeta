@@ -30,7 +30,15 @@ import {
 } from './swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
 import { initializeEmbeddedDrillRuntime } from './features/drill/drill-embedded-runtime.js';
-import { initializeDrillPlaybackEngine } from './features/drill/drill-playback-engine.js';
+import {
+  createDrillPlaybackSchedulerState,
+  createDrillPlaybackTransportState,
+  initializeDrillPlaybackRuntimeEngine
+} from './features/drill/drill-playback-runtime-engine.js';
+import {
+  createDrillPlaybackSchedulerHelpers,
+  createDrillPlaybackTransportHelpers
+} from './features/drill/drill-playback-runtime-helpers.js';
 import {
   buildDrillKeyCheckboxes,
   invertDrillKeysEnabled,
@@ -38,6 +46,9 @@ import {
 } from './features/drill/drill-key-selection.js';
 import { initializeDrillRuntimeControls } from './features/drill/drill-runtime-controls.js';
 import { bindDrillWelcomeControls } from './features/drill/drill-welcome.js';
+import {
+  createEmbeddedDrillRuntimeAppOptions
+} from './features/drill/drill-runtime-boundary.js';
 import {
   applyDrillPianoFadeSettings,
   applyDrillPianoMidiSettings,
@@ -4534,89 +4545,90 @@ function buildProgression() {
   return raw;
 }
 
-const playbackSchedulerState = {
-  get audioCtx() { return audioCtx; },
-  get currentBassPlan() { return currentBassPlan; },
-  set currentBassPlan(value) { currentBassPlan = Array.isArray(value) ? value : []; },
-  get currentBeat() { return currentBeat; },
-  set currentBeat(value) { currentBeat = value; },
-  get currentChordIdx() { return currentChordIdx; },
-  set currentChordIdx(value) { currentChordIdx = value; },
-  get currentCompingPlan() { return currentCompingPlan; },
-  set currentCompingPlan(value) { currentCompingPlan = value; },
-  get currentKey() { return currentKey; },
-  set currentKey(value) { currentKey = value; },
-  get currentKeyRepetition() { return currentKeyRepetition; },
-  set currentKeyRepetition(value) { currentKeyRepetition = value; },
-  get currentOneChordQualityValue() { return currentOneChordQualityValue; },
-  set currentOneChordQualityValue(value) { currentOneChordQualityValue = value; },
-  get currentRawChords() { return currentRawChords; },
-  set currentRawChords(value) { currentRawChords = value; },
-  get currentVoicingPlan() { return currentVoicingPlan; },
-  set currentVoicingPlan(value) { currentVoicingPlan = value; },
-  get isIntro() { return isIntro; },
-  set isIntro(value) { isIntro = value; },
-  get isPaused() { return isPaused; },
-  get isPlaying() { return isPlaying; },
-  get lastPlayedChordIdx() { return lastPlayedChordIdx; },
-  set lastPlayedChordIdx(value) { lastPlayedChordIdx = value; },
-  get loopVoicingTemplate() { return loopVoicingTemplate; },
-  set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
-  get nextBeatTime() { return nextBeatTime; },
-  set nextBeatTime(value) { nextBeatTime = value; },
-  get nextCompingPlan() { return nextCompingPlan; },
-  set nextCompingPlan(value) { nextCompingPlan = value; },
-  get nextKeyValue() { return nextKeyValue; },
-  set nextKeyValue(value) { nextKeyValue = value; },
-  get nextOneChordQualityValue() { return nextOneChordQualityValue; },
-  set nextOneChordQualityValue(value) { nextOneChordQualityValue = value; },
-  get nextPaddedChords() { return nextPaddedChords; },
-  set nextPaddedChords(value) { nextPaddedChords = value; },
-  get nextRawChords() { return nextRawChords; },
-  set nextRawChords(value) { nextRawChords = value; },
-  get nextVoicingPlan() { return nextVoicingPlan; },
-  set nextVoicingPlan(value) { nextVoicingPlan = value; },
-  get paddedChords() { return paddedChords; },
-  set paddedChords(value) { paddedChords = value; },
-  get pendingDisplayTimeouts() { return pendingDisplayTimeouts; }
-};
+const playbackSchedulerState = createDrillPlaybackSchedulerState({
+  getAudioContext: () => audioCtx,
+  setAudioContext: (value) => { audioCtx = value; },
+  getCurrentBassPlan: () => currentBassPlan,
+  setCurrentBassPlan: (value) => { currentBassPlan = value; },
+  getCurrentBeat: () => currentBeat,
+  setCurrentBeat: (value) => { currentBeat = value; },
+  getCurrentChordIdx: () => currentChordIdx,
+  setCurrentChordIdx: (value) => { currentChordIdx = value; },
+  getCurrentCompingPlan: () => currentCompingPlan,
+  setCurrentCompingPlan: (value) => { currentCompingPlan = value; },
+  getCurrentKey: () => currentKey,
+  setCurrentKey: (value) => { currentKey = value; },
+  getCurrentKeyRepetition: () => currentKeyRepetition,
+  setCurrentKeyRepetition: (value) => { currentKeyRepetition = value; },
+  getCurrentOneChordQualityValue: () => currentOneChordQualityValue,
+  setCurrentOneChordQualityValue: (value) => { currentOneChordQualityValue = value; },
+  getCurrentRawChords: () => currentRawChords,
+  setCurrentRawChords: (value) => { currentRawChords = value; },
+  getCurrentVoicingPlan: () => currentVoicingPlan,
+  setCurrentVoicingPlan: (value) => { currentVoicingPlan = value; },
+  getIsIntro: () => isIntro,
+  setIsIntro: (value) => { isIntro = value; },
+  getIsPaused: () => isPaused,
+  getIsPlaying: () => isPlaying,
+  getLastPlayedChordIdx: () => lastPlayedChordIdx,
+  setLastPlayedChordIdx: (value) => { lastPlayedChordIdx = value; },
+  getLoopVoicingTemplate: () => loopVoicingTemplate,
+  setLoopVoicingTemplate: (value) => { loopVoicingTemplate = value; },
+  getNextBeatTime: () => nextBeatTime,
+  setNextBeatTime: (value) => { nextBeatTime = value; },
+  getNextCompingPlan: () => nextCompingPlan,
+  setNextCompingPlan: (value) => { nextCompingPlan = value; },
+  getNextKeyValue: () => nextKeyValue,
+  setNextKeyValue: (value) => { nextKeyValue = value; },
+  getNextOneChordQualityValue: () => nextOneChordQualityValue,
+  setNextOneChordQualityValue: (value) => { nextOneChordQualityValue = value; },
+  getNextPaddedChords: () => nextPaddedChords,
+  setNextPaddedChords: (value) => { nextPaddedChords = value; },
+  getNextRawChords: () => nextRawChords,
+  setNextRawChords: (value) => { nextRawChords = value; },
+  getNextVoicingPlan: () => nextVoicingPlan,
+  setNextVoicingPlan: (value) => { nextVoicingPlan = value; },
+  getPaddedChords: () => paddedChords,
+  setPaddedChords: (value) => { paddedChords = value; },
+  getPendingDisplayTimeouts: () => pendingDisplayTimeouts
+});
 
-const playbackTransportState = {
-  get activeNoteGain() { return activeNoteGain; },
-  set activeNoteGain(value) { activeNoteGain = value; },
-  get audioCtx() { return audioCtx; },
-  set audioCtx(value) { audioCtx = value; },
-  get currentBeat() { return currentBeat; },
-  set currentBeat(value) { currentBeat = value; },
-  get currentChordIdx() { return currentChordIdx; },
-  set currentChordIdx(value) { currentChordIdx = value; },
-  get currentKeyRepetition() { return currentKeyRepetition; },
-  set currentKeyRepetition(value) { currentKeyRepetition = value; },
-  get firstPlayStartTracked() { return firstPlayStartTracked; },
-  set firstPlayStartTracked(value) { firstPlayStartTracked = value; },
-  get playStopSuggestionCount() { return playStopSuggestionCount; },
-  set playStopSuggestionCount(value) { playStopSuggestionCount = value; },
-  get isIntro() { return isIntro; },
-  set isIntro(value) { isIntro = value; },
-  get isPaused() { return isPaused; },
-  set isPaused(value) { isPaused = value; },
-  get isPlaying() { return isPlaying; },
-  set isPlaying(value) { isPlaying = value; },
-  get keyPool() { return keyPool; },
-  set keyPool(value) { keyPool = value; },
-  get loopVoicingTemplate() { return loopVoicingTemplate; },
-  set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
-  get nearTermSamplePreloadPromise() { return nearTermSamplePreloadPromise; },
-  set nearTermSamplePreloadPromise(value) { nearTermSamplePreloadPromise = value; },
-  get nextBeatTime() { return nextBeatTime; },
-  set nextBeatTime(value) { nextBeatTime = value; },
-  get nextKeyValue() { return nextKeyValue; },
-  set nextKeyValue(value) { nextKeyValue = value; },
-  get schedulerTimer() { return schedulerTimer; },
-  set schedulerTimer(value) { schedulerTimer = value; },
-  get startupSamplePreloadInProgress() { return startupSamplePreloadInProgress; },
-  set startupSamplePreloadInProgress(value) { startupSamplePreloadInProgress = value; }
-};
+const playbackTransportState = createDrillPlaybackTransportState({
+  getActiveNoteGain: () => activeNoteGain,
+  setActiveNoteGain: (value) => { activeNoteGain = value; },
+  getAudioContext: () => audioCtx,
+  setAudioContext: (value) => { audioCtx = value; },
+  getCurrentBeat: () => currentBeat,
+  setCurrentBeat: (value) => { currentBeat = value; },
+  getCurrentChordIdx: () => currentChordIdx,
+  setCurrentChordIdx: (value) => { currentChordIdx = value; },
+  getCurrentKeyRepetition: () => currentKeyRepetition,
+  setCurrentKeyRepetition: (value) => { currentKeyRepetition = value; },
+  getFirstPlayStartTracked: () => firstPlayStartTracked,
+  setFirstPlayStartTracked: (value) => { firstPlayStartTracked = value; },
+  getPlayStopSuggestionCount: () => playStopSuggestionCount,
+  setPlayStopSuggestionCount: (value) => { playStopSuggestionCount = value; },
+  getIsIntro: () => isIntro,
+  setIsIntro: (value) => { isIntro = value; },
+  getIsPaused: () => isPaused,
+  setIsPaused: (value) => { isPaused = value; },
+  getIsPlaying: () => isPlaying,
+  setIsPlaying: (value) => { isPlaying = value; },
+  getKeyPool: () => keyPool,
+  setKeyPool: (value) => { keyPool = value; },
+  getLoopVoicingTemplate: () => loopVoicingTemplate,
+  setLoopVoicingTemplate: (value) => { loopVoicingTemplate = value; },
+  getNearTermSamplePreloadPromise: () => nearTermSamplePreloadPromise,
+  setNearTermSamplePreloadPromise: (value) => { nearTermSamplePreloadPromise = value; },
+  getNextBeatTime: () => nextBeatTime,
+  setNextBeatTime: (value) => { nextBeatTime = value; },
+  getNextKeyValue: () => nextKeyValue,
+  setNextKeyValue: (value) => { nextKeyValue = value; },
+  getSchedulerTimer: () => schedulerTimer,
+  setSchedulerTimer: (value) => { schedulerTimer = value; },
+  getStartupSamplePreloadInProgress: () => startupSamplePreloadInProgress,
+  setStartupSamplePreloadInProgress: (value) => { startupSamplePreloadInProgress = value; }
+});
 
 const {
   prepareNextProgressionPlayback,
@@ -4625,18 +4637,14 @@ const {
   start,
   stop,
   togglePause
-} = initializeDrillPlaybackEngine({
+} = initializeDrillPlaybackRuntimeEngine({
   dom,
   schedulerState: playbackSchedulerState,
   transportState: playbackTransportState,
-  schedulerConstants: {
-    SCHEDULE_AHEAD
-  },
-  transportConstants: {
-    NOTE_FADEOUT,
-    SCHEDULE_INTERVAL
-  },
-  schedulerHelpers: {
+  scheduleAhead: SCHEDULE_AHEAD,
+  noteFadeout: NOTE_FADEOUT,
+  scheduleInterval: SCHEDULE_INTERVAL,
+  schedulerHelpers: createDrillPlaybackSchedulerHelpers({
     applyDisplaySideLayout,
     buildPreparedBassPlan,
     buildLegacyVoicingPlan,
@@ -4681,8 +4689,8 @@ const {
     takeNextOneChordQuality,
     trackProgressionOccurrence,
     updateBeatDots
-  },
-  transportHelpers: {
+  }),
+  transportHelpers: createDrillPlaybackTransportHelpers({
     applyDisplaySideLayout,
     clearBeatDots,
     clearScheduledDisplays,
@@ -4702,7 +4710,7 @@ const {
     stopScheduledAudio,
     trackEvent,
     trackProgressionEvent
-  }
+  })
 });
 
 // ---- UI Wiring ----
@@ -6105,176 +6113,84 @@ const {
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState
-} = initializeEmbeddedDrillRuntime({
-  patternAdapterOptions: {
-    stopIfPlaying: () => {
-      if (isPlaying) {
-        stop();
-      }
-    },
-    clearProgressionEditingState,
-    closeProgressionManager,
-    setCustomPatternSelection: () => {
-      suppressPatternSelectChange = true;
-      setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
-    },
-    setPatternName: (value) => {
-      if (dom.patternName) {
-        dom.patternName.value = value;
-      }
-    },
-    setCustomPatternValue: (value) => {
-      dom.customPattern.value = value;
-    },
-    setEditorPatternMode: (value) => {
-      setEditorPatternMode(value);
-    },
-    syncPatternSelectionFromInput: () => {
-      syncPatternSelectionFromInput();
-      suppressPatternSelectChange = false;
-    },
-    setLastPatternSelectValue: () => {
-      lastPatternSelectValue = dom.patternSelect.value;
-    },
-    syncCustomPatternUI,
-    normalizeChordsPerBarForCurrentPattern,
-    applyPatternModeAvailability,
-    syncPatternPreview,
-    applyDisplayMode,
-    applyBeatIndicatorVisibility,
-    applyCurrentHarmonyVisibility,
-    updateKeyPickerLabels,
-    refreshDisplayedHarmony,
-    fitHarmonyDisplay,
-    validateCustomPattern: () => validateCustomPattern(),
-    getPatternErrorText: () => String(dom.patternError?.textContent || 'Invalid custom pattern'),
-    getCurrentPatternString,
-    normalizePatternString,
-    normalizePresetName,
-    normalizePatternMode
+} = initializeEmbeddedDrillRuntime(createEmbeddedDrillRuntimeAppOptions({
+  dom,
+  stopIfPlaying: () => {
+    if (isPlaying) {
+      stop();
+    }
   },
-  playbackSettingsAdapterOptions: {
-    setTempo: (value) => {
-      if (dom.tempoSlider) {
-        dom.tempoSlider.value = String(value);
-        dom.tempoValue.textContent = dom.tempoSlider.value;
-      }
-    },
-    setTransposition: (value) => {
-      if (dom.transpositionSelect) {
-        dom.transpositionSelect.value = String(value);
-      }
-    },
-    setCompingStyle: (value) => {
-      if (dom.compingStyle) {
-        dom.compingStyle.value = normalizeCompingStyle(value);
-      }
-    },
-    setDrumsMode: (value) => {
-      if (dom.drumsSelect) {
-        dom.drumsSelect.value = value;
-      }
-    },
-    setWalkingBassEnabled: (value) => {
-      if (dom.walkingBass) {
-        dom.walkingBass.checked = Boolean(value);
-      }
-    },
-    setRepetitionsPerKey: (value) => {
-      if (dom.repetitionsPerKey) {
-        dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(value));
-      }
-    },
-    setDisplayMode: (value) => {
-      if (dom.displayMode) {
-        dom.displayMode.value = normalizeDisplayMode(value);
-      }
-    },
-    setHarmonyDisplayMode: (value) => {
-      if (dom.harmonyDisplayMode) {
-        dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(value);
-      }
-    },
-    setShowBeatIndicator: (value) => {
-      if (dom.showBeatIndicator) {
-        dom.showBeatIndicator.checked = Boolean(value);
-      }
-    },
-    setHideCurrentHarmony: (value) => {
-      if (dom.hideCurrentHarmony) {
-        dom.hideCurrentHarmony.checked = Boolean(value);
-      }
-    },
-    setMasterVolume: (value) => {
-      if (dom.masterVolume) {
-        dom.masterVolume.value = value;
-      }
-    },
-    setBassVolume: (value) => {
-      if (dom.bassVolume) {
-        dom.bassVolume.value = value;
-      }
-    },
-    setStringsVolume: (value) => {
-      if (dom.stringsVolume) {
-        dom.stringsVolume.value = value;
-      }
-    },
-    setDrumsVolume: (value) => {
-      if (dom.drumsVolume) {
-        dom.drumsVolume.value = value;
-      }
-    },
-    applyMixerSettings,
-    getPlaybackSettingsSnapshot: () => ({
-      tempo: Number(dom.tempoSlider?.value || 0),
-      swingRatio: getSwingRatio(),
-      transposition: dom.transpositionSelect?.value || '0',
-      compingStyle: getCompingStyle(),
-      drumsMode: getDrumsMode(),
-      customMediumSwingBass: isWalkingBassEnabled(),
-      repetitionsPerKey: getRepetitionsPerKey(),
-      displayMode: normalizeDisplayMode(dom.displayMode?.value),
-      harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
-      showBeatIndicator: dom.showBeatIndicator?.checked !== false,
-      hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
-      masterVolume: Number(dom.masterVolume?.value || 0),
-      bassVolume: Number(dom.bassVolume?.value || 0),
-      stringsVolume: Number(dom.stringsVolume?.value || 0),
-      drumsVolume: Number(dom.drumsVolume?.value || 0)
-    })
+  clearProgressionEditingState,
+  closeProgressionManager,
+  setCustomPatternSelection: () => {
+    suppressPatternSelectChange = true;
+    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
   },
-  playbackStateOptions: {
-    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE,
-    getIsPlaying: () => isPlaying,
-    getIsPaused: () => isPaused,
-    getIsIntro: () => isIntro,
-    getCurrentBeat: () => currentBeat,
-    getCurrentChordIdx: () => currentChordIdx,
-    getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
-    getCurrentPatternString,
-    getCurrentPatternMode,
-    getPatternErrorText: () => String(dom.patternError?.textContent || ''),
-    hasPatternError: () => !dom.patternError?.classList.contains('hidden'),
-    getTempo: () => Number(dom.tempoSlider?.value || 0),
-    getSwingRatio
+  setPatternName: (value) => {
+    if (dom.patternName) {
+      dom.patternName.value = value;
+    }
   },
-  playbackControllerOptions: {
-    ensureWalkingBassGenerator,
-    isPlaying: () => isPlaying,
-    getAudioContext: () => audioCtx,
-    noteFadeout: NOTE_FADEOUT,
-    stopActiveChordVoices,
-    rebuildPreparedCompingPlans,
-    buildPreparedBassPlan,
-    getCurrentKey: () => currentKey,
-    preloadNearTermSamples,
-    validateCustomPattern: () => validateCustomPattern(),
-    startPlayback: () => start(),
-    stopPlayback: () => stop(),
-    togglePausePlayback: () => togglePause()
-  }
-});
+  setCustomPatternValue: (value) => {
+    dom.customPattern.value = value;
+  },
+  setEditorPatternMode: (value) => {
+    setEditorPatternMode(value);
+  },
+  syncPatternSelectionFromInput: () => {
+    syncPatternSelectionFromInput();
+    suppressPatternSelectChange = false;
+  },
+  setLastPatternSelectValue: () => {
+    lastPatternSelectValue = dom.patternSelect.value;
+  },
+  syncCustomPatternUI,
+  normalizeChordsPerBarForCurrentPattern,
+  applyPatternModeAvailability,
+  syncPatternPreview,
+  applyDisplayMode,
+  applyBeatIndicatorVisibility,
+  applyCurrentHarmonyVisibility,
+  updateKeyPickerLabels,
+  refreshDisplayedHarmony,
+  fitHarmonyDisplay,
+  validateCustomPattern: () => validateCustomPattern(),
+  getPatternErrorText: () => String(dom.patternError?.textContent || 'Invalid custom pattern'),
+  getCurrentPatternString,
+  getCurrentPatternMode,
+  normalizePatternString,
+  normalizePresetName,
+  normalizePatternMode,
+  normalizeCompingStyle,
+  normalizeRepetitionsPerKey,
+  normalizeDisplayMode,
+  normalizeHarmonyDisplayMode,
+  getSwingRatio,
+  getCompingStyle,
+  getDrumsMode,
+  isWalkingBassEnabled,
+  getRepetitionsPerKey,
+  isEmbeddedMode: IS_EMBEDDED_DRILL_MODE,
+  getIsPlaying: () => isPlaying,
+  getIsPaused: () => isPaused,
+  getIsIntro: () => isIntro,
+  getCurrentBeat: () => currentBeat,
+  getCurrentChordIdx: () => currentChordIdx,
+  getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
+  getTempo: () => Number(dom.tempoSlider?.value || 0),
+  ensureWalkingBassGenerator,
+  getAudioContext: () => audioCtx,
+  noteFadeout: NOTE_FADEOUT,
+  stopActiveChordVoices,
+  rebuildPreparedCompingPlans,
+  buildPreparedBassPlan,
+  getCurrentKey: () => currentKey,
+  preloadNearTermSamples,
+  startPlayback: () => start(),
+  stopPlayback: () => stop(),
+  togglePausePlayback: () => togglePause(),
+  applyMixerSettings
+}));
 
 function getPlaybackSessionController() {
   if (playbackSessionController) {

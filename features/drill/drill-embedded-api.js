@@ -32,3 +32,5 @@ export function createEmbeddedDrillApi({
     getPlaybackState
   });
 }
+
+export const createEmbeddedPlaybackApiBridge = createEmbeddedDrillApi;

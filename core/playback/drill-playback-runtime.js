@@ -1,6 +1,7 @@
 // @ts-check
 
 /** @typedef {import('../types/contracts').EmbeddedPatternPayload} EmbeddedPatternPayload */
+/** @typedef {import('../types/contracts').DrillPlaybackControllerOptions} DrillPlaybackControllerOptions */
 /** @typedef {import('../types/contracts').PlaybackOperationResult} PlaybackOperationResult */
 /** @typedef {import('../types/contracts').PlaybackRuntime} PlaybackRuntime */
 /** @typedef {import('../types/contracts').PlaybackRuntimeState} PlaybackRuntimeState */
@@ -14,23 +15,10 @@ import { createPlaybackRuntime } from './playback-runtime.js';
  * This mirrors the chart-side embedded bridge assembly, but without iframe/API
  * lookup because Drill already owns the runtime directly.
  *
- * @param {{
+ * @param {DrillPlaybackControllerOptions & {
  *   applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult,
  *   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown,
- *   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState>,
- *   ensureWalkingBassGenerator?: () => Promise<unknown>,
- *   isPlaying?: () => boolean,
- *   getAudioContext?: () => BaseAudioContext | null,
- *   noteFadeout?: number,
- *   stopActiveChordVoices?: (audioTime: number, fadeout: number) => void,
- *   rebuildPreparedCompingPlans?: (currentKey: number) => void,
- *   buildPreparedBassPlan?: () => void,
- *   getCurrentKey?: () => number,
- *   preloadNearTermSamples?: () => Promise<unknown>,
- *   validateCustomPattern?: () => boolean,
- *   startPlayback?: () => Promise<void>,
- *   stopPlayback?: () => void,
- *   togglePausePlayback?: () => void
+ *   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState>
  * }} [options]
  * @returns {PlaybackRuntime}
  */

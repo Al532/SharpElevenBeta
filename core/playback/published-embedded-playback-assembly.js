@@ -6,15 +6,20 @@
 
 import { createEmbeddedPlaybackAssembly } from './embedded-playback-assembly.js';
 import { publishEmbeddedPlaybackGlobals } from './embedded-playback-globals.js';
+import {
+  LEGACY_DRILL_API_READY_EVENT,
+  PLAYBACK_API_READY_EVENT
+} from './embedded-playback-identifiers.js';
 
 /**
  * Creates and publishes the embedded playback surface in one place.
- * This centralizes the legacy API/global publication used by the embedded Drill
+ * This centralizes the legacy API/global publication used by the embedded
  * host while keeping the shared playback runtime boundary explicit.
  *
  * @param {{
  *   targetWindow?: Window | null,
  *   readyEventName?: string,
+ *   legacyReadyEventName?: string | null,
  *   playbackRuntime: PlaybackRuntime,
  *   applyEmbeddedPattern?: (payload: import('../types/contracts').EmbeddedPatternPayload) => import('../types/contracts').PlaybackOperationResult | Promise<import('../types/contracts').PlaybackOperationResult>,
  *   getPlaybackState?: () => EmbeddedPlaybackRuntimeState
@@ -23,7 +28,8 @@ import { publishEmbeddedPlaybackGlobals } from './embedded-playback-globals.js';
  */
 export function createPublishedEmbeddedPlaybackAssembly({
   targetWindow = window,
-  readyEventName = 'jpt-drill-api-ready',
+  readyEventName = PLAYBACK_API_READY_EVENT,
+  legacyReadyEventName = LEGACY_DRILL_API_READY_EVENT,
   playbackRuntime,
   applyEmbeddedPattern,
   getPlaybackState
@@ -39,7 +45,8 @@ export function createPublishedEmbeddedPlaybackAssembly({
     embeddedApi: assembly.embeddedApi,
     playbackRuntime: assembly.playbackRuntime,
     playbackController: assembly.playbackController,
-    readyEventName
+    readyEventName,
+    legacyReadyEventName
   });
 
   return assembly;

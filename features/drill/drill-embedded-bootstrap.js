@@ -6,15 +6,17 @@
 /** @typedef {import('../../core/types/contracts').PlaybackRuntime} PlaybackRuntime */
 /** @typedef {import('../../core/types/contracts').PlaybackOperationResult} PlaybackOperationResult */
 /** @typedef {import('../../core/types/contracts').PlaybackSessionController} PlaybackSessionController */
+/** @typedef {import('../../core/types/contracts').PublishedEmbeddedPlaybackAssemblyProvider} PublishedEmbeddedPlaybackAssemblyProvider */
 
-import { createPublishedEmbeddedPlaybackAssembly } from '../../core/playback/published-embedded-playback-assembly.js';
+import { bootstrapEmbeddedPlaybackApi } from '../../core/playback/embedded-playback-bootstrap.js';
 
 /**
  * @param {{
  *   playbackRuntime?: PlaybackRuntime,
  *   playbackController?: PlaybackSessionController,
  *   applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult,
- *   getPlaybackState?: () => EmbeddedPlaybackRuntimeState
+ *   getPlaybackState?: () => EmbeddedPlaybackRuntimeState,
+ *   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null
  * }} [options]
  * @returns {EmbeddedPlaybackApi}
  */
@@ -22,23 +24,16 @@ export function bootstrapEmbeddedDrillApi({
   playbackRuntime,
   playbackController,
   applyEmbeddedPattern,
-  getPlaybackState
+  getPlaybackState,
+  publishedPlaybackAssemblyProvider
 } = {}) {
-  const resolvedPlaybackRuntime = playbackRuntime || (playbackController
-    ? {
-        ensureReady: async () => undefined,
-        ensurePlaybackController: () => playbackController,
-        getRuntimeState: () => playbackController.getState().runtime
-      }
-    : null);
-
-  if (!resolvedPlaybackRuntime) {
-    throw new Error('A playback runtime or controller is required.');
-  }
-
-  return createPublishedEmbeddedPlaybackAssembly({
-    playbackRuntime: resolvedPlaybackRuntime,
+  return bootstrapEmbeddedPlaybackApi({
+    playbackRuntime,
+    playbackController,
     applyEmbeddedPattern,
-    getPlaybackState
-  }).embeddedApi;
+    getPlaybackState,
+    publishedPlaybackAssemblyProvider
+  });
 }
+
+export const bootstrapEmbeddedPlaybackBridge = bootstrapEmbeddedDrillApi;

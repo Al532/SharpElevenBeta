@@ -11,7 +11,7 @@ import { createEmbeddedPlaybackSessionAdapter } from './embedded-playback-sessio
 import { createPlaybackRuntime } from './playback-runtime.js';
 
 /**
- * Composes the legacy embedded Drill bridge into a single typed playback runtime.
+ * Composes the legacy embedded playback bridge into a single typed runtime.
  * This gives chart consumers a stable runtime boundary while the actual
  * implementation can later move away from the iframe/global API.
  *

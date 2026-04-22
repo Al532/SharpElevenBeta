@@ -3,8 +3,14 @@
 /** @typedef {import('../../core/types/contracts').EmbeddedRuntimeBindings} EmbeddedRuntimeBindings */
 /** @typedef {import('../../core/types/contracts').EmbeddedPlaybackRuntimeState} EmbeddedPlaybackRuntimeState */
 /** @typedef {import('../../core/types/contracts').DrillPlaybackAssemblyProvider} DrillPlaybackAssemblyProvider */
+/** @typedef {import('../../core/types/contracts').DrillPlaybackControllerOptions} DrillPlaybackControllerOptions */
+/** @typedef {import('../../core/types/contracts').EmbeddedPatternAdapterOptions} EmbeddedPatternAdapterOptions */
+/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackSettingsAdapterOptions} EmbeddedPlaybackSettingsAdapterOptions */
+/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackStateOptions} EmbeddedPlaybackStateOptions */
+/** @typedef {import('../../core/types/contracts').PublishedEmbeddedPlaybackAssemblyProvider} PublishedEmbeddedPlaybackAssemblyProvider */
 
 import { createDrillPlaybackAssemblyProvider } from '../../core/playback/drill-playback-assembly-provider.js';
+import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../../core/playback/published-embedded-playback-assembly-provider.js';
 import {
   createEmbeddedPatternAdapter,
   createEmbeddedPlaybackSettingsAdapter
@@ -74,16 +80,22 @@ export function createEmbeddedPlaybackStateGetter({
 
 /**
  * @param {{
- *   patternAdapterOptions?: Record<string, unknown>,
- *   playbackSettingsAdapterOptions?: Record<string, unknown>,
- *   playbackStateOptions?: Record<string, unknown>,
- *   playbackControllerOptions?: Record<string, unknown>,
+ *   patternAdapterOptions?: EmbeddedPatternAdapterOptions,
+ *   playbackSettingsAdapterOptions?: EmbeddedPlaybackSettingsAdapterOptions,
+ *   playbackStateOptions?: EmbeddedPlaybackStateOptions,
+ *   playbackControllerOptions?: DrillPlaybackControllerOptions,
  *   playbackAssemblyProvider?: DrillPlaybackAssemblyProvider | null,
+ *   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null,
  *   createPlaybackAssemblyProvider?: ((bindings: {
  *     applyEmbeddedPattern: ReturnType<typeof createEmbeddedPatternAdapter>,
  *     applyEmbeddedPlaybackSettings: ReturnType<typeof createEmbeddedPlaybackSettingsAdapter>,
  *     getEmbeddedPlaybackState: ReturnType<typeof createEmbeddedPlaybackStateGetter>
- *   }) => DrillPlaybackAssemblyProvider) | null
+ *   }) => DrillPlaybackAssemblyProvider) | null,
+ *   createPublishedPlaybackAssemblyProvider?: ((bindings: {
+ *     playbackAssemblyProvider: DrillPlaybackAssemblyProvider,
+ *     applyEmbeddedPattern: ReturnType<typeof createEmbeddedPatternAdapter>,
+ *     getEmbeddedPlaybackState: ReturnType<typeof createEmbeddedPlaybackStateGetter>
+ *   }) => PublishedEmbeddedPlaybackAssemblyProvider) | null
  * }} [options]
  * @returns {EmbeddedRuntimeBindings}
  */
@@ -93,7 +105,9 @@ export function initializeEmbeddedDrillRuntime({
   playbackStateOptions,
   playbackControllerOptions,
   playbackAssemblyProvider,
-  createPlaybackAssemblyProvider
+  publishedPlaybackAssemblyProvider,
+  createPlaybackAssemblyProvider,
+  createPublishedPlaybackAssemblyProvider
 } = {}) {
   const applyEmbeddedPlaybackSettings = createEmbeddedPlaybackSettingsAdapter({
     ...playbackSettingsAdapterOptions,
@@ -121,6 +135,24 @@ export function initializeEmbeddedDrillRuntime({
       getEmbeddedPlaybackState
     });
 
+  const resolvedPublishedPlaybackAssemblyProvider =
+    publishedPlaybackAssemblyProvider
+    || createPublishedPlaybackAssemblyProvider?.({
+      playbackAssemblyProvider: resolvedPlaybackAssemblyProvider,
+      applyEmbeddedPattern,
+      getEmbeddedPlaybackState
+    })
+    || createPublishedEmbeddedPlaybackAssemblyProvider({
+      createPlaybackAssembly() {
+        const assembly = resolvedPlaybackAssemblyProvider.getAssembly();
+        return {
+          playbackRuntime: assembly.playbackRuntime,
+          applyEmbeddedPattern,
+          getPlaybackState: getEmbeddedPlaybackState
+        };
+      }
+    });
+
   const {
     playbackRuntime,
     playbackController
@@ -130,7 +162,8 @@ export function initializeEmbeddedDrillRuntime({
     playbackRuntime,
     playbackController,
     applyEmbeddedPattern,
-    getPlaybackState: getEmbeddedPlaybackState
+    getPlaybackState: getEmbeddedPlaybackState,
+    publishedPlaybackAssemblyProvider: resolvedPublishedPlaybackAssemblyProvider
   });
 
   return {

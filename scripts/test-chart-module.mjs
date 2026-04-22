@@ -23,9 +23,19 @@ import { createEmbeddedPlaybackApiClient } from '../core/playback/embedded-playb
 import { createEmbeddedPlaybackBridge } from '../core/playback/embedded-playback-bridge.js';
 import { createEmbeddedPlaybackBridgeProvider } from '../core/playback/embedded-playback-bridge-provider.js';
 import { createEmbeddedPlaybackRuntimeProvider } from '../core/playback/embedded-playback-runtime-provider.js';
-import { publishEmbeddedPlaybackGlobals, readEmbeddedPlaybackGlobals } from '../core/playback/embedded-playback-globals.js';
+import { createDirectPlaybackAssembly } from '../core/playback/direct-playback-assembly.js';
+import { createDirectPlaybackAssemblyProvider } from '../core/playback/direct-playback-assembly-provider.js';
+import { createDirectPlaybackBridgeProvider } from '../core/playback/direct-playback-bridge-provider.js';
+import { createDirectPlaybackRuntime } from '../core/playback/direct-playback-runtime.js';
+import { createDirectPlaybackRuntimeProvider } from '../core/playback/direct-playback-runtime-provider.js';
+import {
+  publishEmbeddedPlaybackGlobals,
+  readEmbeddedPlaybackGlobals,
+  resolveEmbeddedPlaybackApi
+} from '../core/playback/embedded-playback-globals.js';
 import { createDrillPlaybackAssembly } from '../core/playback/drill-playback-assembly.js';
 import { createDrillPlaybackAssemblyProvider } from '../core/playback/drill-playback-assembly-provider.js';
+import { createDrillPlaybackBridgeProvider } from '../core/playback/drill-playback-bridge-provider.js';
 import { createDrillPlaybackRuntime as createCoreDrillPlaybackRuntime } from '../core/playback/drill-playback-runtime.js';
 import { createDrillPlaybackRuntimeProvider } from '../core/playback/drill-playback-runtime-provider.js';
 import { createEmbeddedPlaybackSessionAdapter } from '../core/playback/embedded-playback-session-adapter.js';
@@ -34,11 +44,25 @@ import { createPlaybackBridgeProvider } from '../core/playback/playback-bridge-p
 import { createPlaybackAssembly } from '../core/playback/playback-assembly.js';
 import { createPlaybackAssemblyProvider } from '../core/playback/playback-assembly-provider.js';
 import { createPlaybackRuntimeBindings } from '../core/playback/playback-runtime-bindings.js';
+import { createRuntimePlaybackBridgeProvider } from '../core/playback/runtime-playback-bridge-provider.js';
 import { createPlaybackRuntimeProvider } from '../core/playback/playback-runtime-provider.js';
 import { createPlaybackRuntime } from '../core/playback/playback-runtime.js';
+import { bootstrapEmbeddedPlaybackApi } from '../core/playback/embedded-playback-bootstrap.js';
 import { createPublishedEmbeddedPlaybackAssembly } from '../core/playback/published-embedded-playback-assembly.js';
+import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../core/playback/published-embedded-playback-assembly-provider.js';
 import { createEmbeddedDrillApi } from '../features/drill/drill-embedded-api.js';
-import { createDrillPlaybackRuntime } from '../features/drill/drill-playback-controller.js';
+import {
+  createChartDirectPlaybackBridgeProvider,
+  createChartPlaybackBridgeProviderForMode,
+  createChartPlaybackPayloadBuilder
+} from '../features/chart/chart-playback-bridge.js';
+import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
+import { initializeEmbeddedDrillRuntime } from '../features/drill/drill-embedded-runtime.js';
+import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createDrillPlaybackRuntime } from '../features/drill/drill-playback-controller.js';
+import {
+  createDrillPlaybackSchedulerState,
+  createDrillPlaybackTransportState
+} from '../features/drill/drill-playback-runtime-engine.js';
 import { createWalkingBassGenerator } from '../walking-bass.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -418,6 +442,14 @@ assert.equal(
   5,
   'Core embedded playback API drives settings through the shared embedded runtime boundary.'
 );
+const coreEmbeddedPlaybackApiWithoutExplicitStateGetter = createEmbeddedPlaybackApi({
+  playbackRuntime: embeddedPlaybackRuntime
+});
+assert.deepEqual(
+  coreEmbeddedPlaybackApiWithoutExplicitStateGetter.getPlaybackState(),
+  embeddedPlaybackRuntime.getRuntimeState(),
+  'Core embedded playback API falls back to runtime state when no explicit embedded state getter is provided.'
+);
 const embeddedPlaybackAssembly = createEmbeddedPlaybackAssembly({
   playbackRuntime: embeddedPlaybackRuntime,
   applyEmbeddedPattern(payload) {
@@ -564,6 +596,24 @@ assert.equal(
   embeddedApi,
   'Embedded playback API client reads the embedded API through the centralized globals surface.'
 );
+const partialEmbeddedGlobalsWindow = /** @type {any} */ ({
+  __JPT_DRILL_API__: {
+    version: 2
+  },
+  __JPT_PLAYBACK_RUNTIME__: embeddedPlaybackRuntime,
+  __JPT_PLAYBACK_SESSION_CONTROLLER__: embeddedPlaybackRuntime.ensurePlaybackController()
+});
+const resolvedPartialEmbeddedApi = resolveEmbeddedPlaybackApi(partialEmbeddedGlobalsWindow);
+assert.equal(
+  typeof resolvedPartialEmbeddedApi?.applyEmbeddedPattern,
+  'function',
+  'Embedded playback globals can normalize a partially published embedded API into a callable surface.'
+);
+assert.deepEqual(
+  resolvedPartialEmbeddedApi?.getPlaybackState(),
+  embeddedPlaybackRuntime.getRuntimeState(),
+  'Embedded playback globals fall back to the published runtime/controller state when the raw embedded API is partial.'
+);
 const publishedAssemblyEvents = [];
 const publishedAssemblyWindow = {
   dispatchEvent(event) {
@@ -571,6 +621,98 @@ const publishedAssemblyWindow = {
     return true;
   }
 };
+const publishedAssemblyProviderEvents = [];
+const publishedAssemblyProviderWindow = {
+  dispatchEvent(event) {
+    publishedAssemblyProviderEvents.push(event.type);
+    return true;
+  }
+};
+const publishedEmbeddedPlaybackAssemblyProvider = createPublishedEmbeddedPlaybackAssemblyProvider({
+  targetWindow: /** @type {any} */ (publishedAssemblyProviderWindow),
+  playbackAssemblyProvider: createPlaybackAssemblyProvider({
+    createAssembly() {
+      return embeddedPlaybackAssembly;
+    }
+  })
+});
+assert.equal(
+  publishedEmbeddedPlaybackAssemblyProvider.getAssembly().embeddedApi.version,
+  2,
+  'Published embedded playback assembly providers expose the embedded API through a memoized published assembly.'
+);
+assert.equal(
+  publishedEmbeddedPlaybackAssemblyProvider.getAssembly(),
+  publishedEmbeddedPlaybackAssemblyProvider.getAssembly(),
+  'Published embedded playback assembly providers memoize their published assembly.'
+);
+assert.equal(
+  readEmbeddedPlaybackGlobals(/** @type {any} */ (publishedAssemblyProviderWindow)).embeddedApi,
+  publishedEmbeddedPlaybackAssemblyProvider.getAssembly().embeddedApi,
+  'Published embedded playback assembly providers publish the embedded API onto the target window.'
+);
+assert.deepEqual(
+  publishedAssemblyProviderEvents,
+  ['jpt-playback-api-ready', 'jpt-drill-api-ready'],
+  'Published embedded playback assembly providers emit both playback and legacy ready events when publishing.'
+);
+const bootstrappedEmbeddedApi = bootstrapEmbeddedPlaybackApi({
+  publishedPlaybackAssemblyProvider: publishedEmbeddedPlaybackAssemblyProvider
+});
+assert.equal(
+  bootstrappedEmbeddedApi,
+  publishedEmbeddedPlaybackAssemblyProvider.getAssembly().embeddedApi,
+  'Embedded playback bootstrap reuses the published assembly provider when one is supplied.'
+);
+const embeddedRuntimeFromDrillAssembly = initializeEmbeddedDrillRuntime({
+  playbackAssemblyProvider: createDrillPlaybackAssemblyProvider({
+    applyEmbeddedPattern(payload) {
+      embeddedPlaybackCalls.push({ kind: 'embedded-runtime-default-provider-pattern', payload });
+      return { ok: true, state: embeddedRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings(settings) {
+      embeddedPlaybackCalls.push({ kind: 'embedded-runtime-default-provider-settings', settings });
+      return settings;
+    },
+    getEmbeddedPlaybackState() {
+      return embeddedRuntimeState;
+    }
+  }),
+  patternAdapterOptions: {
+    getCurrentPatternString: () => '',
+    validateCustomPattern: () => true,
+    getPatternErrorText: () => '',
+    normalizePatternString: (value) => String(value || ''),
+    normalizePresetName: (value) => String(value || ''),
+    normalizePatternMode: (value) => String(value || 'both')
+  },
+  playbackSettingsAdapterOptions: {
+    getPlaybackSettingsSnapshot: () => ({})
+  },
+  createPublishedPlaybackAssemblyProvider({ playbackAssemblyProvider, applyEmbeddedPattern, getEmbeddedPlaybackState }) {
+    return createPublishedEmbeddedPlaybackAssemblyProvider({
+      targetWindow: /** @type {any} */ ({
+        __JPT_DRILL_API__: null,
+        __JPT_PLAYBACK_RUNTIME__: null,
+        __JPT_PLAYBACK_SESSION_CONTROLLER__: null,
+        dispatchEvent() {}
+      }),
+      createPlaybackAssembly() {
+        const assembly = playbackAssemblyProvider.getAssembly();
+        return {
+          playbackRuntime: assembly.playbackRuntime,
+          applyEmbeddedPattern,
+          getPlaybackState: getEmbeddedPlaybackState
+        };
+      }
+    });
+  }
+});
+assert.equal(
+  typeof embeddedRuntimeFromDrillAssembly.playbackRuntime.ensureReady,
+  'function',
+  'Embedded Drill runtime keeps publishing a usable embedded API even when backed by a Drill assembly provider.'
+);
 const publishedEmbeddedPlaybackAssembly = createPublishedEmbeddedPlaybackAssembly({
   targetWindow: /** @type {any} */ (publishedAssemblyWindow),
   playbackRuntime: embeddedPlaybackRuntime,
@@ -589,8 +731,8 @@ assert.equal(
 );
 assert.deepEqual(
   publishedAssemblyEvents,
-  ['jpt-drill-api-ready'],
-  'Published embedded playback assembly emits the legacy ready event when publishing.'
+  ['jpt-playback-api-ready', 'jpt-drill-api-ready'],
+  'Published embedded playback assembly emits both playback and legacy ready events when publishing.'
 );
 
 const genericPlaybackRuntime = createPlaybackRuntime({
@@ -678,6 +820,24 @@ assert.equal(
   genericPlaybackBridgeProvider.getBridge(),
   genericPlaybackBridgeProvider.getBridge(),
   'Playback bridge provider memoizes the bridge instance.'
+);
+const runtimePlaybackBridgeProvider = createRuntimePlaybackBridgeProvider({
+  runtimeProvider: genericPlaybackRuntimeProvider,
+  createExtensions() {
+    return {
+      marker: 'runtime-bridge'
+    };
+  }
+});
+assert.equal(
+  runtimePlaybackBridgeProvider.getBridge(),
+  runtimePlaybackBridgeProvider.getBridge(),
+  'Runtime playback bridge providers memoize the bridge created from the runtime provider.'
+);
+assert.equal(
+  runtimePlaybackBridgeProvider.getBridge().marker,
+  'runtime-bridge',
+  'Runtime playback bridge providers preserve caller-provided bridge extensions.'
 );
 const genericPlaybackAssembly = createPlaybackAssembly({
   playbackRuntime: genericPlaybackRuntime,
@@ -875,6 +1035,257 @@ assert.equal(
   drillPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
   'Drill playback runtime provider returns a stable runtime with a memoized controller.'
 );
+const directPlaybackRuntimeProvider = createDirectPlaybackRuntimeProvider({
+  applyEmbeddedPattern(payload) {
+    drillAdapterCalls.push({ kind: 'direct-provider-runtime-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    drillAdapterCalls.push({ kind: 'direct-provider-runtime-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  }
+});
+assert.equal(
+  directPlaybackRuntimeProvider.getRuntime(),
+  directPlaybackRuntimeProvider.getRuntime(),
+  'Direct playback runtime provider memoizes the direct runtime instance.'
+);
+assert.equal(
+  directPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
+  directPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
+  'Direct playback runtime provider returns a stable runtime with a memoized controller.'
+);
+const drillPlaybackBridgeProvider = createDrillPlaybackBridgeProvider({
+  applyEmbeddedPattern(payload) {
+    drillAdapterCalls.push({ kind: 'provider-bridge-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    drillAdapterCalls.push({ kind: 'provider-bridge-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  },
+  ensureWalkingBassGenerator: async () => {},
+  isPlaying: () => false,
+  getAudioContext: () => null,
+  noteFadeout: 0.1,
+  stopActiveChordVoices: () => {},
+  rebuildPreparedCompingPlans: () => {},
+  buildPreparedBassPlan: () => {},
+  getCurrentKey: () => 0,
+  preloadNearTermSamples: async () => {},
+  validateCustomPattern: () => true,
+  startPlayback: async () => {},
+  stopPlayback: () => {},
+  togglePausePlayback: () => {}
+});
+assert.equal(
+  drillPlaybackBridgeProvider.getBridge(),
+  drillPlaybackBridgeProvider.getBridge(),
+  'Drill playback bridge provider memoizes the direct runtime-backed bridge.'
+);
+const directPlaybackBridgeProvider = createDirectPlaybackBridgeProvider({
+  applyEmbeddedPattern(payload) {
+    drillAdapterCalls.push({ kind: 'direct-provider-bridge-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    drillAdapterCalls.push({ kind: 'direct-provider-bridge-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  }
+});
+assert.equal(
+  directPlaybackBridgeProvider.getBridge(),
+  directPlaybackBridgeProvider.getBridge(),
+  'Direct playback bridge provider memoizes the runtime-backed bridge.'
+);
+let schedulerAudioContext = null;
+let schedulerCurrentBassPlan = [];
+let schedulerCurrentBeat = 0;
+let schedulerCurrentChordIdx = 0;
+let schedulerCurrentCompingPlan = null;
+let schedulerCurrentKey = 0;
+let schedulerCurrentKeyRepetition = 0;
+let schedulerCurrentOneChordQualityValue = '';
+let schedulerCurrentRawChords = [];
+let schedulerCurrentVoicingPlan = [];
+let schedulerIsIntro = false;
+let schedulerLastPlayedChordIdx = -1;
+let schedulerLoopVoicingTemplate = null;
+let schedulerNextBeatTime = 0;
+let schedulerNextCompingPlan = null;
+let schedulerNextKeyValue = null;
+let schedulerNextOneChordQualityValue = '';
+let schedulerNextPaddedChords = [];
+let schedulerNextRawChords = [];
+let schedulerNextVoicingPlan = [];
+let schedulerPaddedChords = [];
+const schedulerPendingDisplayTimeouts = new Set();
+const schedulerState = createDrillPlaybackSchedulerState({
+  getAudioContext: () => schedulerAudioContext,
+  setAudioContext: (value) => { schedulerAudioContext = value; },
+  getCurrentBassPlan: () => schedulerCurrentBassPlan,
+  setCurrentBassPlan: (value) => { schedulerCurrentBassPlan = value; },
+  getCurrentBeat: () => schedulerCurrentBeat,
+  setCurrentBeat: (value) => { schedulerCurrentBeat = value; },
+  getCurrentChordIdx: () => schedulerCurrentChordIdx,
+  setCurrentChordIdx: (value) => { schedulerCurrentChordIdx = value; },
+  getCurrentCompingPlan: () => schedulerCurrentCompingPlan,
+  setCurrentCompingPlan: (value) => { schedulerCurrentCompingPlan = value; },
+  getCurrentKey: () => schedulerCurrentKey,
+  setCurrentKey: (value) => { schedulerCurrentKey = value; },
+  getCurrentKeyRepetition: () => schedulerCurrentKeyRepetition,
+  setCurrentKeyRepetition: (value) => { schedulerCurrentKeyRepetition = value; },
+  getCurrentOneChordQualityValue: () => schedulerCurrentOneChordQualityValue,
+  setCurrentOneChordQualityValue: (value) => { schedulerCurrentOneChordQualityValue = value; },
+  getCurrentRawChords: () => schedulerCurrentRawChords,
+  setCurrentRawChords: (value) => { schedulerCurrentRawChords = value; },
+  getCurrentVoicingPlan: () => schedulerCurrentVoicingPlan,
+  setCurrentVoicingPlan: (value) => { schedulerCurrentVoicingPlan = value; },
+  getIsIntro: () => schedulerIsIntro,
+  setIsIntro: (value) => { schedulerIsIntro = value; },
+  getIsPaused: () => false,
+  getIsPlaying: () => true,
+  getLastPlayedChordIdx: () => schedulerLastPlayedChordIdx,
+  setLastPlayedChordIdx: (value) => { schedulerLastPlayedChordIdx = value; },
+  getLoopVoicingTemplate: () => schedulerLoopVoicingTemplate,
+  setLoopVoicingTemplate: (value) => { schedulerLoopVoicingTemplate = value; },
+  getNextBeatTime: () => schedulerNextBeatTime,
+  setNextBeatTime: (value) => { schedulerNextBeatTime = value; },
+  getNextCompingPlan: () => schedulerNextCompingPlan,
+  setNextCompingPlan: (value) => { schedulerNextCompingPlan = value; },
+  getNextKeyValue: () => schedulerNextKeyValue,
+  setNextKeyValue: (value) => { schedulerNextKeyValue = value; },
+  getNextOneChordQualityValue: () => schedulerNextOneChordQualityValue,
+  setNextOneChordQualityValue: (value) => { schedulerNextOneChordQualityValue = value; },
+  getNextPaddedChords: () => schedulerNextPaddedChords,
+  setNextPaddedChords: (value) => { schedulerNextPaddedChords = value; },
+  getNextRawChords: () => schedulerNextRawChords,
+  setNextRawChords: (value) => { schedulerNextRawChords = value; },
+  getNextVoicingPlan: () => schedulerNextVoicingPlan,
+  setNextVoicingPlan: (value) => { schedulerNextVoicingPlan = value; },
+  getPaddedChords: () => schedulerPaddedChords,
+  setPaddedChords: (value) => { schedulerPaddedChords = value; },
+  getPendingDisplayTimeouts: () => schedulerPendingDisplayTimeouts
+});
+schedulerState.currentBeat = 2;
+schedulerState.currentBassPlan = [1, 2];
+assert.equal(schedulerCurrentBeat, 2, 'Drill playback scheduler state proxy forwards beat mutations.');
+assert.deepEqual(schedulerState.currentBassPlan, [1, 2], 'Drill playback scheduler state proxy exposes current bass plan.');
+assert.equal(schedulerState.pendingDisplayTimeouts, schedulerPendingDisplayTimeouts, 'Drill playback scheduler state proxy exposes pending display timeouts.');
+let transportActiveNoteGain = null;
+let transportAudioContext = null;
+let transportCurrentBeat = 0;
+let transportCurrentChordIdx = 0;
+let transportCurrentKeyRepetition = 0;
+let transportFirstPlayStartTracked = false;
+let transportPlayStopSuggestionCount = 0;
+let transportIsIntro = false;
+let transportIsPaused = false;
+let transportIsPlaying = false;
+let transportKeyPool = [];
+let transportLoopVoicingTemplate = null;
+let transportNearTermSamplePreloadPromise = null;
+let transportNextBeatTime = 0;
+let transportNextKeyValue = null;
+let transportSchedulerTimer = null;
+let transportStartupSamplePreloadInProgress = false;
+const transportState = createDrillPlaybackTransportState({
+  getActiveNoteGain: () => transportActiveNoteGain,
+  setActiveNoteGain: (value) => { transportActiveNoteGain = value; },
+  getAudioContext: () => transportAudioContext,
+  setAudioContext: (value) => { transportAudioContext = value; },
+  getCurrentBeat: () => transportCurrentBeat,
+  setCurrentBeat: (value) => { transportCurrentBeat = value; },
+  getCurrentChordIdx: () => transportCurrentChordIdx,
+  setCurrentChordIdx: (value) => { transportCurrentChordIdx = value; },
+  getCurrentKeyRepetition: () => transportCurrentKeyRepetition,
+  setCurrentKeyRepetition: (value) => { transportCurrentKeyRepetition = value; },
+  getFirstPlayStartTracked: () => transportFirstPlayStartTracked,
+  setFirstPlayStartTracked: (value) => { transportFirstPlayStartTracked = value; },
+  getPlayStopSuggestionCount: () => transportPlayStopSuggestionCount,
+  setPlayStopSuggestionCount: (value) => { transportPlayStopSuggestionCount = value; },
+  getIsIntro: () => transportIsIntro,
+  setIsIntro: (value) => { transportIsIntro = value; },
+  getIsPaused: () => transportIsPaused,
+  setIsPaused: (value) => { transportIsPaused = value; },
+  getIsPlaying: () => transportIsPlaying,
+  setIsPlaying: (value) => { transportIsPlaying = value; },
+  getKeyPool: () => transportKeyPool,
+  setKeyPool: (value) => { transportKeyPool = value; },
+  getLoopVoicingTemplate: () => transportLoopVoicingTemplate,
+  setLoopVoicingTemplate: (value) => { transportLoopVoicingTemplate = value; },
+  getNearTermSamplePreloadPromise: () => transportNearTermSamplePreloadPromise,
+  setNearTermSamplePreloadPromise: (value) => { transportNearTermSamplePreloadPromise = value; },
+  getNextBeatTime: () => transportNextBeatTime,
+  setNextBeatTime: (value) => { transportNextBeatTime = value; },
+  getNextKeyValue: () => transportNextKeyValue,
+  setNextKeyValue: (value) => { transportNextKeyValue = value; },
+  getSchedulerTimer: () => transportSchedulerTimer,
+  setSchedulerTimer: (value) => { transportSchedulerTimer = value; },
+  getStartupSamplePreloadInProgress: () => transportStartupSamplePreloadInProgress,
+  setStartupSamplePreloadInProgress: (value) => { transportStartupSamplePreloadInProgress = value; }
+});
+transportState.isPlaying = true;
+transportState.currentBeat = 3;
+assert.equal(transportIsPlaying, true, 'Drill playback transport state proxy forwards transport playing mutations.');
+assert.equal(transportState.currentBeat, 3, 'Drill playback transport state proxy exposes beat mutations.');
+const chartDirectPlaybackBridgeProvider = createChartDirectPlaybackBridgeProvider({
+  applyEmbeddedPattern(payload) {
+    drillAdapterCalls.push({ kind: 'chart-direct-bridge-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    drillAdapterCalls.push({ kind: 'chart-direct-bridge-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  }
+});
+assert.equal(
+  chartDirectPlaybackBridgeProvider.getBridge(),
+  chartDirectPlaybackBridgeProvider.getBridge(),
+  'Chart direct playback bridge provider memoizes the future direct runtime-backed bridge.'
+);
+const chartPlaybackBridgeProviderForMode = createChartPlaybackBridgeProviderForMode({
+  mode: 'direct',
+  directPlaybackOptions: {
+    applyEmbeddedPattern(payload) {
+      drillAdapterCalls.push({ kind: 'chart-mode-bridge-pattern', payload });
+      return { ok: true, state: drillRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings(settings) {
+      drillAdapterCalls.push({ kind: 'chart-mode-bridge-settings', settings });
+      return settings;
+    },
+    getEmbeddedPlaybackState() {
+      return drillRuntimeState;
+    }
+  }
+});
+assert.equal(
+  chartPlaybackBridgeProviderForMode.getBridge(),
+  chartPlaybackBridgeProviderForMode.getBridge(),
+  'Chart playback bridge mode factory memoizes the selected direct bridge provider.'
+);
+const chartPlaybackPayloadBuilder = createChartPlaybackPayloadBuilder({
+  getTempo: () => 160,
+  getCurrentChartTitle: () => 'Chart Title'
+});
+assert.equal(
+  chartPlaybackPayloadBuilder(satinSession, { transposition: 2 }).tempo,
+  satinSession.tempo || 160,
+  'Chart playback payload builder preserves session tempo when present.'
+);
 const drillPlaybackAssembly = createDrillPlaybackAssembly({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'assembly-pattern', payload });
@@ -905,6 +1316,24 @@ assert.equal(
   drillPlaybackAssembly.playbackController,
   drillPlaybackAssembly.playbackRuntime.ensurePlaybackController(),
   'Core Drill playback assembly materializes the same controller as its runtime.'
+);
+const directPlaybackAssembly = createDirectPlaybackAssembly({
+  applyEmbeddedPattern(payload) {
+    drillAdapterCalls.push({ kind: 'direct-assembly-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    drillAdapterCalls.push({ kind: 'direct-assembly-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  }
+});
+assert.equal(
+  directPlaybackAssembly.playbackController,
+  directPlaybackAssembly.playbackRuntime.ensurePlaybackController(),
+  'Direct playback assembly materializes the same controller as its runtime.'
 );
 const drillPlaybackAssemblyProvider = createDrillPlaybackAssemblyProvider({
   applyEmbeddedPattern(payload) {
@@ -942,6 +1371,125 @@ assert.equal(
   drillPlaybackAssemblyProvider.getAssembly().playbackRuntime.ensurePlaybackController(),
   'Drill playback assembly provider returns a stable assembly/controller pair.'
 );
+const directPlaybackAssemblyProvider = createDirectPlaybackAssemblyProvider({
+  applyEmbeddedPattern(payload) {
+    drillAdapterCalls.push({ kind: 'direct-provider-assembly-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    drillAdapterCalls.push({ kind: 'direct-provider-assembly-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  }
+});
+assert.equal(
+  directPlaybackAssemblyProvider.getAssembly(),
+  directPlaybackAssemblyProvider.getAssembly(),
+  'Direct playback assembly provider memoizes the direct assembly instance.'
+);
+assert.equal(
+  directPlaybackAssemblyProvider.getAssembly().playbackController,
+  directPlaybackAssemblyProvider.getAssembly().playbackRuntime.ensurePlaybackController(),
+  'Direct playback assembly provider returns a stable assembly/controller pair.'
+);
+assert.equal(
+  typeof createDirectPlaybackRuntime({
+    applyEmbeddedPattern() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings() {},
+    getEmbeddedPlaybackState() {
+      return drillRuntimeState;
+    }
+  }).ensurePlaybackController,
+  typeof createFeatureDirectPlaybackRuntime({
+    applyEmbeddedPattern() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings() {},
+    getEmbeddedPlaybackState() {
+      return drillRuntimeState;
+    }
+  }).ensurePlaybackController,
+  'Feature-level direct playback runtime alias stays wired to the shared runtime implementation.'
+);
+assert.equal(
+  typeof createDirectPlaybackController({
+    applyEmbeddedPattern() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings() {},
+    getEmbeddedPlaybackState() {
+      return drillRuntimeState;
+    }
+  }).start,
+  'function',
+  'Feature-level direct playback controller alias exposes the shared playback controller surface.'
+);
+const chartDirectRuntimeContext = createChartPlaybackRuntimeContext({
+  state: {
+    chartPlaybackBridgeProvider: null,
+    chartPlaybackController: null
+  },
+  mode: 'direct',
+  directPlaybackOptions: {
+    applyEmbeddedPattern() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings() {
+      return {};
+    },
+    getEmbeddedPlaybackState() {
+      return drillRuntimeState;
+    },
+    startPlayback: async () => {},
+    stopPlayback: () => {},
+    togglePausePlayback: () => {}
+  },
+  getTempo: () => 120,
+  getCurrentChartTitle: () => 'Chart',
+  getSelectedPracticeSession: () => satinSession,
+  getPlaybackSettings: () => ({}),
+  getCurrentBarCount: () => satinSession.playback.bars.length,
+  setActivePlaybackPosition: () => {},
+  resetActivePlaybackPosition: () => {},
+  renderTransport: () => {},
+  updateActiveHighlights: () => {},
+  onTransportStatus: () => {},
+  onPersistPlaybackSettings: () => {}
+});
+assert.equal(
+  chartDirectRuntimeContext.getPlaybackBridgeProvider(),
+  chartDirectRuntimeContext.getPlaybackBridgeProvider(),
+  'Chart playback runtime context memoizes the selected playback bridge provider.'
+);
+let embeddedBridgeFrameLookups = 0;
+const chartEmbeddedRuntimeContext = createChartPlaybackRuntimeContext({
+  state: {
+    chartPlaybackBridgeProvider: null,
+    chartPlaybackController: null
+  },
+  mode: 'embedded',
+  getPlaybackBridgeFrame: () => {
+    embeddedBridgeFrameLookups += 1;
+    return /** @type {HTMLIFrameElement} */ (/** @type {unknown} */ ({ contentWindow: {} }));
+  },
+  getTempo: () => 120,
+  getCurrentChartTitle: () => 'Chart',
+  getSelectedPracticeSession: () => satinSession,
+  getPlaybackSettings: () => ({}),
+  getCurrentBarCount: () => satinSession.playback.bars.length,
+  setActivePlaybackPosition: () => {},
+  resetActivePlaybackPosition: () => {},
+  renderTransport: () => {},
+  updateActiveHighlights: () => {},
+  onTransportStatus: () => {},
+  onPersistPlaybackSettings: () => {}
+});
+chartEmbeddedRuntimeContext.getPlaybackBridgeProvider();
+assert.equal(embeddedBridgeFrameLookups, 1, 'Chart playback runtime context resolves the embedded bridge frame lazily.');
 const embeddedDrillApi = createEmbeddedDrillApi({
   playbackRuntime: drillPlaybackRuntime,
   applyEmbeddedPattern(payload) {
@@ -994,8 +1542,8 @@ assert.equal(
 );
 assert.deepEqual(
   globalEvents,
-  ['jpt-drill-api-ready'],
-  'Embedded playback globals publish the legacy ready event through a single boundary.'
+  ['jpt-playback-api-ready', 'jpt-drill-api-ready'],
+  'Embedded playback globals publish both playback and legacy ready events through a single boundary.'
 );
 
 const walkingBassGenerator = createWalkingBassGenerator();

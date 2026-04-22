@@ -1,9 +1,7 @@
 // @ts-check
 
-/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackApi} EmbeddedPlaybackApi */
-/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackBridge} EmbeddedPlaybackBridge */
+/** @typedef {import('../../core/types/contracts').PlaybackBridge} PlaybackBridge */
 /** @typedef {import('../../core/types/contracts').PlaybackBridgeProvider} PlaybackBridgeProvider */
-/** @typedef {import('../../core/types/contracts').EmbeddedPatternPayload} EmbeddedPatternPayload */
 /** @typedef {import('../../core/types/contracts').PlaybackSettings} PlaybackSettings */
 /** @typedef {import('../../core/types/contracts').PlaybackOperationResult} PlaybackOperationResult */
 /** @typedef {import('../../core/types/contracts').PlaybackRuntimeState} PlaybackRuntimeState */
@@ -13,8 +11,8 @@
 /** @typedef {import('../../core/types/contracts').ChartPlaybackControllerOptions} ChartPlaybackControllerOptions */
 /** @typedef {import('../../core/types/contracts').TransportPlaybackStatus} TransportPlaybackStatus */
 
-import { createEmbeddedPlaybackBridgeProvider } from '../../core/playback/embedded-playback-bridge-provider.js';
 import { storePendingDrillSession } from '../../core/storage/app-state-storage.js';
+import { createChartPlaybackBridgeProvider as createFeatureChartPlaybackBridgeProvider } from './chart-playback-bridge.js';
 
 /**
  * @param {ChartPlaybackControllerOptions} [options]
@@ -35,60 +33,28 @@ export function createChartPlaybackController({
   onTransportStatus,
   onPersistPlaybackSettings
 } = {}) {
-  /** @returns {Window | null} */
-  function getDrillBridgeWindow() {
-    return bridgeFrame?.contentWindow || null;
-  }
-
-  /**
-   * @param {PracticeSessionSpec | null} sessionSpec
-   * @param {PlaybackSettings} playbackSettings
-   * @returns {EmbeddedPatternPayload}
-   */
-  function buildEmbeddedPatternPayload(sessionSpec, playbackSettings) {
-    return {
-      patternName: sessionSpec?.title || getCurrentChartTitle?.() || 'Chart Dev',
-      patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
-      patternMode: 'both',
-      tempo: sessionSpec?.tempo || getTempo?.() || 120,
-      transposition: playbackSettings?.transposition ?? null,
-      compingStyle: playbackSettings?.compingStyle,
-      drumsMode: playbackSettings?.drumsMode,
-      customMediumSwingBass: playbackSettings?.customMediumSwingBass,
-      repetitionsPerKey: 1,
-      displayMode: playbackSettings?.displayMode || 'show-both',
-      harmonyDisplayMode: playbackSettings?.harmonyDisplayMode ?? null,
-      showBeatIndicator: playbackSettings?.showBeatIndicator !== false,
-      hideCurrentHarmony: playbackSettings?.hideCurrentHarmony === true,
-      masterVolume: playbackSettings?.masterVolume,
-      bassVolume: playbackSettings?.bassVolume,
-      stringsVolume: playbackSettings?.stringsVolume,
-      drumsVolume: playbackSettings?.drumsVolume
-    };
-  }
-
-  /** @type {EmbeddedPlaybackBridge} */
-  const embeddedPlaybackBridge =
-    /** @type {EmbeddedPlaybackBridge} */ (
+  /** @type {PlaybackBridge} */
+  const playbackBridge =
+    /** @type {PlaybackBridge} */ (
       (/** @type {PlaybackBridgeProvider | null | undefined} */ (playbackBridgeProvider))
         ?.getBridge?.()
-      || createEmbeddedPlaybackBridgeProvider({
-        getTargetWindow: getDrillBridgeWindow,
-        getHostFrame: () => bridgeFrame || null,
-        buildPatternPayload: buildEmbeddedPatternPayload
+      || createFeatureChartPlaybackBridgeProvider({
+        bridgeFrame,
+        getTempo,
+        getCurrentChartTitle
       }).getBridge()
     );
 
   /**
-   * @param {PlaybackRuntimeState | null | undefined} drillState
+   * @param {PlaybackRuntimeState | null | undefined} playbackState
    * @returns {number}
    */
-  function getPlaybackEntryIndexFromDrillState(drillState) {
+  function getPlaybackEntryIndexFromRuntimeState(playbackState) {
     const practiceBars = getSelectedPracticeSession?.()?.playback?.bars || [];
     if (practiceBars.length === 0) return -1;
-    if (!drillState?.isPlaying || drillState.isIntro) return -1;
+    if (!playbackState?.isPlaying || playbackState.isIntro) return -1;
 
-    const chordIndex = Number(drillState.currentChordIdx);
+    const chordIndex = Number(playbackState.currentChordIdx);
     if (!Number.isFinite(chordIndex) || chordIndex < 0) return -1;
 
     return Math.floor(chordIndex / 4) % practiceBars.length;
@@ -96,39 +62,39 @@ export function createChartPlaybackController({
 
   /** @returns {PlaybackSessionController} */
   function ensurePlaybackController() {
-    return embeddedPlaybackBridge.playbackController;
+    return playbackBridge.playbackController;
   }
 
   /** @returns {TransportPlaybackStatus} */
-  function syncPlaybackStateFromDrill() {
+  function syncPlaybackState() {
     const controller = ensurePlaybackController();
-    const drillState = controller.refreshRuntimeState();
-    if (!drillState) {
+    const playbackState = controller.refreshRuntimeState();
+    if (!playbackState) {
       resetActivePlaybackPosition?.();
-      onTransportStatus?.('Drill bridge unavailable');
+      onTransportStatus?.('Playback bridge unavailable');
       return {
         isPlaying: false,
         isPaused: false
       };
     }
 
-    const entryIndex = getPlaybackEntryIndexFromDrillState(drillState);
+    const entryIndex = getPlaybackEntryIndexFromRuntimeState(playbackState);
     const practiceBar = entryIndex >= 0 ? getSelectedPracticeSession?.()?.playback?.bars?.[entryIndex] : null;
     setActivePlaybackPosition?.(practiceBar?.id || null, entryIndex);
 
-    if (drillState?.isPaused) {
-      onTransportStatus?.('Paused in Drill');
-    } else if (drillState?.isIntro) {
+    if (playbackState?.isPaused) {
+      onTransportStatus?.('Paused');
+    } else if (playbackState?.isIntro) {
       onTransportStatus?.('Intro count-in');
-    } else if (drillState?.isPlaying) {
-      onTransportStatus?.('Playing via Drill');
+    } else if (playbackState?.isPlaying) {
+      onTransportStatus?.('Playing');
     } else {
       onTransportStatus?.('Ready');
     }
 
     return {
-      isPlaying: Boolean(drillState?.isPlaying),
-      isPaused: Boolean(drillState?.isPaused)
+      isPlaying: Boolean(playbackState?.isPlaying),
+      isPaused: Boolean(playbackState?.isPaused)
     };
   }
 
@@ -155,7 +121,7 @@ export function createChartPlaybackController({
     const practiceSession = getSelectedPracticeSession?.();
     if (!practiceSession?.playback?.enginePatternString) return { ok: false };
 
-    onTransportStatus?.('Connecting to Drill...');
+    onTransportStatus?.('Connecting playback...');
 
     const controller = ensurePlaybackController();
     const playbackSettings = getPlaybackSettings?.() || {};
@@ -176,15 +142,15 @@ export function createChartPlaybackController({
     });
 
     if (!applyResult?.ok) {
-      throw new Error(applyResult?.errorMessage || 'Drill rejected the interpreted chart.');
+      throw new Error(applyResult?.errorMessage || 'Playback rejected the interpreted chart.');
     }
 
     const startResult = await controller.start();
     if (!startResult?.ok) {
-      throw new Error(startResult?.errorMessage || 'Drill failed to start playback.');
+      throw new Error(startResult?.errorMessage || 'Playback failed to start.');
     }
 
-    return syncPlaybackStateFromDrill();
+    return syncPlaybackState();
   }
 
   /** @returns {Promise<PlaybackOperationResult>} */
@@ -202,7 +168,7 @@ export function createChartPlaybackController({
       drumsVolume: playbackSettings.drumsVolume
     });
     if (!result?.ok) {
-      throw new Error(result?.errorMessage || 'Failed to sync Drill settings.');
+      throw new Error(result?.errorMessage || 'Failed to sync playback settings.');
     }
     return result;
   }
@@ -210,7 +176,7 @@ export function createChartPlaybackController({
   /** @returns {Promise<TransportPlaybackStatus>} */
   async function pauseToggle() {
     await ensurePlaybackController().pauseToggle();
-    return syncPlaybackStateFromDrill();
+    return syncPlaybackState();
   }
 
   /** @returns {boolean} */
@@ -229,9 +195,9 @@ export function createChartPlaybackController({
   }
 
   return {
-    ensureReady: embeddedPlaybackBridge.playbackRuntime.ensureReady,
+    ensureReady: playbackBridge.playbackRuntime.ensureReady,
     ensurePlaybackController,
-    syncPlaybackStateFromDrill,
+    syncPlaybackState,
     stopPlayback,
     startPlayback,
     syncPlaybackSettings,

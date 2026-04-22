@@ -6,28 +6,16 @@
 /** @typedef {import('../../core/types/contracts').PlaybackRuntime} PlaybackRuntime */
 /** @typedef {import('../../core/types/contracts').PlaybackSessionController} PlaybackSessionController */
 /** @typedef {import('../../core/types/contracts').EmbeddedPatternPayload} EmbeddedPatternPayload */
+/** @typedef {import('../../core/types/contracts').DrillPlaybackControllerOptions} DrillPlaybackControllerOptions */
 
-import { createDrillPlaybackAssembly } from '../../core/playback/drill-playback-assembly.js';
-import { createDrillPlaybackRuntime as createCoreDrillPlaybackRuntime } from '../../core/playback/drill-playback-runtime.js';
+import { createDrillPlaybackAssemblyProvider } from '../../core/playback/drill-playback-assembly-provider.js';
+import { createDrillPlaybackRuntimeProvider } from '../../core/playback/drill-playback-runtime-provider.js';
 
 /**
- * @param {{
+ * @param {DrillPlaybackControllerOptions & {
  *   applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult,
  *   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown,
- *   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState>,
- *   ensureWalkingBassGenerator?: () => Promise<unknown>,
- *   isPlaying?: () => boolean,
- *   getAudioContext?: () => BaseAudioContext | null,
- *   noteFadeout?: number,
- *   stopActiveChordVoices?: (audioTime: number, fadeout: number) => void,
- *   rebuildPreparedCompingPlans?: (currentKey: number) => void,
- *   buildPreparedBassPlan?: () => void,
- *   getCurrentKey?: () => number,
- *   preloadNearTermSamples?: () => Promise<unknown>,
- *   validateCustomPattern?: () => boolean,
- *   startPlayback?: () => Promise<void>,
- *   stopPlayback?: () => void,
- *   togglePausePlayback?: () => void
+ *   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState>
  * }} [options]
  * @returns {PlaybackRuntime}
  */
@@ -49,7 +37,7 @@ export function createDrillPlaybackRuntime({
   stopPlayback,
   togglePausePlayback
 } = {}) {
-  return createCoreDrillPlaybackRuntime({
+  return createDrillPlaybackRuntimeProvider({
     applyEmbeddedPattern,
     applyEmbeddedPlaybackSettings,
     getEmbeddedPlaybackState,
@@ -66,27 +54,14 @@ export function createDrillPlaybackRuntime({
     startPlayback,
     stopPlayback,
     togglePausePlayback
-  });
+  }).getRuntime();
 }
 
 /**
- * @param {{
+ * @param {DrillPlaybackControllerOptions & {
  *   applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult,
  *   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown,
- *   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState>,
- *   ensureWalkingBassGenerator?: () => Promise<unknown>,
- *   isPlaying?: () => boolean,
- *   getAudioContext?: () => BaseAudioContext | null,
- *   noteFadeout?: number,
- *   stopActiveChordVoices?: (audioTime: number, fadeout: number) => void,
- *   rebuildPreparedCompingPlans?: (currentKey: number) => void,
- *   buildPreparedBassPlan?: () => void,
- *   getCurrentKey?: () => number,
- *   preloadNearTermSamples?: () => Promise<unknown>,
- *   validateCustomPattern?: () => boolean,
- *   startPlayback?: () => Promise<void>,
- *   stopPlayback?: () => void,
- *   togglePausePlayback?: () => void
+ *   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState>
  * }} [options]
  * @returns {PlaybackSessionController}
  */
@@ -108,7 +83,7 @@ export function createDrillPlaybackController({
   stopPlayback,
   togglePausePlayback
 } = {}) {
-  return createDrillPlaybackAssembly({
+  return createDrillPlaybackAssemblyProvider({
     applyEmbeddedPattern,
     applyEmbeddedPlaybackSettings,
     getEmbeddedPlaybackState,
@@ -125,5 +100,8 @@ export function createDrillPlaybackController({
     startPlayback,
     stopPlayback,
     togglePausePlayback
-  }).playbackController;
+  }).getAssembly().playbackController;
 }
+
+export const createDirectPlaybackRuntime = createDrillPlaybackRuntime;
+export const createDirectPlaybackController = createDrillPlaybackController;

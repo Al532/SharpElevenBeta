@@ -11,7 +11,7 @@ import { createPlaybackAssembly } from './playback-assembly.js';
 /**
  * Materializes the embedded playback surface around an existing runtime.
  * This centralizes the shared "runtime -> controller -> embedded API" assembly
- * used by the embedded Drill surface and keeps the legacy API shape explicit.
+ * used by the embedded playback surface and keeps the legacy API shape explicit.
  *
  * @param {{
  *   playbackRuntime: PlaybackRuntime,

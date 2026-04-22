@@ -3,11 +3,15 @@
 /** @typedef {import('../types/contracts').EmbeddedPlaybackApi} EmbeddedPlaybackApi */
 /** @typedef {import('../types/contracts').EmbeddedPlaybackApiClient} EmbeddedPlaybackApiClient */
 
-import { readEmbeddedPlaybackGlobals } from './embedded-playback-globals.js';
+import { resolveEmbeddedPlaybackApi } from './embedded-playback-globals.js';
+import {
+  LEGACY_DRILL_API_READY_EVENT,
+  PLAYBACK_API_READY_EVENT
+} from './embedded-playback-identifiers.js';
 import { waitForEmbeddedPlaybackApi } from './embedded-playback-ready.js';
 
 /**
- * Legacy iframe bridge client for the embedded Drill playback API.
+ * Legacy iframe bridge client for the embedded playback API.
  * This keeps the global/window lookup in one place while the runtime boundary
  * is being migrated toward a shared typed playback runtime.
  *
@@ -15,6 +19,7 @@ import { waitForEmbeddedPlaybackApi } from './embedded-playback-ready.js';
  *   getTargetWindow?: () => Window | null,
  *   getHostFrame?: () => HTMLIFrameElement | null,
  *   readyEventName?: string,
+ *   legacyReadyEventName?: string | null,
  *   timeoutMs?: number
  * }} [options]
  * @returns {EmbeddedPlaybackApiClient}
@@ -22,7 +27,8 @@ import { waitForEmbeddedPlaybackApi } from './embedded-playback-ready.js';
 export function createEmbeddedPlaybackApiClient({
   getTargetWindow,
   getHostFrame,
-  readyEventName = 'jpt-drill-api-ready',
+  readyEventName = PLAYBACK_API_READY_EVENT,
+  legacyReadyEventName = LEGACY_DRILL_API_READY_EVENT,
   timeoutMs = 10000
 } = {}) {
   /** @type {EmbeddedPlaybackApi | null} */
@@ -33,7 +39,7 @@ export function createEmbeddedPlaybackApiClient({
   /** @returns {EmbeddedPlaybackApi | null} */
   function getApi() {
     if (cachedApi) return cachedApi;
-    const embeddedApi = readEmbeddedPlaybackGlobals(getTargetWindow?.() || null).embeddedApi;
+    const embeddedApi = resolveEmbeddedPlaybackApi(getTargetWindow?.() || null);
     if (embeddedApi) {
       cachedApi = embeddedApi;
     }
@@ -51,6 +57,7 @@ export function createEmbeddedPlaybackApiClient({
       getHostFrame,
       getEmbeddedApi: getApi,
       readyEventName,
+      legacyReadyEventName,
       timeoutMs
     }).catch((error) => {
       pendingReadyPromise = null;

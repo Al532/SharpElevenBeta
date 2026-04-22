@@ -101,7 +101,7 @@ export function bindChartLayoutObservers({
  *   updateMixerOutputs?: () => void,
  *   renderFixture?: () => void,
  *   ensurePlaybackReady?: () => Promise<unknown>,
- *   syncDrillPlaybackSettings?: () => Promise<unknown>,
+ *   syncPlaybackSettings?: () => Promise<unknown>,
  *   setTransportStatus?: (message: string) => void
  * }} [options]
  * @returns {Promise<void>}
@@ -117,7 +117,7 @@ export async function initializeChartScreen({
   updateMixerOutputs,
   renderFixture,
   ensurePlaybackReady,
-  syncDrillPlaybackSettings,
+  syncPlaybackSettings,
   setTransportStatus
 } = {}) {
   applyPersistedPlaybackSettings?.();
@@ -131,9 +131,9 @@ export async function initializeChartScreen({
   renderFixture?.();
   try {
     await ensurePlaybackReady?.();
-    await syncDrillPlaybackSettings?.();
+    await syncPlaybackSettings?.();
     setTransportStatus?.('Ready');
   } catch (error) {
-    setTransportStatus?.(`Drill bridge error: ${error.message}`);
+    setTransportStatus?.(`Playback bridge error: ${error.message}`);
   }
 }

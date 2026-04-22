@@ -1,6 +1,7 @@
 // @ts-check
 
 /** @typedef {import('../types/contracts').EmbeddedPatternPayload} EmbeddedPatternPayload */
+/** @typedef {import('../types/contracts').EmbeddedPlaybackBridgeOptions} EmbeddedPlaybackBridgeOptions */
 /** @typedef {import('../types/contracts').EmbeddedPlaybackBridge} EmbeddedPlaybackBridge */
 /** @typedef {import('../types/contracts').PlaybackSettings} PlaybackSettings */
 /** @typedef {import('../types/contracts').PracticeSessionSpec} PracticeSessionSpec */
@@ -14,13 +15,7 @@ import { createPlaybackAssembly } from './playback-assembly.js';
  * Centralizing this assembly keeps the iframe/global bridge isolated behind a
  * single core factory while the runtime is being migrated.
  *
- * @param {{
- *   getTargetWindow?: () => Window | null,
- *   getHostFrame?: () => HTMLIFrameElement | null,
- *   readyEventName?: string,
- *   timeoutMs?: number,
- *   buildPatternPayload: (sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) => EmbeddedPatternPayload
- * }} options
+ * @param {EmbeddedPlaybackBridgeOptions} options
  * @returns {EmbeddedPlaybackBridge}
  */
 export function createEmbeddedPlaybackBridge({

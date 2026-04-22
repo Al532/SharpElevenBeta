@@ -48,7 +48,7 @@ export function renderChartTransport({
   isPaused = false
 } = {}) {
   const currentBar = activePlaybackEntryIndex >= 0 ? activePlaybackEntryIndex + 1 : 0;
-  if (!isPlaying && transportStatusElement?.textContent === 'Playing via Drill') {
+  if (!isPlaying && transportStatusElement?.textContent === 'Playing') {
     transportStatusElement.textContent = 'Ready';
   }
   if (transportPositionElement) {

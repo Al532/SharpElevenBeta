@@ -26,7 +26,7 @@ What is already in place:
 
 What is not fully finished:
 
-- `chart` playback still relies on the hidden embedded Drill iframe bridge
+- `chart` playback still relies on the embedded playback bridge, but the iframe host is now created lazily from the chart runtime context instead of being hardcoded in the HTML
 - the deepest audio/runtime logic still lives mostly inside `app.js`
 - `app.js` is smaller than before, but still too large to be considered fully decomposed
 
@@ -38,8 +38,8 @@ That boundary currently looks like this:
 
 - `chart-dev/main.js`
 - `features/chart/chart-playback-controller.js`
-- hidden iframe in `chart-dev/index.html`
-- embedded Drill API exposed by `window.__JPT_DRILL_API__`
+- lazily created embedded bridge host from `chart-dev/main.js`
+- embedded playback API exposed by the legacy global `window.__JPT_DRILL_API__`
 - runtime/audio state and transport still ultimately driven from `app.js`
 
 This is the highest-value target for the future TS migration.
@@ -99,8 +99,8 @@ These should become the first-class typed contracts during the TS migration.
 
 The main legacy mechanism still in place is:
 
-- hidden iframe: `chart-dev/index.html`
-- API lookup: `window.__JPT_DRILL_API__`
+- embedded bridge host created on demand by `chart-dev/main.js`
+- API lookup: legacy `window.__JPT_DRILL_API__`
 - bridge implementation: `features/chart/chart-playback-controller.js`
 
 This should not be over-invested in further in plain JavaScript.

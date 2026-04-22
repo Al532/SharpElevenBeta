@@ -15,7 +15,6 @@
 import {
   createChartDocumentsFromIRealText,
 } from '../chart/index.js';
-import { createEmbeddedPlaybackBridgeProvider } from '../core/playback/embedded-playback-bridge-provider.js';
 import {
   loadPersistedChartId as loadPersistedChartIdFromStorage,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
@@ -34,7 +33,12 @@ import {
   createChartNavigationController,
   updateChartNavigationState as updateChartNavigationStateUi
 } from '../features/chart/chart-navigation.js';
-import { createChartPlaybackController } from '../features/chart/chart-playback-controller.js';
+import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
+import {
+  applyPlaybackTransportState,
+  startPlaybackPolling,
+  stopPlaybackPolling
+} from '../features/chart/chart-playback-runtime.js';
 import {
   renderChartMeta,
   renderChartSelector as renderChartSelectorUi,
@@ -70,7 +74,7 @@ import voicingConfig from '../voicing-config.js';
 
 const DEFAULT_TEMPO = 120;
 const DEFAULT_BAR_GROUP_SIZE = 4;
-const DRILL_STATE_POLL_INTERVAL_MS = 120;
+const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = '../parsing-projects/ireal/sources/jazz-1460.txt';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
@@ -78,6 +82,7 @@ const LAST_CHART_STORAGE_KEY = 'jpt-chart-dev-last-chart-id';
 const PLAYBACK_SETTINGS_STORAGE_KEY = 'jpt-chart-dev-playback-settings';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
+const CHART_PLAYBACK_BRIDGE_MODE = 'embedded';
 
 const {
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
@@ -138,7 +143,7 @@ const dom = {
   stringsVolumeValue: document.getElementById('strings-volume-value'),
   drumsVolume: document.getElementById('drums-volume'),
   drumsVolumeValue: document.getElementById('drums-volume-value'),
-  drillBridgeFrame: document.getElementById('drill-bridge-frame'),
+  playbackBridgeFrame: document.getElementById('drill-bridge-frame'),
   selectionSummary: document.getElementById('selection-summary'),
   clearSelectionButton: document.getElementById('clear-selection-button'),
   sendSelectionToDrillButton: document.getElementById('send-selection-to-drill-button'),
@@ -161,6 +166,7 @@ initializeAppShell(/** @type {any} */ ({
 }));
 
 /** @type {ChartScreenState & {
+ *   chartPlaybackBridgeProvider: PlaybackBridgeProvider | null,
  *   swipeGesture: {
  *     pointerId: number | null,
  *     startX: number,
@@ -177,12 +183,13 @@ const state = {
   currentPracticeSession: null,
   currentSelectionPracticeSession: null,
   currentLibrarySourceLabel: '',
+  chartPlaybackBridgeProvider: null,
   activeBarId: null,
   activePlaybackEntryIndex: -1,
   chartPlaybackController: null,
   chartSheetRenderer: null,
   selectionController: /** @type {ChartSelectionController} */ (createContiguousBarSelectionController()),
-  drillPollTimer: null,
+  playbackPollTimer: null,
   isPlaying: false,
   isPaused: false,
   currentSearch: '',
@@ -193,6 +200,46 @@ const state = {
     active: false
   }
 };
+
+function ensureEmbeddedPlaybackBridgeFrame() {
+  if (dom.playbackBridgeFrame instanceof HTMLIFrameElement) {
+    return dom.playbackBridgeFrame;
+  }
+
+  const frame = document.createElement('iframe');
+  frame.id = 'drill-bridge-frame';
+  frame.className = 'chart-drill-bridge';
+  frame.src = '../index.html?embedded=1';
+  frame.title = 'Hidden playback bridge';
+  frame.setAttribute('aria-hidden', 'true');
+  frame.tabIndex = -1;
+  document.body.appendChild(frame);
+  dom.playbackBridgeFrame = frame;
+  return frame;
+}
+
+const playbackRuntimeContext = createChartPlaybackRuntimeContext({
+  state,
+  mode: CHART_PLAYBACK_BRIDGE_MODE,
+  getPlaybackBridgeFrame: () => (
+    CHART_PLAYBACK_BRIDGE_MODE === 'embedded'
+      ? ensureEmbeddedPlaybackBridgeFrame()
+      : null
+  ),
+  getTempo,
+  getCurrentChartTitle: () => state.currentChartDocument?.metadata?.title || 'Chart Dev',
+  getSelectedPracticeSession,
+  getPlaybackSettings,
+  getCurrentBarCount: () => state.currentPlaybackPlan?.entries?.length || 0,
+  setActivePlaybackPosition,
+  resetActivePlaybackPosition,
+  renderTransport,
+  updateActiveHighlights,
+  onTransportStatus: (message) => {
+    dom.transportStatus.textContent = message;
+  },
+  onPersistPlaybackSettings: persistPlaybackSettings
+});
 
 function loadPersistedChartId() {
   return loadPersistedChartIdFromStorage({
@@ -440,50 +487,53 @@ function renderSelectionState() {
   });
 }
 
-function stopDrillPolling() {
-  if (!state.drillPollTimer) return;
-  clearInterval(state.drillPollTimer);
-  state.drillPollTimer = null;
-}
-
-function startDrillPolling() {
-  stopDrillPolling();
-  state.drillPollTimer = window.setInterval(syncPlaybackStateFromDrill, DRILL_STATE_POLL_INTERVAL_MS);
-}
-
-function syncPlaybackStateFromDrill() {
-  const nextState = getChartPlaybackController().syncPlaybackStateFromDrill();
-  state.isPlaying = Boolean(nextState?.isPlaying);
-  state.isPaused = Boolean(nextState?.isPaused);
+function syncPlaybackState() {
+  const nextState = getChartPlaybackController().syncPlaybackState();
+  applyPlaybackTransportState({
+    state,
+    nextState
+  });
 }
 
 async function stopPlayback({ resetPosition = true } = {}) {
-  stopDrillPolling();
+  stopPlaybackPolling({
+    state
+  });
   const nextState = await getChartPlaybackController().stopPlayback({ resetPosition });
-  state.isPlaying = Boolean(nextState?.isPlaying);
-  state.isPaused = Boolean(nextState?.isPaused);
+  applyPlaybackTransportState({
+    state,
+    nextState
+  });
 }
 
 async function startPlayback() {
   const nextState = await getChartPlaybackController().startPlayback();
-  state.isPlaying = Boolean('isPlaying' in nextState ? nextState.isPlaying : false);
-  state.isPaused = Boolean('isPaused' in nextState ? nextState.isPaused : false);
-  startDrillPolling();
-  syncPlaybackStateFromDrill();
+  applyPlaybackTransportState({
+    state,
+    nextState: 'isPlaying' in nextState
+      ? nextState
+      : { isPlaying: false, isPaused: false }
+  });
+  startPlaybackPolling({
+    state,
+    intervalMs: PLAYBACK_STATE_POLL_INTERVAL_MS,
+    onTick: syncPlaybackState
+  });
+  syncPlaybackState();
 }
 
-async function syncDrillPlaybackSettings() {
+async function syncPlaybackSettings() {
   try {
     /** @type {PlaybackOperationResult} */
     const result = await getChartPlaybackController().syncPlaybackSettings();
     if (!result?.ok) {
-      throw new Error(result?.errorMessage || 'Failed to sync Drill settings.');
+      throw new Error(result?.errorMessage || 'Failed to sync playback settings.');
     }
     if (!state.isPlaying) {
       dom.transportStatus.textContent = 'Ready';
     }
   } catch (error) {
-    dom.transportStatus.textContent = `Drill settings error: ${getErrorMessage(error)}`;
+    dom.transportStatus.textContent = `Playback settings error: ${getErrorMessage(error)}`;
   }
 }
 
@@ -492,56 +542,12 @@ function navigateToDrillWithSelection() {
 }
 
 /** @returns {PlaybackBridgeProvider} */
-function createChartPlaybackBridgeProvider() {
-  return createEmbeddedPlaybackBridgeProvider({
-    getTargetWindow: () => dom.drillBridgeFrame?.contentWindow || null,
-    getHostFrame: () => dom.drillBridgeFrame || null,
-    buildPatternPayload(sessionSpec, playbackSettings) {
-      return {
-        patternName: sessionSpec?.title || state.currentChartDocument?.metadata?.title || 'Chart Dev',
-        patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
-        patternMode: 'both',
-        tempo: sessionSpec?.tempo || getTempo?.() || 120,
-        transposition: playbackSettings?.transposition ?? null,
-        compingStyle: playbackSettings?.compingStyle,
-        drumsMode: playbackSettings?.drumsMode,
-        customMediumSwingBass: playbackSettings?.customMediumSwingBass,
-        repetitionsPerKey: 1,
-        displayMode: playbackSettings?.displayMode || 'show-both',
-        harmonyDisplayMode: playbackSettings?.harmonyDisplayMode ?? null,
-        showBeatIndicator: playbackSettings?.showBeatIndicator !== false,
-        hideCurrentHarmony: playbackSettings?.hideCurrentHarmony === true,
-        masterVolume: playbackSettings?.masterVolume,
-        bassVolume: playbackSettings?.bassVolume,
-        stringsVolume: playbackSettings?.stringsVolume,
-        drumsVolume: playbackSettings?.drumsVolume
-      };
-    }
-  });
+function getChartPlaybackBridgeProvider() {
+  return playbackRuntimeContext.getPlaybackBridgeProvider();
 }
 
 function getChartPlaybackController() {
-  if (state.chartPlaybackController) return state.chartPlaybackController;
-
-  state.chartPlaybackController = /** @type {ChartPlaybackController} */ (createChartPlaybackController({
-    bridgeFrame: dom.drillBridgeFrame,
-    playbackBridgeProvider: createChartPlaybackBridgeProvider(),
-    getSelectedPracticeSession,
-    getPlaybackSettings,
-    getTempo,
-    getCurrentChartTitle: () => state.currentChartDocument?.metadata?.title || 'Chart Dev',
-    getCurrentBarCount: () => state.currentPlaybackPlan?.entries?.length || 0,
-    setActivePlaybackPosition,
-    resetActivePlaybackPosition,
-    renderTransport,
-    updateActiveHighlights,
-    onTransportStatus: (message) => {
-      dom.transportStatus.textContent = message;
-    },
-    onPersistPlaybackSettings: persistPlaybackSettings
-  }));
-
-  return state.chartPlaybackController;
+  return playbackRuntimeContext.getPlaybackController();
 }
 
 function getChartSheetRenderer() {
@@ -801,17 +807,17 @@ async function loadFixtures() {
           renderFixture();
         },
         onTempoChange: renderTransport,
-        onPlaybackSettingChange: syncDrillPlaybackSettings,
+    onPlaybackSettingChange: syncPlaybackSettings,
         onMixerInput: () => {
           updateMixerOutputs();
-          syncDrillPlaybackSettings();
+    syncPlaybackSettings();
         },
         onPlayClick: async () => {
           if (state.isPlaying) {
             const playbackController = getChartPlaybackController();
             if (playbackController) {
-              await playbackController.pauseToggle();
-              syncPlaybackStateFromDrill();
+            await playbackController.pauseToggle();
+            syncPlaybackState();
             }
             return;
           }
@@ -819,7 +825,7 @@ async function loadFixtures() {
             await startPlayback();
             closeOverlay();
           } catch (error) {
-            dom.transportStatus.textContent = `Drill error: ${getErrorMessage(error)}`;
+            dom.transportStatus.textContent = `Playback error: ${getErrorMessage(error)}`;
             state.isPlaying = false;
             renderTransport();
           }
@@ -856,7 +862,7 @@ async function loadFixtures() {
       getChartPlaybackController();
       await getChartPlaybackController().ensureReady();
     },
-    syncDrillPlaybackSettings,
+    syncPlaybackSettings,
     setTransportStatus: (message) => {
       dom.transportStatus.textContent = message;
     }

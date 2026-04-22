@@ -9,7 +9,7 @@
 
 /**
  * Creates the embedded playback API surface exposed to legacy consumers.
- * This is the bridge-facing API shape shared by the embedded Drill runtime.
+ * This is the bridge-facing API shape shared by the embedded playback host.
  *
  * @param {{
  *   playbackRuntime?: PlaybackRuntime,
@@ -29,6 +29,10 @@ export function createEmbeddedPlaybackApi({
   if (!resolvedPlaybackController) {
     throw new Error('A playback controller is required.');
   }
+  const readPlaybackState =
+    typeof getPlaybackState === 'function'
+      ? getPlaybackState
+      : () => playbackRuntime?.getRuntimeState?.() || resolvedPlaybackController.getState().runtime || null;
 
   return {
     version: 2,
@@ -36,7 +40,7 @@ export function createEmbeddedPlaybackApi({
     applyEmbeddedPlaybackSettings(options = {}) {
       return resolvedPlaybackController.updatePlaybackSettings(options);
     },
-    getPlaybackState,
+    getPlaybackState: readPlaybackState,
     startPlayback() {
       return resolvedPlaybackController.start();
     },
