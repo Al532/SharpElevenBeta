@@ -28,16 +28,26 @@ What is already in place:
 
 What is not fully finished:
 
-- `chart` playback still relies on the embedded playback bridge, but the iframe host is now created lazily from the chart runtime context instead of being hardcoded in the HTML
+- `chart` now runs through the `direct` playback boundary in `chart-dev/main.js`, but the current direct host is still backed by the hidden same-origin iframe as a transitional runtime host
 - the deepest audio/runtime logic still lives mostly inside `app.js`
 - `app.js` is smaller than before, but still too large to be considered fully decomposed
+- the `direct` playback path now has its own `core/playback/direct-playback-session-adapter.js` seam, but `chart-dev/main.js` still runs in `embedded` mode and does not yet provide a real direct runtime host
 
 Recent extractions from `app.js` that now exist as reusable boundaries:
 
 - `features/drill/drill-playback-runtime-engine.js`
 - `features/drill/drill-playback-runtime-helpers.js`
 - `features/drill/drill-playback-runtime-host.js`
+- `features/drill/drill-voicing-runtime.js`
+- `features/drill/drill-key-pool-runtime.js`
+- `features/drill/drill-direct-session.js`
+- `features/drill/drill-direct-runtime-app-context.js`
+- `features/drill/drill-direct-runtime-app-assembly.js`
 - `features/drill/drill-session-analytics.js`
+- `features/chart/chart-direct-playback-frame.js`
+- `features/chart/chart-direct-playback-host.js`
+- `features/chart/chart-direct-playback-runtime-host.js`
+- `features/chart/chart-direct-playback-options.js`
 - `features/drill/drill-playback-engine-app-context.js`
 - `features/drill/drill-playback-state-app-context.js`
 - `features/drill/drill-playback-runtime-app-assembly.js`
@@ -80,6 +90,27 @@ That boundary currently looks like this:
 
 This is the highest-value target for the future TS migration.
 
+There is now one important preparatory seam in `core/playback` for that next step:
+
+- `direct-playback-session-adapter.js` can load/update a `PracticeSessionSpec` through direct callbacks (`loadDirectSession`, `updateDirectPlaybackSettings`, `getDirectPlaybackState`) without going through `applyEmbeddedPattern`
+
+There is also now a matching app-side seam under `features/drill`:
+
+- `drill-direct-session.js` adapts the current drill UI/runtime to a direct `PracticeSessionSpec` host
+- `drill-direct-runtime-app-context.js` packages that host as `DirectPlaybackControllerOptions`
+- `drill-direct-runtime-app-assembly.js` materializes those direct options from grouped app concerns
+
+On the chart side:
+
+- `chart-direct-playback-options.js` now consumes a dedicated `core/playback/direct-playback-options-client.js` readiness boundary over the iframe window and falls back to the embedded API only when needed
+- `chart-direct-playback-window-host.js` prefers a same-page direct runtime when one is already published and only falls back to the transitional iframe host when needed
+- `chart-direct-playback-runtime-host.js` now centralizes that direct host assembly used by `chart-dev/main.js`
+- `chart-direct-playback-host.js` and `chart-direct-playback-options.js` now distinguish a preferred same-page direct target from the fallback iframe-backed target, so the future same-page host swap is more localized
+- `chart-playback-runtime-context.js` can now consume that host directly via `directPlaybackRuntimeHost`, so `chart-dev/main.js` no longer needs to pass split direct-host pieces into the runtime context
+- `chart-dev/main.js` now selects `mode: 'direct'`
+
+This means the main remaining work is no longer “invent a seam”, but “replace the iframe-backed direct host with a fully standalone same-page direct runtime”.
+
 ## Shared Core Already Introduced
 
 These files are the main seeds of the future typed architecture:
@@ -120,6 +151,8 @@ These should become the first-class typed contracts during the TS migration.
 - `features/drill/drill-playback-runtime-engine.js`
 - `features/drill/drill-playback-runtime-helpers.js`
 - `features/drill/drill-playback-runtime-host.js`
+- `features/drill/drill-voicing-runtime.js`
+- `features/drill/drill-key-pool-runtime.js`
 - `features/drill/drill-session-analytics.js`
 - `features/drill/drill-playback-engine-app-context.js`
 - `features/drill/drill-playback-state-app-context.js`
@@ -154,7 +187,7 @@ These should become the first-class typed contracts during the TS migration.
 - `features/drill/drill-embedded-session.js`
 - `features/drill/drill-ui-shell.js`
 - `features/drill/drill-ui-runtime.js`
-- `features/drill/drill-display-runtime.js`
+- `features/drill/drill-display-runtime.js` now also owns reusable harmony display helpers, preview-timing helpers, and harmony-layout helpers consumed by `app.js`
 - `features/drill/drill-key-selection.js`
 - `features/drill/drill-runtime-controls.js`
 - `features/drill/drill-settings.js`

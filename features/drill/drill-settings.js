@@ -1,3 +1,11 @@
+function normalizeSavedMixerVolume(value, fallbackValue) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) {
+    return Math.max(0, Math.min(100, parsed));
+  }
+  return Number(fallbackValue);
+}
+
 export function saveDrillSettings({
   saveSharedPlaybackSettings,
   saveStoredProgressionSettings,
@@ -5,16 +13,17 @@ export function saveDrillSettings({
   getCompingStyle,
   getDrumsMode,
   isWalkingBassEnabled,
-  dom
+  dom,
+  defaultMixerVolumes = {}
 } = {}) {
   saveSharedPlaybackSettings?.({
     compingStyle: getCompingStyle?.(),
     drumsMode: getDrumsMode?.(),
     customMediumSwingBass: isWalkingBassEnabled?.(),
-    masterVolume: Number(dom?.masterVolume?.value || 0),
-    bassVolume: Number(dom?.bassVolume?.value || 0),
-    stringsVolume: Number(dom?.stringsVolume?.value || 0),
-    drumsVolume: Number(dom?.drumsVolume?.value || 0)
+    masterVolume: normalizeSavedMixerVolume(dom?.masterVolume?.value, defaultMixerVolumes.masterVolume ?? 50),
+    bassVolume: normalizeSavedMixerVolume(dom?.bassVolume?.value, defaultMixerVolumes.bassVolume ?? 100),
+    stringsVolume: normalizeSavedMixerVolume(dom?.stringsVolume?.value, defaultMixerVolumes.stringsVolume ?? 100),
+    drumsVolume: normalizeSavedMixerVolume(dom?.drumsVolume?.value, defaultMixerVolumes.drumsVolume ?? 100)
   });
   saveStoredProgressionSettings?.(buildSettingsSnapshot?.());
 }

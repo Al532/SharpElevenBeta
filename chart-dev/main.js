@@ -33,6 +33,7 @@ import {
   createChartNavigationController,
   updateChartNavigationState as updateChartNavigationStateUi
 } from '../features/chart/chart-navigation.js';
+import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
 import {
   applyPlaybackTransportState,
@@ -82,7 +83,7 @@ const LAST_CHART_STORAGE_KEY = 'jpt-chart-dev-last-chart-id';
 const PLAYBACK_SETTINGS_STORAGE_KEY = 'jpt-chart-dev-playback-settings';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
-const CHART_PLAYBACK_BRIDGE_MODE = 'embedded';
+const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
 
 const {
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
@@ -201,31 +202,19 @@ const state = {
   }
 };
 
-function ensureEmbeddedPlaybackBridgeFrame() {
-  if (dom.playbackBridgeFrame instanceof HTMLIFrameElement) {
-    return dom.playbackBridgeFrame;
-  }
-
-  const frame = document.createElement('iframe');
-  frame.id = 'drill-bridge-frame';
-  frame.className = 'chart-drill-bridge';
-  frame.src = '../index.html?embedded=1';
-  frame.title = 'Hidden playback bridge';
-  frame.setAttribute('aria-hidden', 'true');
-  frame.tabIndex = -1;
-  document.body.appendChild(frame);
-  dom.playbackBridgeFrame = frame;
-  return frame;
-}
+const chartDirectPlaybackRuntimeHost = createChartDirectPlaybackRuntimeHost({
+  getExistingFrame: () => dom.playbackBridgeFrame,
+  setFrame: (frame) => {
+    dom.playbackBridgeFrame = frame;
+  },
+  getTempo,
+  getCurrentChartTitle: () => state.currentChartDocument?.metadata?.title || 'Chart Dev'
+});
 
 const playbackRuntimeContext = createChartPlaybackRuntimeContext({
   state,
   mode: CHART_PLAYBACK_BRIDGE_MODE,
-  getPlaybackBridgeFrame: () => (
-    CHART_PLAYBACK_BRIDGE_MODE === 'embedded'
-      ? ensureEmbeddedPlaybackBridgeFrame()
-      : null
-  ),
+  directPlaybackRuntimeHost: chartDirectPlaybackRuntimeHost,
   getTempo,
   getCurrentChartTitle: () => state.currentChartDocument?.metadata?.title || 'Chart Dev',
   getSelectedPracticeSession,

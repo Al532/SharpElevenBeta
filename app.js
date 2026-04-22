@@ -30,8 +30,10 @@ import {
 } from './swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
 import { initializeEmbeddedDrillRuntime } from './features/drill/drill-embedded-runtime.js';
+import { publishDirectPlaybackGlobals } from './core/playback/direct-playback-globals.js';
 import { createDrillAudioStackAppAssembly } from './features/drill/drill-audio-stack-app-assembly.js';
 import { createDrillAudioStackAppFacade } from './features/drill/drill-audio-stack-app-facade.js';
+import { createDrillDirectRuntimeAppAssembly } from './features/drill/drill-direct-runtime-app-assembly.js';
 import { createDrillEmbeddedRuntimeAppAssembly } from './features/drill/drill-embedded-runtime-app-assembly.js';
 import { createDrillPatternAnalysis } from './features/drill/drill-pattern-analysis.js';
 import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
@@ -45,6 +47,8 @@ import {
   invertDrillKeysEnabled,
   setAllDrillKeysEnabled
 } from './features/drill/drill-key-selection.js';
+import { createDrillVoicingRuntime } from './features/drill/drill-voicing-runtime.js';
+import { createDrillKeyPoolRuntime } from './features/drill/drill-key-pool-runtime.js';
 import { initializeDrillRuntimeControls } from './features/drill/drill-runtime-controls.js';
 import { createDrillSessionAnalytics } from './features/drill/drill-session-analytics.js';
 import { bindDrillWelcomeControls } from './features/drill/drill-welcome.js';
@@ -56,6 +60,9 @@ import {
   applyDrillBeatIndicatorVisibility,
   applyDrillCurrentHarmonyVisibility,
   applyDrillDisplayMode,
+  createDrillHarmonyDisplayHelpers,
+  createDrillHarmonyLayoutHelpers,
+  createDrillPreviewTimingHelpers,
   refreshDrillDisplayedHarmony,
   updateDrillKeyPickerLabels
 } from './features/drill/drill-display-runtime.js';
@@ -1474,50 +1481,45 @@ const playRide = playDrillRide;
 const scheduleDrumsForBeat = scheduleDrillDrumsForBeat;
 
 // ---- Voicing Computation ----
+const {
+  classifyQuality: classifySharedVoicingQuality,
+  getPlayedChordQuality: getSharedPlayedChordQuality,
+  createVoicingSlot: createSharedVoicingSlot,
+  buildVoicingPlanForSlots: buildSharedVoicingPlanForSlots,
+  buildLegacyVoicingPlan: buildSharedLegacyVoicingPlan,
+  buildVoicingPlan: buildSharedVoicingPlan,
+  getVoicing: getSharedVoicing,
+  getVoicingPlanForProgression: getSharedVoicingPlanForProgression
+} = createDrillVoicingRuntime({
+  qualityCategoryAliases: QUALITY_CATEGORY_ALIASES,
+  dominantDefaultQualityMajor: DOMINANT_DEFAULT_QUALITY_MAJOR,
+  dominantDefaultQualityMinor: DOMINANT_DEFAULT_QUALITY_MINOR,
+  colorTones: COLOR_TONES,
+  dominantColorTones: DOMINANT_COLOR_TONES,
+  guideTones: GUIDE_TONES,
+  dominantGuideTones: DOMINANT_GUIDE_TONES,
+  intervalSemitones: INTERVAL_SEMITONES,
+  violinLow: VIOLIN_LOW,
+  violinHigh: VIOLIN_HIGH,
+  celloLow: CELLO_LOW,
+  guideToneLow: GUIDE_TONE_LOW,
+  guideToneHigh: GUIDE_TONE_HIGH,
+  applyContextualQualityRules,
+  applyPriorityDominantResolutionRules,
+  getCurrentPaddedChords: () => paddedChords,
+  getCurrentKey: () => currentKey,
+  getCurrentVoicingPlan: () => currentVoicingPlan,
+  getNextPaddedChords: () => nextPaddedChords,
+  getNextKeyValue: () => nextKeyValue,
+  getNextVoicingPlan: () => nextVoicingPlan
+});
 
-function classifyQuality(quality) {
-  for (const [category, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
-    if (quality === category) return category;
-    if ((aliases || []).includes(quality)) return category;
-  }
-  if (quality.startsWith('13')) return 'dom';
-  if (quality.startsWith('9')) return 'dom';
-  if (quality.startsWith('7')) return 'dom';
-  return null;
+function classifyQuality(...args) {
+  return classifySharedVoicingQuality(...args);
 }
 
-function resolveDominantQuality(chord, quality, isMinor) {
-  if (quality !== '7') return quality;
-  const defaults = isMinor ? DOMINANT_DEFAULT_QUALITY_MINOR : DOMINANT_DEFAULT_QUALITY_MAJOR;
-  if (chord.modifier) return '13';
-  return defaults[chord.roman] || '13';
-}
-
-function getCanonicalChordQuality(chord, isMinor) {
-  if (!chord) return '';
-  return isMinor ? chord.qualityMinor : chord.qualityMajor;
-}
-
-function getPlayedChordQuality(chord, isMinor, nextChord = null) {
-  const canonicalQuality = getCanonicalChordQuality(chord, isMinor);
-  if (!canonicalQuality) return '';
-  const contextualQuality = applyContextualQualityRules(chord, canonicalQuality);
-  const nextCanonicalQuality = getCanonicalChordQuality(nextChord, isMinor);
-  const nextContextualQuality = nextCanonicalQuality
-    ? applyContextualQualityRules(nextChord, nextCanonicalQuality)
-    : '';
-  const prioritizedQuality = applyPriorityDominantResolutionRules({
-    chord,
-    quality: contextualQuality,
-    nextChord,
-    nextQuality: nextContextualQuality,
-    resolutionSemitones: nextChord
-      ? ((nextChord.semitones ?? 0) - (chord.semitones ?? 0) + 12) % 12
-      : null
-  });
-  if (prioritizedQuality !== contextualQuality) return prioritizedQuality;
-  if (classifyQuality(contextualQuality) !== 'dom') return contextualQuality;
-  return resolveDominantQuality(chord, contextualQuality, isMinor);
+function getPlayedChordQuality(...args) {
+  return getSharedPlayedChordQuality(...args);
 }
 
 function getDisplayAliasQuality(quality, displayMode) {
@@ -1526,24 +1528,6 @@ function getDisplayAliasQuality(quality, displayMode) {
     return RICH_DISPLAY_QUALITY_ALIASES[quality] || quality;
   }
   return DEFAULT_DISPLAY_QUALITY_ALIASES[quality] || quality;
-}
-
-function resolveIntervalValue(interval) {
-  if (typeof interval === 'number') return interval;
-  if (typeof interval === 'string' && interval in INTERVAL_SEMITONES) {
-    return INTERVAL_SEMITONES[interval];
-  }
-  throw new Error(`Unknown interval in voicing config: ${interval}`);
-}
-
-function resolveIntervalList(intervals) {
-  return (intervals || []).map(resolveIntervalValue);
-}
-
-function getLowestMidiAtOrAbove(minMidi, pitchClass) {
-  let midi = pitchClass;
-  while (midi < minMidi) midi += 12;
-  return midi;
 }
 
 function getBassPreloadRange() {
@@ -1566,9 +1550,9 @@ const {
   buildPreparedBassPlan: buildDrillPreparedBassPlan
 } = createDrillPlaybackPreparationAppContext({
   harmony: {
-    getPlayedChordQuality,
-    getVoicingPlanForProgression,
-    getVoicing
+    getPlayedChordQuality: getSharedPlayedChordQuality,
+    getVoicingPlanForProgression: getSharedVoicingPlanForProgression,
+    getVoicing: getSharedVoicing
   },
   progressionState: {
     getNextKeyValue: () => nextKeyValue,
@@ -1876,117 +1860,11 @@ function getVoicingInnerMovement(fromVoicing, toVoicing) {
 }
 
 function createVoicingSlot(chord, key, isMinor, segment = 'current', nextChord = null) {
-  if (!chord) {
-    return { chord: null, key, segment, candidateSet: [null] };
-  }
-
-  const quality = getPlayedChordQuality(chord, isMinor, nextChord);
-  const qualityCategory = classifyQuality(quality);
-  if (!qualityCategory) {
-    return { chord, key, segment, candidateSet: [null] };
-  }
-
-  const rootPitchClass = (key + chord.semitones) % 12;
-  const bassPitchClass = (key + (chord.bassSemitones ?? chord.semitones)) % 12;
-  let colorIntervals;
-  let guideIntervals = null;
-  if (qualityCategory === 'dom') {
-    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[quality] || DOMINANT_COLOR_TONES['13']);
-    guideIntervals = DOMINANT_GUIDE_TONES[quality] || null;
-  } else {
-    colorIntervals = resolveIntervalList(COLOR_TONES[qualityCategory] || []);
-  }
-
-  const candidateSet = enumerateChordVoicingCandidates(
-    rootPitchClass,
-    qualityCategory,
-    colorIntervals,
-    guideIntervals,
-    bassPitchClass
-  );
-
-  return {
-    chord,
-    key,
-    segment,
-    candidateSet: candidateSet.length > 0 ? candidateSet : [null],
-  };
+  return createSharedVoicingSlot(chord, key, isMinor, segment, nextChord);
 }
 
 function buildVoicingPlanForSlots(slots) {
-  if (!Array.isArray(slots) || slots.length === 0) return [];
-
-  const candidatesByIndex = slots.map(slot => slot?.candidateSet?.length ? slot.candidateSet : [null]);
-  const topCenter = Math.round((VIOLIN_LOW + VIOLIN_HIGH) / 2);
-
-  let previousScores = candidatesByIndex[0].map(candidate => ({
-    candidate,
-    totalTopMovement: 0,
-    totalBoundaryTopMovement: 0,
-    totalBoundaryCenterDistance: candidate ? Math.abs(getVoicingTopNote(candidate) - topCenter) : 0,
-    totalUpperSpan: candidate ? getVoicingUpperSpan(candidate) : 0,
-    totalTopSum: candidate ? getVoicingTopNote(candidate) : 0,
-    totalInnerMovement: 0,
-    prevIndex: -1,
-    signature: candidate?.colorTones?.join(',') || '',
-  }));
-
-  const scoreRows = [previousScores];
-
-  for (let rowIndex = 1; rowIndex < candidatesByIndex.length; rowIndex++) {
-    const rowCandidates = candidatesByIndex[rowIndex];
-    const crossesBoundary = slots[rowIndex - 1]?.segment !== slots[rowIndex]?.segment;
-    const nextScores = rowCandidates.map(candidate => {
-      const candidateScores = [];
-      for (let prevIndex = 0; prevIndex < previousScores.length; prevIndex++) {
-        const prevScore = previousScores[prevIndex];
-        const prevCandidate = prevScore.candidate;
-        const rawTopMovement = candidate && prevCandidate
-          ? Math.abs(getVoicingTopNote(candidate) - getVoicingTopNote(prevCandidate))
-          : 0;
-        const inPatternTopMovement = crossesBoundary ? 0 : rawTopMovement;
-        const boundaryTopMovement = crossesBoundary ? rawTopMovement : 0;
-        const boundaryCenterDistance = crossesBoundary && candidate
-          ? Math.abs(getVoicingTopNote(candidate) - topCenter)
-          : 0;
-        const innerMovement = candidate && prevCandidate
-          ? getVoicingInnerMovement(prevCandidate, candidate)
-          : 0;
-        const candidateScore = {
-          candidate,
-          totalTopMovement: prevScore.totalTopMovement + inPatternTopMovement,
-          totalBoundaryTopMovement: prevScore.totalBoundaryTopMovement + boundaryTopMovement,
-          totalBoundaryCenterDistance: prevScore.totalBoundaryCenterDistance + boundaryCenterDistance,
-          totalUpperSpan: prevScore.totalUpperSpan + (candidate ? getVoicingUpperSpan(candidate) : 0),
-          totalTopSum: prevScore.totalTopSum + (candidate ? getVoicingTopNote(candidate) : 0),
-          totalInnerMovement: prevScore.totalInnerMovement + innerMovement,
-          prevIndex,
-          signature: `${prevScore.signature}|${candidate?.colorTones?.join(',') || ''}`,
-        };
-        candidateScores.push(candidateScore);
-      }
-      const randomizationChance = crossesBoundary
-        ? VOICING_BOUNDARY_RANDOMIZATION_CHANCE
-        : VOICING_RANDOMIZATION_CHANCE;
-      return pickVoicingScore(candidateScores, randomizationChance);
-    });
-
-    scoreRows.push(nextScores);
-    previousScores = nextScores;
-  }
-
-  let bestFinalIndex = 0;
-  const bestFinalScore = pickVoicingScore(previousScores);
-  bestFinalIndex = previousScores.findIndex(score => score === bestFinalScore);
-
-  const plan = new Array(slots.length);
-  for (let rowIndex = scoreRows.length - 1, candidateIndex = bestFinalIndex; rowIndex >= 0; rowIndex--) {
-    const score = scoreRows[rowIndex][candidateIndex];
-    plan[rowIndex] = score.candidate;
-    candidateIndex = score.prevIndex;
-  }
-
-  return plan;
+  return buildSharedVoicingPlanForSlots(slots);
 }
 
 function compareVoicingPathScores(left, right) {
@@ -2084,136 +1962,19 @@ function pickVoicingScore(scores, randomizationChance = VOICING_RANDOMIZATION_CH
 }
 
 function buildLegacyVoicingPlan(chords, key, isMinor) {
-  if (!Array.isArray(chords) || chords.length === 0) return [];
-
-  const candidatesByIndex = chords.map((chord, index) => createVoicingSlot(chord, key, isMinor, 'current', chords[index + 1] || null).candidateSet);
-
-  let previousScores = candidatesByIndex[0].map(candidate => ({
-    candidate,
-    totalTopMovement: 0,
-    totalTopSum: candidate ? getVoicingTopNote(candidate) : 0,
-    prevIndex: -1,
-    signature: candidate?.colorTones?.join(',') || '',
-  }));
-
-  const scoreRows = [previousScores];
-
-  for (let rowIndex = 1; rowIndex < candidatesByIndex.length; rowIndex++) {
-    const rowCandidates = candidatesByIndex[rowIndex];
-    const nextScores = rowCandidates.map(candidate => {
-      let bestScore = null;
-      for (let prevIndex = 0; prevIndex < previousScores.length; prevIndex++) {
-        const prevScore = previousScores[prevIndex];
-        const topMovement = candidate && prevScore.candidate
-          ? Math.abs(getVoicingTopNote(candidate) - getVoicingTopNote(prevScore.candidate))
-          : 0;
-        const candidateScore = {
-          candidate,
-          totalTopMovement: prevScore.totalTopMovement + topMovement,
-          totalTopSum: prevScore.totalTopSum + (candidate ? getVoicingTopNote(candidate) : 0),
-          prevIndex,
-          signature: `${prevScore.signature}|${candidate?.colorTones?.join(',') || ''}`,
-        };
-        if (!bestScore || compareLegacyVoicingPathScores(candidateScore, bestScore) < 0) {
-          bestScore = candidateScore;
-        }
-      }
-      return bestScore;
-    });
-
-    scoreRows.push(nextScores);
-    previousScores = nextScores;
-  }
-
-  let bestFinalIndex = 0;
-  for (let i = 1; i < previousScores.length; i++) {
-    if (compareLegacyVoicingPathScores(previousScores[i], previousScores[bestFinalIndex]) < 0) {
-      bestFinalIndex = i;
-    }
-  }
-
-  const plan = new Array(chords.length);
-  for (let rowIndex = scoreRows.length - 1, candidateIndex = bestFinalIndex; rowIndex >= 0; rowIndex--) {
-    const score = scoreRows[rowIndex][candidateIndex];
-    plan[rowIndex] = score.candidate;
-    candidateIndex = score.prevIndex;
-  }
-
-  return plan;
+  return buildSharedLegacyVoicingPlan(chords, key, isMinor);
 }
 
 function buildVoicingPlan(chords, key, isMinor) {
-  if (!Array.isArray(chords) || chords.length === 0) return [];
-  if (!isVoiceLeadingV2Enabled()) {
-    return buildLegacyVoicingPlan(chords, key, isMinor);
-  }
-  const slots = chords.map((chord, index) => createVoicingSlot(chord, key, isMinor, 'current', chords[index + 1] || null));
-  return buildVoicingPlanForSlots(slots);
-}
-
-function buildAllRequiredSampleNoteSets() {
-  const celloNotes = new Set();
-  const violinNotes = new Set();
-  const pianoNotes = new Set();
-
-  const processCandidates = (candidates) => {
-    for (const voicing of candidates) {
-      if (!voicing) continue;
-      compingEngine.collectSampleNotes('strings', voicing, { celloNotes, violinNotes, pianoNotes });
-      compingEngine.collectSampleNotes('piano', voicing, { celloNotes, violinNotes, pianoNotes });
-    }
-  };
-
-  for (let rootPitchClass = 0; rootPitchClass < 12; rootPitchClass++) {
-    for (const [qualityCategory, colorToneIntervals] of Object.entries(COLOR_TONES)) {
-      processCandidates(
-        enumerateChordVoicingCandidates(rootPitchClass, qualityCategory, resolveIntervalList(colorToneIntervals))
-      );
-    }
-
-    for (const [dominantQuality, colorToneIntervals] of Object.entries(DOMINANT_COLOR_TONES)) {
-      processCandidates(
-        enumerateChordVoicingCandidates(
-          rootPitchClass,
-          'dom',
-          resolveIntervalList(colorToneIntervals),
-          DOMINANT_GUIDE_TONES[dominantQuality] || null
-        )
-      );
-    }
-  }
-
-  return { celloNotes, violinNotes, pianoNotes };
+  return buildSharedVoicingPlan(chords, key, isMinor);
 }
 
 function getVoicing(key, chord, isMinor, nextChord = null) {
-  const quality = getPlayedChordQuality(chord, isMinor, nextChord);
-  const cat = classifyQuality(quality);
-  if (!cat) return null;
-
-  const rootPitchClass = (key + chord.semitones) % 12;
-  const bassPitchClass = (key + (chord.bassSemitones ?? chord.semitones)) % 12;
-
-  let colorIntervals;
-  let guideIntervals = null;
-  if (cat === 'dom') {
-    colorIntervals = resolveIntervalList(DOMINANT_COLOR_TONES[quality] || DOMINANT_COLOR_TONES['13']);
-    guideIntervals = DOMINANT_GUIDE_TONES[quality] || null;
-  } else {
-    colorIntervals = resolveIntervalList(COLOR_TONES[cat] || []);
-  }
-
-  return computeChordVoicing(rootPitchClass, cat, colorIntervals, guideIntervals, bassPitchClass);
+  return getSharedVoicing(key, chord, isMinor, nextChord);
 }
 
 function getVoicingPlanForProgression(chords, key, isMinor) {
-  if (chords === paddedChords && key === currentKey) {
-    return currentVoicingPlan;
-  }
-  if (chords === nextPaddedChords && key === nextKeyValue) {
-    return nextVoicingPlan;
-  }
-  return null;
+  return getSharedVoicingPlanForProgression(chords, key, isMinor);
 }
 
 // ---- Key Pool ----
@@ -2221,51 +1982,15 @@ function getVoicingPlanForProgression(chords, key, isMinor) {
 let keyPool = [];
 let enabledKeys = [true,true,true,true,true,true,true,true,true,true,true,true];
 
-function shuffleArray(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function getEffectiveKeyPool() {
-  let pool = [];
-  for (let i = 0; i < 12; i++) {
-    if (enabledKeys[i]) pool.push(i);
-  }
-  if (pool.length === 0) {
-    pool = Array.from({ length: 12 }, (_, index) => index);
-  }
-  return pool;
-}
-
-function nextKey(excludedKey = null) {
-  const effectivePool = getEffectiveKeyPool();
-  if (effectivePool.length <= 1 || excludedKey === null) {
-    if (keyPool.length === 0) {
-      keyPool = shuffleArray(effectivePool.slice());
-    }
-    return keyPool.pop();
-  }
-
-  if (keyPool.length === 0) {
-    keyPool = shuffleArray(effectivePool.slice());
-  }
-
-  let candidateIndex = keyPool.findIndex(key => key !== excludedKey);
-  if (candidateIndex === -1) {
-    keyPool = shuffleArray(effectivePool.slice());
-    candidateIndex = keyPool.findIndex(key => key !== excludedKey);
-  }
-
-  if (candidateIndex === -1) {
-    return keyPool.pop();
-  }
-
-  const [candidate] = keyPool.splice(candidateIndex, 1);
-  return candidate;
-}
+const {
+  shuffleArray,
+  getEffectiveKeyPool,
+  nextKey
+} = createDrillKeyPoolRuntime({
+  getEnabledKeys: () => enabledKeys,
+  getKeyPool: () => keyPool,
+  setKeyPool: (value) => { keyPool = value; }
+});
 
 // ---- Display helpers ----
 
@@ -2278,58 +2003,15 @@ function transposeDisplayPitchClass(pitchClass) {
 }
 
 function keyName(key) {
-  const displayKey = transposeDisplayPitchClass(key);
-  if (isOneChordModeActive()) {
-    return KEY_NAMES_MAJOR[displayKey];
-  }
-  const name = dom.majorMinor.checked ? KEY_NAMES_MINOR[displayKey] : KEY_NAMES_MAJOR[displayKey];
-  const suffix = dom.majorMinor.checked ? ' min' : ' maj';
-  return name + suffix;
+  return buildDisplayedKeyName(key);
 }
 
 function keyNameHtml(key) {
-  const value = keyName(key);
-  const match = /^([A-G](?:[b#\u266D\u266F])?)(.*)$/.exec(value);
-  if (!match) {
-    return `<span class="display-key-note">${escapeHtml(value)}</span>`;
-  }
-  const noteMatch = /^([A-G])([b#\u266D\u266F]?)$/.exec(match[1] || '');
-  const letter = noteMatch?.[1] || match[1] || '';
-  const accidental = noteMatch?.[2] || '';
-  const suffix = match[2] || '';
-  const safeSuffix = suffix
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-  const accidentalKind = accidental === '#' || accidental === '\u266F' ? 'sharp' : 'flat';
-  const accidentalGlyph = accidentalKind === 'sharp' ? '\u266f' : '\u266d';
-  return [
-    '<span class="display-key-note">',
-    `<span class="display-key-letter">${escapeHtml(letter)}</span>`,
-    accidental
-      ? `<span class="display-key-accidental display-key-accidental-${accidentalKind}" aria-hidden="true">${accidentalGlyph}</span>`
-      : '',
-    '</span>',
-    safeSuffix ? `<span class="display-key-suffix">${safeSuffix}</span>` : ''
-  ].join('');
+  return buildDisplayedKeyNameHtml(key);
 }
 
 function renderPickerKeyHtml(value) {
-  const match = /^([A-G])([b#\u266D\u266F]?)$/.exec(String(value || ''));
-  if (!match) {
-    return `<span class="picker-key-note">${escapeHtml(value)}</span>`;
-  }
-  const [, letter, accidental = ''] = match;
-  return [
-    '<span class="picker-key-note">',
-    `<span class="picker-key-letter">${escapeHtml(letter)}</span>`,
-    accidental
-      ? `<span class="picker-key-accidental picker-key-accidental-${accidental === '#' || accidental === '\u266F' ? 'sharp' : 'flat'}" aria-hidden="true">${accidental === '#' || accidental === '\u266F' ? '\u266f' : '\u266d'}</span>`
-      : '',
-    '</span>'
-  ].join('');
+  return buildPickerKeyHtml(value);
 }
 
 function getDisplayedQuality(chord, isMinor, nextChord = null) {
@@ -2354,6 +2036,57 @@ function normalizeDisplayedRootName(rootName) {
   return enharmonicMap[rootName] || rootName;
 }
 
+const {
+  keyName: buildDisplayedKeyName,
+  keyNameHtml: buildDisplayedKeyNameHtml,
+  renderPickerKeyHtml: buildPickerKeyHtml,
+  degreeRootName: buildDegreeRootName,
+  chordSymbol: buildChordSymbol,
+  chordSymbolHtml: buildChordSymbolHtml,
+  getChordSymbolRenderOptions: buildChordSymbolRenderOptions
+} = createDrillHarmonyDisplayHelpers({
+  keyNamesMajor: KEY_NAMES_MAJOR,
+  keyNamesMinor: KEY_NAMES_MINOR,
+  letters: LETTERS,
+  naturalSemitones: NATURAL_SEMITONES,
+  degreeIndices: DEGREE_INDICES,
+  escapeHtml,
+  renderChordSymbolHtml,
+  getDisplayTranspositionSemitones,
+  isOneChordModeActive,
+  isMinorMode: () => dom.majorMinor.checked,
+  getDisplayedQuality,
+  normalizeDisplayedRootName,
+  normalizeHarmonyDisplayMode,
+  getUseMajorTriangleSymbol: () => dom.useMajorTriangleSymbol?.checked,
+  getUseHalfDiminishedSymbol: () => dom.useHalfDiminishedSymbol?.checked,
+  getUseDiminishedSymbol: () => dom.useDiminishedSymbol?.checked
+});
+const {
+  getRemainingBeatsUntilNextProgression: buildRemainingBeatsUntilNextProgression,
+  shouldShowNextPreview: buildShouldShowNextPreview
+} = createDrillPreviewTimingHelpers({
+  getChordsPerBar,
+  getSecondsPerBeat,
+  getNextPreviewLeadSeconds,
+  getCurrentChordIdx: () => currentChordIdx,
+  getCurrentBeat: () => currentBeat,
+  getChordCount: () => paddedChords.length
+});
+const {
+  applyDisplaySideLayout: applySharedDisplaySideLayout,
+  fitChordDisplay: fitSharedChordDisplay,
+  refreshChordDisplayLayout: refreshSharedChordDisplayLayout,
+  fitHarmonyDisplay: fitSharedHarmonyDisplay
+} = createDrillHarmonyLayoutHelpers({
+  requestAnimationFrameImpl: (callback) => window.requestAnimationFrame(callback),
+  getDisplayElement: () => document.getElementById('display'),
+  getChordDisplayElement: () => dom.chordDisplay,
+  getNextChordDisplayElement: () => dom.nextChordDisplay,
+  getBaseChordDisplaySize,
+  isCurrentHarmonyHidden
+});
+
 function getDisplayedBassName(key, chord, isMinor) {
   if (!chord || (chord.bassSemitones ?? chord.semitones) === chord.semitones) return null;
   return normalizeDisplayedRootName(
@@ -2362,39 +2095,15 @@ function getDisplayedBassName(key, chord, isMinor) {
 }
 
 function chordSymbol(key, chord, isMinorOverride = null, nextChord = null) {
-  if (chord?.inputType === 'one-chord') {
-    const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return rootName + getDisplayedQuality(chord, false, nextChord);
-  }
-  const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
-  const rootName = normalizeDisplayedRootName(
-    degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
-  );
-  const quality = getDisplayedQuality(chord, isMinor, nextChord);
-  const bassName = getDisplayedBassName(key, chord, isMinor);
-  return rootName + quality + (bassName ? `/${bassName}` : '');
+  return buildChordSymbol(key, chord, isMinorOverride, nextChord);
 }
 
 function chordSymbolHtml(key, chord, isMinorOverride = null, nextChord = null) {
-  if (chord?.inputType === 'one-chord') {
-    const rootName = normalizeDisplayedRootName(KEY_NAMES_MAJOR[transposeDisplayPitchClass(key)]);
-    return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false, nextChord), null, getChordSymbolRenderOptions());
-  }
-  const isMinor = typeof isMinorOverride === 'boolean' ? isMinorOverride : dom.majorMinor.checked;
-  const rootName = normalizeDisplayedRootName(
-    degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.semitones, isMinor)
-  );
-  const quality = getDisplayedQuality(chord, isMinor, nextChord);
-  const bassName = getDisplayedBassName(key, chord, isMinor);
-  return renderChordSymbolHtml(rootName, quality, bassName, getChordSymbolRenderOptions());
+  return buildChordSymbolHtml(key, chord, isMinorOverride, nextChord);
 }
 
 function getChordSymbolRenderOptions() {
-  return {
-    useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
-    useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
-    useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
-  };
+  return buildChordSymbolRenderOptions();
 }
 
 function refreshChordDisplayLayout(element, baseRem) {
@@ -2404,27 +2113,7 @@ function refreshChordDisplayLayout(element, baseRem) {
 
 // Compute the displayed note name from the parsed pitch class so display matches playback.
 function degreeRootName(keyIndex, roman, semitoneOffset, isMinor) {
-  const names = isMinor ? KEY_NAMES_MINOR : KEY_NAMES_MAJOR;
-  const keyLetter = names[keyIndex][0];
-  const keyLetterIdx = LETTERS.indexOf(keyLetter);
-  const degIdx = DEGREE_INDICES[roman];
-
-  // The letter for this scale degree
-  const degLetterIdx = (keyLetterIdx + degIdx) % 7;
-  const degLetter = LETTERS[degLetterIdx];
-
-  // Use the parsed semitone offset so the displayed chord root matches the sounding pitch.
-  const expectedSemi = (keyIndex + semitoneOffset + 12) % 12;
-
-  // Accidental needed to reach expected semitone from the natural letter.
-  // When that would require a double accidental, prefer the simple enharmonic display name.
-  let acc = (expectedSemi - NATURAL_SEMITONES[degLetterIdx] + 12) % 12;
-  if (acc > 6) acc -= 12;
-
-  if (acc === 0) return degLetter;
-  if (acc === 1) return degLetter + '\u266F';
-  if (acc === -1) return degLetter + '\u266D';
-  return names[expectedSemi] || degLetter;
+  return buildDegreeRootName(keyIndex, roman, semitoneOffset, isMinor);
 }
 
 function showNextCol() {
@@ -2455,56 +2144,19 @@ function setDisplayPlaceholderMessage(message = DEFAULT_DISPLAY_PLACEHOLDER_MESS
 setDisplayPlaceholderMessage();
 
 function getRemainingBeatsUntilNextProgression(chordIndex = currentChordIdx, beatInMeasure = currentBeat, chordCount = paddedChords.length) {
-  if (!Number.isFinite(chordCount) || chordCount <= 0) return 0;
-  const chordsPerMeasure = getChordsPerBar();
-  const totalMeasures = chordCount / chordsPerMeasure;
-  const currentMeasure = Math.floor(chordIndex / chordsPerMeasure);
-  const elapsedBeats = currentMeasure * 4 + beatInMeasure;
-  return Math.max(0, totalMeasures * 4 - elapsedBeats);
+  return buildRemainingBeatsUntilNextProgression(chordIndex, beatInMeasure, chordCount);
 }
 
 function shouldShowNextPreview(currentKeyValue, upcomingKeyValue, remainingBeats = getRemainingBeatsUntilNextProgression()) {
-  if (upcomingKeyValue === null || upcomingKeyValue === currentKeyValue) return false;
-  return remainingBeats * getSecondsPerBeat() <= getNextPreviewLeadSeconds();
+  return buildShouldShowNextPreview(currentKeyValue, upcomingKeyValue, remainingBeats);
 }
 
 function applyDisplaySideLayout() {
-  const display = document.getElementById('display');
-  if (!display) return;
-  display.classList.remove('alternate-display-sides', 'display-current-right');
+  applySharedDisplaySideLayout();
 }
 
 function fitChordDisplay(element, baseRem) {
-  if (!element) return;
-  const symbol = element.querySelector('.chord-symbol');
-
-  // Always set the desired large font size
-  element.style.fontSize = `${baseRem}rem`;
-  if (symbol) {
-    symbol.style.transform = '';
-    symbol.style.transformOrigin = 'center center';
-  } else {
-    element.style.transform = '';
-    element.style.transformOrigin = 'center center';
-  }
-  if (!element.textContent?.trim()) return;
-
-  // Let the browser lay out at full size, then scale down if needed
-  const parentWidth = element.parentElement
-    ? (isCurrentHarmonyHidden()
-        ? element.parentElement.clientWidth - 10
-        : element.parentElement.clientWidth / 2 - 10)
-    : element.clientWidth;
-  const textWidth = element.scrollWidth;
-
-  if (textWidth > parentWidth && parentWidth > 0) {
-    const scale = parentWidth / textWidth;
-    if (symbol) {
-      symbol.style.transform = `scale(${scale.toFixed(4)})`;
-    } else {
-      element.style.transform = `scale(${scale.toFixed(4)})`;
-    }
-  }
+  fitSharedChordDisplay(element, baseRem);
 }
 
 function getBaseChordDisplaySize() {
@@ -2518,11 +2170,7 @@ function getBaseChordDisplaySize() {
 }
 
 function fitHarmonyDisplay() {
-  window.requestAnimationFrame(() => {
-    const baseRem = getBaseChordDisplaySize();
-    refreshChordDisplayLayout(dom.chordDisplay, baseRem);
-    refreshChordDisplayLayout(dom.nextChordDisplay, baseRem);
-  });
+  fitSharedHarmonyDisplay();
 }
 
 function updateBeatDots(beat, isIntro) {
@@ -3378,14 +3026,14 @@ const {
     buildLegacyVoicingPlan,
     buildLoopRepVoicings,
     buildPreparedCompingPlans: rebuildPreparedCompingPlans,
-    buildVoicingPlanForSlots,
+    buildVoicingPlanForSlots: buildSharedVoicingPlanForSlots,
     bassMidiToNoteName,
     canLoopTrimProgression,
     chordSymbolHtml,
     chordSymbol,
     compingEngine,
     createOneChordToken,
-    createVoicingSlot,
+    createVoicingSlot: createSharedVoicingSlot,
     fitHarmonyDisplay,
     getBassMidi,
     getBeatsPerChord,
@@ -3643,7 +3291,13 @@ function saveSettings() {
     getCompingStyle,
     getDrumsMode,
     isWalkingBassEnabled,
-    dom
+    dom,
+    defaultMixerVolumes: {
+      masterVolume: Number(DEFAULT_MASTER_VOLUME_PERCENT),
+      bassVolume: 100,
+      stringsVolume: 100,
+      drumsVolume: 100
+    }
   });
 }
 
@@ -4641,6 +4295,36 @@ const {
   },
   transportActions: {}
 }));
+
+const directPlaybackControllerOptions = createDrillDirectRuntimeAppAssembly({
+  embedded: {
+    applyEmbeddedPattern,
+    applyEmbeddedPlaybackSettings,
+    getEmbeddedPlaybackState
+  },
+  playbackRuntime: {
+    ensureWalkingBassGenerator,
+    getAudioContext: () => audioCtx,
+    noteFadeout: NOTE_FADEOUT,
+    stopActiveChordVoices,
+    rebuildPreparedCompingPlans,
+    buildPreparedBassPlan,
+    getCurrentKey: () => currentKey,
+    preloadNearTermSamples,
+    validateCustomPattern: () => validateCustomPattern()
+  },
+  playbackState: {
+    getIsPlaying: () => isPlaying
+  },
+  transportActions: {
+    startPlayback: () => start(),
+    stopPlayback: () => stop(),
+    togglePausePlayback: () => togglePause()
+  }
+});
+publishDirectPlaybackGlobals({
+  directPlaybackControllerOptions
+});
 
 function getPlaybackSessionController() {
   if (playbackSessionController) {

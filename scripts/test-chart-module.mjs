@@ -23,6 +23,8 @@ import { createEmbeddedPlaybackApiClient } from '../core/playback/embedded-playb
 import { createEmbeddedPlaybackBridge } from '../core/playback/embedded-playback-bridge.js';
 import { createEmbeddedPlaybackBridgeProvider } from '../core/playback/embedded-playback-bridge-provider.js';
 import { createEmbeddedPlaybackRuntimeProvider } from '../core/playback/embedded-playback-runtime-provider.js';
+import { publishDirectPlaybackGlobals, readDirectPlaybackGlobals } from '../core/playback/direct-playback-globals.js';
+import { createDirectPlaybackOptionsClient } from '../core/playback/direct-playback-options-client.js';
 import { createDirectPlaybackAssembly } from '../core/playback/direct-playback-assembly.js';
 import { createDirectPlaybackAssemblyProvider } from '../core/playback/direct-playback-assembly-provider.js';
 import { createDirectPlaybackBridgeProvider } from '../core/playback/direct-playback-bridge-provider.js';
@@ -39,6 +41,7 @@ import { createDrillPlaybackBridgeProvider } from '../core/playback/drill-playba
 import { createDrillPlaybackRuntime as createCoreDrillPlaybackRuntime } from '../core/playback/drill-playback-runtime.js';
 import { createDrillPlaybackRuntimeProvider } from '../core/playback/drill-playback-runtime-provider.js';
 import { createEmbeddedPlaybackSessionAdapter } from '../core/playback/embedded-playback-session-adapter.js';
+import { createDirectPlaybackSessionAdapter } from '../core/playback/direct-playback-session-adapter.js';
 import { createDrillPlaybackSessionAdapter } from '../core/playback/drill-playback-session-adapter.js';
 import { createPlaybackBridgeProvider } from '../core/playback/playback-bridge-provider.js';
 import { createPlaybackAssembly } from '../core/playback/playback-assembly.js';
@@ -56,6 +59,11 @@ import {
   createChartPlaybackBridgeProviderForMode,
   createChartPlaybackPayloadBuilder
 } from '../features/chart/chart-playback-bridge.js';
+import { createChartDirectPlaybackControllerOptions } from '../features/chart/chart-direct-playback-options.js';
+import { createChartDirectPlaybackHostResolver } from '../features/chart/chart-direct-playback-host.js';
+import { createChartDirectPlaybackFrameHost } from '../features/chart/chart-direct-playback-frame.js';
+import { createChartDirectPlaybackWindowHost } from '../features/chart/chart-direct-playback-window-host.js';
+import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
 import { initializeEmbeddedDrillRuntime } from '../features/drill/drill-embedded-runtime.js';
 import { createDrillAudioRuntime } from '../features/drill/drill-audio-runtime.js';
@@ -63,12 +71,20 @@ import { createEmbeddedDrillRuntimeAppContextOptions } from '../features/drill/d
 import { createDrillPatternAnalysis } from '../features/drill/drill-pattern-analysis.js';
 import { loadDrillPatternHelp } from '../features/drill/drill-pattern-help.js';
 import { validateDrillCustomPattern } from '../features/drill/drill-pattern-validation.js';
+import { createDrillHarmonyDisplayHelpers } from '../features/drill/drill-display-runtime.js';
+import { createDrillHarmonyLayoutHelpers } from '../features/drill/drill-display-runtime.js';
+import { createDrillPreviewTimingHelpers } from '../features/drill/drill-display-runtime.js';
+import { createDirectDrillRuntimeAppContextOptions } from '../features/drill/drill-direct-runtime-app-context.js';
+import { createDirectPlaybackSessionHandlers, createDirectPlaybackSessionHost } from '../features/drill/drill-direct-session.js';
+import { createDrillDirectRuntimeAppAssembly } from '../features/drill/drill-direct-runtime-app-assembly.js';
 import { createDrillPlaybackPreparationRuntime } from '../features/drill/drill-playback-preparation-runtime.js';
 import { createDrillPlaybackPreparationAppContext } from '../features/drill/drill-playback-preparation-app-context.js';
 import { createDrillPlaybackResourcesAppFacade } from '../features/drill/drill-playback-resources-app-facade.js';
 import { createDrillPlaybackSettingsRuntime } from '../features/drill/drill-playback-settings-runtime.js';
 import { createDrillSessionAnalytics } from '../features/drill/drill-session-analytics.js';
+import { createDrillKeyPoolRuntime } from '../features/drill/drill-key-pool-runtime.js';
 import { createDrillPlaybackRuntimeHost } from '../features/drill/drill-playback-runtime-host.js';
+import { createDrillVoicingRuntime } from '../features/drill/drill-voicing-runtime.js';
 import {
   createDefaultDrillAppSettingsFactory,
   createDrillLoadedSettingsApplier,
@@ -164,6 +180,166 @@ assert.equal(
   drillPatternAnalysis.padProgression([{ semitones: 0 }, { semitones: 7 }, { semitones: 5 }], 2).length,
   4,
   'Drill pattern analysis pads odd progression lengths to an even number of measures.'
+);
+const currentProgressionVoicingPlan = [{ id: 'current-voicing' }];
+const nextProgressionVoicingPlan = [{ id: 'next-voicing' }];
+const currentPaddedChordsRef = [{ semitones: 0, qualityMajor: '7', qualityMinor: '7', roman: 'V' }];
+const nextPaddedChordsRef = [{ semitones: 5, qualityMajor: 'maj7', qualityMinor: 'm7', roman: 'I' }];
+const drillVoicingRuntime = createDrillVoicingRuntime({
+  qualityCategoryAliases: { maj7: ['maj'], m7: ['m'], dom: ['13'] },
+  dominantDefaultQualityMajor: { V: '13' },
+  dominantDefaultQualityMinor: { V: '13' },
+  colorTones: { maj7: [2, 11], m7: [2, 10] },
+  dominantColorTones: { '13': [2, 4, 9] },
+  guideTones: { maj7: [4, 11], m7: [3, 10], dom: [4, 10] },
+  dominantGuideTones: { '13': [4, 10] },
+  intervalSemitones: { '9': 2, '3': 4, '13': 9, '7': 11, b3: 3, b7: 10 },
+  applyContextualQualityRules: (_chord, quality) => quality,
+  applyPriorityDominantResolutionRules: ({ quality, nextChord }) => (
+    quality === '7' && nextChord?.roman === 'I' ? '13' : quality
+  ),
+  getCurrentPaddedChords: () => currentPaddedChordsRef,
+  getCurrentKey: () => 0,
+  getCurrentVoicingPlan: () => currentProgressionVoicingPlan,
+  getNextPaddedChords: () => nextPaddedChordsRef,
+  getNextKeyValue: () => 5,
+  getNextVoicingPlan: () => nextProgressionVoicingPlan
+});
+assert.equal(
+  drillVoicingRuntime.getPlayedChordQuality(
+    currentPaddedChordsRef[0],
+    false,
+    nextPaddedChordsRef[0]
+  ),
+  '13',
+  'Drill voicing runtime preserves dominant-resolution prioritization in the extracted shared voicing helpers.'
+);
+assert.equal(
+  drillVoicingRuntime.getVoicingPlanForProgression(currentPaddedChordsRef, 0),
+  currentProgressionVoicingPlan,
+  'Drill voicing runtime reuses the current progression voicing plan through the shared accessors.'
+);
+assert.equal(
+  drillVoicingRuntime.getVoicingPlanForProgression(nextPaddedChordsRef, 5),
+  nextProgressionVoicingPlan,
+  'Drill voicing runtime resolves next progression voicing plans through the shared boundary.'
+);
+let drillKeyPoolState = [];
+let drillEnabledKeys = [true, false, false, true, false, false, false, false, false, false, false, false];
+const drillKeyPoolRuntime = createDrillKeyPoolRuntime({
+  getEnabledKeys: () => drillEnabledKeys,
+  getKeyPool: () => drillKeyPoolState,
+  setKeyPool: (value) => { drillKeyPoolState = value; }
+});
+assert.deepEqual(
+  drillKeyPoolRuntime.getEffectiveKeyPool(),
+  [0, 3],
+  'Drill key-pool runtime exposes only the enabled key classes when a key subset is active.'
+);
+const firstSelectedKey = drillKeyPoolRuntime.nextKey();
+assert.equal(
+  [0, 3].includes(firstSelectedKey),
+  true,
+  'Drill key-pool runtime selects from the enabled key subset.'
+);
+drillEnabledKeys = new Array(12).fill(false);
+assert.deepEqual(
+  drillKeyPoolRuntime.getEffectiveKeyPool(),
+  Array.from({ length: 12 }, (_, index) => index),
+  'Drill key-pool runtime falls back to the full chromatic pool when no keys are enabled.'
+);
+const drillHarmonyDisplayHelpers = createDrillHarmonyDisplayHelpers({
+  keyNamesMajor: ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+  keyNamesMinor: ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
+  letters: ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+  naturalSemitones: [0, 2, 4, 5, 7, 9, 11],
+  degreeIndices: { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5, VII: 6 },
+  escapeHtml: (value) => String(value),
+  renderChordSymbolHtml: (root, quality, bass) => `${root}:${quality}:${bass || ''}`,
+  getDisplayTranspositionSemitones: () => 0,
+  isOneChordModeActive: () => false,
+  isMinorMode: () => false,
+  getDisplayedQuality: (chord) => chord?.qualityMajor || '',
+  normalizeDisplayedRootName: (value) => value,
+  getUseMajorTriangleSymbol: () => true,
+  getUseHalfDiminishedSymbol: () => true,
+  getUseDiminishedSymbol: () => true
+});
+assert.equal(
+  drillHarmonyDisplayHelpers.keyName(0),
+  'C maj',
+  'Drill harmony display helpers render the default major key label from injected pitch-name tables.'
+);
+assert.equal(
+  drillHarmonyDisplayHelpers.degreeRootName(0, 'VI', 8, false),
+  'A♭',
+  'Drill harmony display helpers derive enharmonic degree roots from roman degrees and semitone offsets.'
+);
+assert.equal(
+  drillHarmonyDisplayHelpers.chordSymbol(
+    0,
+    { roman: 'II', semitones: 2, qualityMajor: 'm7', qualityMinor: 'm7' },
+    false,
+    null
+  ),
+  'Dm7',
+  'Drill harmony display helpers format plain chord symbols from injected display-quality rules.'
+);
+const drillPreviewTimingHelpers = createDrillPreviewTimingHelpers({
+  getChordsPerBar: () => 2,
+  getSecondsPerBeat: () => 0.5,
+  getNextPreviewLeadSeconds: () => 3,
+  getCurrentChordIdx: () => 1,
+  getCurrentBeat: () => 2,
+  getChordCount: () => 8
+});
+assert.equal(
+  drillPreviewTimingHelpers.getRemainingBeatsUntilNextProgression(),
+  14,
+  'Drill preview timing helpers compute remaining beats from the current chord slot and beat index.'
+);
+assert.equal(
+  drillPreviewTimingHelpers.shouldShowNextPreview(0, 5, 4),
+  true,
+  'Drill preview timing helpers enable the next-key preview when the remaining time fits within the configured lead window.'
+);
+let layoutFrameRequested = false;
+const layoutDisplayClasses = new Set(['alternate-display-sides', 'display-current-right']);
+const drillHarmonyLayoutHelpers = createDrillHarmonyLayoutHelpers({
+  requestAnimationFrameImpl: (callback) => {
+    layoutFrameRequested = true;
+    callback();
+  },
+  getDisplayElement: () => ({
+    classList: {
+      remove(...classes) {
+        classes.forEach((value) => layoutDisplayClasses.delete(value));
+      }
+    }
+  }),
+  getChordDisplayElement: () => ({
+    textContent: 'Cmaj7',
+    style: {},
+    parentElement: { clientWidth: 100 },
+    clientWidth: 100,
+    scrollWidth: 200,
+    querySelector: () => null
+  }),
+  getNextChordDisplayElement: () => null,
+  getBaseChordDisplaySize: () => 5,
+  isCurrentHarmonyHidden: () => false
+});
+drillHarmonyLayoutHelpers.applyDisplaySideLayout();
+assert.equal(
+  layoutDisplayClasses.has('alternate-display-sides'),
+  false,
+  'Drill harmony layout helpers clear alternate-side layout classes from the display container.'
+);
+drillHarmonyLayoutHelpers.fitHarmonyDisplay();
+assert.equal(
+  layoutFrameRequested,
+  true,
+  'Drill harmony layout helpers schedule harmony fitting work through the injected animation-frame hook.'
 );
 const patternHelpDom = { patternHelp: { innerHTML: '' } };
 await loadDrillPatternHelp({
@@ -2859,6 +3035,69 @@ const drillPlaybackAdapter = createDrillPlaybackSessionAdapter({
     drillAdapterCalls.push({ kind: 'pause' });
   }
 });
+const directAdapterCalls = [];
+const directPlaybackAdapter = createDirectPlaybackSessionAdapter({
+  loadDirectSession(sessionSpec, playbackSettings) {
+    directAdapterCalls.push({ kind: 'load', sessionSpec, playbackSettings });
+    return { ok: true, state: { ...drillRuntimeState, sessionId: sessionSpec?.id || '' } };
+  },
+  updateDirectPlaybackSettings(playbackSettings, sessionSpec) {
+    directAdapterCalls.push({ kind: 'settings', playbackSettings, sessionSpec });
+    return { ok: true, state: { ...drillRuntimeState, sessionId: sessionSpec?.id || '' } };
+  },
+  getDirectPlaybackState() {
+    return { ...drillRuntimeState, currentBeat: 2 };
+  },
+  startPlayback: async () => {
+    directAdapterCalls.push({ kind: 'start' });
+  },
+  stopPlayback: () => {
+    directAdapterCalls.push({ kind: 'stop' });
+  },
+  togglePausePlayback: () => {
+    directAdapterCalls.push({ kind: 'pause' });
+  }
+});
+await directPlaybackAdapter.loadSession(satinSession, {
+  transposition: 5,
+  displayMode: 'roman'
+});
+assert.equal(
+  directAdapterCalls.find(call => call.kind === 'load')?.playbackSettings?.transposition,
+  5,
+  'Direct playback session adapter prefers the direct session loader over the embedded-pattern fallback.'
+);
+await directPlaybackAdapter.updatePlaybackSettings({
+  masterVolume: 70
+}, satinSession);
+assert.equal(
+  directAdapterCalls.find(call => call.kind === 'settings')?.playbackSettings?.masterVolume,
+  70,
+  'Direct playback session adapter forwards playback settings through the direct session boundary when available.'
+);
+assert.equal(
+  directPlaybackAdapter.getRuntimeState()?.currentBeat,
+  2,
+  'Direct playback session adapter can surface runtime state from a direct getter.'
+);
+await directPlaybackAdapter.start();
+directPlaybackAdapter.pauseToggle();
+directPlaybackAdapter.stop();
+assert.equal(
+  directAdapterCalls.filter(call => call.kind === 'start').length,
+  1,
+  'Direct playback session adapter preserves the shared transport controls.'
+);
+assert.equal(
+  directAdapterCalls.filter(call => call.kind === 'pause').length,
+  1,
+  'Direct playback session adapter preserves the shared pause transport control.'
+);
+assert.equal(
+  directAdapterCalls.filter(call => call.kind === 'stop').length,
+  0,
+  'Direct playback session adapter preserves the no-op stop behavior when playback is already stopped.'
+);
 await drillPlaybackAdapter.loadSession(satinSession, {
   transposition: -2,
   displayMode: 'roman'
@@ -2984,15 +3223,15 @@ assert.equal(
   'Drill playback runtime provider returns a stable runtime with a memoized controller.'
 );
 const directPlaybackRuntimeProvider = createDirectPlaybackRuntimeProvider({
-  applyEmbeddedPattern(payload) {
-    drillAdapterCalls.push({ kind: 'direct-provider-runtime-pattern', payload });
+  loadDirectSession(sessionSpec, playbackSettings) {
+    directAdapterCalls.push({ kind: 'provider-load', sessionSpec, playbackSettings });
     return { ok: true, state: drillRuntimeState };
   },
-  applyEmbeddedPlaybackSettings(settings) {
-    drillAdapterCalls.push({ kind: 'direct-provider-runtime-settings', settings });
-    return settings;
+  updateDirectPlaybackSettings(playbackSettings) {
+    directAdapterCalls.push({ kind: 'provider-settings', playbackSettings });
+    return { ok: true, state: drillRuntimeState };
   },
-  getEmbeddedPlaybackState() {
+  getDirectPlaybackState() {
     return drillRuntimeState;
   }
 });
@@ -3005,6 +3244,12 @@ assert.equal(
   directPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
   directPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
   'Direct playback runtime provider returns a stable runtime with a memoized controller.'
+);
+await directPlaybackRuntimeProvider.getRuntime().ensurePlaybackController().loadSession(satinSession);
+assert.equal(
+  directAdapterCalls.some(call => call.kind === 'provider-load'),
+  true,
+  'Direct playback runtime provider can load a practice session through the direct session boundary.'
 );
 const drillPlaybackBridgeProvider = createDrillPlaybackBridgeProvider({
   applyEmbeddedPattern(payload) {
@@ -3516,6 +3761,263 @@ assert.equal(
   0.1,
   'Embedded drill runtime app context forwards direct runtime controller options through the grouped boundary.'
 );
+const directSessionHandlers = createDirectPlaybackSessionHandlers({
+  applyPracticeSession(sessionSpec) {
+    directAdapterCalls.push({ kind: 'direct-host-apply-session', sessionSpec });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyPlaybackSettings(playbackSettings) {
+    directAdapterCalls.push({ kind: 'direct-host-apply-settings', playbackSettings });
+    return playbackSettings;
+  },
+  getPlaybackState() {
+    return { ...drillRuntimeState, currentChordIdx: 3 };
+  }
+});
+directSessionHandlers.loadDirectSession(satinSession, { tempo: 140 });
+assert.equal(
+  directAdapterCalls.some(call => call.kind === 'direct-host-apply-session'),
+  true,
+  'Direct playback session handlers can load a practice session through an app-level direct host.'
+);
+assert.equal(
+  directSessionHandlers.getDirectPlaybackState()?.currentChordIdx,
+  3,
+  'Direct playback session handlers surface runtime state through the direct host boundary.'
+);
+const directSessionHost = createDirectPlaybackSessionHost({
+  applyEmbeddedPattern(payload) {
+    directAdapterCalls.push({ kind: 'direct-host-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    directAdapterCalls.push({ kind: 'direct-host-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return { ...drillRuntimeState, currentBeat: 5 };
+  }
+});
+directSessionHost.loadDirectSession(satinSession, { stringsVolume: 60 });
+assert.equal(
+  directAdapterCalls.some(call => call.kind === 'direct-host-pattern'),
+  true,
+  'Direct playback session host can adapt a practice session onto the current drill UI/runtime implementation.'
+);
+assert.equal(
+  directSessionHost.getDirectPlaybackState()?.currentBeat,
+  5,
+  'Direct playback session host reuses the current embedded runtime state while exposing a direct-session surface.'
+);
+const directRuntimeAppContextOptions = createDirectDrillRuntimeAppContextOptions({
+  applyEmbeddedPattern(payload) {
+    directAdapterCalls.push({ kind: 'direct-context-pattern', payload });
+    return { ok: true, state: drillRuntimeState };
+  },
+  applyEmbeddedPlaybackSettings(settings) {
+    directAdapterCalls.push({ kind: 'direct-context-settings', settings });
+    return settings;
+  },
+  getEmbeddedPlaybackState() {
+    return drillRuntimeState;
+  },
+  playbackRuntime: {
+    ensureWalkingBassGenerator: async () => {},
+    getAudioContext: () => null,
+    noteFadeout: 0.1,
+    stopActiveChordVoices: () => {},
+    rebuildPreparedCompingPlans: () => {},
+    buildPreparedBassPlan: () => {},
+    getCurrentKey: () => 0,
+    preloadNearTermSamples: async () => {},
+    validateCustomPattern: () => true
+  },
+  playbackState: {
+    getIsPlaying: () => false
+  },
+  transportActions: {
+    startPlayback: async () => {},
+    stopPlayback: () => {},
+    togglePausePlayback: () => {}
+  }
+});
+assert.equal(
+  typeof directRuntimeAppContextOptions.loadDirectSession,
+  'function',
+  'Direct drill runtime app context exposes a direct session loader for the future chart direct runtime.'
+);
+assert.equal(
+  directRuntimeAppContextOptions.noteFadeout,
+  0.1,
+  'Direct drill runtime app context preserves the shared runtime transport bindings.'
+);
+const directRuntimeAppAssembly = createDrillDirectRuntimeAppAssembly({
+  embedded: {
+    applyEmbeddedPattern(payload) {
+      directAdapterCalls.push({ kind: 'direct-assembly-pattern-host', payload });
+      return { ok: true, state: drillRuntimeState };
+    },
+    applyEmbeddedPlaybackSettings(settings) {
+      directAdapterCalls.push({ kind: 'direct-assembly-settings-host', settings });
+      return settings;
+    },
+    getEmbeddedPlaybackState() {
+      return drillRuntimeState;
+    }
+  },
+  playbackRuntime: {
+    ensureWalkingBassGenerator: async () => {},
+    getAudioContext: () => null,
+    noteFadeout: 0.1,
+    stopActiveChordVoices: () => {},
+    rebuildPreparedCompingPlans: () => {},
+    buildPreparedBassPlan: () => {},
+    getCurrentKey: () => 0,
+    preloadNearTermSamples: async () => {},
+    validateCustomPattern: () => true
+  },
+  playbackState: {
+    getIsPlaying: () => false
+  },
+  transportActions: {
+    startPlayback: async () => {},
+    stopPlayback: () => {},
+    togglePausePlayback: () => {}
+  }
+});
+assert.equal(
+  typeof directRuntimeAppAssembly.loadDirectSession,
+  'function',
+  'Direct drill runtime app assembly materializes direct playback controller options from grouped app concerns.'
+);
+const directGlobalsTarget = /** @type {any} */ ({
+  dispatchEvent(event) {
+    this.lastDirectEventType = event.type;
+  }
+});
+publishDirectPlaybackGlobals({
+  targetWindow: directGlobalsTarget,
+  directPlaybackControllerOptions: directRuntimeAppAssembly
+});
+assert.equal(
+  readDirectPlaybackGlobals(directGlobalsTarget),
+  directRuntimeAppAssembly,
+  'Direct playback globals publish the app-level direct controller options for future same-page consumers.'
+);
+const directPlaybackOptionsClient = createDirectPlaybackOptionsClient({
+  getTargetWindow: () => directGlobalsTarget,
+  getHostFrame: () => /** @type {any} */ ({ addEventListener() {}, removeEventListener() {} })
+});
+assert.equal(
+  await directPlaybackOptionsClient.ensureOptions(),
+  directRuntimeAppAssembly,
+  'Direct playback options client resolves published direct controller options through the shared readiness boundary.'
+);
+const samePageDirectPlaybackOptionsClient = createDirectPlaybackOptionsClient({
+  getTargetWindow: () => directGlobalsTarget
+});
+assert.equal(
+  await samePageDirectPlaybackOptionsClient.ensureOptions(),
+  directRuntimeAppAssembly,
+  'Direct playback options client can also resolve same-page published options without requiring an iframe host.'
+);
+const chartDirectTargetWindow = /** @type {any} */ ({
+  __JPT_DIRECT_PLAYBACK_CONTROLLER_OPTIONS__: directRuntimeAppAssembly
+});
+let chartFrameHostStoredFrame = null;
+const chartDirectFrameHost = createChartDirectPlaybackFrameHost({
+  getExistingFrame: () => chartFrameHostStoredFrame,
+  setFrame: (frame) => { chartFrameHostStoredFrame = frame; },
+  parent: /** @type {any} */ ({ appendChild() {} }),
+  createFrame: () => /** @type {any} */ ({
+    contentWindow: null,
+    setAttribute() {},
+    tabIndex: -1
+  })
+});
+assert.equal(
+  chartDirectFrameHost.ensureFrame(),
+  chartDirectFrameHost.ensureFrame(),
+  'Chart direct playback frame host memoizes the transitional iframe host.'
+);
+const chartDirectWindowHost = createChartDirectPlaybackWindowHost({
+  getCurrentWindow: () => chartDirectTargetWindow,
+  getExistingFrame: () => chartFrameHostStoredFrame,
+  setFrame: (frame) => { chartFrameHostStoredFrame = frame; },
+  parent: /** @type {any} */ ({ appendChild() {} }),
+  createFrame: () => {
+    throw new Error('Frame should not be created when same-page direct playback is available.');
+  }
+});
+assert.equal(
+  chartDirectWindowHost.getTargetWindow(),
+  chartDirectTargetWindow,
+  'Chart direct playback window host prefers a same-page direct runtime when one is already published.'
+);
+assert.equal(
+  chartDirectWindowHost.ensureFrame(),
+  null,
+  'Chart direct playback window host avoids creating the transitional iframe when same-page direct playback is available.'
+);
+const chartDirectRuntimeHost = createChartDirectPlaybackRuntimeHost({
+  getCurrentWindow: () => chartDirectTargetWindow,
+  getExistingFrame: () => chartFrameHostStoredFrame,
+  setFrame: (frame) => { chartFrameHostStoredFrame = frame; },
+  getTempo: () => 155,
+  getCurrentChartTitle: () => 'Chart Test',
+  parent: /** @type {any} */ ({ appendChild() {} }),
+  createFrame: () => /** @type {any} */ ({
+    contentWindow: chartDirectTargetWindow,
+    setAttribute() {},
+    tabIndex: -1
+  })
+});
+assert.equal(
+  typeof chartDirectRuntimeHost.getDirectPlaybackOptions().loadDirectSession,
+  'function',
+  'Chart direct playback runtime host materializes the direct playback controller options from the transitional iframe host.'
+);
+assert.equal(
+  chartDirectRuntimeHost.ensureFrame(),
+  null,
+  'Chart direct playback runtime host can now stay same-page when direct controller options are already published on the current window.'
+);
+assert.equal(
+  chartDirectRuntimeHost.getCurrentTargetWindow(),
+  chartDirectTargetWindow,
+  'Chart direct playback runtime host exposes the preferred same-page target separately from the iframe fallback target.'
+);
+const chartDirectHostResolver = createChartDirectPlaybackHostResolver({
+  getTargetWindow: () => chartDirectTargetWindow,
+  getPreferredTargetWindow: () => chartDirectTargetWindow,
+  getFallbackTargetWindow: () => null,
+  getHostFrame: () => /** @type {any} */ ({ addEventListener() {}, removeEventListener() {} })
+});
+assert.equal(
+  await chartDirectHostResolver.ensureDirectHostOptions(),
+  directRuntimeAppAssembly,
+  'Chart direct playback host resolver reuses the shared direct readiness boundary.'
+);
+const chartDirectControllerOptions = createChartDirectPlaybackControllerOptions({
+  getTargetWindow: () => chartDirectTargetWindow,
+  getPreferredTargetWindow: () => chartDirectTargetWindow,
+  getFallbackTargetWindow: () => null,
+  getTempo: () => 155,
+  getCurrentChartTitle: () => 'Chart Test'
+});
+const chartDirectLoadResult = await chartDirectControllerOptions.loadDirectSession?.(satinSession, {
+  transposition: 4
+});
+assert.equal(
+  chartDirectLoadResult?.ok,
+  true,
+  'Chart direct playback controller options can load a chart session through the published direct host options.'
+);
+assert.equal(
+  typeof chartDirectControllerOptions.startPlayback,
+  'function',
+  'Chart direct playback controller options expose direct transport controls.'
+);
 const chartDirectPlaybackBridgeProvider = createChartDirectPlaybackBridgeProvider({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'chart-direct-bridge-pattern', payload });
@@ -3596,15 +4098,15 @@ assert.equal(
   'Core Drill playback assembly materializes the same controller as its runtime.'
 );
 const directPlaybackAssembly = createDirectPlaybackAssembly({
-  applyEmbeddedPattern(payload) {
-    drillAdapterCalls.push({ kind: 'direct-assembly-pattern', payload });
+  loadDirectSession(sessionSpec, playbackSettings) {
+    directAdapterCalls.push({ kind: 'assembly-load', sessionSpec, playbackSettings });
     return { ok: true, state: drillRuntimeState };
   },
-  applyEmbeddedPlaybackSettings(settings) {
-    drillAdapterCalls.push({ kind: 'direct-assembly-settings', settings });
-    return settings;
+  updateDirectPlaybackSettings(playbackSettings) {
+    directAdapterCalls.push({ kind: 'assembly-settings', playbackSettings });
+    return { ok: true, state: drillRuntimeState };
   },
-  getEmbeddedPlaybackState() {
+  getDirectPlaybackState() {
     return drillRuntimeState;
   }
 });
@@ -3650,15 +4152,15 @@ assert.equal(
   'Drill playback assembly provider returns a stable assembly/controller pair.'
 );
 const directPlaybackAssemblyProvider = createDirectPlaybackAssemblyProvider({
-  applyEmbeddedPattern(payload) {
-    drillAdapterCalls.push({ kind: 'direct-provider-assembly-pattern', payload });
+  loadDirectSession(sessionSpec, playbackSettings) {
+    directAdapterCalls.push({ kind: 'provider-assembly-load', sessionSpec, playbackSettings });
     return { ok: true, state: drillRuntimeState };
   },
-  applyEmbeddedPlaybackSettings(settings) {
-    drillAdapterCalls.push({ kind: 'direct-provider-assembly-settings', settings });
-    return settings;
+  updateDirectPlaybackSettings(playbackSettings) {
+    directAdapterCalls.push({ kind: 'provider-assembly-settings', playbackSettings });
+    return { ok: true, state: drillRuntimeState };
   },
-  getEmbeddedPlaybackState() {
+  getDirectPlaybackState() {
     return drillRuntimeState;
   }
 });
@@ -3674,20 +4176,24 @@ assert.equal(
 );
 assert.equal(
   typeof createDirectPlaybackRuntime({
-    applyEmbeddedPattern() {
+    loadDirectSession() {
       return { ok: true, state: drillRuntimeState };
     },
-    applyEmbeddedPlaybackSettings() {},
-    getEmbeddedPlaybackState() {
+    updateDirectPlaybackSettings() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    getDirectPlaybackState() {
       return drillRuntimeState;
     }
   }).ensurePlaybackController,
   typeof createFeatureDirectPlaybackRuntime({
-    applyEmbeddedPattern() {
+    loadDirectSession() {
       return { ok: true, state: drillRuntimeState };
     },
-    applyEmbeddedPlaybackSettings() {},
-    getEmbeddedPlaybackState() {
+    updateDirectPlaybackSettings() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    getDirectPlaybackState() {
       return drillRuntimeState;
     }
   }).ensurePlaybackController,
@@ -3695,11 +4201,13 @@ assert.equal(
 );
 assert.equal(
   typeof createDirectPlaybackController({
-    applyEmbeddedPattern() {
+    loadDirectSession() {
       return { ok: true, state: drillRuntimeState };
     },
-    applyEmbeddedPlaybackSettings() {},
-    getEmbeddedPlaybackState() {
+    updateDirectPlaybackSettings() {
+      return { ok: true, state: drillRuntimeState };
+    },
+    getDirectPlaybackState() {
       return drillRuntimeState;
     }
   }).start,
@@ -3712,19 +4220,13 @@ const chartDirectRuntimeContext = createChartPlaybackRuntimeContext({
     chartPlaybackController: null
   },
   mode: 'direct',
-  directPlaybackOptions: {
-    applyEmbeddedPattern() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    applyEmbeddedPlaybackSettings() {
-      return {};
-    },
-    getEmbeddedPlaybackState() {
-      return drillRuntimeState;
-    },
-    startPlayback: async () => {},
-    stopPlayback: () => {},
-    togglePausePlayback: () => {}
+  directPlaybackRuntimeHost: {
+    ensureFrame: () => /** @type {any} */ ({ contentWindow: chartDirectTargetWindow }),
+    getTargetWindow: () => chartDirectTargetWindow,
+    getDirectPlaybackOptions: () => chartDirectRuntimeHost.getDirectPlaybackOptions()
+  },
+  getPlaybackBridgeFrame: () => {
+    throw new Error('Direct chart runtime context should not resolve the embedded bridge frame.');
   },
   getTempo: () => 120,
   getCurrentChartTitle: () => 'Chart',

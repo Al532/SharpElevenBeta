@@ -3,6 +3,7 @@
 /** @typedef {import('../../core/types/contracts').ChartPlaybackController} ChartPlaybackController */
 /** @typedef {import('../../core/types/contracts').ChartPlaybackBridgeMode} ChartPlaybackBridgeMode */
 /** @typedef {import('../../core/types/contracts').ChartPlaybackControllerOptions} ChartPlaybackControllerOptions */
+/** @typedef {import('../../core/types/contracts').ChartDirectPlaybackRuntimeHost} ChartDirectPlaybackRuntimeHost */
 /** @typedef {import('../../core/types/contracts').ChartScreenState} ChartScreenState */
 /** @typedef {import('../../core/types/contracts').DirectPlaybackControllerOptions} DirectPlaybackControllerOptions */
 /** @typedef {import('../../core/types/contracts').PlaybackBridgeProvider} PlaybackBridgeProvider */
@@ -26,6 +27,7 @@ import { createChartPlaybackController } from './chart-playback-controller.js';
  *     chartPlaybackController?: ChartPlaybackController | null
  *   },
  *   mode?: ChartPlaybackBridgeMode,
+ *   directPlaybackRuntimeHost?: ChartDirectPlaybackRuntimeHost | null,
  *   directPlaybackOptions?: DirectPlaybackControllerOptions,
  *   playbackBridgeFrame?: HTMLIFrameElement | null,
  *   getPlaybackBridgeFrame?: () => HTMLIFrameElement | null,
@@ -49,6 +51,7 @@ import { createChartPlaybackController } from './chart-playback-controller.js';
 export function createChartPlaybackRuntimeContext({
   state,
   mode = 'embedded',
+  directPlaybackRuntimeHost = null,
   directPlaybackOptions,
   playbackBridgeFrame,
   getPlaybackBridgeFrame,
@@ -64,7 +67,15 @@ export function createChartPlaybackRuntimeContext({
   onTransportStatus,
   onPersistPlaybackSettings
 }) {
-  const resolvePlaybackBridgeFrame = () => getPlaybackBridgeFrame?.() || playbackBridgeFrame || null;
+  const resolveDirectPlaybackRuntimeHost = () => directPlaybackRuntimeHost || null;
+  const resolveEmbeddedPlaybackBridgeFrame = () =>
+    getPlaybackBridgeFrame?.()
+    || playbackBridgeFrame
+    || null;
+  const resolveDirectPlaybackOptions = () =>
+    resolveDirectPlaybackRuntimeHost()?.getDirectPlaybackOptions?.()
+    || directPlaybackOptions
+    || undefined;
 
   /** @returns {PlaybackBridgeProvider} */
   function getPlaybackBridgeProvider() {
@@ -74,8 +85,8 @@ export function createChartPlaybackRuntimeContext({
 
     state.chartPlaybackBridgeProvider = createChartPlaybackBridgeProviderForMode({
       mode,
-      directPlaybackOptions,
-      bridgeFrame: resolvePlaybackBridgeFrame(),
+      directPlaybackOptions: resolveDirectPlaybackOptions(),
+      bridgeFrame: mode === 'embedded' ? resolveEmbeddedPlaybackBridgeFrame() : null,
       getTempo,
       getCurrentChartTitle
     });
@@ -91,7 +102,7 @@ export function createChartPlaybackRuntimeContext({
 
     state.chartPlaybackController = /** @type {ChartPlaybackController} */ (createChartPlaybackController(
       createChartPlaybackControllerOptions(/** @type {ChartPlaybackControllerOptions} */ ({
-        bridgeFrame: resolvePlaybackBridgeFrame(),
+        bridgeFrame: mode === 'embedded' ? resolveEmbeddedPlaybackBridgeFrame() : null,
         playbackBridgeProvider: getPlaybackBridgeProvider(),
         getSelectedPracticeSession,
         getPlaybackSettings,

@@ -422,7 +422,11 @@ export interface DrillPlaybackControllerOptions {
   togglePausePlayback?: () => void;
 }
 
-export interface DirectPlaybackControllerOptions extends DrillPlaybackControllerOptions {}
+export interface DirectPlaybackControllerOptions extends DrillPlaybackControllerOptions {
+  loadDirectSession?: (sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) => Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
+  updateDirectPlaybackSettings?: (playbackSettings: PlaybackSettings, sessionSpec: PracticeSessionSpec | null) => Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
+  getDirectPlaybackState?: () => Partial<PlaybackRuntimeState> | null | undefined;
+}
 
 export interface EmbeddedPlaybackBridgeOptions {
   getTargetWindow?: () => Window | null;
@@ -440,6 +444,14 @@ export interface ChartPlaybackBridgeOptions {
   getTempo?: () => number;
   getCurrentChartTitle?: () => string;
   directPlaybackOptions?: DirectPlaybackControllerOptions;
+}
+
+export interface ChartDirectPlaybackRuntimeHost {
+  ensureFrame(): HTMLIFrameElement | null;
+  getCurrentTargetWindow(): Window | null;
+  getFallbackTargetWindow(): Window | null;
+  getTargetWindow(): Window | null;
+  getDirectPlaybackOptions(): DirectPlaybackControllerOptions;
 }
 
 export interface DrillPlaybackAssembly extends PlaybackRuntimeBindings {
@@ -621,5 +633,6 @@ declare global {
     __JPT_DRILL_API__?: EmbeddedPlaybackApi;
     __JPT_PLAYBACK_RUNTIME__?: PlaybackRuntime;
     __JPT_PLAYBACK_SESSION_CONTROLLER__?: PlaybackSessionController;
+    __JPT_DIRECT_PLAYBACK_CONTROLLER_OPTIONS__?: DirectPlaybackControllerOptions;
   }
 }
