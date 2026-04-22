@@ -29,9 +29,7 @@ import {
   DEFAULT_SWING_RATIO,
 } from './swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
-import { createDrillAudioRuntimeAppAssembly } from './features/drill/drill-audio-runtime-app-assembly.js';
-import { createDrillAudioRuntimeAppBindings } from './features/drill/drill-audio-runtime-app-bindings.js';
-import { createDrillAudioRuntimeAssemblyAppContext } from './features/drill/drill-audio-runtime-assembly-app-context.js';
+import { createDrillAudioRuntimeRootAppAssembly } from './features/drill/drill-audio-runtime-root-app-assembly.js';
 import { createDrillCompingEngineAppBindings } from './features/drill/drill-comping-engine-app-bindings.js';
 import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
 import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
@@ -91,8 +89,7 @@ import {
   initializeKeyPickerUi,
   initializeSocialShareLinks
 } from './features/drill/drill-ui-runtime.js';
-import { createDrillSharedPlaybackAppContextOptions } from './features/drill/drill-shared-playback-app-context.js';
-import { createDrillSharedPlaybackAppAssembly } from './features/drill/drill-shared-playback-app-assembly.js';
+import { createDrillSharedPlaybackRootAppAssembly } from './features/drill/drill-shared-playback-root-app-assembly.js';
 import { createDrillSharedPlaybackDirectStateAppContext } from './features/drill/drill-shared-playback-direct-state-app-context.js';
 import { createDrillSharedPlaybackHostAppContext } from './features/drill/drill-shared-playback-host-app-context.js';
 import { createDrillSharedPlaybackEmbeddedStateAppContext } from './features/drill/drill-shared-playback-embedded-state-app-context.js';
@@ -102,7 +99,6 @@ import { createDrillSharedPlaybackDirectTransportAppContext } from './features/d
 import { createDrillSharedPlaybackNormalizationAppContext } from './features/drill/drill-shared-playback-normalization-app-context.js';
 import { createDrillSharedPlaybackPatternUiAppContext } from './features/drill/drill-shared-playback-pattern-ui-app-context.js';
 import { createDrillSharedPlaybackSettingsAppContext } from './features/drill/drill-shared-playback-settings-app-context.js';
-import { createDrillSharedPlaybackStateAppContext } from './features/drill/drill-shared-playback-state-app-context.js';
 import { createDrillPlaybackRuntimeHostAppContext } from './features/drill/drill-playback-runtime-host-app-context.js';
 import { createDrillPlaybackRuntimeHostAudioAppContext } from './features/drill/drill-playback-runtime-host-audio-app-context.js';
 import { createDrillPlaybackRuntimeHostConstantsAppContext } from './features/drill/drill-playback-runtime-host-constants-app-context.js';
@@ -1273,7 +1269,7 @@ let midiPianoRangePreloadPromise = null;
 const pendingMidiNoteTokens = new Map();
 const activeMidiPianoVoices = new Map();
 const sustainedMidiNotes = new Set();
-const drillAudioRuntimeAssembly = createDrillAudioRuntimeAppAssembly(createDrillAudioRuntimeAppBindings(createDrillAudioRuntimeAssemblyAppContext({
+const drillAudioRuntimeAssembly = createDrillAudioRuntimeRootAppAssembly({
   audioRuntime: {
     audioState: {
       getAudioContext: () => audioCtx
@@ -1397,7 +1393,7 @@ const drillAudioRuntimeAssembly = createDrillAudioRuntimeAppAssembly(createDrill
     getCurrentTime: () => audioCtx?.currentTime ?? 0,
     defaultFadeDuration: NOTE_FADEOUT
   }
-})));
+});
 const {
   audioStack: drillAudioStack,
   audioFacade: drillAudioFacade,
@@ -4271,11 +4267,9 @@ const {
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState
-} = createDrillSharedPlaybackAppAssembly({
-  ...createDrillSharedPlaybackAppContextOptions({
-    dom,
-    ...createDrillSharedPlaybackStateAppContext({
-    host: createDrillSharedPlaybackHostAppContext({
+} = createDrillSharedPlaybackRootAppAssembly({
+  dom,
+  host: createDrillSharedPlaybackHostAppContext({
       customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE,
       setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
       setPatternSelectValue,
@@ -4296,7 +4290,7 @@ const {
       stopPlayback: () => stop(),
       togglePausePlayback: () => togglePause()
     }),
-    patternUi: createDrillSharedPlaybackPatternUiAppContext({
+  patternUi: createDrillSharedPlaybackPatternUiAppContext({
       clearProgressionEditingState,
       closeProgressionManager,
       syncCustomPatternUI,
@@ -4313,7 +4307,7 @@ const {
       getCurrentPatternString,
       getCurrentPatternMode
     }),
-    normalization: createDrillSharedPlaybackNormalizationAppContext({
+  normalization: createDrillSharedPlaybackNormalizationAppContext({
       normalizePatternString,
       normalizePresetName,
       normalizePatternMode,
@@ -4322,7 +4316,7 @@ const {
       normalizeDisplayMode,
       normalizeHarmonyDisplayMode
     }),
-    playbackSettings: createDrillSharedPlaybackSettingsAppContext({
+  playbackSettings: createDrillSharedPlaybackSettingsAppContext({
       getSwingRatio,
       getCompingStyle,
       getDrumsMode,
@@ -4330,10 +4324,10 @@ const {
       getRepetitionsPerKey,
       applyMixerSettings
     }),
-    embeddedPlaybackState: createDrillSharedPlaybackEmbeddedStateAppContext({
+  embeddedPlaybackState: createDrillSharedPlaybackEmbeddedStateAppContext({
       isEmbeddedMode: IS_EMBEDDED_DRILL_MODE
     }),
-    embeddedPlaybackRuntime: createDrillSharedPlaybackEmbeddedRuntimeAppContext({
+  embeddedPlaybackRuntime: createDrillSharedPlaybackEmbeddedRuntimeAppContext({
       ensureWalkingBassGenerator,
       stopActiveChordVoices,
       noteFadeout: NOTE_FADEOUT,
@@ -4341,8 +4335,8 @@ const {
       buildPreparedBassPlan,
       preloadNearTermSamples
     }),
-    embeddedTransportActions: {},
-    directPlaybackRuntime: createDrillSharedPlaybackDirectRuntimeAppContext({
+  embeddedTransportActions: {},
+  directPlaybackRuntime: createDrillSharedPlaybackDirectRuntimeAppContext({
       ensureWalkingBassGenerator,
       getAudioContext: () => audioCtx,
       noteFadeout: NOTE_FADEOUT,
@@ -4353,16 +4347,14 @@ const {
       preloadNearTermSamples,
       validateCustomPattern: () => validateCustomPattern()
     }),
-    directPlaybackState: createDrillSharedPlaybackDirectStateAppContext({
+  directPlaybackState: createDrillSharedPlaybackDirectStateAppContext({
       getIsPlaying: () => isPlaying
     }),
-    directTransportActions: createDrillSharedPlaybackDirectTransportAppContext({
+  directTransportActions: createDrillSharedPlaybackDirectTransportAppContext({
       startPlayback: () => start(),
       stopPlayback: () => stop(),
       togglePausePlayback: () => togglePause()
     })
-    })
-  })
 });
 
 function getPlaybackSessionController() {

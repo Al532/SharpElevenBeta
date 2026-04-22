@@ -28,9 +28,10 @@ Decision d'execution a partir de maintenant:
   - ou la preparation mobile Android/iOS
 - considerer que la phase preparatoire de decomposition JS est deja suffisamment avancee pour sortir du mode "extractions opportunistes"
 - prioriser desormais les etapes a plus forte valeur:
-  1. finaliser le host direct same-page chart comme backend nominal reel, avec iframe seulement en fallback technique
-  2. ouvrir la vraie migration TypeScript sur les boundaries imposees
-  3. continuer les extractions `app.js` uniquement si elles debloquent explicitement 1 ou 2
+  1. certifier et verrouiller le direct same-page chart comme backend nominal reel, avec iframe seulement en fallback technique
+  2. sortir le runtime audio/playback reel hors de `app.js`
+  3. poursuivre la migration TypeScript uniquement sur les boundaries stables qui debloquent 1 ou 2
+  4. ouvrir un gate explicite de mobile readiness avant Capacitor
 
 Regle supplementaire:
 
@@ -45,11 +46,12 @@ Plan Detaille Restant Vers Android Play Store, Puis iOS App Store
 
 Le plan a executer est desormais le suivant:
 
-1. finir la bascule technique vers un runtime playback direct partage,
-2. convertir en priorite les contrats et boundaries en vrai TypeScript,
-3. encapsuler l'app web existante dans une app mobile Capacitor pour Android d'abord,
-4. valider Android comme cible nominale,
-5. ouvrir ensuite iOS sur la meme base Capacitor.
+1. certifier le direct same-page comme backend nominal du chart, avec iframe seulement en fallback technique,
+2. sortir en priorite le runtime audio/playback reel hors de `app.js`,
+3. poursuivre la migration TypeScript uniquement sur les boundaries critiques et stables,
+4. franchir un gate explicite de mobile readiness sur la web app existante,
+5. encapsuler ensuite l'app web dans une app mobile Capacitor pour Android d'abord,
+6. ouvrir enfin iOS sur la meme base Capacitor.
 
 Decision verrouillee pour la base mobile:
 - Capacitor Web pour Android d'abord, puis iOS ensuite.
@@ -75,23 +77,24 @@ Regle imperative pour le modele low-level qui executera ce plan:
 - Ne pas changer le framework build web actuel.
 - Ne pas toucher a `public/` manuellement; continuer a considerer la racine du repo comme source of truth.
 - Tant que le runtime direct same-page n'est pas valide, garder le fallback iframe transitoire disponible.
-- A toute divergence entre `docs/ts-refactor-handoff.md` et le code reel, demander de l'aide avant de continuer.
+- Cette roadmap est la source de verite documentaire courante pour ce chantier.
+- Ne pas supposer l'existence d'un document secondaire `docs/ts-refactor-handoff.md`; s'il devient necessaire plus tard, il devra etre recree explicitement.
 
-## Phase 1. Terminer Le Runtime Playback Direct Partage
+## Phase 1. Certifier Le Runtime Playback Direct Same-Page
 
 Objectif:
-- supprimer la dependance nominale du chart au host iframe, sans encore casser le fallback.
+- verrouiller explicitement le direct same-page comme backend nominal du chart, sans casser le fallback iframe technique.
 
 Travail a faire:
-- Creer une implementation same-page reelle du host direct playback cote chart, au lieu du host iframe transitoire.
-- Le point de remplacement doit etre uniquement la couture chart deja preparee:
+- Considerer comme acquis que le chart prefere deja un runtime same-page lorsque des `DirectPlaybackControllerOptions` sont publiees sur la fenetre courante.
+- Limiter le travail restant a la validation et au bornage de la seam chart deja preparee:
   - `features/chart/chart-direct-playback-window-host.js`
   - `features/chart/chart-direct-playback-runtime-host.js`
   - `features/chart/chart-direct-playback-host.js`
   - `features/chart/chart-direct-playback-options.js`
-- Ne pas rebrasser `chart-dev/main.js` au-dela de l'injection du nouveau host.
-- Le host same-page doit consommer les memes `DirectPlaybackControllerOptions` que le host transitoire.
-- Le fallback iframe doit rester en secours tant que le same-page host n'a pas passe toute la validation.
+- Ne pas rebrasser `chart-dev/main.js` au-dela de la validation des injections existantes.
+- Preserver la consommation des memes `DirectPlaybackControllerOptions` entre host direct nominal et fallback technique.
+- Garder l'iframe strictement comme secours tant que toute la validation n'a pas ete passee.
 
 Interfaces a verrouiller:
 - `DirectPlaybackControllerOptions`
@@ -114,6 +117,7 @@ Condition d'escalade:
 
 Objectif:
 - faire du runtime playback un vrai module partage instanciable par le chart et le drill.
+- faire de cette extraction la priorite absolue tant que `app.js` porte encore le moteur reel.
 
 Travail a faire:
 - Continuer l'extraction uniquement sur les blocs encore reellement "moteur" dans `app.js`:
@@ -154,15 +158,16 @@ Condition d'escalade:
 
 Objectif:
 - arreter la phase "TS preparatoire" et convertir les vraies boundaries stables en `.ts`.
+- rester strictement discipline sur les boundaries critiques qui debloquent le runtime partage et la couche mobile.
 
 Ordre impose:
 1. `core/types/contracts.d.ts` reste la verite contractuelle initiale
-2. convertir en priorite:
-   - `core/models/practice-session.js`
-   - `core/playback/playback-session-controller.js`
-   - `core/storage/app-state-storage.js`
-3. convertir ensuite les boundaries playback stables de `core/playback/*`
-4. convertir ensuite:
+2. considerer comme deja convertis et stabilises en priorite:
+   - `core/models/practice-session.ts`
+   - `core/playback/playback-session-controller.ts`
+   - `core/storage/app-state-storage.ts`
+3. convertir ensuite uniquement les boundaries playback stables de `core/playback/*`
+4. convertir ensuite, uniquement si les interfaces ont cesse de bouger:
    - `features/chart/chart-session-builder.js`
    - `features/drill/drill-session-builder.js`
    - `features/chart/chart-playback-controller.js`
@@ -176,6 +181,7 @@ Regles:
 - chaque conversion doit remplacer des JSDoc existants par de vrais types, pas changer l'architecture
 - conserver les noms et shapes des contrats publics deja stabilises
 - eviter tout `any` nouveau sauf frontiere explicitement legacy
+- ne pas elargir la migration pour "faire propre" si cela ne reduit pas une ambiguite de contrat ou ne debloque pas le runtime partage/mobile
 
 Resultat attendu:
 - `npm run typecheck` devient un vrai garde-fou de boundaries critiques
@@ -188,7 +194,34 @@ Condition d'escalade:
 - si `tsc` force des compromis non evidents sur les payloads runtime,
 - demander de l'aide.
 
-## Phase 4. Android D'Abord Avec Capacitor
+## Phase 4. Gate Mobile Readiness Avant Capacitor
+
+Objectif:
+- valider que la web app actuelle est suffisamment stable et mobile-ready avant d'ouvrir le chantier Capacitor comme flux principal.
+
+Travail a faire:
+- Valider explicitement sur device ou emulation mobile:
+  - audio unlock apres geste utilisateur,
+  - reprise correcte apres background/foreground,
+  - viewport tactile et safe areas,
+  - overlays/popovers/settings utilisables au tactile,
+  - persistence `localStorage` et restauration d'etat,
+  - playback chart direct sans dependance iframe nominale.
+- Corriger en priorite les blocages qui relevent de la web app existante plutot que de Capacitor.
+- Ne pas ouvrir de structure `mobile/` ni de packaging natif tant que ces points ne sont pas suffisamment fiables.
+
+Critere de sortie:
+- aucun blocage majeur d'audio unlock mobile
+- aucun blocage majeur de reprise d'etat apres retour foreground
+- chart et drill utilisables au tactile sans corruption d'etat
+- la validation mobile ne depend pas du fallback iframe comme backend nominal
+
+Condition d'escalade:
+- si un probleme mobile critique ne peut pas etre corrige dans la web app existante,
+- si un besoin natif devient clairement indispensable avant Capacitor,
+- demander de l'aide.
+
+## Phase 5. Android D'Abord Avec Capacitor
 
 Objectif:
 - livrer une app Android Play Store sur la base web stabilisee, sans replatforming React Native.
@@ -237,7 +270,7 @@ Condition d'escalade:
 - si le playback demande un comportement foreground/background non prevu,
 - demander de l'aide.
 
-## Phase 5. iOS Ensuite
+## Phase 6. iOS Ensuite
 
 Objectif:
 - ouvrir l'App Store avec le minimum de divergence par rapport a la version Android.
@@ -279,6 +312,11 @@ Scenarios obligatoires:
 - `chart -> send selection to drill`
 - pause/start/stop corrects
 - persistance des volumes mixer avec bons defaults
+- readiness mobile web avant Capacitor:
+  - audio start apres interaction utilisateur
+  - reprise correcte apres background/foreground
+  - overlays/popovers/settings utilisables au tactile
+  - persistance `localStorage` intacte
 - ouverture mobile Android:
   - lancement app
   - audio start apres interaction utilisateur
@@ -286,9 +324,10 @@ Scenarios obligatoires:
   - retour arriere/navigation sans corruption d'etat
 
 Criteres d'acceptation finaux:
-- runtime direct same-page operationnel
-- `app.js` reduit a un role principalement d'orchestration UI
-- boundaries TS critiques converties
+- runtime direct same-page certifie comme backend nominal
+- `app.js` reduit a un role principalement d'orchestration UI plutot que de moteur runtime
+- boundaries TS critiques converties sans extension opportuniste de scope
+- gate mobile readiness franchi sur la web app existante
 - app Android Capacitor prete Play Store
 - base iOS clairement ouverte sans refonte d'architecture
 
@@ -297,6 +336,7 @@ Criteres d'acceptation finaux:
 - Base mobile retenue: Capacitor Web
 - Android est la cible de sortie prioritaire; iOS vient immediatement apres sur la meme architecture
 - Le warning Node sur `"type": "module"` reste hors scope
-- Le fallback iframe reste autorise temporairement tant que le host same-page direct n'est pas valide
+- Le fallback iframe reste autorise temporairement uniquement comme secours technique, pas comme backend nominal
 - Le nom fonctionnel `drill` reste celui du mode produit, mais pas celui du playback generique partage
+- Les conversions deja effectuees sur `core/models/practice-session.ts`, `core/playback/playback-session-controller.ts` et `core/storage/app-state-storage.ts` sont considerees acquises
 - Si le modele low-level rencontre la moindre situation non prevue par ce plan, il doit s'arreter et demander de l'aide, sans prendre d'initiative d'architecture
