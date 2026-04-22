@@ -185,6 +185,101 @@ export function applyDrillPianoPresetFromJsonText({
   saveSettings?.();
 }
 
+export function createDrillPianoToolsAppFacade({
+  dom,
+  version,
+  getPianoFadeSettings,
+  setPianoFadeSettings,
+  normalizePianoFadeSettings,
+  getPianoMidiSettings,
+  setPianoMidiSettings,
+  normalizePianoMidiSettings,
+  attachMidiInput,
+  saveSettings
+} = {}) {
+  function setPianoMidiStatus(message) {
+    setDrillPianoMidiStatus(dom, message);
+  }
+
+  function refreshPianoSettingsJson() {
+    refreshDrillPianoSettingsJson({
+      dom,
+      version,
+      pianoFadeSettings: getPianoFadeSettings?.(),
+      pianoMidiSettings: getPianoMidiSettings?.()
+    });
+  }
+
+  function syncPianoToolsUi() {
+    syncDrillPianoToolsUi({
+      dom,
+      version,
+      pianoFadeSettings: getPianoFadeSettings?.(),
+      pianoMidiSettings: getPianoMidiSettings?.()
+    });
+  }
+
+  function readPianoFadeSettingsFromControls() {
+    return readDrillPianoFadeSettingsFromControls({
+      dom,
+      normalizePianoFadeSettings
+    });
+  }
+
+  function applyPianoFadeSettings(nextSettings, { persist = true } = {}) {
+    applyDrillPianoFadeSettings({
+      nextSettings,
+      normalizePianoFadeSettings,
+      setPianoFadeSettings,
+      dom,
+      version,
+      getPianoMidiSettings,
+      saveSettings,
+      persist
+    });
+  }
+
+  function applyPianoMidiSettings(nextSettings, { persist = true, reconnect = true } = {}) {
+    applyDrillPianoMidiSettings({
+      nextSettings,
+      normalizePianoMidiSettings,
+      setPianoMidiSettings,
+      dom,
+      version,
+      getPianoFadeSettings,
+      attachMidiInput,
+      saveSettings,
+      persist,
+      reconnect
+    });
+  }
+
+  function applyPianoPresetFromJsonText(jsonText) {
+    applyDrillPianoPresetFromJsonText({
+      jsonText,
+      normalizePianoFadeSettings,
+      normalizePianoMidiSettings,
+      getCurrentPianoMidiSettings: getPianoMidiSettings,
+      setPianoFadeSettings,
+      setPianoMidiSettings,
+      dom,
+      version,
+      attachMidiInput,
+      saveSettings
+    });
+  }
+
+  return {
+    setPianoMidiStatus,
+    refreshPianoSettingsJson,
+    syncPianoToolsUi,
+    readPianoFadeSettingsFromControls,
+    applyPianoFadeSettings,
+    applyPianoMidiSettings,
+    applyPianoPresetFromJsonText
+  };
+}
+
 export function initializeDrillPianoControls({
   dom,
   readPianoFadeSettingsFromControls,

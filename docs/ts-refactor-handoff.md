@@ -36,15 +36,20 @@ Recent extractions from `app.js` that now exist as reusable boundaries:
 
 - `features/drill/drill-playback-runtime-engine.js`
 - `features/drill/drill-playback-runtime-helpers.js`
+- `features/drill/drill-playback-runtime-host.js`
+- `features/drill/drill-session-analytics.js`
 - `features/drill/drill-playback-engine-app-context.js`
 - `features/drill/drill-playback-state-app-context.js`
 - `features/drill/drill-playback-runtime-app-assembly.js`
 - `features/drill/drill-embedded-runtime-app-context.js`
 - `features/drill/drill-pattern-analysis.js`
+- `features/drill/drill-pattern-help.js`
 - `features/drill/drill-pattern-validation.js`
 - `features/drill/drill-playback-preparation-runtime.js`
 - `features/drill/drill-playback-preparation-app-context.js`
+- `features/drill/drill-playback-settings-runtime.js`
 - `features/drill/drill-runtime-app-bindings.js`
+- `features/drill/drill-settings.js` now also owns the default-settings factory, reusable settings snapshot builder, loaded-settings applier, loaded-settings finalizer, and playback-settings resetter used by `app.js`
 - `features/drill/drill-embedded-runtime-host.js`
 - `features/drill/drill-embedded-runtime-app-assembly.js`
 - `features/drill/drill-audio-stack-app-assembly.js`
@@ -114,14 +119,18 @@ These should become the first-class typed contracts during the TS migration.
 - `features/drill/drill-playback-engine.js`
 - `features/drill/drill-playback-runtime-engine.js`
 - `features/drill/drill-playback-runtime-helpers.js`
+- `features/drill/drill-playback-runtime-host.js`
+- `features/drill/drill-session-analytics.js`
 - `features/drill/drill-playback-engine-app-context.js`
 - `features/drill/drill-playback-state-app-context.js`
 - `features/drill/drill-playback-runtime-app-assembly.js`
 - `features/drill/drill-embedded-runtime-app-context.js`
 - `features/drill/drill-pattern-analysis.js`
+- `features/drill/drill-pattern-help.js`
 - `features/drill/drill-pattern-validation.js`
 - `features/drill/drill-playback-preparation-runtime.js`
 - `features/drill/drill-playback-preparation-app-context.js`
+- `features/drill/drill-playback-settings-runtime.js`
 - `features/drill/drill-runtime-app-bindings.js`
 - `features/drill/drill-embedded-runtime-host.js`
 - `features/drill/drill-embedded-runtime-app-assembly.js`
@@ -151,6 +160,7 @@ These should become the first-class typed contracts during the TS migration.
 - `features/drill/drill-settings.js`
 - `features/drill/drill-welcome.js`
 - `features/drill/drill-piano-tools.js`
+- `features/drill/drill-piano-tools.js` now also exposes an app-level facade used by `app.js`
 
 ## Main Remaining Legacy Bridge
 
@@ -241,10 +251,15 @@ node --check chart-dev/main.js
 node --check features/drill/drill-playback-engine-app-context.js
 node --check features/drill/drill-playback-state-app-context.js
 node --check features/drill/drill-playback-runtime-app-assembly.js
+node --check features/drill/drill-playback-runtime-host.js
+node --check features/drill/drill-session-analytics.js
+node --check features/drill/drill-pattern-help.js
 node --check features/drill/drill-embedded-runtime-app-context.js
 node --check features/drill/drill-pattern-validation.js
 node --check features/drill/drill-playback-preparation-runtime.js
 node --check features/drill/drill-playback-preparation-app-context.js
+node --check features/drill/drill-playback-settings-runtime.js
+node --check features/drill/drill-settings.js
 node --check features/drill/drill-runtime-app-bindings.js
 node --check features/drill/drill-embedded-runtime-host.js
 node --check features/drill/drill-embedded-runtime-app-assembly.js
