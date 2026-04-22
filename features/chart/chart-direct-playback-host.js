@@ -1,28 +1,26 @@
 // @ts-check
 
 /** @typedef {import('../../core/types/contracts').DirectPlaybackControllerOptions} DirectPlaybackControllerOptions */
-/** @typedef {import('../../core/types/contracts').EmbeddedPlaybackApi} EmbeddedPlaybackApi */
 
 import { createDirectPlaybackOptionsClient } from '../../core/playback/direct-playback-options-client.js';
-import { resolveEmbeddedPlaybackApi } from '../../core/playback/embedded-playback-globals.js';
 
 /**
- * Creates the transitional chart direct playback host resolver.
- * The published direct host options are preferred, but the current embedded
- * API remains available as an explicit fallback while the iframe runtime is
- * still acting as the temporary direct host.
+ * Creates the chart direct playback host resolver.
+ * The published direct host options are always the runtime contract consumed by
+ * chart playback. The iframe may still act as the fallback host, but only by
+ * publishing the same direct controller options as the nominal same-page host.
  *
  * @param {{
  *   getTargetWindow?: () => Window | null,
  *   getPreferredTargetWindow?: () => Window | null,
  *   getFallbackTargetWindow?: () => Window | null,
  *   getHostFrame?: () => HTMLIFrameElement | null,
+ *   preferredTimeoutMs?: number,
  *   timeoutMs?: number
  * }} [options]
  * @returns {{
  *   getDirectHostOptions: () => DirectPlaybackControllerOptions | null,
- *   ensureDirectHostOptions: () => Promise<DirectPlaybackControllerOptions | null>,
- *   getEmbeddedApi: () => EmbeddedPlaybackApi | null
+ *   ensureDirectHostOptions: () => Promise<DirectPlaybackControllerOptions | null>
  * }}
  */
 export function createChartDirectPlaybackHostResolver({
@@ -30,11 +28,12 @@ export function createChartDirectPlaybackHostResolver({
   getPreferredTargetWindow,
   getFallbackTargetWindow,
   getHostFrame,
+  preferredTimeoutMs = 250,
   timeoutMs = 10000
 } = {}) {
   const preferredDirectOptionsClient = createDirectPlaybackOptionsClient({
     getTargetWindow: getPreferredTargetWindow,
-    timeoutMs
+    timeoutMs: preferredTimeoutMs
   });
   const fallbackDirectOptionsClient = createDirectPlaybackOptionsClient({
     getTargetWindow: getFallbackTargetWindow || getTargetWindow,
@@ -53,17 +52,19 @@ export function createChartDirectPlaybackHostResolver({
         return preferredOptions;
       }
 
+      if (getPreferredTargetWindow?.()) {
+        const delayedPreferredOptions = await preferredDirectOptionsClient.ensureOptions().catch(() => null);
+        if (delayedPreferredOptions) {
+          return delayedPreferredOptions;
+        }
+      }
+
       const fallbackOptions = fallbackDirectOptionsClient.getOptions();
       if (fallbackOptions) {
         return fallbackOptions;
       }
 
       return fallbackDirectOptionsClient.ensureOptions().catch(() => null);
-    },
-    getEmbeddedApi() {
-      return resolveEmbeddedPlaybackApi(
-        (getFallbackTargetWindow?.() || getTargetWindow?.() || null)
-      );
     }
   };
 }

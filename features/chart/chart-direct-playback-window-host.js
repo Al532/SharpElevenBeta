@@ -59,7 +59,7 @@ export function createChartDirectPlaybackWindowHost({
 
   return {
     getCurrentTargetWindow() {
-      return getCurrentWindow?.() || null;
+      return getCurrentTargetWindow();
     },
     ensureFrame() {
       return getCurrentTargetWindow() ? null : frameHost.ensureFrame();

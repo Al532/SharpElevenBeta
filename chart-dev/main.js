@@ -29,10 +29,13 @@ import {
   applyImportedLibrary as applyImportedChartLibrary,
   renderSelectedFixture
 } from '../features/chart/chart-fixture-controller.js';
+import { createChartDirectPlaybackRuntimeHostBindings } from '../features/chart/chart-direct-playback-runtime-host-bindings.js';
+import { createChartNavigationBindings } from '../features/chart/chart-navigation-bindings.js';
 import {
   createChartNavigationController,
   updateChartNavigationState as updateChartNavigationStateUi
 } from '../features/chart/chart-navigation.js';
+import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
 import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
 import {
@@ -46,6 +49,7 @@ import {
   renderChartTransport
 } from '../features/chart/chart-renderer.js';
 import { initializeAppShell } from '../features/app/app-shell.js';
+import { createChartSheetRendererBindings } from '../features/chart/chart-sheet-renderer-bindings.js';
 import { createChartSheetRenderer } from '../features/chart/chart-sheet-renderer.js';
 import {
   bindChartImportControls,
@@ -54,6 +58,9 @@ import {
   importDefaultFixtureLibrary as importChartDefaultFixtureLibrary,
   setChartImportStatus
 } from '../features/chart/chart-import-controls.js';
+import { createChartImportControlsBindings } from '../features/chart/chart-import-controls-bindings.js';
+import { createChartScreenBindings } from '../features/chart/chart-screen-bindings.js';
+import { createChartRuntimeControlsBindings } from '../features/chart/chart-runtime-controls-bindings.js';
 import {
   bindChartLayoutObservers,
   closeAllChartPopovers,
@@ -202,16 +209,16 @@ const state = {
   }
 };
 
-const chartDirectPlaybackRuntimeHost = createChartDirectPlaybackRuntimeHost({
+const chartDirectPlaybackRuntimeHost = createChartDirectPlaybackRuntimeHost(createChartDirectPlaybackRuntimeHostBindings({
   getExistingFrame: () => dom.playbackBridgeFrame,
   setFrame: (frame) => {
     dom.playbackBridgeFrame = frame;
   },
   getTempo,
   getCurrentChartTitle: () => state.currentChartDocument?.metadata?.title || 'Chart Dev'
-});
+}));
 
-const playbackRuntimeContext = createChartPlaybackRuntimeContext({
+const playbackRuntimeContext = createChartPlaybackRuntimeContext(createChartPlaybackRuntimeContextBindings({
   state,
   mode: CHART_PLAYBACK_BRIDGE_MODE,
   directPlaybackRuntimeHost: chartDirectPlaybackRuntimeHost,
@@ -228,7 +235,7 @@ const playbackRuntimeContext = createChartPlaybackRuntimeContext({
     dom.transportStatus.textContent = message;
   },
   onPersistPlaybackSettings: persistPlaybackSettings
-});
+}));
 
 function loadPersistedChartId() {
   return loadPersistedChartIdFromStorage({
@@ -338,7 +345,7 @@ function updateChartNavigationState() {
 }
 
 function bindChartNavigationControls() {
-  createChartNavigationController({
+  createChartNavigationController(createChartNavigationBindings({
     getDocuments: getAvailableDocuments,
     getSelectedId: () => dom.fixtureSelect?.value || state.currentChartDocument?.metadata?.id || '',
     setSelectedId: (id) => {
@@ -350,7 +357,7 @@ function bindChartNavigationControls() {
     previousChartButton: dom.previousChartButton,
     nextChartButton: dom.nextChartButton,
     sheetGrid: dom.sheetGrid
-  }).bind();
+  })).bind();
 }
 
 function setImportStatus(message, isError = false) {
@@ -542,7 +549,7 @@ function getChartPlaybackController() {
 function getChartSheetRenderer() {
   if (state.chartSheetRenderer) return state.chartSheetRenderer;
 
-  state.chartSheetRenderer = /** @type {ChartSheetRenderer} */ (createChartSheetRenderer({
+  state.chartSheetRenderer = /** @type {ChartSheetRenderer} */ (createChartSheetRenderer(createChartSheetRendererBindings({
     sheetGrid: dom.sheetGrid,
     diagnosticsList: dom.diagnosticsList,
     getDisplayedBarGroupSize,
@@ -551,7 +558,7 @@ function getChartSheetRenderer() {
     renderChordMarkup,
     isBarActive: (bar) => bar?.id === state.activeBarId,
     isBarSelected: (bar) => state.selectionController.getSelection().barIds.includes(bar?.id)
-  }));
+  })));
 
   return state.chartSheetRenderer;
 }
@@ -740,7 +747,7 @@ async function handlePastedIRealLinkImport() {
 }
 
 function bindImportControls() {
-  bindChartImportControls({
+  bindChartImportControls(createChartImportControlsBindings({
     importIRealBackupButton: dom.importIRealBackupButton,
     irealBackupInput: dom.irealBackupInput,
     openIRealDefaultPlaylistsButton: dom.openIRealDefaultPlaylistsButton,
@@ -752,17 +759,17 @@ function bindImportControls() {
     setImportStatus,
     onBackupFileSelection: handleBackupFileSelection,
     onPastedLinkImport: handlePastedIRealLinkImport
-  });
+  }));
 }
 
 async function loadFixtures() {
-  await initializeChartScreen({
+  await initializeChartScreen(createChartScreenBindings({
     applyPersistedPlaybackSettings,
     bindImportControls,
     bindChartNavigationControls,
     importDefaultFixtureLibrary,
     bindRuntimeControls: () => {
-      bindChartRuntimeControls({
+      bindChartRuntimeControls(createChartRuntimeControlsBindings({
         chartSearchInput: dom.chartSearchInput,
         fixtureSelect: dom.fixtureSelect,
         transposeSelect: dom.transposeSelect,
@@ -830,7 +837,7 @@ async function loadFixtures() {
         onBeforeUnload: () => {
           stopPlayback({ resetPosition: true });
         }
-      });
+      }));
     },
     bindOverlayControls: () => {
       dom.mobileMenuToggle?.addEventListener('click', openOverlay);
@@ -855,7 +862,7 @@ async function loadFixtures() {
     setTransportStatus: (message) => {
       dom.transportStatus.textContent = message;
     }
-  });
+  }));
 }
 
 loadFixtures().catch((error) => {

@@ -55,8 +55,6 @@ export function createChartDirectPlaybackRuntimeHost({
     getPreferredTargetWindow: windowHost.getCurrentTargetWindow,
     getFallbackTargetWindow: windowHost.getFallbackTargetWindow,
     getHostFrame: windowHost.ensureFrame,
-    getTempo,
-    getCurrentChartTitle,
     timeoutMs
   });
 

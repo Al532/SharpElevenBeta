@@ -25,6 +25,8 @@ export function waitForDirectPlaybackOptions({
   readyEventName = DIRECT_PLAYBACK_READY_EVENT,
   timeoutMs = 10000
 } = {}) {
+  const scheduleTimeout = globalThis.setTimeout?.bind(globalThis);
+
   return new Promise((resolve, reject) => {
     const targetWindow = getTargetWindow?.() || null;
     const frame = getHostFrame?.() || null;
@@ -47,7 +49,7 @@ export function waitForDirectPlaybackOptions({
     };
 
     const onLoad = () => {
-      window.setTimeout(() => {
+      scheduleTimeout?.(() => {
         const directPlaybackOptions = getDirectPlaybackOptions?.() || null;
         if (directPlaybackOptions) {
           cleanup();
@@ -69,7 +71,7 @@ export function waitForDirectPlaybackOptions({
       return;
     }
 
-    window.setTimeout(() => {
+    scheduleTimeout?.(() => {
       const directPlaybackOptions = getDirectPlaybackOptions?.() || null;
       if (directPlaybackOptions) {
         cleanup();
