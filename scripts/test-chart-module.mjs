@@ -58,7 +58,10 @@ import {
 } from '../features/chart/chart-playback-bridge.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
 import { initializeEmbeddedDrillRuntime } from '../features/drill/drill-embedded-runtime.js';
+import { createEmbeddedDrillRuntimeAppContextOptions } from '../features/drill/drill-embedded-runtime-app-context.js';
 import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createDrillPlaybackRuntime } from '../features/drill/drill-playback-controller.js';
+import { createDrillPlaybackEngineAppContext } from '../features/drill/drill-playback-engine-app-context.js';
+import { createDrillPlaybackStateAppContext } from '../features/drill/drill-playback-state-app-context.js';
 import {
   createDrillPlaybackSchedulerState,
   createDrillPlaybackTransportState
@@ -1238,6 +1241,221 @@ transportState.isPlaying = true;
 transportState.currentBeat = 3;
 assert.equal(transportIsPlaying, true, 'Drill playback transport state proxy forwards transport playing mutations.');
 assert.equal(transportState.currentBeat, 3, 'Drill playback transport state proxy exposes beat mutations.');
+const drillPlaybackEngineAppContext = createDrillPlaybackEngineAppContext({
+  dom: { transportStatus: {} },
+  schedulerState,
+  transportState,
+  scheduleAhead: 0.1,
+  noteFadeout: 0.05,
+  scheduleInterval: 25,
+  schedulerHelperBindings: {
+    getSecondsPerBeat: () => 0.5,
+    parsePattern: () => [],
+    updateBeatDots: () => {}
+  },
+  transportHelperBindings: {
+    initAudio: () => {},
+    stopScheduledAudio: () => {},
+    trackEvent: () => {}
+  }
+});
+assert.equal(
+  drillPlaybackEngineAppContext.schedulerState,
+  schedulerState,
+  'Drill playback engine app context keeps the scheduler state boundary explicit.'
+);
+assert.equal(
+  drillPlaybackEngineAppContext.transportState,
+  transportState,
+  'Drill playback engine app context keeps the transport state boundary explicit.'
+);
+assert.equal(
+  drillPlaybackEngineAppContext.schedulerHelpers.getSecondsPerBeat(),
+  0.5,
+  'Drill playback engine app context materializes scheduler helpers from app bindings.'
+);
+assert.equal(
+  typeof drillPlaybackEngineAppContext.transportHelpers.initAudio,
+  'function',
+  'Drill playback engine app context materializes transport helpers from app bindings.'
+);
+const drillPlaybackStateAppContext = createDrillPlaybackStateAppContext({
+  schedulerBindings: {
+    getAudioContext: () => schedulerAudioContext,
+    setAudioContext: (value) => { schedulerAudioContext = value; },
+    getCurrentBassPlan: () => schedulerCurrentBassPlan,
+    setCurrentBassPlan: (value) => { schedulerCurrentBassPlan = value; },
+    getCurrentBeat: () => schedulerCurrentBeat,
+    setCurrentBeat: (value) => { schedulerCurrentBeat = value; },
+    getCurrentChordIdx: () => schedulerCurrentChordIdx,
+    setCurrentChordIdx: (value) => { schedulerCurrentChordIdx = value; },
+    getCurrentCompingPlan: () => schedulerCurrentCompingPlan,
+    setCurrentCompingPlan: (value) => { schedulerCurrentCompingPlan = value; },
+    getCurrentKey: () => schedulerCurrentKey,
+    setCurrentKey: (value) => { schedulerCurrentKey = value; },
+    getCurrentKeyRepetition: () => schedulerCurrentKeyRepetition,
+    setCurrentKeyRepetition: (value) => { schedulerCurrentKeyRepetition = value; },
+    getCurrentOneChordQualityValue: () => schedulerCurrentOneChordQualityValue,
+    setCurrentOneChordQualityValue: (value) => { schedulerCurrentOneChordQualityValue = value; },
+    getCurrentRawChords: () => schedulerCurrentRawChords,
+    setCurrentRawChords: (value) => { schedulerCurrentRawChords = value; },
+    getCurrentVoicingPlan: () => schedulerCurrentVoicingPlan,
+    setCurrentVoicingPlan: (value) => { schedulerCurrentVoicingPlan = value; },
+    getIsIntro: () => schedulerIsIntro,
+    setIsIntro: (value) => { schedulerIsIntro = value; },
+    getIsPaused: () => false,
+    getIsPlaying: () => true,
+    getLastPlayedChordIdx: () => schedulerLastPlayedChordIdx,
+    setLastPlayedChordIdx: (value) => { schedulerLastPlayedChordIdx = value; },
+    getLoopVoicingTemplate: () => schedulerLoopVoicingTemplate,
+    setLoopVoicingTemplate: (value) => { schedulerLoopVoicingTemplate = value; },
+    getNextBeatTime: () => schedulerNextBeatTime,
+    setNextBeatTime: (value) => { schedulerNextBeatTime = value; },
+    getNextCompingPlan: () => schedulerNextCompingPlan,
+    setNextCompingPlan: (value) => { schedulerNextCompingPlan = value; },
+    getNextKeyValue: () => schedulerNextKeyValue,
+    setNextKeyValue: (value) => { schedulerNextKeyValue = value; },
+    getNextOneChordQualityValue: () => schedulerNextOneChordQualityValue,
+    setNextOneChordQualityValue: (value) => { schedulerNextOneChordQualityValue = value; },
+    getNextPaddedChords: () => schedulerNextPaddedChords,
+    setNextPaddedChords: (value) => { schedulerNextPaddedChords = value; },
+    getNextRawChords: () => schedulerNextRawChords,
+    setNextRawChords: (value) => { schedulerNextRawChords = value; },
+    getNextVoicingPlan: () => schedulerNextVoicingPlan,
+    setNextVoicingPlan: (value) => { schedulerNextVoicingPlan = value; },
+    getPaddedChords: () => schedulerPaddedChords,
+    setPaddedChords: (value) => { schedulerPaddedChords = value; },
+    getPendingDisplayTimeouts: () => schedulerPendingDisplayTimeouts
+  },
+  transportBindings: {
+    getActiveNoteGain: () => transportActiveNoteGain,
+    setActiveNoteGain: (value) => { transportActiveNoteGain = value; },
+    getAudioContext: () => transportAudioContext,
+    setAudioContext: (value) => { transportAudioContext = value; },
+    getCurrentBeat: () => transportCurrentBeat,
+    setCurrentBeat: (value) => { transportCurrentBeat = value; },
+    getCurrentChordIdx: () => transportCurrentChordIdx,
+    setCurrentChordIdx: (value) => { transportCurrentChordIdx = value; },
+    getCurrentKeyRepetition: () => transportCurrentKeyRepetition,
+    setCurrentKeyRepetition: (value) => { transportCurrentKeyRepetition = value; },
+    getFirstPlayStartTracked: () => transportFirstPlayStartTracked,
+    setFirstPlayStartTracked: (value) => { transportFirstPlayStartTracked = value; },
+    getPlayStopSuggestionCount: () => transportPlayStopSuggestionCount,
+    setPlayStopSuggestionCount: (value) => { transportPlayStopSuggestionCount = value; },
+    getIsIntro: () => transportIsIntro,
+    setIsIntro: (value) => { transportIsIntro = value; },
+    getIsPaused: () => transportIsPaused,
+    setIsPaused: (value) => { transportIsPaused = value; },
+    getIsPlaying: () => transportIsPlaying,
+    setIsPlaying: (value) => { transportIsPlaying = value; },
+    getKeyPool: () => transportKeyPool,
+    setKeyPool: (value) => { transportKeyPool = value; },
+    getLoopVoicingTemplate: () => transportLoopVoicingTemplate,
+    setLoopVoicingTemplate: (value) => { transportLoopVoicingTemplate = value; },
+    getNearTermSamplePreloadPromise: () => transportNearTermSamplePreloadPromise,
+    setNearTermSamplePreloadPromise: (value) => { transportNearTermSamplePreloadPromise = value; },
+    getNextBeatTime: () => transportNextBeatTime,
+    setNextBeatTime: (value) => { transportNextBeatTime = value; },
+    getNextKeyValue: () => transportNextKeyValue,
+    setNextKeyValue: (value) => { transportNextKeyValue = value; },
+    getSchedulerTimer: () => transportSchedulerTimer,
+    setSchedulerTimer: (value) => { transportSchedulerTimer = value; },
+    getStartupSamplePreloadInProgress: () => transportStartupSamplePreloadInProgress,
+    setStartupSamplePreloadInProgress: (value) => { transportStartupSamplePreloadInProgress = value; }
+  }
+});
+assert.equal(
+  drillPlaybackStateAppContext.schedulerState.pendingDisplayTimeouts,
+  schedulerPendingDisplayTimeouts,
+  'Drill playback state app context builds the scheduler proxy from app bindings.'
+);
+drillPlaybackStateAppContext.transportState.currentBeat = 1;
+assert.equal(
+  transportCurrentBeat,
+  1,
+  'Drill playback state app context builds the transport proxy from app bindings.'
+);
+let embeddedRuntimeStopIfPlayingCalls = 0;
+const embeddedRuntimeAppContextOptions = createEmbeddedDrillRuntimeAppContextOptions({
+  dom: { patternName: { value: '' }, patternSelect: { value: '' }, tempoSlider: { value: '140' }, patternError: { textContent: 'Oops' } },
+  patternUi: {
+    clearProgressionEditingState: () => {},
+    closeProgressionManager: () => {},
+    setCustomPatternSelection: () => {},
+    setPatternName: () => {},
+    setCustomPatternValue: () => {},
+    setEditorPatternMode: () => {},
+    syncPatternSelectionFromInput: () => {},
+    setLastPatternSelectValue: () => {},
+    syncCustomPatternUI: () => {},
+    normalizeChordsPerBarForCurrentPattern: () => {},
+    applyPatternModeAvailability: () => {},
+    syncPatternPreview: () => {},
+    applyDisplayMode: () => {},
+    applyBeatIndicatorVisibility: () => {},
+    applyCurrentHarmonyVisibility: () => {},
+    updateKeyPickerLabels: () => {},
+    refreshDisplayedHarmony: () => {},
+    fitHarmonyDisplay: () => {},
+    validateCustomPattern: () => true,
+    getPatternErrorText: () => 'Oops',
+    getCurrentPatternString: () => 'Cmaj7 | Dm7 G7',
+    getCurrentPatternMode: () => 'both'
+  },
+  normalization: {
+    normalizePatternString: (value) => String(value || '').trim(),
+    normalizePresetName: (value) => String(value || '').trim(),
+    normalizePatternMode: (value) => String(value || 'both'),
+    normalizeCompingStyle: (value) => String(value || 'piano'),
+    normalizeRepetitionsPerKey: (value) => Number(value || 1),
+    normalizeDisplayMode: (value) => String(value || 'show-both'),
+    normalizeHarmonyDisplayMode: (value) => String(value || 'default')
+  },
+  playbackSettings: {
+    getSwingRatio: () => 0.6,
+    getCompingStyle: () => 'piano',
+    getDrumsMode: () => 'brushes',
+    isWalkingBassEnabled: () => true,
+    getRepetitionsPerKey: () => 2,
+    applyMixerSettings: () => {}
+  },
+  playbackState: {
+    isEmbeddedMode: true,
+    getIsPlaying: () => true,
+    getIsPaused: () => false,
+    getIsIntro: () => false,
+    getCurrentBeat: () => 1,
+    getCurrentChordIdx: () => 2,
+    getPaddedChordCount: () => 16,
+    getTempo: () => 140
+  },
+  playbackRuntime: {
+    ensureWalkingBassGenerator: async () => {},
+    getAudioContext: () => null,
+    noteFadeout: 0.1,
+    stopActiveChordVoices: () => {},
+    rebuildPreparedCompingPlans: () => {},
+    buildPreparedBassPlan: () => {},
+    getCurrentKey: () => 0,
+    preloadNearTermSamples: async () => {}
+  },
+  transportActions: {
+    startPlayback: async () => {},
+    stopPlayback: () => { embeddedRuntimeStopIfPlayingCalls += 1; },
+    togglePausePlayback: () => {}
+  }
+});
+embeddedRuntimeAppContextOptions.patternAdapterOptions.stopIfPlaying();
+assert.equal(
+  embeddedRuntimeStopIfPlayingCalls,
+  1,
+  'Embedded drill runtime app context reuses grouped app actions to stop active playback.'
+);
+assert.equal(
+  embeddedRuntimeAppContextOptions.playbackControllerOptions.noteFadeout,
+  0.1,
+  'Embedded drill runtime app context forwards direct runtime controller options through the grouped boundary.'
+);
 const chartDirectPlaybackBridgeProvider = createChartDirectPlaybackBridgeProvider({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'chart-direct-bridge-pattern', payload });

@@ -19,6 +19,8 @@ What is already in place:
 - a shared storage layer for app mode, pending drill session, and shared playback settings
 - a canonical practice-session model used as a shared vocabulary
 - a shared playback-session controller abstraction
+- shared playback runtime seams under `core/playback/*` for runtime / assembly / bridge / provider
+- direct-playback aliases that decouple chart playback from the legacy "Drill" wording
 - a substantial feature split under `features/chart/*`
 - a substantial feature split under `features/drill/*`
 - a working `chart -> selection -> send to drill` flow
@@ -29,6 +31,14 @@ What is not fully finished:
 - `chart` playback still relies on the embedded playback bridge, but the iframe host is now created lazily from the chart runtime context instead of being hardcoded in the HTML
 - the deepest audio/runtime logic still lives mostly inside `app.js`
 - `app.js` is smaller than before, but still too large to be considered fully decomposed
+
+Recent extractions from `app.js` that now exist as reusable boundaries:
+
+- `features/drill/drill-playback-runtime-engine.js`
+- `features/drill/drill-playback-runtime-helpers.js`
+- `features/drill/drill-playback-engine-app-context.js`
+- `features/drill/drill-playback-state-app-context.js`
+- `features/drill/drill-embedded-runtime-app-context.js`
 
 ## Important Architectural Reality
 
@@ -81,6 +91,11 @@ These should become the first-class typed contracts during the TS migration.
 - `features/drill/drill-session-builder.js`
 - `features/drill/drill-playback-controller.js`
 - `features/drill/drill-playback-engine.js`
+- `features/drill/drill-playback-runtime-engine.js`
+- `features/drill/drill-playback-runtime-helpers.js`
+- `features/drill/drill-playback-engine-app-context.js`
+- `features/drill/drill-playback-state-app-context.js`
+- `features/drill/drill-embedded-runtime-app-context.js`
 - `features/drill/drill-session-import.js`
 - `features/drill/drill-embedded-api.js`
 - `features/drill/drill-embedded-bootstrap.js`
@@ -100,8 +115,9 @@ These should become the first-class typed contracts during the TS migration.
 The main legacy mechanism still in place is:
 
 - embedded bridge host created on demand by `chart-dev/main.js`
-- API lookup: legacy `window.__JPT_DRILL_API__`
-- bridge implementation: `features/chart/chart-playback-controller.js`
+- API lookup: compatibility globals `window.__JPT_PLAYBACK_API__` and legacy `window.__JPT_DRILL_API__`
+- bridge publication and lookup are now centralized under `core/playback/embedded-*`
+- chart still runs in `embedded` mode from `chart-dev/main.js`
 
 This should not be over-invested in further in plain JavaScript.
 
@@ -180,6 +196,9 @@ Useful commands currently expected to pass:
 ```powershell
 node --check app.js
 node --check chart-dev/main.js
+node --check features/drill/drill-playback-engine-app-context.js
+node --check features/drill/drill-playback-state-app-context.js
+node --check features/drill/drill-embedded-runtime-app-context.js
 node --check features/drill/drill-piano-tools.js
 npm run test:chart
 ```
