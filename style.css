@@ -50,6 +50,67 @@ body {
   margin-bottom: 1.25rem;
 }
 
+.app-mode-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.app-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(110, 198, 255, 0.14);
+  border: 1px solid rgba(110, 198, 255, 0.28);
+  color: var(--accent-cool);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-mode-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.26rem;
+  border-radius: 999px;
+  background: rgba(20, 57, 95, 0.46);
+  border: 1px solid rgba(110, 198, 255, 0.18);
+}
+
+.app-mode-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 0.48rem 0.9rem;
+  border-radius: 999px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.app-mode-link:hover,
+.app-mode-link:focus-visible {
+  color: var(--text);
+  background: rgba(110, 198, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.app-mode-link.is-active {
+  color: #0f1f31;
+  background: linear-gradient(135deg, var(--accent-cool), #b8ecff);
+}
+
 .app-header-links {
   display: flex;
   justify-content: center;

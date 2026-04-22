@@ -2,10 +2,19 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  CHART_DOCUMENT_CONTRACT,
+  CHART_PLAYBACK_PLAN_CONTRACT,
+  PRACTICE_SESSION_CONTRACT,
+  createChartDocument,
   createChartDocumentsFromIRealSource,
   createChartPlaybackPlanFromDocument,
   createChartViewModel,
-  createDrillExportFromPlaybackPlan
+  createDrillExportFromPlaybackPlan,
+  createPracticeSessionFromChartDocument,
+  createPracticeSessionFromChartDocumentWithPlaybackPlan,
+  createPracticeSessionFromChartSelection,
+  createPracticeSessionFromSelectedChartDocument,
+  createSelectedChartDocument
 } from '../chart/node-index.mjs';
 import { createWalkingBassGenerator } from '../walking-bass.js';
 
@@ -57,7 +66,7 @@ assert.equal(
 );
 assert.equal(
   aBalladExport.engineBars[46],
-  'G7 G7 Cmaj9 Cmaj9',
+  'G7 G7 Cmaj7 Cmaj7',
   'A Ballad bar 47 collapses 8 iReal cells into 4 Drill beat slots.'
 );
 
@@ -71,6 +80,7 @@ assert.ok(stella.bars.some(bar => bar.playback.slots.some(slot => slot.alternate
 
 const satinPlan = createChartPlaybackPlanFromDocument(satinDoll);
 assert.ok(satinPlan.entries.length > satinDoll.bars.length, 'Satin Doll playback expands the repeat.');
+assert.equal(satinPlan.schemaVersion, CHART_PLAYBACK_PLAN_CONTRACT.schemaVersion, 'Playback plans expose the stable schema version.');
 
 const alicePlan = createChartPlaybackPlanFromDocument(alice);
 assert.ok(alicePlan.entries.some(entry => entry.flags.includes('fine')), 'Alice playback reaches Fine.');
@@ -145,7 +155,7 @@ const cryMeARiverExport = createDrillExportFromPlaybackPlan(cryMeARiverPlan, cry
 assert.equal(cryMeARiver.bars[8].playback.cellSlots.length, 4, 'Cry Me A River keeps the four source iReal cell slots for the second ending bar.');
 assert.deepEqual(
   cryMeARiverExport.engineBars[15].split(' '),
-  ['Eb6', 'Eb6', 'Am7b5', 'D7'],
+  ['Eb6', 'Eb6', 'Am7b5', 'D7b9b13'],
   'Cry Me A River expands the second ending bar from source cell positions into four Drill beats.'
 );
 const butterfly = byTitle.get('Butterfly');
@@ -154,6 +164,62 @@ const butterflyPlan = createChartPlaybackPlanFromDocument(butterfly);
 assert.ok(
   butterflyPlan.diagnostics.some(diagnostic => diagnostic.code === 'unsupported_repeat_hint'),
   'Playback diagnostics flag preserved repeat hints that are not yet interpreted.'
+);
+
+const normalizedDocument = createChartDocument({
+  metadata: {
+    title: 'Normalized',
+    barCount: '3'
+  },
+  source: null,
+  sections: [{ id: 'a', barIds: ['bar-1', null] }],
+  bars: [{ id: 'bar-1', index: '1' }]
+});
+assert.equal(normalizedDocument.schemaVersion, CHART_DOCUMENT_CONTRACT.schemaVersion, 'Chart documents expose the stable schema version.');
+assert.equal(normalizedDocument.metadata.id, '', 'Chart document metadata defaults missing ids to empty strings.');
+assert.equal(normalizedDocument.metadata.barCount, 3, 'Chart document metadata normalizes bar counts.');
+assert.deepEqual(normalizedDocument.sections[0].barIds, ['bar-1'], 'Chart document sections normalize bar id lists.');
+
+const satinSession = createPracticeSessionFromChartDocument(satinDoll, { playbackPlan: satinPlan });
+assert.equal(satinSession.schemaVersion, PRACTICE_SESSION_CONTRACT.schemaVersion, 'Practice sessions expose the stable schema version.');
+assert.equal(satinSession.origin.mode, 'chart-document', 'Chart document sessions preserve their origin mode.');
+assert.equal(satinSession.playback.patternString.includes('|'), true, 'Chart document sessions derive legacy playback strings.');
+
+const satinSessionViaExplicitPlan = createPracticeSessionFromChartDocumentWithPlaybackPlan(satinDoll, satinPlan);
+assert.deepEqual(
+  satinSessionViaExplicitPlan.playback,
+  satinSession.playback,
+  'Explicit playback-plan session creation stays aligned with the chart-document helper.'
+);
+
+const selectedDocument = createSelectedChartDocument(satinDoll, ['bar-1', 'bar-2']);
+assert.equal(selectedDocument.metadata.barCount, 2, 'Selected chart documents keep the normalized selected bar count.');
+assert.equal(selectedDocument.layout, null, 'Selected chart documents intentionally drop layout metadata.');
+
+const selectedSession = createPracticeSessionFromSelectedChartDocument(selectedDocument, {
+  origin: {
+    chartId: satinDoll.metadata.id,
+    sourceKey: satinDoll.metadata.sourceKey,
+    mode: 'chart-selection'
+  }
+});
+assert.equal(selectedSession.selection.startBarId, 'bar-1', 'Selected chart document sessions infer the first selected bar.');
+assert.equal(selectedSession.selection.endBarId, 'bar-2', 'Selected chart document sessions infer the last selected bar.');
+
+const selectedSessionFromOriginal = createPracticeSessionFromChartSelection(satinDoll, {
+  barIds: ['bar-1', 'bar-2'],
+  startBarId: 'bar-1',
+  endBarId: 'bar-2'
+});
+assert.deepEqual(
+  selectedSessionFromOriginal.selection.barIds,
+  ['bar-1', 'bar-2'],
+  'Original chart selection sessions preserve the ordered selected ids.'
+);
+assert.equal(
+  selectedSessionFromOriginal.origin.chartId,
+  satinDoll.metadata.id,
+  'Original chart selection sessions keep the source chart id from the unfiltered document.'
 );
 
 const walkingBassGenerator = createWalkingBassGenerator();

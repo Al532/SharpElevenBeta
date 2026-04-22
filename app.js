@@ -7,8 +7,6 @@ import {
   parseDefaultProgressionsText as parseDefaultProgressionsTextBase
 } from './progression-library.js';
 import { bindProgressionControls } from './progression-bindings.js';
-import { createPlaybackScheduler } from './playback-scheduler.js';
-import { createPlaybackTransport } from './playback-transport.js';
 import { createProgressionEditor } from './progression-editor.js';
 import { createProgressionManager } from './progression-manager.js';
 import { createWalkingBassGenerator } from './walking-bass.js';
@@ -30,6 +28,42 @@ import {
 import {
   DEFAULT_SWING_RATIO,
 } from './swing-utils.js';
+import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
+import { initializeEmbeddedDrillRuntime } from './features/drill/drill-embedded-runtime.js';
+import { initializeDrillPlaybackEngine } from './features/drill/drill-playback-engine.js';
+import {
+  buildDrillKeyCheckboxes,
+  invertDrillKeysEnabled,
+  setAllDrillKeysEnabled
+} from './features/drill/drill-key-selection.js';
+import { initializeDrillRuntimeControls } from './features/drill/drill-runtime-controls.js';
+import { bindDrillWelcomeControls } from './features/drill/drill-welcome.js';
+import {
+  applyDrillPianoFadeSettings,
+  applyDrillPianoMidiSettings,
+  applyDrillPianoPresetFromJsonText,
+  initializeDrillPianoControls,
+  readDrillPianoFadeSettingsFromControls,
+  refreshDrillPianoSettingsJson,
+  setDrillPianoMidiStatus,
+  syncDrillPianoToolsUi
+} from './features/drill/drill-piano-tools.js';
+import {
+  applyDrillBeatIndicatorVisibility,
+  applyDrillCurrentHarmonyVisibility,
+  applyDrillDisplayMode,
+  refreshDrillDisplayedHarmony,
+  updateDrillKeyPickerLabels
+} from './features/drill/drill-display-runtime.js';
+import { loadDrillSettings, saveDrillSettings } from './features/drill/drill-settings.js';
+import { initializeAppShell } from './features/app/app-shell.js';
+import { consumePendingDrillSessionIntoUi } from './features/drill/drill-session-import.js';
+import { initializeDrillScreen } from './features/drill/drill-ui-shell.js';
+import {
+  initializeHarmonyDisplayObservers,
+  initializeKeyPickerUi,
+  initializeSocialShareLinks
+} from './features/drill/drill-ui-runtime.js';
 
 /* ============================================================
    Jazz Progression Trainer — app.js
@@ -262,6 +296,13 @@ if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
 }
 
+initializeAppShell({
+  mode: 'drill',
+  drillLink: document.getElementById('app-mode-drill-link'),
+  chartLink: document.getElementById('app-mode-chart-link'),
+  modeBadge: document.getElementById('app-mode-badge')
+});
+
 function setKeyPickerOpen(isOpen) {
   if (!dom.keyPicker) return;
   dom.keyPicker.open = Boolean(isOpen);
@@ -272,47 +313,15 @@ function stopPlaybackIfRunning() {
   stop();
 }
 
-dom.closeKeyPicker?.addEventListener('click', () => {
-  setKeyPickerOpen(false);
+initializeKeyPickerUi({
+  keyPicker: dom.keyPicker,
+  keyPickerBackdrop: dom.keyPickerBackdrop,
+  closeKeyPickerButton: dom.closeKeyPicker,
+  selectedKeysSummary: dom.selectedKeysSummary,
+  setKeyPickerOpen,
+  stopPlaybackIfRunning,
+  restoreAllKeysIfNoneSelectedOnClose
 });
-
-dom.keyPickerBackdrop?.addEventListener('click', () => {
-  setKeyPickerOpen(false);
-});
-
-document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape' || !dom.keyPicker?.open) return;
-  setKeyPickerOpen(false);
-  dom.selectedKeysSummary?.focus();
-});
-
-dom.keyPicker?.addEventListener('toggle', () => {
-  const isOpen = Boolean(dom.keyPicker?.open);
-  document.body.classList.toggle('key-picker-open', isOpen);
-  if (isOpen) {
-    stopPlaybackIfRunning();
-    window.requestAnimationFrame(() => {
-      dom.closeKeyPicker?.focus();
-    });
-    return;
-  }
-  restoreAllKeysIfNoneSelectedOnClose();
-});
-
-function initializeSocialShareLinks() {
-  const shareLinks = Array.from(document.querySelectorAll('.social-share-link[data-share-network]'));
-  if (!shareLinks.length) return;
-
-  shareLinks.forEach((link) => {
-    const network = link.dataset.shareNetwork;
-    link.addEventListener('click', () => {
-      trackEvent('social_share_clicked', {
-        share_network: network,
-        location: 'header'
-      });
-    });
-  });
-}
 
 let DEFAULT_PROGRESSIONS = {};
 let progressions = {};
@@ -333,6 +342,7 @@ let lastPatternSelectValue = '';
 let pendingPresetDeletion = null;
 let hasCompletedWelcomeOnboarding = false;
 let shouldShowWelcomeNextTime = true;
+let playbackSessionController = null;
 
 const WELCOME_PROGRESSIONS = Object.freeze({
   'ii-v-i-major': {
@@ -3704,7 +3714,10 @@ function clearBeatDots() {
 }
 
 function applyBeatIndicatorVisibility() {
-  dom.beatIndicator?.classList.toggle('hidden', dom.showBeatIndicator?.checked === false);
+  applyDrillBeatIndicatorVisibility({
+    beatIndicator: dom.beatIndicator,
+    showBeatIndicatorEnabled: dom.showBeatIndicator?.checked !== false
+  });
 }
 
 function isCurrentHarmonyHidden() {
@@ -3712,8 +3725,10 @@ function isCurrentHarmonyHidden() {
 }
 
 function applyCurrentHarmonyVisibility() {
-  const display = document.getElementById('display');
-  display?.classList.toggle('display-hide-current', isCurrentHarmonyHidden());
+  applyDrillCurrentHarmonyVisibility({
+    displayElement: document.getElementById('display'),
+    currentHarmonyHidden: isCurrentHarmonyHidden()
+  });
 }
 
 // ---- Scheduler / Playback State ----
@@ -4566,17 +4581,62 @@ const playbackSchedulerState = {
   get pendingDisplayTimeouts() { return pendingDisplayTimeouts; }
 };
 
+const playbackTransportState = {
+  get activeNoteGain() { return activeNoteGain; },
+  set activeNoteGain(value) { activeNoteGain = value; },
+  get audioCtx() { return audioCtx; },
+  set audioCtx(value) { audioCtx = value; },
+  get currentBeat() { return currentBeat; },
+  set currentBeat(value) { currentBeat = value; },
+  get currentChordIdx() { return currentChordIdx; },
+  set currentChordIdx(value) { currentChordIdx = value; },
+  get currentKeyRepetition() { return currentKeyRepetition; },
+  set currentKeyRepetition(value) { currentKeyRepetition = value; },
+  get firstPlayStartTracked() { return firstPlayStartTracked; },
+  set firstPlayStartTracked(value) { firstPlayStartTracked = value; },
+  get playStopSuggestionCount() { return playStopSuggestionCount; },
+  set playStopSuggestionCount(value) { playStopSuggestionCount = value; },
+  get isIntro() { return isIntro; },
+  set isIntro(value) { isIntro = value; },
+  get isPaused() { return isPaused; },
+  set isPaused(value) { isPaused = value; },
+  get isPlaying() { return isPlaying; },
+  set isPlaying(value) { isPlaying = value; },
+  get keyPool() { return keyPool; },
+  set keyPool(value) { keyPool = value; },
+  get loopVoicingTemplate() { return loopVoicingTemplate; },
+  set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
+  get nearTermSamplePreloadPromise() { return nearTermSamplePreloadPromise; },
+  set nearTermSamplePreloadPromise(value) { nearTermSamplePreloadPromise = value; },
+  get nextBeatTime() { return nextBeatTime; },
+  set nextBeatTime(value) { nextBeatTime = value; },
+  get nextKeyValue() { return nextKeyValue; },
+  set nextKeyValue(value) { nextKeyValue = value; },
+  get schedulerTimer() { return schedulerTimer; },
+  set schedulerTimer(value) { schedulerTimer = value; },
+  get startupSamplePreloadInProgress() { return startupSamplePreloadInProgress; },
+  set startupSamplePreloadInProgress(value) { startupSamplePreloadInProgress = value; }
+};
+
 const {
-  prepareNextProgression: prepareNextProgressionPlayback,
-  scheduleBeat: scheduleBeatPlayback,
-  scheduleDisplay: scheduleDisplayPlayback
-} = createPlaybackScheduler({
+  prepareNextProgressionPlayback,
+  scheduleBeatPlayback,
+  scheduleDisplayPlayback,
+  start,
+  stop,
+  togglePause
+} = initializeDrillPlaybackEngine({
   dom,
-  state: playbackSchedulerState,
-  constants: {
+  schedulerState: playbackSchedulerState,
+  transportState: playbackTransportState,
+  schedulerConstants: {
     SCHEDULE_AHEAD
   },
-  helpers: {
+  transportConstants: {
+    NOTE_FADEOUT,
+    SCHEDULE_INTERVAL
+  },
+  schedulerHelpers: {
     applyDisplaySideLayout,
     buildPreparedBassPlan,
     buildLegacyVoicingPlan,
@@ -4621,54 +4681,8 @@ const {
     takeNextOneChordQuality,
     trackProgressionOccurrence,
     updateBeatDots
-  }
-});
-
-const playbackTransportState = {
-  get activeNoteGain() { return activeNoteGain; },
-  set activeNoteGain(value) { activeNoteGain = value; },
-  get audioCtx() { return audioCtx; },
-  set audioCtx(value) { audioCtx = value; },
-  get currentBeat() { return currentBeat; },
-  set currentBeat(value) { currentBeat = value; },
-  get currentChordIdx() { return currentChordIdx; },
-  set currentChordIdx(value) { currentChordIdx = value; },
-  get currentKeyRepetition() { return currentKeyRepetition; },
-  set currentKeyRepetition(value) { currentKeyRepetition = value; },
-  get firstPlayStartTracked() { return firstPlayStartTracked; },
-  set firstPlayStartTracked(value) { firstPlayStartTracked = value; },
-  get playStopSuggestionCount() { return playStopSuggestionCount; },
-  set playStopSuggestionCount(value) { playStopSuggestionCount = value; },
-  get isIntro() { return isIntro; },
-  set isIntro(value) { isIntro = value; },
-  get isPaused() { return isPaused; },
-  set isPaused(value) { isPaused = value; },
-  get isPlaying() { return isPlaying; },
-  set isPlaying(value) { isPlaying = value; },
-  get keyPool() { return keyPool; },
-  set keyPool(value) { keyPool = value; },
-  get loopVoicingTemplate() { return loopVoicingTemplate; },
-  set loopVoicingTemplate(value) { loopVoicingTemplate = value; },
-  get nearTermSamplePreloadPromise() { return nearTermSamplePreloadPromise; },
-  set nearTermSamplePreloadPromise(value) { nearTermSamplePreloadPromise = value; },
-  get nextBeatTime() { return nextBeatTime; },
-  set nextBeatTime(value) { nextBeatTime = value; },
-  get nextKeyValue() { return nextKeyValue; },
-  set nextKeyValue(value) { nextKeyValue = value; },
-  get schedulerTimer() { return schedulerTimer; },
-  set schedulerTimer(value) { schedulerTimer = value; },
-  get startupSamplePreloadInProgress() { return startupSamplePreloadInProgress; },
-  set startupSamplePreloadInProgress(value) { startupSamplePreloadInProgress = value; }
-};
-
-const { start, stop, togglePause } = createPlaybackTransport({
-  dom,
-  state: playbackTransportState,
-  constants: {
-    NOTE_FADEOUT,
-    SCHEDULE_INTERVAL
   },
-  helpers: {
+  transportHelpers: {
     applyDisplaySideLayout,
     clearBeatDots,
     clearScheduledDisplays,
@@ -4681,9 +4695,7 @@ const { start, stop, togglePause } = createPlaybackTransport({
     hideNextCol,
     initAudio,
     preloadStartupSamples,
-    prepareNextProgression: prepareNextProgressionPlayback,
     registerSessionAction,
-    scheduleBeat: scheduleBeatPlayback,
     setDisplayPlaceholderMessage,
     setDisplayPlaceholderVisible,
     stopActiveComping: compingEngine.stopActiveComping,
@@ -4695,87 +4707,44 @@ const { start, stop, togglePause } = createPlaybackTransport({
 
 // ---- UI Wiring ----
 
-dom.startStop.addEventListener('click', () => {
-  if (isPlaying) stop(); else start();
-});
-
-dom.pause.addEventListener('click', togglePause);
-
-dom.tempoSlider.addEventListener('input', () => {
-  dom.tempoValue.textContent = dom.tempoSlider.value;
-  syncNextPreviewControlDisplay();
-  refreshDisplayedHarmony();
-  if (isPlaying && audioCtx) {
-    stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-    rebuildPreparedCompingPlans(currentKey);
-    buildPreparedBassPlan();
-  }
-});
-
-dom.nextPreviewValue?.addEventListener('change', () => {
-  commitNextPreviewValueFromInput();
-  saveSettings();
-  trackEvent('next_preview_changed', {
-    next_preview_unit: getNextPreviewInputUnit(),
-    next_preview_bars: formatPreviewNumber(getNextPreviewLeadBars()),
-    next_preview_seconds: formatPreviewNumber(getNextPreviewLeadSeconds(), 1)
-  });
-});
-
-dom.nextPreviewUnitToggle?.addEventListener('change', () => {
-  convertNextPreviewValueToUnit(
-    dom.nextPreviewUnitToggle.checked ? NEXT_PREVIEW_UNIT_SECONDS : NEXT_PREVIEW_UNIT_BARS
-  );
-  setNextPreviewInputUnit(nextPreviewLeadUnit);
-  syncNextPreviewControlDisplay();
-  refreshDisplayedHarmony();
-  saveSettings();
-  trackEvent('next_preview_unit_changed', {
-    next_preview_unit: getNextPreviewInputUnit()
-  });
-});
-
 // ---- Key Picker ----
 
 function buildKeyCheckboxes() {
-  dom.keyCheckboxes.innerHTML = '';
-  for (let i = 0; i < 12; i++) {
-    const label = document.createElement('label');
-    label.className = 'key-checkbox-label';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = enabledKeys[i];
-    cb.dataset.keyIndex = i;
-    cb.addEventListener('change', () => {
-      enabledKeys[i] = cb.checked;
-      updateKeyCheckboxVisualState(label, cb, i);
-      keyPool = []; // reset pool
+  buildDrillKeyCheckboxes({
+    keyCheckboxes: dom.keyCheckboxes,
+    enabledKeys,
+    updateKeyCheckboxVisualState,
+    syncSelectedKeysSummary,
+    onKeyChange: ({ index, checked, label, checkbox }) => {
+      enabledKeys[index] = checked;
+      updateKeyCheckboxVisualState(label, checkbox, index);
+      keyPool = [];
       syncSelectedKeysSummary();
       saveSettings();
       trackEvent('key_selection_changed', {
         enabled_keys: getEnabledKeyCount(),
-        key_index: i,
-        key_state: cb.checked ? 'enabled' : 'disabled'
+        key_index: index,
+        key_state: checked ? 'enabled' : 'disabled'
       });
-    });
-    const span = document.createElement('span');
-    span.className = 'key-checkbox-text';
-    label.appendChild(cb);
-    label.appendChild(span);
-    updateKeyCheckboxVisualState(label, cb, i);
-    dom.keyCheckboxes.appendChild(label);
-  }
-  syncSelectedKeysSummary();
+    }
+  });
 }
 
 function setAllKeysEnabled(isEnabled) {
-  applyEnabledKeys(enabledKeys.map(() => isEnabled));
-  saveSettings();
+  setAllDrillKeysEnabled({
+    enabledKeys,
+    applyEnabledKeys,
+    saveSettings,
+    isEnabled
+  });
 }
 
 function invertKeysEnabled() {
-  applyEnabledKeys(enabledKeys.map(isEnabled => !isEnabled));
-  saveSettings();
+  invertDrillKeysEnabled({
+    enabledKeys,
+    applyEnabledKeys,
+    saveSettings
+  });
 }
 
 function keyLabelForPicker(majorIndex) {
@@ -4783,82 +4752,37 @@ function keyLabelForPicker(majorIndex) {
 }
 
 function updateKeyPickerLabels() {
-  const labels = dom.keyCheckboxes.querySelectorAll('.key-checkbox-label');
-  labels.forEach((label, i) => {
-    const checkbox = label.querySelector('input[type="checkbox"]');
-    if (!checkbox) return;
-    updateKeyCheckboxVisualState(label, checkbox, i);
+  updateDrillKeyPickerLabels({
+    keyCheckboxes: dom.keyCheckboxes,
+    updateKeyCheckboxVisualState,
+    syncSelectedKeysSummary
   });
-  syncSelectedKeysSummary();
 }
 
 function refreshDisplayedHarmony() {
-  if (!isPlaying) return;
-  applyDisplaySideLayout();
-  applyCurrentHarmonyVisibility();
-
-  if (isIntro) {
-    dom.keyDisplay.textContent = '';
-    dom.chordDisplay.innerHTML = '';
-    const firstChord = paddedChords[0];
-    showNextCol();
-    dom.nextKeyDisplay.innerHTML = keyNameHtml(currentKey);
-    dom.nextChordDisplay.innerHTML = firstChord ? chordSymbolHtml(currentKey, firstChord, null, paddedChords[1] || null) : '';
-    fitHarmonyDisplay();
-    return;
-  }
-
-  const chord = paddedChords[currentChordIdx] || paddedChords[paddedChords.length - 1];
-  if (!chord) return;
-  const followingChord = paddedChords[currentChordIdx + 1] || null;
-
-  dom.keyDisplay.innerHTML = keyNameHtml(currentKey);
-  dom.chordDisplay.innerHTML = chordSymbolHtml(currentKey, chord, null, followingChord);
-  const remainingBeats = getRemainingBeatsUntilNextProgression();
-
-  if (shouldShowNextPreview(currentKey, nextKeyValue, remainingBeats)) {
-    showNextCol();
-    const nextFirstChord = nextRawChords[0] || null;
-    dom.nextKeyDisplay.innerHTML = keyNameHtml(nextKeyValue);
-    dom.nextChordDisplay.innerHTML = nextFirstChord ? chordSymbolHtml(nextKeyValue, nextFirstChord, null, nextRawChords[1] || null) : '';
-  } else {
-    hideNextCol();
-  }
-  fitHarmonyDisplay();
+  refreshDrillDisplayedHarmony({
+    isPlaying,
+    isIntro,
+    currentKey,
+    nextKeyValue,
+    currentChordIdx,
+    paddedChords,
+    nextRawChords,
+    getRemainingBeatsUntilNextProgression,
+    shouldShowNextPreview,
+    keyNameHtml,
+    chordSymbolHtml,
+    showNextCol,
+    hideNextCol,
+    keyDisplay: dom.keyDisplay,
+    chordDisplay: dom.chordDisplay,
+    nextKeyDisplay: dom.nextKeyDisplay,
+    nextChordDisplay: dom.nextChordDisplay,
+    applyDisplaySideLayout,
+    applyCurrentHarmonyVisibility,
+    fitHarmonyDisplay
+  });
 }
-
-dom.selectAllKeys?.addEventListener('click', () => {
-  setAllKeysEnabled(true);
-  trackEvent('all_keys_selected', {
-    enabled_keys: getEnabledKeyCount()
-  });
-});
-
-dom.invertKeys?.addEventListener('click', () => {
-  invertKeysEnabled();
-  trackEvent('key_selection_inverted', {
-    enabled_keys: getEnabledKeyCount()
-  });
-});
-
-dom.clearAllKeys?.addEventListener('click', () => {
-  setAllKeysEnabled(false);
-  trackEvent('all_keys_cleared', {
-    enabled_keys: getEnabledKeyCount()
-  });
-});
-
-dom.saveKeyPreset?.addEventListener('click', saveCurrentKeySelectionPreset);
-dom.loadKeyPreset?.addEventListener('click', loadKeySelectionPreset);
-
-dom.transpositionSelect.addEventListener('change', () => {
-  updateKeyPickerLabels();
-  refreshDisplayedHarmony();
-  saveSettings();
-  trackEvent('display_transposition_changed', {
-    transposition: dom.transpositionSelect.value
-  });
-});
 
 function validateCustomPattern() {
   if (!isCustomPatternSelected()) {
@@ -5020,7 +4944,15 @@ function buildSettingsSnapshot() {
 }
 
 function saveSettings() {
-  saveStoredProgressionSettings(buildSettingsSnapshot());
+  saveDrillSettings({
+    saveSharedPlaybackSettings,
+    saveStoredProgressionSettings,
+    buildSettingsSnapshot,
+    getCompingStyle,
+    getDrumsMode,
+    isWalkingBassEnabled,
+    dom
+  });
 }
 
 function applyLoadedSettings(s) {
@@ -5230,68 +5162,59 @@ function finalizeLoadedSettings() {
 }
 
 function loadSettings() {
-  const storedSettings = loadStoredProgressionSettings();
-  if (storedSettings) {
-    applyLoadedSettings(storedSettings);
-  }
-  savedKeySelectionPreset = loadStoredKeySelectionPreset();
-  finalizeLoadedSettings();
-}
-
-function formatPianoSettingNumber(value) {
-  return String(Math.round(Number(value || 0) * 1000) / 1000);
+  loadDrillSettings({
+    loadStoredProgressionSettings,
+    loadStoredKeySelectionPreset,
+    applyLoadedSettings,
+    finalizeLoadedSettings,
+    setSavedKeySelectionPreset: (value) => {
+      savedKeySelectionPreset = value;
+    }
+  });
 }
 
 function setPianoMidiStatus(message) {
-  if (dom.pianoMidiStatus) {
-    dom.pianoMidiStatus.textContent = message;
-  }
-}
-
-function syncPianoFadeControlsFromState() {
-  if (dom.pianoTimeConstantLow) dom.pianoTimeConstantLow.value = formatPianoSettingNumber(pianoFadeSettings.timeConstantLow);
-  if (dom.pianoTimeConstantHigh) dom.pianoTimeConstantHigh.value = formatPianoSettingNumber(pianoFadeSettings.timeConstantHigh);
-}
-
-function getPianoSettingsPresetObject() {
-  return {
-    version: PIANO_SETTINGS_PRESET_VERSION,
-    fadeSettings: { ...pianoFadeSettings },
-    midiSettings: { ...pianoMidiSettings }
-  };
+  setDrillPianoMidiStatus(dom, message);
 }
 
 function refreshPianoSettingsJson() {
-  if (!dom.pianoSettingsJson) return;
-  dom.pianoSettingsJson.value = JSON.stringify(getPianoSettingsPresetObject(), null, 2);
-}
-
-function syncPianoMidiControlsFromState() {
-  if (dom.pianoMidiEnabled) dom.pianoMidiEnabled.checked = pianoMidiSettings.enabled;
-  if (dom.pianoMidiSustain) dom.pianoMidiSustain.checked = pianoMidiSettings.sustainPedalEnabled;
-  if (dom.pianoMidiInput && pianoMidiSettings.inputId) {
-    dom.pianoMidiInput.value = pianoMidiSettings.inputId;
-  }
+  refreshDrillPianoSettingsJson({
+    dom,
+    version: PIANO_SETTINGS_PRESET_VERSION,
+    pianoFadeSettings,
+    pianoMidiSettings
+  });
 }
 
 function syncPianoToolsUi() {
-  syncPianoFadeControlsFromState();
-  syncPianoMidiControlsFromState();
-  refreshPianoSettingsJson();
+  syncDrillPianoToolsUi({
+    dom,
+    version: PIANO_SETTINGS_PRESET_VERSION,
+    pianoFadeSettings,
+    pianoMidiSettings
+  });
 }
 
 function readPianoFadeSettingsFromControls() {
-  return normalizePianoFadeSettings({
-    timeConstantLow: dom.pianoTimeConstantLow?.value,
-    timeConstantHigh: dom.pianoTimeConstantHigh?.value
+  return readDrillPianoFadeSettingsFromControls({
+    dom,
+    normalizePianoFadeSettings
   });
 }
 
 function applyPianoFadeSettings(nextSettings, { persist = true } = {}) {
-  pianoFadeSettings = normalizePianoFadeSettings(nextSettings);
-  syncPianoFadeControlsFromState();
-  refreshPianoSettingsJson();
-  if (persist) saveSettings();
+  applyDrillPianoFadeSettings({
+    nextSettings,
+    normalizePianoFadeSettings,
+    setPianoFadeSettings: (value) => {
+      pianoFadeSettings = value;
+    },
+    dom,
+    version: PIANO_SETTINGS_PRESET_VERSION,
+    getPianoMidiSettings: () => pianoMidiSettings,
+    saveSettings,
+    persist
+  });
 }
 
 function dbToGain(db) {
@@ -5645,24 +5568,39 @@ async function refreshMidiInputs() {
 }
 
 function applyPianoMidiSettings(nextSettings, { persist = true, reconnect = true } = {}) {
-  pianoMidiSettings = normalizePianoMidiSettings(nextSettings);
-  syncPianoMidiControlsFromState();
-  if (reconnect) {
-    attachMidiInput();
-  }
-  refreshPianoSettingsJson();
-  if (persist) saveSettings();
+  applyDrillPianoMidiSettings({
+    nextSettings,
+    normalizePianoMidiSettings,
+    setPianoMidiSettings: (value) => {
+      pianoMidiSettings = value;
+    },
+    dom,
+    version: PIANO_SETTINGS_PRESET_VERSION,
+    getPianoFadeSettings: () => pianoFadeSettings,
+    attachMidiInput,
+    saveSettings,
+    persist,
+    reconnect
+  });
 }
 
 function applyPianoPresetFromJsonText(jsonText) {
-  const parsed = JSON.parse(jsonText);
-  const fadeSettings = normalizePianoFadeSettings(parsed.fadeSettings || parsed);
-  const midiSettings = normalizePianoMidiSettings(parsed.midiSettings || pianoMidiSettings);
-  pianoFadeSettings = fadeSettings;
-  pianoMidiSettings = midiSettings;
-  syncPianoToolsUi();
-  attachMidiInput();
-  saveSettings();
+  applyDrillPianoPresetFromJsonText({
+    jsonText,
+    normalizePianoFadeSettings,
+    normalizePianoMidiSettings,
+    getCurrentPianoMidiSettings: () => pianoMidiSettings,
+    setPianoFadeSettings: (value) => {
+      pianoFadeSettings = value;
+    },
+    setPianoMidiSettings: (value) => {
+      pianoMidiSettings = value;
+    },
+    dom,
+    version: PIANO_SETTINGS_PRESET_VERSION,
+    attachMidiInput,
+    saveSettings
+  });
 }
 
 function resetPlaybackSettings() {
@@ -5793,56 +5731,74 @@ async function loadDefaultProgressions() {
 }
 
 async function initializeApp() {
-  initializeSocialShareLinks();
-
-  await Promise.all([
-    loadDefaultProgressions(),
-    loadPatternHelp(),
-    loadWelcomeStandards()
-  ]);
-
-  renderProgressionOptions(Object.keys(progressions)[0] || '');
-  loadSettings();
-  const appliedSilentPresetReset = applySilentDefaultPresetResetMigration();
-  if (appliedSilentPresetReset) {
-    renderProgressionOptions(savedPatternSelection);
-    saveSettings();
-  }
-  buildKeyCheckboxes();
-  updateKeyPickerLabels();
-  applyDisplayMode();
-  if (!dom.customPattern.value) {
-    dom.customPattern.value = getSelectedProgressionPattern();
-  }
-  if (hasSelectedProgression()) {
-    dom.patternName.value = getSelectedProgressionName();
-    setEditorPatternMode(getSelectedProgressionMode());
-  } else {
-    dom.patternName.value = normalizePresetName(dom.patternName.value);
-    setEditorPatternMode(normalizePatternMode(dom.patternMode.value));
-  }
-  if (savedPatternSelection === CUSTOM_PATTERN_OPTION_VALUE) {
-    dom.patternSelect.value = CUSTOM_PATTERN_OPTION_VALUE;
-  } else if (savedPatternSelection && Object.prototype.hasOwnProperty.call(progressions, savedPatternSelection)) {
-    dom.patternSelect.value = savedPatternSelection;
-  } else {
-    syncPatternSelectionFromInput();
-  }
-  syncProgressionManagerState();
-  syncCustomPatternUI();
-  normalizeChordsPerBarForCurrentPattern();
-  applyPatternModeAvailability();
-  lastPatternSelectValue = dom.patternSelect.value;
-
-  if (shouldPromptForDefaultProgressionsUpdate) {
-    promptForUpdatedDefaultProgressions();
-  } else if (!appliedDefaultProgressionsFingerprint) {
-    appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
-  }
-
-  ensurePageSampleWarmup();
-  normalizeChordsPerBarForCurrentPattern();
-  maybeShowWelcomeOverlay();
+  await initializeDrillScreen({
+    initializeSocialShareLinks,
+    loadDefaultProgressions,
+    loadPatternHelp,
+    loadWelcomeStandards,
+    renderProgressionOptions,
+    getInitialProgressionOption: () => Object.keys(progressions)[0] || '',
+    loadSettings,
+    applySilentDefaultPresetResetMigration,
+    getSavedPatternSelection: () => savedPatternSelection,
+    saveSettings,
+    buildKeyCheckboxes,
+    updateKeyPickerLabels,
+    applyDisplayMode,
+    hasCustomPatternValue: () => Boolean(dom.customPattern.value),
+    setCustomPatternValue: (value) => {
+      dom.customPattern.value = value || '';
+    },
+    getSelectedProgressionPattern,
+    hasSelectedProgression,
+    setPatternNameFromSelectedProgression: () => {
+      dom.patternName.value = getSelectedProgressionName();
+    },
+    setPatternNameNormalized: () => {
+      dom.patternName.value = normalizePresetName(dom.patternName.value);
+    },
+    setEditorPatternModeFromSelectedProgression: () => {
+      setEditorPatternMode(getSelectedProgressionMode());
+    },
+    setEditorPatternModeNormalized: () => {
+      setEditorPatternMode(normalizePatternMode(dom.patternMode.value));
+    },
+    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE,
+    applySavedPatternSelection: (customPatternOptionValue) => {
+      if (savedPatternSelection === customPatternOptionValue) {
+        dom.patternSelect.value = customPatternOptionValue;
+        return true;
+      }
+      if (savedPatternSelection && Object.prototype.hasOwnProperty.call(progressions, savedPatternSelection)) {
+        dom.patternSelect.value = savedPatternSelection;
+        return true;
+      }
+      return false;
+    },
+    syncPatternSelectionFromInput,
+    syncProgressionManagerState,
+    syncCustomPatternUI,
+    normalizeChordsPerBarForCurrentPattern,
+    applyPatternModeAvailability,
+    setLastPatternSelectValue: () => {
+      lastPatternSelectValue = dom.patternSelect.value;
+    },
+    shouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
+    promptForUpdatedDefaultProgressions,
+    hasAppliedDefaultProgressionsFingerprint: () => Boolean(appliedDefaultProgressionsFingerprint),
+    setAppliedDefaultProgressionsFingerprint: (value) => {
+      appliedDefaultProgressionsFingerprint = value;
+    },
+    getDefaultProgressionsFingerprint,
+    ensurePageSampleWarmup,
+    consumePendingDrillSessionIntoUi: ({ afterApply }) => consumePendingDrillSessionIntoUi({
+      applyEmbeddedPattern,
+      applyEmbeddedPlaybackSettings,
+      afterApply
+    }),
+    setWelcomeOverlayVisible,
+    maybeShowWelcomeOverlay
+  });
 }
 
 initializeApp();
@@ -5854,55 +5810,20 @@ document.querySelector('[data-analytics-link="demo"]')?.addEventListener('click'
   });
 });
 
-document.querySelectorAll('input[name="welcome-goal"]').forEach((input) => {
-  input.addEventListener('change', () => {
-    updateWelcomePanelVisibility();
-    updateWelcomeSummary();
-    trackEvent('welcome_goal_changed', { welcome_goal: input.value });
-  });
-});
-
-document.querySelectorAll('input[name="welcome-progression"]').forEach((input) => {
-  input.addEventListener('change', () => {
-    updateWelcomeSummary();
-    trackEvent('welcome_progression_changed', { welcome_progression: input.value });
-  });
-});
-
-document.querySelectorAll('input[name="welcome-one-chord"]').forEach((input) => {
-  input.addEventListener('change', () => {
-    updateWelcomeSummary();
-    trackEvent('welcome_one_chord_changed', { welcome_one_chord: input.value });
-  });
-});
-
-document.querySelectorAll('input[name="welcome-instrument"]').forEach((input) => {
-  input.addEventListener('change', () => {
-    updateWelcomeSummary();
-    trackEvent('welcome_instrument_changed', { transposition: input.value });
-  });
-});
-
-dom.welcomeStandardSelect?.addEventListener('change', () => {
-  updateWelcomeSummary();
-  trackEvent('welcome_standard_changed', { welcome_standard: dom.welcomeStandardSelect.value });
-});
-
-dom.welcomeShowNextTime?.addEventListener('change', () => {
-  syncWelcomeShowNextTimePreference();
-  saveSettings();
-});
-
-dom.welcomeApply?.addEventListener('click', applyWelcomeRecommendation);
-dom.welcomeSkip?.addEventListener('click', skipWelcomeOverlay);
-dom.reopenWelcome?.addEventListener('click', (event) => {
-  event.preventDefault();
-  updateWelcomePanelVisibility();
-  updateWelcomeSummary();
-  setWelcomeOverlayVisible(true);
-  trackEvent('welcome_reopened', {
-    location: 'header'
-  });
+bindDrillWelcomeControls({
+  updateWelcomePanelVisibility,
+  updateWelcomeSummary,
+  trackEvent,
+  syncWelcomeShowNextTimePreference,
+  saveSettings,
+  applyWelcomeRecommendation,
+  skipWelcomeOverlay,
+  setWelcomeOverlayVisible,
+  welcomeStandardSelect: dom.welcomeStandardSelect,
+  welcomeShowNextTime: dom.welcomeShowNextTime,
+  welcomeApply: dom.welcomeApply,
+  welcomeSkip: dom.welcomeSkip,
+  reopenWelcome: dom.reopenWelcome
 });
 
 // Save on every change
@@ -5975,93 +5896,31 @@ dom.drumsSelect.addEventListener('change', () => {
     drums_mode: dom.drumsSelect.value
   });
 });
-dom.displayMode.addEventListener('change', () => {
-  applyDisplayMode();
-  saveSettings();
-  trackEvent('display_mode_changed', {
-    display_mode: normalizeDisplayMode(dom.displayMode.value)
-  });
-});
-dom.harmonyDisplayMode?.addEventListener('change', () => {
-  refreshDisplayedHarmony();
-  saveSettings();
-  trackEvent('harmony_display_mode_changed', {
-    alternate_display: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode.value)
-  });
-});
-[
-  dom.useMajorTriangleSymbol,
-  dom.useHalfDiminishedSymbol,
-  dom.useDiminishedSymbol
-].filter(Boolean).forEach((toggle) => {
-  toggle.addEventListener('change', () => {
-    refreshDisplayedHarmony();
-    saveSettings();
-  });
-});
-dom.showBeatIndicator?.addEventListener('change', () => {
-  applyBeatIndicatorVisibility();
-  saveSettings();
-});
-dom.hideCurrentHarmony?.addEventListener('change', () => {
-  applyCurrentHarmonyVisibility();
-  refreshDisplayedHarmony();
-  fitHarmonyDisplay();
-  saveSettings();
-});
-dom.transpositionSelect?.addEventListener('change', syncPatternPreview);
 dom.debugToggle?.addEventListener('change', () => {
   setAnalyticsDebugEnabled(dom.debugToggle.checked);
 });
 dom.resetSettings?.addEventListener('click', resetPlaybackSettings);
-[
-  dom.pianoTimeConstantLow,
-  dom.pianoTimeConstantHigh
-].filter(Boolean).forEach((input) => {
-  input.addEventListener('input', () => {
-    pianoFadeSettings = readPianoFadeSettingsFromControls();
-    refreshPianoSettingsJson();
-  });
-  input.addEventListener('change', () => {
-    applyPianoFadeSettings(readPianoFadeSettingsFromControls());
-  });
-});
-dom.pianoMidiEnabled?.addEventListener('change', async () => {
-  if (dom.pianoMidiEnabled.checked) {
-    await refreshMidiInputs();
-  } else {
-    stopAllMidiPianoVoices(true);
-  }
-  applyPianoMidiSettings({
-    ...pianoMidiSettings,
-    enabled: dom.pianoMidiEnabled.checked
-  });
-  if (dom.pianoMidiEnabled.checked) {
-    ensureMidiPianoRangePreload();
-  }
-});
-dom.pianoMidiInput?.addEventListener('change', () => {
-  applyPianoMidiSettings({
-    ...pianoMidiSettings,
-    inputId: dom.pianoMidiInput.value
-  });
-});
-dom.pianoMidiSustain?.addEventListener('change', () => {
-  const sustainPedalEnabled = dom.pianoMidiSustain.checked;
-  if (!sustainPedalEnabled) {
-    midiSustainPedalDown = false;
-    for (const midi of [...sustainedMidiNotes]) {
-      stopMidiPianoVoice(midi);
+initializeDrillPianoControls({
+  dom,
+  readPianoFadeSettingsFromControls,
+  refreshPianoSettingsJson,
+  applyPianoFadeSettings: (nextSettings) => {
+    applyPianoFadeSettings(nextSettings);
+  },
+  refreshMidiInputs,
+  stopAllMidiPianoVoices,
+  applyPianoMidiSettings: (nextSettings, options) => {
+    if (nextSettings?.sustainPedalEnabled === false) {
+      midiSustainPedalDown = false;
+      for (const midi of [...sustainedMidiNotes]) {
+        stopMidiPianoVoice(midi);
+      }
+      sustainedMidiNotes.clear();
     }
-    sustainedMidiNotes.clear();
-  }
-  applyPianoMidiSettings({
-    ...pianoMidiSettings,
-    sustainPedalEnabled
-  }, { reconnect: false });
-});
-dom.pianoMidiRefresh?.addEventListener('click', () => {
-  refreshMidiInputs();
+    applyPianoMidiSettings(nextSettings, options);
+  },
+  getPianoMidiSettings: () => pianoMidiSettings,
+  ensureMidiPianoRangePreload
 });
 dom.pianoSettingsCopy?.addEventListener('click', async () => {
   refreshPianoSettingsJson();
@@ -6099,349 +5958,332 @@ dom.pianoSettingsReset?.addEventListener('click', () => {
   saveSettings();
   setPianoMidiStatus('Réglages piano réinitialisés');
 });
-dom.masterVolume.addEventListener('input', applyMixerSettings);
-dom.bassVolume.addEventListener('input', applyMixerSettings);
-dom.drumsVolume.addEventListener('input', applyMixerSettings);
-dom.masterVolume.addEventListener('change', () => {
-  saveSettings();
-  trackEvent('master_volume_changed', {
-    volume_percent: Number(dom.masterVolume.value)
-  });
-});
-dom.bassVolume.addEventListener('change', () => {
-  saveSettings();
-  trackEvent('bass_volume_changed', {
-    volume_percent: Number(dom.bassVolume.value)
-  });
-});
-dom.stringsVolume.addEventListener('change', () => {
-  saveSettings();
-  trackEvent('strings_volume_changed', {
-    volume_percent: Number(dom.stringsVolume.value)
-  });
-});
-dom.drumsVolume.addEventListener('change', () => {
-  saveSettings();
-  trackEvent('drums_volume_changed', {
-    volume_percent: Number(dom.drumsVolume.value)
-  });
-});
 function applyDisplayMode() {
-  const display = document.getElementById('display');
-  const mode = normalizeDisplayMode(dom.displayMode?.value);
-  display.classList.remove('display-show-both', 'display-chords-only', 'display-key-only');
-  if (mode === DISPLAY_MODE_CHORDS_ONLY) {
-    display.classList.add('display-chords-only');
-    applyDisplaySideLayout();
-    applyCurrentHarmonyVisibility();
-    fitHarmonyDisplay();
-    return;
-  }
-  if (mode === DISPLAY_MODE_KEY_ONLY) {
-    display.classList.add('display-key-only');
-    applyDisplaySideLayout();
-    applyCurrentHarmonyVisibility();
-    fitHarmonyDisplay();
-    return;
-  }
-  display.classList.add('display-show-both');
-  applyDisplaySideLayout();
-  applyCurrentHarmonyVisibility();
-  fitHarmonyDisplay();
+  applyDrillDisplayMode({
+    displayElement: document.getElementById('display'),
+    mode: normalizeDisplayMode(dom.displayMode?.value),
+    applyDisplaySideLayout,
+    applyCurrentHarmonyVisibility,
+    fitHarmonyDisplay
+  });
 }
 
-window.addEventListener('resize', fitHarmonyDisplay);
+initializeDrillRuntimeControls({
+  dom,
+  onStartStopClick: () => {
+    if (isPlaying) stop(); else start();
+  },
+  onPauseClick: togglePause,
+  onTempoInput: () => {
+    dom.tempoValue.textContent = dom.tempoSlider.value;
+    syncNextPreviewControlDisplay();
+    refreshDisplayedHarmony();
+    if (isPlaying && audioCtx) {
+      stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
+      rebuildPreparedCompingPlans(currentKey);
+      buildPreparedBassPlan();
+    }
+  },
+  onNextPreviewValueChange: () => {
+    commitNextPreviewValueFromInput();
+    saveSettings();
+    trackEvent('next_preview_changed', {
+      next_preview_unit: getNextPreviewInputUnit(),
+      next_preview_bars: formatPreviewNumber(getNextPreviewLeadBars()),
+      next_preview_seconds: formatPreviewNumber(getNextPreviewLeadSeconds(), 1)
+    });
+  },
+  onNextPreviewUnitToggleChange: () => {
+    convertNextPreviewValueToUnit(
+      dom.nextPreviewUnitToggle.checked ? NEXT_PREVIEW_UNIT_SECONDS : NEXT_PREVIEW_UNIT_BARS
+    );
+    setNextPreviewInputUnit(nextPreviewLeadUnit);
+    syncNextPreviewControlDisplay();
+    refreshDisplayedHarmony();
+    saveSettings();
+    trackEvent('next_preview_unit_changed', {
+      next_preview_unit: getNextPreviewInputUnit()
+    });
+  },
+  onSelectAllKeys: () => {
+    setAllKeysEnabled(true);
+    trackEvent('all_keys_selected', {
+      enabled_keys: getEnabledKeyCount()
+    });
+  },
+  onInvertKeys: () => {
+    invertKeysEnabled();
+    trackEvent('key_selection_inverted', {
+      enabled_keys: getEnabledKeyCount()
+    });
+  },
+  onClearKeys: () => {
+    setAllKeysEnabled(false);
+    trackEvent('all_keys_cleared', {
+      enabled_keys: getEnabledKeyCount()
+    });
+  },
+  onSaveKeyPreset: saveCurrentKeySelectionPreset,
+  onLoadKeyPreset: loadKeySelectionPreset,
+  onTranspositionChange: () => {
+    updateKeyPickerLabels();
+    refreshDisplayedHarmony();
+    saveSettings();
+    syncPatternPreview();
+    trackEvent('display_transposition_changed', {
+      transposition: dom.transpositionSelect.value
+    });
+  },
+  onDisplayModeChange: () => {
+    applyDisplayMode();
+    saveSettings();
+    trackEvent('display_mode_changed', {
+      display_mode: normalizeDisplayMode(dom.displayMode.value)
+    });
+  },
+  onHarmonyDisplayModeChange: () => {
+    refreshDisplayedHarmony();
+    saveSettings();
+    trackEvent('harmony_display_mode_changed', {
+      alternate_display: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode.value)
+    });
+  },
+  onSymbolToggleChange: () => {
+    refreshDisplayedHarmony();
+    saveSettings();
+  },
+  onShowBeatIndicatorChange: () => {
+    applyBeatIndicatorVisibility();
+    saveSettings();
+  },
+  onHideCurrentHarmonyChange: () => {
+    applyCurrentHarmonyVisibility();
+    refreshDisplayedHarmony();
+    fitHarmonyDisplay();
+    saveSettings();
+  },
+  onMasterVolumeInput: applyMixerSettings,
+  onBassVolumeInput: applyMixerSettings,
+  onDrumsVolumeInput: applyMixerSettings,
+  onMasterVolumeChange: () => {
+    saveSettings();
+    trackEvent('master_volume_changed', {
+      volume_percent: Number(dom.masterVolume.value)
+    });
+  },
+  onBassVolumeChange: () => {
+    saveSettings();
+    trackEvent('bass_volume_changed', {
+      volume_percent: Number(dom.bassVolume.value)
+    });
+  },
+  onStringsVolumeChange: () => {
+    saveSettings();
+    trackEvent('strings_volume_changed', {
+      volume_percent: Number(dom.stringsVolume.value)
+    });
+  },
+  onDrumsVolumeChange: () => {
+    saveSettings();
+    trackEvent('drums_volume_changed', {
+      volume_percent: Number(dom.drumsVolume.value)
+    });
+  }
+});
+
+initializeHarmonyDisplayObservers({
+  fitHarmonyDisplay,
+  chordDisplay: dom.chordDisplay,
+  nextChordDisplay: dom.nextChordDisplay,
+  displayColumns: document.getElementById('display-columns')
+});
+
 window.addEventListener('pagehide', trackSessionDuration);
 
-if (document.fonts?.ready) {
-  document.fonts.ready.then(() => {
-    fitHarmonyDisplay();
-  }).catch(() => {});
-}
-
-if (typeof ResizeObserver !== 'undefined') {
-  const harmonyDisplayResizeObserver = new ResizeObserver(() => {
-    fitHarmonyDisplay();
-  });
-
-  [dom.chordDisplay, dom.nextChordDisplay, document.getElementById('display-columns')]
-    .filter(Boolean)
-    .forEach(element => harmonyDisplayResizeObserver.observe(element));
-}
-
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', fitHarmonyDisplay);
-}
-
-function applyEmbeddedPattern({
-  patternName = 'Chart Dev',
-  patternString = '',
-  patternMode = PATTERN_MODE_BOTH,
-  tempo = null,
-  transposition = null,
-  compingStyle = null,
-  drumsMode = null,
-  customMediumSwingBass = null,
-  repetitionsPerKey = 1,
-  displayMode = null,
-  harmonyDisplayMode = null,
-  showBeatIndicator = null,
-  hideCurrentHarmony = null,
-  masterVolume = null,
-  bassVolume = null,
-  stringsVolume = null,
-  drumsVolume = null
-} = {}) {
-  const normalizedPattern = normalizePatternString(patternString);
-
-  if (isPlaying) {
-    stop();
-  }
-
-  clearProgressionEditingState();
-  closeProgressionManager();
-
-  suppressPatternSelectChange = true;
-  setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
-  if (dom.patternName) {
-    dom.patternName.value = normalizePresetName(patternName);
-  }
-  dom.customPattern.value = normalizedPattern;
-  setEditorPatternMode(normalizePatternMode(patternMode || PATTERN_MODE_BOTH));
-  syncPatternSelectionFromInput();
-  suppressPatternSelectChange = false;
-  lastPatternSelectValue = dom.patternSelect.value;
-
-  if (tempo !== null && dom.tempoSlider) {
-    dom.tempoSlider.value = String(tempo);
-    dom.tempoValue.textContent = dom.tempoSlider.value;
-  }
-  if (transposition !== null && dom.transpositionSelect) {
-    dom.transpositionSelect.value = String(transposition);
-  }
-  applyEmbeddedPlaybackSettings({
-    tempo,
-    transposition,
-    compingStyle,
-    drumsMode,
-    customMediumSwingBass,
-    repetitionsPerKey,
-    displayMode,
-    harmonyDisplayMode,
-    showBeatIndicator,
-    hideCurrentHarmony,
-    masterVolume,
-    bassVolume,
-    stringsVolume,
-    drumsVolume
-  });
-
-  syncCustomPatternUI();
-  normalizeChordsPerBarForCurrentPattern();
-  applyPatternModeAvailability();
-  syncPatternPreview();
-  applyDisplayMode();
-  applyBeatIndicatorVisibility();
-  applyCurrentHarmonyVisibility();
-  updateKeyPickerLabels();
-  refreshDisplayedHarmony();
-  fitHarmonyDisplay();
-
-  const isValid = validateCustomPattern();
-  return {
-    ok: isValid,
-    errorMessage: isValid ? null : String(dom.patternError?.textContent || 'Invalid custom pattern'),
-    normalizedPattern,
-    currentPatternString: getCurrentPatternString()
-  };
-}
-
-function normalizeEmbeddedVolume(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  return String(Math.max(0, Math.min(100, Math.round(parsed))));
-}
-
-function applyEmbeddedPlaybackSettings({
-  tempo = null,
-  transposition = null,
-  compingStyle = null,
-  drumsMode = null,
-  customMediumSwingBass = null,
-  repetitionsPerKey = null,
-  displayMode = null,
-  harmonyDisplayMode = null,
-  showBeatIndicator = null,
-  hideCurrentHarmony = null,
-  masterVolume = null,
-  bassVolume = null,
-  stringsVolume = null,
-  drumsVolume = null
-} = {}) {
-  if (tempo !== null && dom.tempoSlider) {
-    dom.tempoSlider.value = String(tempo);
-    dom.tempoValue.textContent = dom.tempoSlider.value;
-  }
-  if (transposition !== null && dom.transpositionSelect) {
-    dom.transpositionSelect.value = String(transposition);
-  }
-  if (compingStyle !== null && dom.compingStyle) {
-    dom.compingStyle.value = normalizeCompingStyle(compingStyle);
-  }
-  if (drumsMode !== null && dom.drumsSelect) {
-    dom.drumsSelect.value = drumsMode;
-  }
-  if (customMediumSwingBass !== null && dom.walkingBass) {
-    dom.walkingBass.checked = Boolean(customMediumSwingBass);
-  }
-  if (repetitionsPerKey !== null && dom.repetitionsPerKey) {
-    dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(repetitionsPerKey));
-  }
-  if (displayMode !== null && dom.displayMode) {
-    dom.displayMode.value = normalizeDisplayMode(displayMode);
-  }
-  if (harmonyDisplayMode !== null && dom.harmonyDisplayMode) {
-    dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(harmonyDisplayMode);
-  }
-  if (showBeatIndicator !== null && dom.showBeatIndicator) {
-    dom.showBeatIndicator.checked = Boolean(showBeatIndicator);
-  }
-  if (hideCurrentHarmony !== null && dom.hideCurrentHarmony) {
-    dom.hideCurrentHarmony.checked = Boolean(hideCurrentHarmony);
-  }
-
-  const normalizedMaster = normalizeEmbeddedVolume(masterVolume);
-  if (normalizedMaster !== null && dom.masterVolume) {
-    dom.masterVolume.value = normalizedMaster;
-  }
-  const normalizedBass = normalizeEmbeddedVolume(bassVolume);
-  if (normalizedBass !== null && dom.bassVolume) {
-    dom.bassVolume.value = normalizedBass;
-  }
-  const normalizedStrings = normalizeEmbeddedVolume(stringsVolume);
-  if (normalizedStrings !== null && dom.stringsVolume) {
-    dom.stringsVolume.value = normalizedStrings;
-  }
-  const normalizedDrums = normalizeEmbeddedVolume(drumsVolume);
-  if (normalizedDrums !== null && dom.drumsVolume) {
-    dom.drumsVolume.value = normalizedDrums;
-  }
-
-  applyMixerSettings();
-  return {
-    tempo: Number(dom.tempoSlider?.value || 0),
-    swingRatio: getSwingRatio(),
-    transposition: dom.transpositionSelect?.value || '0',
-    compingStyle: getCompingStyle(),
-    drumsMode: getDrumsMode(),
-    customMediumSwingBass: isWalkingBassEnabled(),
-    repetitionsPerKey: getRepetitionsPerKey(),
-    displayMode: normalizeDisplayMode(dom.displayMode?.value),
-    harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
-    showBeatIndicator: dom.showBeatIndicator?.checked !== false,
-    hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
-    masterVolume: Number(dom.masterVolume?.value || 0),
-    bassVolume: Number(dom.bassVolume?.value || 0),
-    stringsVolume: Number(dom.stringsVolume?.value || 0),
-    drumsVolume: Number(dom.drumsVolume?.value || 0)
-  };
-}
-
-function getEmbeddedPlaybackState() {
-  return {
-    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE,
-    isPlaying,
-    isPaused,
-    isIntro,
-    currentBeat,
-    currentChordIdx,
-    paddedChordCount: Array.isArray(paddedChords) ? paddedChords.length : 0,
-    currentPatternString: getCurrentPatternString(),
-    currentPatternMode: getCurrentPatternMode(),
-    patternError: dom.patternError?.classList.contains('hidden')
-      ? null
-      : String(dom.patternError?.textContent || ''),
-    tempo: Number(dom.tempoSlider?.value || 0),
-    swingRatio: getSwingRatio()
-  };
-}
-
-window.__JPT_DRILL_API__ = {
-  version: 1,
+const {
+  playbackController: embeddedPlaybackController,
   applyEmbeddedPattern,
-  async applyEmbeddedPlaybackSettings(options = {}) {
-    const applied = applyEmbeddedPlaybackSettings(options);
-    if (options.customMediumSwingBass === true) {
-      try {
-        await ensureWalkingBassGenerator();
-      } catch (error) {
-        return {
-          ok: false,
-          errorMessage: error?.message || 'Walking bass generator failed to load.',
-          state: getEmbeddedPlaybackState(),
-          settings: applied
-        };
+  applyEmbeddedPlaybackSettings,
+  getEmbeddedPlaybackState
+} = initializeEmbeddedDrillRuntime({
+  patternAdapterOptions: {
+    stopIfPlaying: () => {
+      if (isPlaying) {
+        stop();
       }
-    }
-    if (isPlaying && audioCtx) {
-      if (options.compingStyle !== null && options.compingStyle !== undefined) {
-        stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-        rebuildPreparedCompingPlans(currentKey);
+    },
+    clearProgressionEditingState,
+    closeProgressionManager,
+    setCustomPatternSelection: () => {
+      suppressPatternSelectChange = true;
+      setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
+    },
+    setPatternName: (value) => {
+      if (dom.patternName) {
+        dom.patternName.value = value;
       }
-      if (options.tempo !== null && options.tempo !== undefined) {
-        stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-        rebuildPreparedCompingPlans(currentKey);
-        buildPreparedBassPlan();
-      }
-      if (options.customMediumSwingBass !== null && options.customMediumSwingBass !== undefined) {
-        buildPreparedBassPlan();
-      }
-    }
-    preloadNearTermSamples().catch(() => {});
-    return {
-      ok: true,
-      state: getEmbeddedPlaybackState(),
-      settings: applied
-    };
+    },
+    setCustomPatternValue: (value) => {
+      dom.customPattern.value = value;
+    },
+    setEditorPatternMode: (value) => {
+      setEditorPatternMode(value);
+    },
+    syncPatternSelectionFromInput: () => {
+      syncPatternSelectionFromInput();
+      suppressPatternSelectChange = false;
+    },
+    setLastPatternSelectValue: () => {
+      lastPatternSelectValue = dom.patternSelect.value;
+    },
+    syncCustomPatternUI,
+    normalizeChordsPerBarForCurrentPattern,
+    applyPatternModeAvailability,
+    syncPatternPreview,
+    applyDisplayMode,
+    applyBeatIndicatorVisibility,
+    applyCurrentHarmonyVisibility,
+    updateKeyPickerLabels,
+    refreshDisplayedHarmony,
+    fitHarmonyDisplay,
+    validateCustomPattern: () => validateCustomPattern(),
+    getPatternErrorText: () => String(dom.patternError?.textContent || 'Invalid custom pattern'),
+    getCurrentPatternString,
+    normalizePatternString,
+    normalizePresetName,
+    normalizePatternMode
   },
-  getPlaybackState: getEmbeddedPlaybackState,
-  async startPlayback() {
-    const isValid = validateCustomPattern();
-    if (!isValid) {
-      return {
-        ok: false,
-        errorMessage: String(dom.patternError?.textContent || 'Invalid custom pattern'),
-        state: getEmbeddedPlaybackState()
-      };
-    }
-    if (!isPlaying) {
-      await start();
-    }
-    return {
-      ok: true,
-      errorMessage: null,
-      state: getEmbeddedPlaybackState()
-    };
+  playbackSettingsAdapterOptions: {
+    setTempo: (value) => {
+      if (dom.tempoSlider) {
+        dom.tempoSlider.value = String(value);
+        dom.tempoValue.textContent = dom.tempoSlider.value;
+      }
+    },
+    setTransposition: (value) => {
+      if (dom.transpositionSelect) {
+        dom.transpositionSelect.value = String(value);
+      }
+    },
+    setCompingStyle: (value) => {
+      if (dom.compingStyle) {
+        dom.compingStyle.value = normalizeCompingStyle(value);
+      }
+    },
+    setDrumsMode: (value) => {
+      if (dom.drumsSelect) {
+        dom.drumsSelect.value = value;
+      }
+    },
+    setWalkingBassEnabled: (value) => {
+      if (dom.walkingBass) {
+        dom.walkingBass.checked = Boolean(value);
+      }
+    },
+    setRepetitionsPerKey: (value) => {
+      if (dom.repetitionsPerKey) {
+        dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(value));
+      }
+    },
+    setDisplayMode: (value) => {
+      if (dom.displayMode) {
+        dom.displayMode.value = normalizeDisplayMode(value);
+      }
+    },
+    setHarmonyDisplayMode: (value) => {
+      if (dom.harmonyDisplayMode) {
+        dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(value);
+      }
+    },
+    setShowBeatIndicator: (value) => {
+      if (dom.showBeatIndicator) {
+        dom.showBeatIndicator.checked = Boolean(value);
+      }
+    },
+    setHideCurrentHarmony: (value) => {
+      if (dom.hideCurrentHarmony) {
+        dom.hideCurrentHarmony.checked = Boolean(value);
+      }
+    },
+    setMasterVolume: (value) => {
+      if (dom.masterVolume) {
+        dom.masterVolume.value = value;
+      }
+    },
+    setBassVolume: (value) => {
+      if (dom.bassVolume) {
+        dom.bassVolume.value = value;
+      }
+    },
+    setStringsVolume: (value) => {
+      if (dom.stringsVolume) {
+        dom.stringsVolume.value = value;
+      }
+    },
+    setDrumsVolume: (value) => {
+      if (dom.drumsVolume) {
+        dom.drumsVolume.value = value;
+      }
+    },
+    applyMixerSettings,
+    getPlaybackSettingsSnapshot: () => ({
+      tempo: Number(dom.tempoSlider?.value || 0),
+      swingRatio: getSwingRatio(),
+      transposition: dom.transpositionSelect?.value || '0',
+      compingStyle: getCompingStyle(),
+      drumsMode: getDrumsMode(),
+      customMediumSwingBass: isWalkingBassEnabled(),
+      repetitionsPerKey: getRepetitionsPerKey(),
+      displayMode: normalizeDisplayMode(dom.displayMode?.value),
+      harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+      showBeatIndicator: dom.showBeatIndicator?.checked !== false,
+      hideCurrentHarmony: dom.hideCurrentHarmony?.checked === true,
+      masterVolume: Number(dom.masterVolume?.value || 0),
+      bassVolume: Number(dom.bassVolume?.value || 0),
+      stringsVolume: Number(dom.stringsVolume?.value || 0),
+      drumsVolume: Number(dom.drumsVolume?.value || 0)
+    })
   },
-  stopPlayback() {
-    if (isPlaying) {
-      stop();
-    }
-    return {
-      ok: true,
-      state: getEmbeddedPlaybackState()
-    };
+  playbackStateOptions: {
+    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE,
+    getIsPlaying: () => isPlaying,
+    getIsPaused: () => isPaused,
+    getIsIntro: () => isIntro,
+    getCurrentBeat: () => currentBeat,
+    getCurrentChordIdx: () => currentChordIdx,
+    getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
+    getCurrentPatternString,
+    getCurrentPatternMode,
+    getPatternErrorText: () => String(dom.patternError?.textContent || ''),
+    hasPatternError: () => !dom.patternError?.classList.contains('hidden'),
+    getTempo: () => Number(dom.tempoSlider?.value || 0),
+    getSwingRatio
   },
-  togglePausePlayback() {
-    togglePause();
-    return {
-      ok: true,
-      state: getEmbeddedPlaybackState()
-    };
+  playbackControllerOptions: {
+    ensureWalkingBassGenerator,
+    isPlaying: () => isPlaying,
+    getAudioContext: () => audioCtx,
+    noteFadeout: NOTE_FADEOUT,
+    stopActiveChordVoices,
+    rebuildPreparedCompingPlans,
+    buildPreparedBassPlan,
+    getCurrentKey: () => currentKey,
+    preloadNearTermSamples,
+    validateCustomPattern: () => validateCustomPattern(),
+    startPlayback: () => start(),
+    stopPlayback: () => stop(),
+    togglePausePlayback: () => togglePause()
   }
-};
+});
 
-window.dispatchEvent(new CustomEvent('jpt-drill-api-ready'));
+function getPlaybackSessionController() {
+  if (playbackSessionController) {
+    return playbackSessionController;
+  }
+
+  playbackSessionController = embeddedPlaybackController;
+  return playbackSessionController;
+}
 
 
 

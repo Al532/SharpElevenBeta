@@ -10,6 +10,13 @@
 </head>
 <body>
   <div class="chart-app">
+    <div class="chart-mode-shell" aria-label="App modes">
+      <span id="app-mode-badge" class="chart-mode-badge">Chart Mode</span>
+      <nav class="chart-mode-nav">
+        <a id="app-mode-drill-link" class="chart-mode-link" href="../index.html">Drill</a>
+        <a id="app-mode-chart-link" class="chart-mode-link" href="./index.html">Chart</a>
+      </nav>
+    </div>
     <button class="chart-mobile-fab" id="mobile-menu-toggle" type="button" aria-label="Open controls">
       <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/>
@@ -167,8 +174,11 @@
         <div class="chart-transport-meta">
           <span id="transport-status">Ready</span>
           <span id="transport-position">Bar 0 / 0</span>
+          <span id="selection-summary">No selection</span>
         </div>
         <div class="chart-transport-buttons">
+          <button id="clear-selection-button" type="button" class="chart-transport-button">Clear selection</button>
+          <button id="send-selection-to-drill-button" type="button" class="chart-transport-button">Send to Drill</button>
           <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
           <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
         </div>

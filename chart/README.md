@@ -8,6 +8,7 @@ Goals for v1:
 - separate source, view, and playback interpretation
 - export an interpreted played form for the existing `Drill` engine
 - stay out of the public app bundle
+- keep the chart/session domain browser-agnostic and JSON-safe
 
 Useful commands:
 
@@ -18,6 +19,20 @@ Entrypoints:
 
 - `chart/index.js`: browser-safe API for `chart-dev`
 - `chart/node-index.mjs`: Node-only API including raw iReal source import helpers
+
+Stable internal contracts exposed from `chart/index.js`:
+
+- `CHART_DOCUMENT_CONTRACT`
+- `CHART_PLAYBACK_PLAN_CONTRACT`
+- `PRACTICE_SESSION_CONTRACT`
+
+Preferred pure transformations:
+
+- `createChartPlaybackPlanFromDocument(chartDocument)`
+- `createPracticeSessionFromChartDocument(chartDocument, options)`
+- `createPracticeSessionFromChartDocumentWithPlaybackPlan(chartDocument, playbackPlan, options)`
+- `createSelectedChartDocument(chartDocument, selectedBarIds)`
+- `createPracticeSessionFromSelectedChartDocument(selectedChartDocument, options)`
 
 Default iReal style tempos to document when the source playlist does not expose an explicit BPM:
 
