@@ -1,8 +1,22 @@
+// @ts-check
+
+/** @typedef {import('../core/types/contracts').ChartDocument} ChartDocument */
+/** @typedef {import('../core/types/contracts').ChartPlaybackDiagnostic} ChartPlaybackDiagnostic */
+/** @typedef {import('../core/types/contracts').ChartPlaybackEntry} ChartPlaybackEntry */
+/** @typedef {import('../core/types/contracts').ChartPlaybackNavigation} ChartPlaybackNavigation */
+/** @typedef {import('../core/types/contracts').ChartChordSlot} ChartChordSlot */
+/** @typedef {import('../core/types/contracts').ChartCellSlot} ChartCellSlot */
+/** @typedef {import('../core/types/contracts').RichChartBar} RichChartBar */
+
 import { createChartPlaybackPlan } from './chart-types.js';
 import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
 
 const MAX_PLAYBACK_STEPS = 1024;
 
+/**
+ * @param {RichChartBar[]} bars
+ * @returns {Map<number, number>}
+ */
 function buildRepeatMap(bars) {
   const stack = [];
   const repeatMap = new Map();
@@ -33,6 +47,10 @@ function buildRepeatMap(bars) {
   return repeatMap;
 }
 
+/**
+ * @param {RichChartBar[]} bars
+ * @returns {Map<number, Set<number>>}
+ */
 function buildEndingMap(bars) {
   const endingMap = new Map();
   const repeatMap = buildRepeatMap(bars);
@@ -69,6 +87,10 @@ function buildEndingMap(bars) {
   return endingMap;
 }
 
+/**
+ * @param {RichChartBar[]} bars
+ * @returns {ChartPlaybackNavigation}
+ */
 function collectNavigationTargets(bars) {
   let segnoIndex = null;
   let codaIndex = null;
@@ -81,6 +103,11 @@ function collectNavigationTargets(bars) {
   return { segnoIndex, codaIndex };
 }
 
+/**
+ * @param {RichChartBar} bar
+ * @param {number} visitIndex
+ * @returns {ChartPlaybackEntry}
+ */
 function createEntry(bar, visitIndex) {
   return {
     sequenceIndex: visitIndex + 1,
@@ -107,6 +134,11 @@ function createEntry(bar, visitIndex) {
   };
 }
 
+/**
+ * @param {ChartCellSlot[]} [playbackCellSlots]
+ * @param {ChartChordSlot[]} [contextualizedPlaybackSlots]
+ * @returns {ChartCellSlot[]}
+ */
 function applyContextualizedPlaybackSlotsToCellSlots(playbackCellSlots = [], contextualizedPlaybackSlots = []) {
   if (!Array.isArray(playbackCellSlots) || playbackCellSlots.length === 0) {
     return JSON.parse(JSON.stringify(playbackCellSlots || []));
@@ -133,10 +165,21 @@ function applyContextualizedPlaybackSlotsToCellSlots(playbackCellSlots = [], con
   return remappedCellSlots;
 }
 
+/**
+ * @param {RichChartBar} bar
+ * @param {string} type
+ * @returns {Record<string, unknown> | null}
+ */
 function findDirective(bar, type) {
   return (bar.directives || []).find(directive => directive?.type === type) || null;
 }
 
+/**
+ * @param {Map<number, Set<number>>} endingMap
+ * @param {number} startIndex
+ * @param {number} endIndex
+ * @returns {number}
+ */
 function findHighestEndingWithinRange(endingMap, startIndex, endIndex) {
   let highest = 1;
   for (let index = startIndex; index <= endIndex; index += 1) {
@@ -149,11 +192,17 @@ function findHighestEndingWithinRange(endingMap, startIndex, endIndex) {
   return highest;
 }
 
+/**
+ * @param {ChartDocument | null | undefined} chartDocument
+ * @param {{ stopAtFine?: boolean }} [options]
+ * @returns {import('../core/types/contracts').ChartPlaybackPlan}
+ */
 export function createChartPlaybackPlanFromDocument(chartDocument, options = {}) {
   const bars = chartDocument?.bars || [];
   const repeatMap = buildRepeatMap(bars);
   const endingMap = buildEndingMap(bars);
   const navigationTargets = collectNavigationTargets(bars);
+  /** @type {ChartPlaybackDiagnostic[]} */
   const diagnostics = [];
   const unsupportedDirectiveTypes = new Set([
     'repeat_hint',
@@ -164,6 +213,7 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
     'fade_out'
   ]);
   const reportedUnsupportedDirectives = new Set();
+  /** @type {ChartPlaybackEntry[]} */
   const entries = [];
   let repeatContext = null;
   let pendingJump = null;
@@ -191,14 +241,15 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options = {})
     const dsAlEnding = findDirective(bar, 'ds_al_ending');
 
     for (const directive of bar.directives || []) {
-      if (!unsupportedDirectiveTypes.has(directive?.type)) continue;
-      const diagnosticKey = `${directive.type}:${bar.id}`;
+      const directiveType = typeof directive?.type === 'string' ? directive.type : '';
+      if (!directiveType || !unsupportedDirectiveTypes.has(directiveType)) continue;
+      const diagnosticKey = `${directiveType}:${bar.id}`;
       if (reportedUnsupportedDirectives.has(diagnosticKey)) continue;
       reportedUnsupportedDirectives.add(diagnosticKey);
       diagnostics.push({
         level: 'warning',
-        code: `unsupported_${directive.type}`,
-        message: `Bar ${bar.index} includes ${directive.type}, which is preserved but not yet interpreted by playback.`
+        code: `unsupported_${directiveType}`,
+        message: `Bar ${bar.index} includes ${directiveType}, which is preserved but not yet interpreted by playback.`
       });
     }
 

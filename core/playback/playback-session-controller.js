@@ -1,7 +1,21 @@
+// @ts-check
+
+/** @typedef {import('../types/contracts').PlaybackRuntimeState} PlaybackRuntimeState */
+/** @typedef {import('../types/contracts').PlaybackSettings} PlaybackSettings */
+/** @typedef {import('../types/contracts').PlaybackOperationResult} PlaybackOperationResult */
+/** @typedef {import('../types/contracts').PlaybackSessionSnapshot} PlaybackSessionSnapshot */
+/** @typedef {import('../types/contracts').PlaybackSessionAdapter} PlaybackSessionAdapter */
+/** @typedef {import('../types/contracts').PlaybackSessionController} PlaybackSessionController */
+/** @typedef {import('../types/contracts').PracticeSessionSpec} PracticeSessionSpec */
+
 function deepClone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * @param {Partial<PlaybackRuntimeState> | null | undefined} [state]
+ * @returns {PlaybackRuntimeState}
+ */
 function normalizeRuntimeState(state = {}) {
   return {
     isPlaying: Boolean(state?.isPlaying),
@@ -15,6 +29,10 @@ function normalizeRuntimeState(state = {}) {
   };
 }
 
+/**
+ * @param {{ adapter?: PlaybackSessionAdapter, initialSettings?: PlaybackSettings }} [options]
+ * @returns {PlaybackSessionController}
+ */
 export function createPlaybackSessionController({
   adapter,
   initialSettings = {}
@@ -23,9 +41,13 @@ export function createPlaybackSessionController({
     throw new Error('A playback adapter is required.');
   }
 
+  /** @type {Set<(snapshot: PlaybackSessionSnapshot) => void>} */
   const listeners = new Set();
+  /** @type {PracticeSessionSpec | null} */
   let currentSession = null;
+  /** @type {PlaybackSettings} */
   let playbackSettings = { ...(initialSettings || {}) };
+  /** @type {PlaybackRuntimeState} */
   let runtimeState = normalizeRuntimeState(adapter.getRuntimeState?.());
 
   function notify() {
@@ -39,13 +61,22 @@ export function createPlaybackSessionController({
     });
   }
 
+  /**
+   * @param {Partial<PlaybackRuntimeState> | null | undefined} nextRuntimeState
+   * @returns {PlaybackRuntimeState}
+   */
   function setRuntimeState(nextRuntimeState) {
     runtimeState = normalizeRuntimeState(nextRuntimeState);
     notify();
     return runtimeState;
   }
 
+  /** @type {PlaybackSessionController} */
   const controller = {
+    /**
+     * @param {PracticeSessionSpec} sessionSpec
+     * @returns {Promise<PlaybackOperationResult>}
+     */
     async loadSession(sessionSpec) {
       currentSession = deepClone(sessionSpec);
       const result = await adapter.loadSession?.(deepClone(currentSession), deepClone(playbackSettings));
@@ -59,6 +90,10 @@ export function createPlaybackSessionController({
       }
       return result || { ok: true, session: deepClone(currentSession) };
     },
+    /**
+     * @param {PlaybackSettings} [nextSettings]
+     * @returns {Promise<PlaybackOperationResult>}
+     */
     async updatePlaybackSettings(nextSettings = {}) {
       playbackSettings = {
         ...playbackSettings,
@@ -75,6 +110,7 @@ export function createPlaybackSessionController({
       }
       return result || { ok: true, settings: deepClone(playbackSettings) };
     },
+    /** @returns {Promise<PlaybackOperationResult>} */
     async start() {
       const result = await adapter.start?.(deepClone(currentSession), deepClone(playbackSettings));
       if (result?.state) {
@@ -85,6 +121,7 @@ export function createPlaybackSessionController({
       }
       return result || { ok: true, state: controller.getState().runtime };
     },
+    /** @returns {Promise<PlaybackOperationResult>} */
     async stop() {
       const result = await adapter.stop?.(deepClone(currentSession), deepClone(playbackSettings));
       if (result?.state) {
@@ -95,6 +132,7 @@ export function createPlaybackSessionController({
       }
       return result || { ok: true, state: controller.getState().runtime };
     },
+    /** @returns {Promise<PlaybackOperationResult>} */
     async pauseToggle() {
       const result = await adapter.pauseToggle?.(deepClone(currentSession), deepClone(playbackSettings));
       if (result?.state) {
@@ -105,12 +143,14 @@ export function createPlaybackSessionController({
       }
       return result || { ok: true, state: controller.getState().runtime };
     },
+    /** @returns {PlaybackRuntimeState} */
     refreshRuntimeState() {
       return setRuntimeState({
         ...(adapter.getRuntimeState?.() || {}),
         sessionId: currentSession?.id || ''
       });
     },
+    /** @returns {PlaybackSessionSnapshot} */
     getState() {
       return {
         session: deepClone(currentSession),
@@ -118,6 +158,10 @@ export function createPlaybackSessionController({
         runtime: deepClone(runtimeState)
       };
     },
+    /**
+     * @param {(snapshot: PlaybackSessionSnapshot) => void} listener
+     * @returns {() => void}
+     */
     subscribe(listener) {
       if (typeof listener !== 'function') {
         return () => {};

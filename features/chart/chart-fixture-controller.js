@@ -1,9 +1,31 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').ChartDocument} ChartDocument */
+/** @typedef {import('../../core/types/contracts').ChartPlaybackPlan} ChartPlaybackPlan */
+/** @typedef {import('../../core/types/contracts').ChartScreenState} ChartScreenState */
+/** @typedef {import('../../core/types/contracts').ChartSelectionController} ChartSelectionController */
+/** @typedef {import('../../core/types/contracts').PracticeSessionSpec} PracticeSessionSpec */
+
 import {
   createChartPlaybackPlanFromDocument,
   createChartViewModel,
   createPracticeSessionFromChartDocument
 } from '../../chart/index.js';
 
+/**
+ * @param {{
+ *   state?: Pick<ChartScreenState, 'fixtureLibrary' | 'filteredDocuments' | 'currentLibrarySourceLabel' | 'currentSearch'>,
+ *   chartSearchInput?: HTMLInputElement | null,
+ *   renderChartSelector?: (preferredId?: string | null) => void,
+ *   renderFixture?: () => void,
+ *   setImportStatus?: (message: string) => void,
+ *   documents?: ChartDocument[],
+ *   source?: string,
+ *   preferredId?: string | null,
+ *   statusMessage?: string
+ * }} [options]
+ * @returns {void}
+ */
 export function applyImportedLibrary({
   state,
   chartSearchInput,
@@ -30,6 +52,32 @@ export function applyImportedLibrary({
   setImportStatus?.(statusMessage || `Loaded ${documents.length} charts from ${source}.`);
 }
 
+/**
+ * @param {{
+ *   state?: Pick<ChartScreenState, 'fixtureLibrary' | 'currentChartDocument' | 'currentViewModel' | 'currentPlaybackPlan' | 'currentPracticeSession' | 'currentSelectionPracticeSession'>,
+ *   fixtureSelect?: HTMLSelectElement | null,
+ *   transposeSelect?: HTMLSelectElement | null,
+ *   tempoInput?: HTMLInputElement | null,
+ *   getAvailableDocuments?: () => ChartDocument[],
+ *   stopPlayback?: (options?: { resetPosition?: boolean }) => Promise<unknown>,
+ *   createPracticeSessionOptions?: (playbackPlan: ChartPlaybackPlan) => { playbackPlan?: ChartPlaybackPlan, tempo?: number },
+ *   persistChartId?: (chartId: string) => void,
+ *   selectionController?: ChartSelectionController,
+ *   sheetStyle?: HTMLElement | null,
+ *   sheetTitle?: HTMLElement | null,
+ *   sheetSubtitle?: HTMLElement | null,
+ *   sheetTimeSignature?: HTMLElement | null,
+ *   sheetKey?: HTMLElement | null,
+ *   renderMeta?: (viewModel: any) => void,
+ *   renderSheet?: (viewModel: any) => void,
+ *   afterRenderSheet?: () => void,
+ *   renderDiagnostics?: (playbackPlan: ChartPlaybackPlan) => void,
+ *   renderTransport?: () => void,
+ *   renderSelectionState?: () => void,
+ *   updateChartNavigationState?: () => void
+ * }} [options]
+ * @returns {Promise<void>}
+ */
 export async function renderSelectedFixture({
   state,
   fixtureSelect,
@@ -66,7 +114,7 @@ export async function renderSelectedFixture({
   const viewModel = createChartViewModel(chartDocument, {
     displayTransposeSemitones: transposeSemitones
   });
-  const playbackPlan = createChartPlaybackPlanFromDocument(chartDocument);
+  const playbackPlan = /** @type {ChartPlaybackPlan} */ (createChartPlaybackPlanFromDocument(chartDocument));
   const practiceSession = createPracticeSessionFromChartDocument(chartDocument, createPracticeSessionOptions?.(playbackPlan) || {});
 
   state.currentChartDocument = chartDocument;

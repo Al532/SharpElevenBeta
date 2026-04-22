@@ -1,9 +1,29 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').ChartDocument} ChartDocument */
+
+/**
+ * @param {HTMLElement | null | undefined} chartImportStatusElement
+ * @param {string} message
+ * @param {boolean} [isError]
+ * @returns {void}
+ */
 export function setChartImportStatus(chartImportStatusElement, message, isError = false) {
   if (!chartImportStatusElement) return;
   chartImportStatusElement.textContent = message || '';
   chartImportStatusElement.style.color = isError ? '#9f1239' : '';
 }
 
+/**
+ * @param {{
+ *   sourceUrl?: string,
+ *   fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+ *   importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>,
+ *   applyImportedLibrary?: (options: { documents: ChartDocument[], source: string, preferredId?: string, statusMessage?: string }) => void,
+ *   loadPersistedChartId?: () => string
+ * }} [options]
+ * @returns {Promise<void>}
+ */
 export async function importDefaultFixtureLibrary({
   sourceUrl,
   fetchImpl = fetch,
@@ -29,6 +49,15 @@ export async function importDefaultFixtureLibrary({
   });
 }
 
+/**
+ * @param {{
+ *   event?: Event & { target: HTMLInputElement | null },
+ *   importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>,
+ *   applyImportedLibrary?: (options: { documents: ChartDocument[], source: string, statusMessage?: string }) => void,
+ *   setImportStatus?: (message: string, isError?: boolean) => void
+ * }} [options]
+ * @returns {Promise<void>}
+ */
 export async function handleChartBackupFileSelection({
   event,
   importDocumentsFromIRealText,
@@ -53,6 +82,15 @@ export async function handleChartBackupFileSelection({
   }
 }
 
+/**
+ * @param {{
+ *   rawText?: string,
+ *   importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>,
+ *   applyImportedLibrary?: (options: { documents: ChartDocument[], source: string, statusMessage?: string }) => void,
+ *   setImportStatus?: (message: string, isError?: boolean) => void
+ * }} [options]
+ * @returns {Promise<void>}
+ */
 export async function handlePastedChartIRealLinkImport({
   rawText,
   importDocumentsFromIRealText,
@@ -77,6 +115,22 @@ export async function handlePastedChartIRealLinkImport({
   }
 }
 
+/**
+ * @param {{
+ *   importIRealBackupButton?: HTMLButtonElement | null,
+ *   irealBackupInput?: HTMLInputElement | null,
+ *   openIRealDefaultPlaylistsButton?: HTMLButtonElement | null,
+ *   openIRealForumButton?: HTMLButtonElement | null,
+ *   importIRealLinkButton?: HTMLButtonElement | null,
+ *   irealLinkInput?: HTMLInputElement | null,
+ *   defaultPlaylistsUrl?: string,
+ *   forumTracksUrl?: string,
+ *   setImportStatus?: (message: string, isError?: boolean) => void,
+ *   onBackupFileSelection?: EventListener,
+ *   onPastedLinkImport?: () => void
+ * }} [options]
+ * @returns {void}
+ */
 export function bindChartImportControls({
   importIRealBackupButton,
   irealBackupInput,

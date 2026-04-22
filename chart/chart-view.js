@@ -1,7 +1,17 @@
+// @ts-check
+
+/** @typedef {import('../core/types/contracts').ChartDocument} ChartDocument */
+/** @typedef {import('../core/types/contracts').ChartViewModel} ChartViewModel */
+
 import { cloneChartDocument } from './chart-types.js';
 import { transposeChordSymbol, transposeKeySymbol } from './chart-harmony.js';
 import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
 
+/**
+ * @param {any} token
+ * @param {number} semitoneOffset
+ * @returns {any}
+ */
 function createDisplayToken(token, semitoneOffset) {
   if (!token || typeof token !== 'object') return token;
   if (token.kind !== 'chord') return JSON.parse(JSON.stringify(token));
@@ -14,6 +24,15 @@ function createDisplayToken(token, semitoneOffset) {
   return transposed;
 }
 
+/**
+ * @param {ChartDocument} chartDocument
+ * @param {{
+ *   displayTransposeSemitones?: number,
+ *   selectedBarId?: string | null,
+ *   pageSize?: number
+ * }} [options]
+ * @returns {ChartViewModel}
+ */
 export function createChartViewModel(chartDocument, {
   displayTransposeSemitones = 0,
   selectedBarId = null,
@@ -21,18 +40,21 @@ export function createChartViewModel(chartDocument, {
 } = {}) {
   const sourceDocument = cloneChartDocument(chartDocument);
   const contextualizedPlaybackSlotsByBar = contextualizeChordSlotCollections(
-    sourceDocument.bars.map(bar => bar?.playback?.slots || [])
+    sourceDocument.bars.map((bar) => /** @type {any} */ (bar)?.playback?.slots || [])
   );
-  const viewBars = sourceDocument.bars.map((bar, index) => ({
-    ...bar,
-    isSelected: bar.id === selectedBarId,
-    displayTokens: (bar.notation.kind === 'written'
+  const viewBars = sourceDocument.bars.map((bar, index) => {
+    const sourceBar = /** @type {any} */ (bar);
+    return ({
+      ...sourceBar,
+      isSelected: sourceBar.id === selectedBarId,
+      displayTokens: (sourceBar.notation.kind === 'written'
       ? (contextualizedPlaybackSlotsByBar[index] || [])
-      : bar.notation.tokens
+      : sourceBar.notation.tokens
     ).map(token => createDisplayToken(token, displayTransposeSemitones)),
-    displayPlaybackSlots: (contextualizedPlaybackSlotsByBar[index] || [])
-      .map(slot => createDisplayToken(slot, displayTransposeSemitones))
-  }));
+      displayPlaybackSlots: (contextualizedPlaybackSlotsByBar[index] || [])
+        .map(slot => createDisplayToken(slot, displayTransposeSemitones))
+    });
+  });
 
   const pages = [];
   for (let index = 0; index < viewBars.length; index += pageSize) {

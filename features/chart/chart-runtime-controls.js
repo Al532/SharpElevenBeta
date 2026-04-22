@@ -1,3 +1,44 @@
+// @ts-check
+
+/**
+ * @param {{
+ *   chartSearchInput?: HTMLInputElement | null,
+ *   fixtureSelect?: HTMLSelectElement | null,
+ *   transposeSelect?: HTMLSelectElement | null,
+ *   sheetGrid?: HTMLElement | null,
+ *   harmonyDisplayMode?: HTMLSelectElement | null,
+ *   useMajorTriangleSymbol?: HTMLInputElement | null,
+ *   useHalfDiminishedSymbol?: HTMLInputElement | null,
+ *   useDiminishedSymbol?: HTMLInputElement | null,
+ *   tempoInput?: HTMLInputElement | null,
+ *   compingStyleSelect?: HTMLSelectElement | null,
+ *   drumsSelect?: HTMLSelectElement | null,
+ *   walkingBassToggle?: HTMLInputElement | null,
+ *   masterVolume?: HTMLInputElement | null,
+ *   bassVolume?: HTMLInputElement | null,
+ *   stringsVolume?: HTMLInputElement | null,
+ *   drumsVolume?: HTMLInputElement | null,
+ *   playButton?: HTMLButtonElement | null,
+ *   stopButton?: HTMLButtonElement | null,
+ *   clearSelectionButton?: HTMLButtonElement | null,
+ *   sendSelectionToDrillButton?: HTMLButtonElement | null,
+ *   onSearch?: EventListener,
+ *   onFixtureChange?: EventListener,
+ *   onTransposeChange?: EventListener,
+ *   onBarClick?: EventListener,
+ *   onHarmonyDisplayModeChange?: EventListener,
+ *   onSymbolToggleChange?: EventListener,
+ *   onTempoChange?: EventListener,
+ *   onPlaybackSettingChange?: EventListener,
+ *   onMixerInput?: EventListener,
+ *   onPlayClick?: EventListener,
+ *   onStopClick?: EventListener,
+ *   onClearSelection?: EventListener,
+ *   onSendSelectionToDrill?: EventListener,
+ *   onBeforeUnload?: EventListener
+ * }} [options]
+ * @returns {void}
+ */
 export function bindChartRuntimeControls({
   chartSearchInput,
   fixtureSelect,

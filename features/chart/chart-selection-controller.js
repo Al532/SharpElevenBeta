@@ -1,3 +1,13 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').ChartSelection} ChartSelection */
+/** @typedef {import('../../core/types/contracts').ChartSelectionController} ChartSelectionController */
+
+/**
+ * @param {string[]} [orderedBarIds]
+ * @param {string[]} [selectedBarIds]
+ * @returns {ChartSelection}
+ */
 function createSelectionSnapshot(orderedBarIds = [], selectedBarIds = []) {
   const normalizedSelectedBarIds = orderedBarIds.filter((barId) => selectedBarIds.includes(barId));
   if (normalizedSelectedBarIds.length === 0) {
@@ -15,6 +25,10 @@ function createSelectionSnapshot(orderedBarIds = [], selectedBarIds = []) {
   };
 }
 
+/**
+ * @param {{ orderedBarIds?: string[] }} [options]
+ * @returns {ChartSelectionController}
+ */
 export function createContiguousBarSelectionController({
   orderedBarIds = []
 } = {}) {

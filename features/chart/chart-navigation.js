@@ -1,7 +1,25 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').ChartDocument} ChartDocument */
+
+/**
+ * @param {ChartDocument[]} [documents]
+ * @param {string} [selectedId]
+ * @returns {number}
+ */
 export function getCurrentChartIndex(documents = [], selectedId = '') {
   return documents.findIndex((document) => document.metadata.id === selectedId);
 }
 
+/**
+ * @param {{
+ *   previousChartButton?: HTMLButtonElement | null,
+ *   nextChartButton?: HTMLButtonElement | null,
+ *   documents?: ChartDocument[],
+ *   selectedId?: string
+ * }} [options]
+ * @returns {void}
+ */
 export function updateChartNavigationState({
   previousChartButton,
   nextChartButton,
@@ -19,6 +37,10 @@ export function updateChartNavigationState({
   }
 }
 
+/**
+ * @param {EventTarget | null} target
+ * @returns {boolean}
+ */
 function isEditableTarget(target) {
   if (!(target instanceof Element)) return false;
   if (target instanceof HTMLInputElement) {
@@ -27,6 +49,18 @@ function isEditableTarget(target) {
   return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="textbox"]'));
 }
 
+/**
+ * @param {{
+ *   getDocuments?: () => ChartDocument[],
+ *   getSelectedId?: () => string,
+ *   setSelectedId?: (id: string) => void,
+ *   renderFixture?: () => void,
+ *   previousChartButton?: HTMLButtonElement | null,
+ *   nextChartButton?: HTMLButtonElement | null,
+ *   sheetGrid?: HTMLElement | null
+ * }} [options]
+ * @returns {{ bind: () => void, goToAdjacentChart: (direction: number) => boolean }}
+ */
 export function createChartNavigationController({
   getDocuments,
   getSelectedId,

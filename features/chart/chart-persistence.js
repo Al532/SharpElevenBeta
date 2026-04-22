@@ -1,3 +1,7 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').PlaybackSettings} PlaybackSettings */
+
 import {
   loadChartUiSettings,
   loadSharedPlaybackSettings,
@@ -5,6 +9,10 @@ import {
   saveSharedPlaybackSettings
 } from '../../core/storage/app-state-storage.js';
 
+/**
+ * @param {{ legacyStorageKey?: string }} [options]
+ * @returns {string}
+ */
 export function loadPersistedChartId({ legacyStorageKey = '' } = {}) {
   const chartUiSettings = loadChartUiSettings();
   if (chartUiSettings?.lastChartId) {
@@ -18,6 +26,11 @@ export function loadPersistedChartId({ legacyStorageKey = '' } = {}) {
   }
 }
 
+/**
+ * @param {string} chartId
+ * @param {{ legacyStorageKey?: string }} [options]
+ * @returns {void}
+ */
 export function persistChartId(chartId, { legacyStorageKey = '' } = {}) {
   saveChartUiSettings({ lastChartId: chartId || '' });
   if (!legacyStorageKey) return;
@@ -29,6 +42,10 @@ export function persistChartId(chartId, { legacyStorageKey = '' } = {}) {
   }
 }
 
+/**
+ * @param {{ legacyStorageKey?: string }} [options]
+ * @returns {PlaybackSettings & Record<string, unknown>}
+ */
 export function loadPersistedPlaybackSettings({ legacyStorageKey = '' } = {}) {
   const sharedPlaybackSettings = loadSharedPlaybackSettings({
     legacyChartStorageKey: legacyStorageKey
@@ -43,6 +60,17 @@ export function loadPersistedPlaybackSettings({ legacyStorageKey = '' } = {}) {
   };
 }
 
+/**
+ * @param {{
+ *   playbackSettings?: PlaybackSettings,
+ *   harmonyDisplayMode?: string,
+ *   useMajorTriangleSymbol?: boolean,
+ *   useHalfDiminishedSymbol?: boolean,
+ *   useDiminishedSymbol?: boolean,
+ *   legacyStorageKey?: string
+ * }} [options]
+ * @returns {void}
+ */
 export function persistPlaybackSettings({
   playbackSettings = {},
   harmonyDisplayMode = 'default',

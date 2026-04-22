@@ -1,3 +1,12 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').ChartDocument} ChartDocument */
+
+/**
+ * @param {HTMLElement | null | undefined} chartMetaElement
+ * @param {{ metadata: Record<string, any>, bars: any[] }} viewModel
+ * @returns {void}
+ */
 export function renderChartMeta(chartMetaElement, viewModel) {
   if (!chartMetaElement) return;
   const items = [
@@ -15,6 +24,19 @@ export function renderChartMeta(chartMetaElement, viewModel) {
     .join('');
 }
 
+/**
+ * @param {{
+ *   transportStatusElement?: HTMLElement | null,
+ *   transportPositionElement?: HTMLElement | null,
+ *   playButton?: HTMLButtonElement | null,
+ *   stopButton?: HTMLButtonElement | null,
+ *   totalBars?: number,
+ *   activePlaybackEntryIndex?: number,
+ *   isPlaying?: boolean,
+ *   isPaused?: boolean
+ * }} [options]
+ * @returns {void}
+ */
 export function renderChartTransport({
   transportStatusElement,
   transportPositionElement,
@@ -46,6 +68,27 @@ export function renderChartTransport({
   }
 }
 
+/**
+ * @param {{
+ *   fixtureSelect?: HTMLSelectElement | null,
+ *   chartLibraryCount?: HTMLElement | null,
+ *   sheetStyle?: HTMLElement | null,
+ *   sheetTitle?: HTMLElement | null,
+ *   sheetSubtitle?: HTMLElement | null,
+ *   sheetTimeSignature?: HTMLElement | null,
+ *   sheetKey?: HTMLElement | null,
+ *   sheetGrid?: HTMLElement | null,
+ *   chartMeta?: HTMLElement | null,
+ *   diagnosticsList?: HTMLElement | null,
+ *   currentSearch?: string,
+ *   currentLibrarySourceLabel?: string,
+ *   documents?: ChartDocument[],
+ *   totalDocumentCount?: number,
+ *   previousId?: string,
+ *   onEmptyState?: () => void
+ * }} [options]
+ * @returns {string | null}
+ */
 export function renderChartSelector({
   fixtureSelect,
   chartLibraryCount,
@@ -107,6 +150,17 @@ export function renderChartSelector({
   return selectedId;
 }
 
+/**
+ * @param {{
+ *   selectionSummaryElement?: HTMLElement | null,
+ *   clearSelectionButton?: HTMLButtonElement | null,
+ *   sendSelectionToDrillButton?: HTMLButtonElement | null,
+ *   selectedBarIds?: string[],
+ *   hasSession?: boolean,
+ *   updateSelectionHighlights?: () => void
+ * }} [options]
+ * @returns {void}
+ */
 export function renderChartSelectionState({
   selectionSummaryElement,
   clearSelectionButton,

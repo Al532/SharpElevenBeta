@@ -1,3 +1,5 @@
+// @ts-check
+
 const SHARP_NOTES = Object.freeze(['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']);
 const FLAT_NOTES = Object.freeze(['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']);
 const NOTE_TO_SEMITONE = Object.freeze({
@@ -24,22 +26,39 @@ const NOTE_TO_SEMITONE = Object.freeze({
   Cb: 11
 });
 
+/**
+ * @param {number} value
+ * @param {number} modulo
+ * @returns {number}
+ */
 function mod(value, modulo) {
   return ((value % modulo) + modulo) % modulo;
 }
 
+/**
+ * @param {string} [symbol]
+ * @returns {boolean}
+ */
 function preferFlatSpelling(symbol = '') {
   return symbol.includes('b') && !symbol.includes('#');
 }
 
+/**
+ * @param {number} value
+ * @returns {number}
+ */
 export function normalizeSemitone(value) {
   return mod(value, 12);
 }
 
+/**
+ * @param {string} symbol
+ * @returns {{ symbol: string, semitone: number } | null}
+ */
 export function parseNoteSymbol(symbol) {
   const normalized = String(symbol || '').trim();
   if (!normalized) return null;
-  const semitone = NOTE_TO_SEMITONE[normalized];
+  const semitone = /** @type {Record<string, number>} */ (NOTE_TO_SEMITONE)[normalized];
   if (!Number.isInteger(semitone)) return null;
   return {
     symbol: normalized,
@@ -47,17 +66,32 @@ export function parseNoteSymbol(symbol) {
   };
 }
 
+/**
+ * @param {number} semitone
+ * @param {{ preferFlats?: boolean }} [options]
+ * @returns {string}
+ */
 export function semitoneToNoteName(semitone, { preferFlats = false } = {}) {
   const noteNames = preferFlats ? FLAT_NOTES : SHARP_NOTES;
   return noteNames[normalizeSemitone(semitone)] || 'C';
 }
 
+/**
+ * @param {string} symbol
+ * @param {number} semitoneOffset
+ * @param {{ preferFlats?: boolean }} [options]
+ * @returns {string}
+ */
 export function transposeNoteSymbol(symbol, semitoneOffset, { preferFlats = preferFlatSpelling(symbol) } = {}) {
   const parsed = parseNoteSymbol(symbol);
   if (!parsed) return String(symbol || '');
   return semitoneToNoteName(parsed.semitone + semitoneOffset, { preferFlats });
 }
 
+/**
+ * @param {string} symbol
+ * @returns {{ root: string, descriptor: string, bass: string } | null}
+ */
 export function splitChordSymbol(symbol) {
   const raw = String(symbol || '').trim();
   if (!raw || raw === '%' || raw === 'N.C.' || raw === 'NC') return null;
@@ -73,6 +107,12 @@ export function splitChordSymbol(symbol) {
   };
 }
 
+/**
+ * @param {string} symbol
+ * @param {number} semitoneOffset
+ * @param {{ preferFlats?: boolean }} [options]
+ * @returns {string}
+ */
 export function transposeChordSymbol(symbol, semitoneOffset, options = {}) {
   const raw = String(symbol || '').trim();
   if (!raw || raw === '%' || raw === 'N.C.' || raw === 'NC') return raw;
@@ -86,6 +126,11 @@ export function transposeChordSymbol(symbol, semitoneOffset, options = {}) {
   return `${transposedRoot}${descriptor}${transposedBass ? `/${transposedBass}` : ''}`;
 }
 
+/**
+ * @param {string} symbol
+ * @param {number} semitoneOffset
+ * @returns {string}
+ */
 export function transposeKeySymbol(symbol, semitoneOffset) {
   const raw = String(symbol || '').trim();
   if (!raw) return raw;

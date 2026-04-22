@@ -1,6 +1,14 @@
+// @ts-check
+
 const SHEET_GAP_MIN = 12;
 const SHEET_GAP_MAX = 80;
 
+/**
+ * @param {{ bars?: any[], layout?: any }} viewModel
+ * @param {(string | null)[]} barTimeSigDisplay
+ * @param {number} defaultSlotsPerRow
+ * @returns {Array<{ bars: any[], firstBar: any, previousBar: any, rowTimeSignature: string | null, leadingEmptyBars: number, totalSlots: number }>}
+ */
 function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
   const bars = Array.isArray(viewModel?.bars) ? viewModel.bars : [];
   const layoutRows = Array.isArray(viewModel?.layout?.systems?.rows) ? viewModel.layout.systems.rows : [];
@@ -54,6 +62,10 @@ function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
   return rows;
 }
 
+/**
+ * @param {any} token
+ * @returns {{ visualWeight: number, estimatedWidth: number, symbolLength: number }}
+ */
 function getTokenVisualMetrics(token) {
   if (!token || typeof token !== 'object') {
     return {
@@ -86,6 +98,10 @@ function getTokenVisualMetrics(token) {
   };
 }
 
+/**
+ * @param {{ symbolLength: number, visualWeight: number } | null | undefined} tokenMetrics
+ * @returns {number}
+ */
 function getTokenScaleForSubdividedLayout(tokenMetrics) {
   if (!tokenMetrics || tokenMetrics.symbolLength <= 3) return 1;
   if (tokenMetrics.visualWeight >= 11) return 0.82;
@@ -94,10 +110,18 @@ function getTokenScaleForSubdividedLayout(tokenMetrics) {
   return 0.97;
 }
 
+/**
+ * @param {string} kind
+ * @returns {boolean}
+ */
 function isRepeatTokenKind(kind) {
   return kind === 'repeat_previous_bar' || kind === 'repeat_previous_two_bars';
 }
 
+/**
+ * @param {any} token
+ * @returns {string}
+ */
 function renderRepeatTokenMarkup(token) {
   const isTwoBarRepeat = token?.kind === 'repeat_previous_two_bars';
   const label = isTwoBarRepeat ? 'Repeat previous two bars' : 'Repeat previous bar';
@@ -110,6 +134,13 @@ function renderRepeatTokenMarkup(token) {
   `;
 }
 
+/**
+ * @param {any} token
+ * @param {{ start?: number, end?: number }} placement
+ * @param {string} harmonyDisplayMode
+ * @param {(token: any, harmonyDisplayMode: string) => string} renderChordMarkup
+ * @returns {string}
+ */
 function renderToken(token, placement, harmonyDisplayMode, renderChordMarkup) {
   const tokenClass = isRepeatTokenKind(token?.kind) ? 'repeat' : 'chord';
   const slotStart = Math.max(1, Number(placement?.start || 1));
@@ -130,6 +161,10 @@ function renderToken(token, placement, harmonyDisplayMode, renderChordMarkup) {
   `;
 }
 
+/**
+ * @param {Array<number | string>} [endings]
+ * @returns {string}
+ */
 function renderEndingMarkup(endings = []) {
   if (!Array.isArray(endings) || endings.length === 0) return '';
   return `
@@ -139,6 +174,10 @@ function renderEndingMarkup(endings = []) {
   `;
 }
 
+/**
+ * @param {{ flags: string[] }} bar
+ * @returns {string}
+ */
 function renderBarCornerMarkers(bar) {
   const markers = [];
   if (bar.flags.includes('coda')) {
@@ -154,6 +193,10 @@ function renderBarCornerMarkers(bar) {
   return `<div class="chart-bar-corner-markers">${markers.join('')}</div>`;
 }
 
+/**
+ * @param {number | string} value
+ * @returns {string}
+ */
 function formatOrdinal(value) {
   const number = Number(value || 0);
   if (number === 1) return '1st';
@@ -162,6 +205,10 @@ function formatOrdinal(value) {
   return `${number}th`;
 }
 
+/**
+ * @param {any} directive
+ * @returns {string}
+ */
 function formatDirectiveLabel(directive) {
   if (!directive?.type) return '';
 
@@ -197,6 +244,10 @@ function formatDirectiveLabel(directive) {
   }
 }
 
+/**
+ * @param {{ flags: string[], directives?: any[], comments?: string[] }} bar
+ * @returns {string[]}
+ */
 function getBarFootPills(bar) {
   const pills = [];
   if (bar.flags.includes('fine')) pills.push('Fine');
@@ -212,6 +263,11 @@ function getBarFootPills(bar) {
   return pills;
 }
 
+/**
+ * @param {any} bar
+ * @param {number} tokenCount
+ * @returns {{ logicalSlots: number, placements: Array<{ start: number, end: number }> } | null}
+ */
 function getCellSlotPlacements(bar, tokenCount) {
   const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
   if (cellSlots.length === 0) return null;
@@ -246,6 +302,11 @@ function getCellSlotPlacements(bar, tokenCount) {
   };
 }
 
+/**
+ * @param {any} bar
+ * @param {string} [fallbackTimeSignature]
+ * @returns {{ className: string, style: string, parts: number, placements: Array<{ start: number, end: number }> }}
+ */
 function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   const tokens = Array.isArray(bar?.displayTokens) ? bar.displayTokens : [];
   const tokenCount = tokens.length;
@@ -307,16 +368,25 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   };
 }
 
+/** @returns {string} */
 function renderEmptyBarCell() {
   return '<article class="chart-bar-cell is-empty" aria-hidden="true"></article>';
 }
 
+/**
+ * @param {string} timeSig
+ * @returns {string}
+ */
 function renderBarTimeSignature(timeSig) {
   const value = String(timeSig || '').trim();
   if (!/^\d+\s*\/\s*\d+$/.test(value)) return '';
   return `<div class="chart-row-time-sig" aria-label="${value}">${value.replace(/\s+/g, '')}</div>`;
 }
 
+/**
+ * @param {Element} mainTokenEl
+ * @returns {{ left: number, right: number } | null}
+ */
 function getVisualSymbolRect(mainTokenEl) {
   const selectors = [
     '.chord-symbol-main',
@@ -336,6 +406,10 @@ function getVisualSymbolRect(mainTokenEl) {
   return Number.isFinite(left) ? { left, right } : null;
 }
 
+/**
+ * @param {Element} slotEl
+ * @returns {{ slotEl: Element, tokenEl: Element | null, slotRect: DOMRect, symbolRect: { left: number, right: number } | null, mainRect: DOMRect | null, anchorX: number, beatTargetX: number }}
+ */
 function measureTokenGeometry(slotEl) {
   const tokenEl = slotEl.querySelector('.chart-token');
   const mainChordEl = tokenEl
@@ -358,6 +432,15 @@ function measureTokenGeometry(slotEl) {
   return { slotEl, tokenEl, slotRect, symbolRect, mainRect, anchorX, beatTargetX };
 }
 
+/**
+ * @param {number[]} rawLefts
+ * @param {number[]} rawRights
+ * @param {number[]} offsets
+ * @param {number[]} symLefts
+ * @param {number[]} symRights
+ * @param {DOMRect} barRect
+ * @returns {void}
+ */
 function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect) {
   const minGap = 1;
   const count = rawLefts.length;
@@ -409,10 +492,14 @@ function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, ba
   }
 }
 
+/**
+ * @param {Element} barBodyEl
+ * @returns {void}
+ */
 function applySingleChordAnchor(barBodyEl) {
   const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
   if (slots.length !== 1) return;
-  const tokenEl = slots[0].querySelector('.chart-token');
+  const tokenEl = /** @type {HTMLElement | null} */ (slots[0].querySelector('.chart-token'));
   if (!tokenEl) return;
   tokenEl.style.removeProperty('--chart-token-offset-x');
   const barRect = barBodyEl.getBoundingClientRect();
@@ -456,6 +543,24 @@ function applySingleChordAnchor(barBodyEl) {
   tokenEl.style.setProperty('--chart-token-offset-x', `${(offsetPx / fontSizePx).toFixed(3)}em`);
 }
 
+/**
+ * @param {{
+ *   sheetGrid?: HTMLElement | null,
+ *   diagnosticsList?: HTMLElement | null,
+ *   getDisplayedBarGroupSize?: () => number,
+ *   getHarmonyDisplayMode?: () => string,
+ *   getFallbackTimeSignature?: () => string,
+ *   renderChordMarkup?: (token: any, harmonyDisplayMode: string) => string,
+ *   isBarActive?: (bar: any) => boolean,
+ *   isBarSelected?: (bar: any) => boolean
+ * }} [options]
+ * @returns {{
+ *   renderSheet: (viewModel: any) => void,
+ *   updateSheetGridGap: () => void,
+ *   applyOpticalPlacements: () => void,
+ *   renderDiagnostics: (playbackPlan: any) => void
+ * }}
+ */
 export function createChartSheetRenderer({
   sheetGrid,
   diagnosticsList,
@@ -545,7 +650,7 @@ export function createChartSheetRenderer({
     const availableForGrid = bottomBound - gridTop;
     let totalRowHeight = 0;
     rowElements.forEach((element) => {
-      totalRowHeight += element.offsetHeight;
+      totalRowHeight += /** @type {HTMLElement} */ (element).offsetHeight;
     });
     const availableForGaps = availableForGrid - totalRowHeight;
     const idealGap = Math.floor(availableForGaps / (rowCount - 1));
@@ -555,13 +660,13 @@ export function createChartSheetRenderer({
 
   function applyOpticalPlacements() {
     document.querySelectorAll('.chart-row').forEach((rowEl) => {
-      rowEl.style.removeProperty('grid-template-columns');
+      /** @type {HTMLElement} */ (rowEl).style.removeProperty('grid-template-columns');
     });
     document.querySelectorAll('.chart-bar-body').forEach((barBodyEl) => {
-      barBodyEl.style.removeProperty('font-size');
+      /** @type {HTMLElement} */ (barBodyEl).style.removeProperty('font-size');
       barBodyEl.querySelectorAll('.chart-token').forEach((tokenEl) => {
-        tokenEl.style.removeProperty('--chart-token-offset-x');
-        tokenEl.style.removeProperty('--chart-token-scale');
+        /** @type {HTMLElement} */ (tokenEl).style.removeProperty('--chart-token-offset-x');
+        /** @type {HTMLElement} */ (tokenEl).style.removeProperty('--chart-token-scale');
       });
     });
     void document.documentElement.offsetHeight;
@@ -591,7 +696,7 @@ export function createChartSheetRenderer({
       const maxDeviation = Math.max(...clamped.map((value) => Math.abs(value - clampedAverage) / clampedAverage));
       if (maxDeviation < 0.04) return;
 
-      rowEl.style.gridTemplateColumns = clamped.map((value) => `${value.toFixed(1)}fr`).join(' ');
+      /** @type {HTMLElement} */ (rowEl).style.gridTemplateColumns = clamped.map((value) => `${value.toFixed(1)}fr`).join(' ');
     });
 
     void document.documentElement.offsetHeight;
@@ -633,13 +738,16 @@ export function createChartSheetRenderer({
       const finalScale = globalScale * rowExtraScale;
       if (finalScale >= 0.999) return;
       barBodies.forEach((barBodyEl) => {
-        const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
+        const htmlBarBodyEl = /** @type {HTMLElement} */ (barBodyEl);
+        const currentFontPx = parseFloat(getComputedStyle(htmlBarBodyEl).fontSize);
         if (!currentFontPx) return;
-        barBodyEl.style.fontSize = `${(currentFontPx * finalScale).toFixed(2)}px`;
+        htmlBarBodyEl.style.fontSize = `${(currentFontPx * finalScale).toFixed(2)}px`;
       });
     });
 
-    document.querySelectorAll('.chart-bar-body').forEach(applySingleChordAnchor);
+    document.querySelectorAll('.chart-bar-body').forEach((barBodyEl) => {
+      applySingleChordAnchor(barBodyEl);
+    });
 
     document.querySelectorAll('.chart-bar-body.chart-bar-body-subdivided, .chart-bar-body.chart-bar-body-halves').forEach((barBodyEl) => {
       const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
@@ -651,7 +759,7 @@ export function createChartSheetRenderer({
       if (slots.length < 2) return;
 
       slots.forEach((slotEl) => {
-        const tokenEl = slotEl.querySelector('.chart-token');
+        const tokenEl = /** @type {HTMLElement | null} */ (slotEl.querySelector('.chart-token'));
         if (!tokenEl) return;
         tokenEl.style.removeProperty('--chart-token-offset-x');
         tokenEl.style.removeProperty('--chart-token-scale');
@@ -677,14 +785,15 @@ export function createChartSheetRenderer({
 
       resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect);
 
-      geometries.forEach((geometry, index) => {
-        if (!geometry.tokenEl) return;
-        const fontSizePx = parseFloat(getComputedStyle(geometry.tokenEl).fontSize);
-        if (!fontSizePx) return;
-        geometry.tokenEl.style.setProperty('--chart-token-offset-x', `${(offsets[index] / fontSizePx).toFixed(3)}em`);
+        geometries.forEach((geometry, index) => {
+          if (!geometry.tokenEl) return;
+          const tokenElement = /** @type {HTMLElement} */ (geometry.tokenEl);
+          const fontSizePx = parseFloat(getComputedStyle(tokenElement).fontSize);
+          if (!fontSizePx) return;
+          tokenElement.style.setProperty('--chart-token-offset-x', `${(offsets[index] / fontSizePx).toFixed(3)}em`);
+        });
       });
-    });
-  }
+    }
 
   function renderDiagnostics(playbackPlan) {
     if (!diagnosticsList) return;

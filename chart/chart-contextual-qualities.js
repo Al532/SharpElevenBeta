@@ -1,41 +1,76 @@
+// @ts-check
+
+/** @typedef {import('../core/types/contracts').ChartChordSlot} ChartChordSlot */
+
 import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
 } from '../harmony-context.js';
 import { normalizeSemitone, parseNoteSymbol, splitChordSymbol } from './chart-harmony.js';
 
+/**
+ * @param {any} value
+ * @returns {any}
+ */
 function cloneValue(value) {
   if (value === undefined) return undefined;
   if (value === null) return null;
   return JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * @param {ChartChordSlot | null | undefined} slot
+ * @returns {string}
+ */
 function getSlotQuality(slot) {
   return String(slot?.quality || '').trim();
 }
 
+/**
+ * @param {ChartChordSlot | null | undefined} slot
+ * @returns {string}
+ */
 function getSlotRootSymbol(slot) {
   if (slot?.root) return String(slot.root).trim();
   const split = splitChordSymbol(slot?.symbol || '');
   return split?.root || '';
 }
 
+/**
+ * @param {ChartChordSlot | null | undefined} slot
+ * @returns {string}
+ */
 function getSlotBassSymbol(slot) {
   if (slot?.bass) return String(slot.bass).trim();
   const split = splitChordSymbol(slot?.symbol || '');
   return split?.bass || '';
 }
 
+/**
+ * @param {string} root
+ * @param {string} quality
+ * @param {string} [bass]
+ * @returns {string}
+ */
 function buildChordSymbol(root, quality, bass = '') {
   if (!root) return '';
   return `${root}${quality || ''}${bass ? `/${bass}` : ''}`;
 }
 
+/**
+ * @param {ChartChordSlot | null | undefined} slot
+ * @returns {number | null}
+ */
 function getSlotRootSemitone(slot) {
   const parsed = parseNoteSymbol(getSlotRootSymbol(slot));
   return parsed ? normalizeSemitone(parsed.semitone) : null;
 }
 
+/**
+ * @param {ChartChordSlot | null | undefined} slot
+ * @param {ChartChordSlot | null} [nextSlot]
+ * @returns {ChartChordSlot | null | undefined}
+ */
 function contextualizeChordSlot(slot, nextSlot = null) {
   if (!slot || slot.kind !== 'chord') return cloneValue(slot);
 
@@ -70,6 +105,10 @@ function contextualizeChordSlot(slot, nextSlot = null) {
   return contextualized;
 }
 
+/**
+ * @param {ChartChordSlot[][]} [collections]
+ * @returns {ChartChordSlot[][]}
+ */
 export function contextualizeChordSlotCollections(collections = []) {
   const clonedCollections = collections.map((slots) => (slots || []).map((slot) => cloneValue(slot)));
   const chordRefs = [];

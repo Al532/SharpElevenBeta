@@ -1,3 +1,39 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').EmbeddedPatternPayload} EmbeddedPatternPayload */
+/** @typedef {import('../../core/types/contracts').PlaybackSettings} PlaybackSettings */
+
+/**
+ * @param {{
+ *   stopIfPlaying?: () => void,
+ *   clearProgressionEditingState?: () => void,
+ *   closeProgressionManager?: () => void,
+ *   setCustomPatternSelection?: () => void,
+ *   setPatternName?: (name: string) => void,
+ *   setCustomPatternValue?: (pattern: string) => void,
+ *   setEditorPatternMode?: (mode: string) => void,
+ *   syncPatternSelectionFromInput?: () => void,
+ *   setLastPatternSelectValue?: () => void,
+ *   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown,
+ *   syncCustomPatternUI?: () => void,
+ *   normalizeChordsPerBarForCurrentPattern?: () => void,
+ *   applyPatternModeAvailability?: () => void,
+ *   syncPatternPreview?: () => void,
+ *   applyDisplayMode?: () => void,
+ *   applyBeatIndicatorVisibility?: () => void,
+ *   applyCurrentHarmonyVisibility?: () => void,
+ *   updateKeyPickerLabels?: () => void,
+ *   refreshDisplayedHarmony?: () => void,
+ *   fitHarmonyDisplay?: () => void,
+ *   validateCustomPattern?: () => boolean,
+ *   getPatternErrorText?: () => string,
+ *   getCurrentPatternString?: () => string,
+ *   normalizePatternString?: (pattern: string) => string,
+ *   normalizePresetName?: (name: string) => string,
+ *   normalizePatternMode?: (mode: string) => string
+ * }} [options]
+ * @returns {(payload?: Partial<EmbeddedPatternPayload>) => { ok: boolean, errorMessage: string | null, normalizedPattern: string, currentPatternString: string | undefined }}
+ */
 export function createEmbeddedPatternAdapter({
   stopIfPlaying,
   clearProgressionEditingState,
@@ -26,6 +62,9 @@ export function createEmbeddedPatternAdapter({
   normalizePresetName,
   normalizePatternMode
 } = {}) {
+  /**
+   * @param {Partial<EmbeddedPatternPayload>} [payload]
+   */
   return function applyEmbeddedPattern({
     patternName = 'Chart Dev',
     patternString = '',
@@ -95,6 +134,28 @@ export function createEmbeddedPatternAdapter({
   };
 }
 
+/**
+ * @param {{
+ *   setTempo?: (tempo: number | string) => void,
+ *   setTransposition?: (transposition: number | string) => void,
+ *   setCompingStyle?: (style: string) => void,
+ *   setDrumsMode?: (mode: string) => void,
+ *   setWalkingBassEnabled?: (enabled: boolean) => void,
+ *   setRepetitionsPerKey?: (count: number) => void,
+ *   setDisplayMode?: (mode: string) => void,
+ *   setHarmonyDisplayMode?: (mode: string) => void,
+ *   setShowBeatIndicator?: (visible: boolean) => void,
+ *   setHideCurrentHarmony?: (hidden: boolean) => void,
+ *   setMasterVolume?: (value: string | number) => void,
+ *   setBassVolume?: (value: string | number) => void,
+ *   setStringsVolume?: (value: string | number) => void,
+ *   setDrumsVolume?: (value: string | number) => void,
+ *   applyMixerSettings?: () => void,
+ *   getPlaybackSettingsSnapshot?: () => PlaybackSettings,
+ *   normalizeEmbeddedVolume?: (value: unknown) => string | null
+ * }} [options]
+ * @returns {(settings?: PlaybackSettings) => PlaybackSettings | undefined}
+ */
 export function createEmbeddedPlaybackSettingsAdapter({
   setTempo,
   setTransposition,
@@ -114,6 +175,9 @@ export function createEmbeddedPlaybackSettingsAdapter({
   getPlaybackSettingsSnapshot,
   normalizeEmbeddedVolume
 } = {}) {
+  /**
+   * @param {PlaybackSettings} [settings]
+   */
   return function applyEmbeddedPlaybackSettings({
     tempo = null,
     transposition = null,

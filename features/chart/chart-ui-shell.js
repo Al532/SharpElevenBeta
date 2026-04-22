@@ -1,9 +1,20 @@
+// @ts-check
+
+/**
+ * @param {(HTMLElement | null | undefined)[]} [popovers]
+ * @returns {void}
+ */
 export function closeAllChartPopovers(popovers = []) {
   popovers.forEach((popover) => {
     if (popover) popover.setAttribute('hidden', '');
   });
 }
 
+/**
+ * @param {HTMLElement | null | undefined} targetPopover
+ * @param {(HTMLElement | null | undefined)[]} [popovers]
+ * @returns {void}
+ */
 export function toggleChartPopover(targetPopover, popovers = []) {
   if (!targetPopover) return;
   const isOpen = !targetPopover.hidden;
@@ -13,12 +24,25 @@ export function toggleChartPopover(targetPopover, popovers = []) {
   }
 }
 
+/**
+ * @param {{ chartApp?: HTMLElement | null, chartTopOverlay?: HTMLElement | null, chartBottomOverlay?: HTMLElement | null }} [options]
+ * @returns {void}
+ */
 export function openChartOverlay({ chartApp, chartTopOverlay, chartBottomOverlay } = {}) {
   chartApp?.classList.add('overlay-open');
   chartTopOverlay?.setAttribute('aria-hidden', 'false');
   chartBottomOverlay?.setAttribute('aria-hidden', 'false');
 }
 
+/**
+ * @param {{
+ *   chartApp?: HTMLElement | null,
+ *   chartTopOverlay?: HTMLElement | null,
+ *   chartBottomOverlay?: HTMLElement | null,
+ *   popovers?: (HTMLElement | null | undefined)[]
+ * }} [options]
+ * @returns {void}
+ */
 export function closeChartOverlay({
   chartApp,
   chartTopOverlay,
@@ -31,6 +55,14 @@ export function closeChartOverlay({
   closeAllChartPopovers(popovers);
 }
 
+/**
+ * @param {{
+ *   sheetGrid?: HTMLElement | null,
+ *   updateSheetGridGap?: () => void,
+ *   applyOpticalPlacements?: () => void
+ * }} [options]
+ * @returns {void}
+ */
 export function bindChartLayoutObservers({
   sheetGrid,
   updateSheetGridGap,
@@ -57,6 +89,23 @@ export function bindChartLayoutObservers({
   }
 }
 
+/**
+ * @param {{
+ *   applyPersistedPlaybackSettings?: () => void,
+ *   bindImportControls?: () => void,
+ *   bindChartNavigationControls?: () => void,
+ *   importDefaultFixtureLibrary?: () => Promise<unknown>,
+ *   bindRuntimeControls?: () => void,
+ *   bindOverlayControls?: () => void,
+ *   bindLayoutObservers?: () => void,
+ *   updateMixerOutputs?: () => void,
+ *   renderFixture?: () => void,
+ *   ensurePlaybackReady?: () => Promise<unknown>,
+ *   syncDrillPlaybackSettings?: () => Promise<unknown>,
+ *   setTransportStatus?: (message: string) => void
+ * }} [options]
+ * @returns {Promise<void>}
+ */
 export async function initializeChartScreen({
   applyPersistedPlaybackSettings,
   bindImportControls,

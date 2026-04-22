@@ -1,6 +1,21 @@
+// @ts-check
+
+/** @typedef {import('../core/types/contracts').ChartDocument} ChartDocument */
+/** @typedef {import('../core/types/contracts').ChartPlaybackPlan} ChartPlaybackPlan */
+/** @typedef {import('../core/types/contracts').ChartPlaybackController} ChartPlaybackController */
+/** @typedef {import('../core/types/contracts').ChartSheetRenderer} ChartSheetRenderer */
+/** @typedef {import('../core/types/contracts').ChartScreenState} ChartScreenState */
+/** @typedef {import('../core/types/contracts').ChartSelectionController} ChartSelectionController */
+/** @typedef {import('../core/types/contracts').ChartViewModel} ChartViewModel */
+/** @typedef {import('../core/types/contracts').PlaybackOperationResult} PlaybackOperationResult */
+/** @typedef {import('../core/types/contracts').PlaybackBridgeProvider} PlaybackBridgeProvider */
+/** @typedef {import('../core/types/contracts').PlaybackSettings} PlaybackSettings */
+/** @typedef {import('../core/types/contracts').PracticeSessionSpec} PracticeSessionSpec */
+
 import {
   createChartDocumentsFromIRealText,
 } from '../chart/index.js';
+import { createEmbeddedPlaybackBridgeProvider } from '../core/playback/embedded-playback-bridge-provider.js';
 import {
   loadPersistedChartId as loadPersistedChartIdFromStorage,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
@@ -69,6 +84,15 @@ const {
   RICH_DISPLAY_QUALITY_ALIASES = {}
 } = voicingConfig;
 
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error || 'Unknown error');
+}
+
+/** @type {any} */
 const dom = {
   appModeBadge: document.getElementById('app-mode-badge'),
   appModeDrillLink: document.getElementById('app-mode-drill-link'),
@@ -129,13 +153,21 @@ const dom = {
   chartApp: document.querySelector('.chart-app')
 };
 
-initializeAppShell({
+initializeAppShell(/** @type {any} */ ({
   mode: 'chart',
   drillLink: dom.appModeDrillLink,
   chartLink: dom.appModeChartLink,
   modeBadge: dom.appModeBadge
-});
+}));
 
+/** @type {ChartScreenState & {
+ *   swipeGesture: {
+ *     pointerId: number | null,
+ *     startX: number,
+ *     startY: number,
+ *     active: boolean
+ *   }
+ * }} */
 const state = {
   fixtureLibrary: null,
   filteredDocuments: [],
@@ -149,7 +181,7 @@ const state = {
   activePlaybackEntryIndex: -1,
   chartPlaybackController: null,
   chartSheetRenderer: null,
-  selectionController: createContiguousBarSelectionController(),
+  selectionController: /** @type {ChartSelectionController} */ (createContiguousBarSelectionController()),
   drillPollTimer: null,
   isPlaying: false,
   isPaused: false,
@@ -261,12 +293,12 @@ function getAvailableDocuments() {
 }
 
 function updateChartNavigationState() {
-  updateChartNavigationStateUi({
+  updateChartNavigationStateUi(/** @type {any} */ ({
     previousChartButton: dom.previousChartButton,
     nextChartButton: dom.nextChartButton,
     documents: getAvailableDocuments(),
     selectedId: dom.fixtureSelect?.value || state.currentChartDocument?.metadata?.id || ''
-  });
+  }));
 }
 
 function bindChartNavigationControls() {
@@ -290,15 +322,15 @@ function setImportStatus(message, isError = false) {
 }
 
 async function importDocumentsFromIRealText(rawText, sourceFile = '') {
-  return importChartDocumentsFromIRealText({
+  return importChartDocumentsFromIRealText(/** @type {any} */ ({
     rawText,
     sourceFile,
     importDocuments: createChartDocumentsFromIRealText
-  });
+  }));
 }
 
 function applyImportedLibrary({ documents, source, preferredId = null, statusMessage = '' }) {
-  applyImportedChartLibrary({
+  applyImportedChartLibrary(/** @type {any} */ ({
     state,
     chartSearchInput: dom.chartSearchInput,
     renderChartSelector,
@@ -308,10 +340,11 @@ function applyImportedLibrary({ documents, source, preferredId = null, statusMes
     source,
     preferredId,
     statusMessage
-  });
+  }));
 }
 
 function getPlaybackSettings() {
+  /** @type {PlaybackSettings} */
   return {
     compingStyle: dom.compingStyleSelect.value,
     drumsMode: dom.drumsSelect.value,
@@ -378,18 +411,21 @@ function resetActivePlaybackPosition() {
 
 function updateActiveHighlights() {
   document.querySelectorAll('.chart-bar-cell').forEach((element) => {
-    element.classList.toggle('is-active', element.dataset.barId === state.activeBarId);
+    const htmlElement = /** @type {HTMLElement} */ (element);
+    htmlElement.classList.toggle('is-active', htmlElement.dataset.barId === state.activeBarId);
   });
 
   document.querySelectorAll('.chart-playback-entry').forEach((element) => {
-    element.classList.toggle('is-active', Number(element.dataset.entryIndex) === state.activePlaybackEntryIndex);
+    const htmlElement = /** @type {HTMLElement} */ (element);
+    htmlElement.classList.toggle('is-active', Number(htmlElement.dataset.entryIndex) === state.activePlaybackEntryIndex);
   });
 }
 
 function updateSelectionHighlights() {
   const selectedBarIds = new Set(state.selectionController.getSelection().barIds);
   document.querySelectorAll('.chart-bar-cell').forEach((element) => {
-    element.classList.toggle('is-selected', selectedBarIds.has(element.dataset.barId));
+    const htmlElement = /** @type {HTMLElement} */ (element);
+    htmlElement.classList.toggle('is-selected', selectedBarIds.has(htmlElement.dataset.barId));
   });
 }
 
@@ -430,14 +466,15 @@ async function stopPlayback({ resetPosition = true } = {}) {
 
 async function startPlayback() {
   const nextState = await getChartPlaybackController().startPlayback();
-  state.isPlaying = Boolean(nextState?.isPlaying);
-  state.isPaused = Boolean(nextState?.isPaused);
+  state.isPlaying = Boolean('isPlaying' in nextState ? nextState.isPlaying : false);
+  state.isPaused = Boolean('isPaused' in nextState ? nextState.isPaused : false);
   startDrillPolling();
   syncPlaybackStateFromDrill();
 }
 
 async function syncDrillPlaybackSettings() {
   try {
+    /** @type {PlaybackOperationResult} */
     const result = await getChartPlaybackController().syncPlaybackSettings();
     if (!result?.ok) {
       throw new Error(result?.errorMessage || 'Failed to sync Drill settings.');
@@ -446,7 +483,7 @@ async function syncDrillPlaybackSettings() {
       dom.transportStatus.textContent = 'Ready';
     }
   } catch (error) {
-    dom.transportStatus.textContent = `Drill settings error: ${error.message}`;
+    dom.transportStatus.textContent = `Drill settings error: ${getErrorMessage(error)}`;
   }
 }
 
@@ -454,11 +491,41 @@ function navigateToDrillWithSelection() {
   getChartPlaybackController().navigateToDrillWithSelection();
 }
 
+/** @returns {PlaybackBridgeProvider} */
+function createChartPlaybackBridgeProvider() {
+  return createEmbeddedPlaybackBridgeProvider({
+    getTargetWindow: () => dom.drillBridgeFrame?.contentWindow || null,
+    getHostFrame: () => dom.drillBridgeFrame || null,
+    buildPatternPayload(sessionSpec, playbackSettings) {
+      return {
+        patternName: sessionSpec?.title || state.currentChartDocument?.metadata?.title || 'Chart Dev',
+        patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
+        patternMode: 'both',
+        tempo: sessionSpec?.tempo || getTempo?.() || 120,
+        transposition: playbackSettings?.transposition ?? null,
+        compingStyle: playbackSettings?.compingStyle,
+        drumsMode: playbackSettings?.drumsMode,
+        customMediumSwingBass: playbackSettings?.customMediumSwingBass,
+        repetitionsPerKey: 1,
+        displayMode: playbackSettings?.displayMode || 'show-both',
+        harmonyDisplayMode: playbackSettings?.harmonyDisplayMode ?? null,
+        showBeatIndicator: playbackSettings?.showBeatIndicator !== false,
+        hideCurrentHarmony: playbackSettings?.hideCurrentHarmony === true,
+        masterVolume: playbackSettings?.masterVolume,
+        bassVolume: playbackSettings?.bassVolume,
+        stringsVolume: playbackSettings?.stringsVolume,
+        drumsVolume: playbackSettings?.drumsVolume
+      };
+    }
+  });
+}
+
 function getChartPlaybackController() {
   if (state.chartPlaybackController) return state.chartPlaybackController;
 
-  state.chartPlaybackController = createChartPlaybackController({
+  state.chartPlaybackController = /** @type {ChartPlaybackController} */ (createChartPlaybackController({
     bridgeFrame: dom.drillBridgeFrame,
+    playbackBridgeProvider: createChartPlaybackBridgeProvider(),
     getSelectedPracticeSession,
     getPlaybackSettings,
     getTempo,
@@ -472,7 +539,7 @@ function getChartPlaybackController() {
       dom.transportStatus.textContent = message;
     },
     onPersistPlaybackSettings: persistPlaybackSettings
-  });
+  }));
 
   return state.chartPlaybackController;
 }
@@ -480,7 +547,7 @@ function getChartPlaybackController() {
 function getChartSheetRenderer() {
   if (state.chartSheetRenderer) return state.chartSheetRenderer;
 
-  state.chartSheetRenderer = createChartSheetRenderer({
+  state.chartSheetRenderer = /** @type {ChartSheetRenderer} */ (createChartSheetRenderer({
     sheetGrid: dom.sheetGrid,
     diagnosticsList: dom.diagnosticsList,
     getDisplayedBarGroupSize,
@@ -489,11 +556,15 @@ function getChartSheetRenderer() {
     renderChordMarkup,
     isBarActive: (bar) => bar?.id === state.activeBarId,
     isBarSelected: (bar) => state.selectionController.getSelection().barIds.includes(bar?.id)
-  });
+  }));
 
   return state.chartSheetRenderer;
 }
 
+/**
+ * @param {ChartViewModel} viewModel
+ * @returns {void}
+ */
 function renderMeta(viewModel) {
   renderChartMeta(dom.chartMeta, viewModel);
 }
@@ -516,7 +587,7 @@ function getChordSymbolRenderOptions() {
 }
 
 function renderTransport() {
-  renderChartTransport({
+  renderChartTransport(/** @type {any} */ ({
     transportStatusElement: dom.transportStatus,
     transportPositionElement: dom.transportPosition,
     playButton: dom.playButton,
@@ -525,13 +596,13 @@ function renderTransport() {
     activePlaybackEntryIndex: state.activePlaybackEntryIndex,
     isPlaying: state.isPlaying,
     isPaused: state.isPaused
-  });
+  }));
 }
 
 function renderChartSelector(preferredId = null) {
   const documents = getAvailableDocuments();
   const previousId = preferredId || state.currentChartDocument?.metadata?.id || dom.fixtureSelect.value;
-  const selectedId = renderChartSelectorUi({
+  const selectedId = renderChartSelectorUi(/** @type {any} */ ({
     fixtureSelect: dom.fixtureSelect,
     chartLibraryCount: dom.chartLibraryCount,
     sheetStyle: dom.sheetStyle,
@@ -557,7 +628,7 @@ function renderChartSelector(preferredId = null) {
       renderTransport();
       renderSelectionState();
     }
-  });
+  }));
   if (selectedId) {
     dom.fixtureSelect.value = selectedId;
   }
@@ -647,12 +718,12 @@ function closeOverlay() {
 }
 
 async function importDefaultFixtureLibrary() {
-  return importChartDefaultFixtureLibrary({
+  return importChartDefaultFixtureLibrary(/** @type {any} */ ({
     sourceUrl: IREAL_SOURCE_URL,
     importDocumentsFromIRealText,
     applyImportedLibrary,
     loadPersistedChartId
-  });
+  }));
 }
 
 async function handleBackupFileSelection(event) {
@@ -748,7 +819,7 @@ async function loadFixtures() {
             await startPlayback();
             closeOverlay();
           } catch (error) {
-            dom.transportStatus.textContent = `Drill error: ${error.message}`;
+            dom.transportStatus.textContent = `Drill error: ${getErrorMessage(error)}`;
             state.isPlaying = false;
             renderTransport();
           }
@@ -793,5 +864,5 @@ async function loadFixtures() {
 }
 
 loadFixtures().catch((error) => {
-  dom.transportStatus.textContent = `Failed to load charts: ${error.message}`;
+  dom.transportStatus.textContent = `Failed to load charts: ${getErrorMessage(error)}`;
 });

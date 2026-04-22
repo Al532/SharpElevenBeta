@@ -1,20 +1,53 @@
+// @ts-check
+
+/** @typedef {import('../core/types/contracts').ChartDocument} ChartDocument */
+/** @typedef {import('../core/types/contracts').ChartMetadata} ChartMetadata */
+/** @typedef {import('../core/types/contracts').ChartPlaybackDiagnostic} ChartPlaybackDiagnostic */
+/** @typedef {import('../core/types/contracts').ChartPlaybackEntry} ChartPlaybackEntry */
+/** @typedef {import('../core/types/contracts').ChartPlaybackNavigation} ChartPlaybackNavigation */
+/** @typedef {import('../core/types/contracts').ChartPlaybackPlan} ChartPlaybackPlan */
+/** @typedef {import('../core/types/contracts').ChartSection} ChartSection */
+/** @typedef {import('../core/types/contracts').ChartBar} ChartBar */
+
+/**
+ * @param {any} value
+ * @returns {any}
+ */
 function deepClone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * @param {any} value
+ * @param {string} [fallback]
+ * @returns {string}
+ */
 function normalizeString(value, fallback = '') {
   return typeof value === 'string' ? value : (value == null ? fallback : String(value));
 }
 
+/**
+ * @param {any} value
+ * @param {number} [fallback]
+ * @returns {number}
+ */
 function normalizeNumber(value, fallback = 0) {
   const normalized = Number(value);
   return Number.isFinite(normalized) ? normalized : fallback;
 }
 
+/**
+ * @param {any} value
+ * @returns {Record<string, any>}
+ */
 function normalizeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+/**
+ * @param {any} value
+ * @returns {any[]}
+ */
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -43,6 +76,10 @@ export const CHART_PLAYBACK_PLAN_CONTRACT = Object.freeze({
   ]
 });
 
+/**
+ * @param {Partial<ChartMetadata>} [metadata]
+ * @returns {ChartMetadata}
+ */
 function normalizeChartMetadata(metadata = {}) {
   const safeMetadata = normalizeObject(metadata);
   return {
@@ -55,12 +92,20 @@ function normalizeChartMetadata(metadata = {}) {
   };
 }
 
+/**
+ * @param {Record<string, unknown>} [source]
+ * @returns {Record<string, unknown>}
+ */
 function normalizeChartSource(source = {}) {
   return {
     ...deepClone(normalizeObject(source))
   };
 }
 
+/**
+ * @param {Partial<ChartSection>} [section]
+ * @returns {ChartSection}
+ */
 function normalizeChartSection(section = {}) {
   const safeSection = normalizeObject(section);
   return {
@@ -72,6 +117,10 @@ function normalizeChartSection(section = {}) {
   };
 }
 
+/**
+ * @param {Partial<ChartBar>} [bar]
+ * @returns {ChartBar}
+ */
 function normalizeChartBar(bar = {}) {
   const safeBar = normalizeObject(bar);
   return {
@@ -84,6 +133,29 @@ function normalizeChartBar(bar = {}) {
   };
 }
 
+/**
+ * @param {Partial<ChartPlaybackNavigation>} [navigation]
+ * @returns {ChartPlaybackNavigation}
+ */
+function normalizeChartPlaybackNavigation(navigation = {}) {
+  const safeNavigation = normalizeObject(navigation);
+  return {
+    ...deepClone(safeNavigation),
+    segnoIndex: Number.isInteger(safeNavigation.segnoIndex) ? Number(safeNavigation.segnoIndex) : null,
+    codaIndex: Number.isInteger(safeNavigation.codaIndex) ? Number(safeNavigation.codaIndex) : null
+  };
+}
+
+/**
+ * @param {{
+ *   metadata?: Partial<ChartMetadata>,
+ *   source?: Record<string, unknown>,
+ *   sections?: Partial<ChartSection>[],
+ *   bars?: Partial<ChartBar>[],
+ *   layout?: Record<string, unknown> | null
+ * }} [options]
+ * @returns {ChartDocument}
+ */
 export function createChartDocument({
   metadata,
   source,
@@ -101,11 +173,20 @@ export function createChartDocument({
   };
 }
 
+/**
+ * @param {{
+ *   document?: { metadata?: Partial<ChartMetadata> },
+ *   entries?: ChartPlaybackEntry[],
+ *   diagnostics?: ChartPlaybackDiagnostic[],
+ *   navigation?: ChartPlaybackNavigation
+ * }} [options]
+ * @returns {ChartPlaybackPlan}
+ */
 export function createChartPlaybackPlan({
   document,
   entries,
   diagnostics = [],
-  navigation = {}
+  navigation = { segnoIndex: null, codaIndex: null }
 } = {}) {
   const safeDocument = document && typeof document === 'object' ? document : {};
   return {
@@ -113,16 +194,24 @@ export function createChartPlaybackPlan({
     chartTitle: normalizeString(safeDocument?.metadata?.title),
     chartId: normalizeString(safeDocument?.metadata?.id),
     timeSignature: normalizeString(safeDocument?.metadata?.primaryTimeSignature),
-    navigation: deepClone(normalizeObject(navigation)),
+    navigation: normalizeChartPlaybackNavigation(navigation),
     diagnostics: deepClone(normalizeArray(diagnostics)),
     entries: deepClone(normalizeArray(entries))
   };
 }
 
+/**
+ * @param {ChartDocument} chartDocument
+ * @returns {ChartDocument}
+ */
 export function cloneChartDocument(chartDocument) {
   return createChartDocument(chartDocument);
 }
 
+/**
+ * @param {ChartPlaybackPlan} playbackPlan
+ * @returns {ChartPlaybackPlan}
+ */
 export function clonePlaybackPlan(playbackPlan) {
   return createChartPlaybackPlan({
     document: {

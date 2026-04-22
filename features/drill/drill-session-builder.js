@@ -1,3 +1,19 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').PracticeSessionSpec} PracticeSessionSpec */
+/** @typedef {import('../../core/types/contracts').PlaybackSettings} PlaybackSettings */
+/** @typedef {import('../../core/types/contracts').PlaybackOperationResult} PlaybackOperationResult */
+/** @typedef {import('../../core/types/contracts').EmbeddedPatternPayload} EmbeddedPatternPayload */
+
+/**
+ * @param {{
+ *   patternName?: string,
+ *   patternString?: string,
+ *   tempo?: number,
+ *   source?: string
+ * }} [options]
+ * @returns {PracticeSessionSpec}
+ */
 export function createPracticeSessionFromDrillPattern({
   patternName = 'Custom drill',
   patternString = '',
@@ -24,6 +40,14 @@ export function createPracticeSessionFromDrillPattern({
   };
 }
 
+/**
+ * @param {{
+ *   session?: PracticeSessionSpec | null,
+ *   applyEmbeddedPattern?: (payload: Partial<EmbeddedPatternPayload>) => PlaybackOperationResult,
+ *   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown
+ * }} [options]
+ * @returns {PlaybackOperationResult}
+ */
 export function applyPracticeSessionToDrillUi({
   session,
   applyEmbeddedPattern,

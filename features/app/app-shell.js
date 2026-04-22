@@ -3,6 +3,15 @@ import {
   saveCurrentAppMode
 } from '../../core/storage/app-state-storage.js';
 
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').AppMode} AppMode */
+
+/**
+ * @param {HTMLAnchorElement | null | undefined} link
+ * @param {boolean} isActive
+ * @returns {void}
+ */
 function updateModeLinkState(link, isActive) {
   if (!link) return;
   link.classList.toggle('is-active', isActive);
@@ -13,6 +22,15 @@ function updateModeLinkState(link, isActive) {
   }
 }
 
+/**
+ * @param {{
+ *   mode?: AppMode,
+ *   drillLink?: HTMLAnchorElement | null,
+ *   chartLink?: HTMLAnchorElement | null,
+ *   modeBadge?: HTMLElement | null
+ * }} [options]
+ * @returns {{ mode: AppMode, lastMode: AppMode }}
+ */
 export function initializeAppShell({
   mode = 'drill',
   drillLink,

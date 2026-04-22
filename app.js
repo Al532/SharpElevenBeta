@@ -30,6 +30,7 @@ import {
 } from './swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
 import { initializeEmbeddedDrillRuntime } from './features/drill/drill-embedded-runtime.js';
+import { createDrillPlaybackAssemblyProvider } from './core/playback/drill-playback-assembly-provider.js';
 import { initializeDrillPlaybackEngine } from './features/drill/drill-playback-engine.js';
 import {
   buildDrillKeyCheckboxes,
@@ -6106,6 +6107,28 @@ const {
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState
 } = initializeEmbeddedDrillRuntime({
+  createPlaybackAssemblyProvider: ({
+    applyEmbeddedPattern,
+    applyEmbeddedPlaybackSettings,
+    getEmbeddedPlaybackState
+  }) => createDrillPlaybackAssemblyProvider({
+    applyEmbeddedPattern,
+    applyEmbeddedPlaybackSettings,
+    getEmbeddedPlaybackState,
+    ensureWalkingBassGenerator,
+    isPlaying: () => isPlaying,
+    getAudioContext: () => audioCtx,
+    noteFadeout,
+    stopActiveChordVoices,
+    rebuildPreparedCompingPlans,
+    buildPreparedBassPlan,
+    getCurrentKey: () => currentKey,
+    preloadNearTermSamples,
+    validateCustomPattern,
+    startPlayback: () => startPlayback(),
+    stopPlayback: () => stop(),
+    togglePausePlayback: () => pauseToggle()
+  }),
   patternAdapterOptions: {
     stopIfPlaying: () => {
       if (isPlaying) {

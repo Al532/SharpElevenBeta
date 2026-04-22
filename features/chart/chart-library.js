@@ -1,3 +1,11 @@
+// @ts-check
+
+/** @typedef {import('../../core/types/contracts').ChartDocument} ChartDocument */
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function slugifyChartValue(value) {
   return String(value || '')
     .toLowerCase()
@@ -5,11 +13,19 @@ export function slugifyChartValue(value) {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * @param {string} rawText
+ * @returns {string[]}
+ */
 export function extractIRealLinks(rawText) {
   const matches = [...String(rawText || '').matchAll(/irealb(?:ook)?:\/\/[^"'\s<]+/gi)].map((match) => match[0]);
   return [...new Set(matches)];
 }
 
+/**
+ * @param {ChartDocument[]} documents
+ * @returns {ChartDocument[]}
+ */
 export function dedupeAndTagImportedDocuments(documents) {
   const seenIds = new Map();
 
@@ -36,6 +52,14 @@ export function dedupeAndTagImportedDocuments(documents) {
   });
 }
 
+/**
+ * @param {{
+ *   rawText?: string,
+ *   sourceFile?: string,
+ *   importDocuments?: (options: { rawText: string, sourceFile: string }) => Promise<ChartDocument[]>
+ * }} [options]
+ * @returns {Promise<ChartDocument[]>}
+ */
 export async function importDocumentsFromIRealText({
   rawText,
   sourceFile = '',
@@ -65,6 +89,11 @@ export async function importDocumentsFromIRealText({
     });
 }
 
+/**
+ * @param {ChartDocument[]} [documents]
+ * @param {string} [query]
+ * @returns {ChartDocument[]}
+ */
 export function filterChartDocuments(documents = [], query = '') {
   const normalizedQuery = String(query || '').trim().toLowerCase();
   if (!normalizedQuery) return [...documents];
