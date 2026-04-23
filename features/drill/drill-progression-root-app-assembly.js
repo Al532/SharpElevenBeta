@@ -1,8 +1,8 @@
 // @ts-check
 
-import { bindProgressionControls } from '../../progression-bindings.js';
-import { createProgressionEditor } from '../../progression-editor.js';
-import { createProgressionManager } from '../../progression-manager.js';
+import { bindProgressionControls } from '../progression/progression-bindings.js';
+import { createProgressionEditor } from '../progression/progression-editor.js';
+import { createProgressionManager } from '../progression/progression-manager.js';
 
 function getStatePropertyName(name) {
   if (!name || name.length <= 3) return '';
@@ -53,6 +53,9 @@ function createLiveStateProxy(bindings = {}) {
  * @param {Record<string, any>} [options.controlsState]
  * @param {Record<string, any>} [options.controlsConstants]
  * @param {Record<string, any>} [options.controlsHelpers]
+ * @param {Record<string, any>} [options.domainState]
+ * @param {Record<string, any>} [options.domainConstants]
+ * @param {Record<string, any>} [options.domainHelpers]
  */
 export function createDrillProgressionRootAppAssembly({
   dom = {},
@@ -64,8 +67,70 @@ export function createDrillProgressionRootAppAssembly({
   managerHelpers = {},
   controlsState = {},
   controlsConstants = {},
-  controlsHelpers = {}
+  controlsHelpers = {},
+  domainState = {},
+  domainConstants = {},
+  domainHelpers = {}
 } = {}) {
+  const {
+    getDefaultProgressions = () => ({})
+  } = domainState;
+  const {
+    defaultPatternMode = 'major'
+  } = domainConstants;
+  const {
+    createProgressionEntryBase = null,
+    normalizeProgressionEntryBase = null,
+    normalizeProgressionsMapBase = null,
+    parseDefaultProgressionsTextBase = null,
+    isModeToken = () => false,
+    normalizePatternMode = (value) => value,
+    normalizePatternString = (value) => value,
+    normalizePresetName = (value) => value
+  } = domainHelpers;
+
+  function createProgressionEntry(pattern, mode = defaultPatternMode, name = '') {
+    return createProgressionEntryBase(
+      pattern,
+      normalizePatternMode,
+      normalizePatternString,
+      mode,
+      name,
+      normalizePresetName
+    );
+  }
+
+  function normalizeProgressionEntry(name, entry) {
+    return normalizeProgressionEntryBase(name, entry, {
+      createEntry: createProgressionEntry,
+      defaultMode: defaultPatternMode
+    });
+  }
+
+  function normalizeProgressionsMap(source) {
+    return normalizeProgressionsMapBase(
+      source,
+      getDefaultProgressions(),
+      normalizeProgressionEntry
+    );
+  }
+
+  function parseDefaultProgressionsText(source) {
+    return parseDefaultProgressionsTextBase(source, {
+      createEntry: createProgressionEntry,
+      isModeToken
+    });
+  }
+
+  function getDefaultProgressionsFingerprint(source = getDefaultProgressions()) {
+    return JSON.stringify(
+      Object.entries(source || {}).map(([name, entry]) => {
+        const normalized = normalizeProgressionEntry(name, entry);
+        return [name, normalized.name || '', normalized.mode || defaultPatternMode];
+      })
+    );
+  }
+
   const progressionEditor = createProgressionEditor({
     dom,
     state: createLiveStateProxy(editorState),
@@ -94,6 +159,11 @@ export function createDrillProgressionRootAppAssembly({
   });
 
   return {
+    createProgressionEntry,
+    normalizeProgressionEntry,
+    normalizeProgressionsMap,
+    parseDefaultProgressionsText,
+    getDefaultProgressionsFingerprint,
     ...progressionEditor,
     ...progressionManager
   };

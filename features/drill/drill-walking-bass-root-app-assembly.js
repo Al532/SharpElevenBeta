@@ -1,6 +1,6 @@
 // @ts-check
 
-import { createWalkingBassGenerator } from '../../walking-bass.js';
+import { createWalkingBassGenerator } from './drill-walking-bass.js';
 import { createDrillWalkingBassAppBindings } from './drill-walking-bass-app-bindings.js';
 
 /**

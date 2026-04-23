@@ -1,6 +1,6 @@
 // @ts-check
 
-import { createCompingEngine } from '../../comping-engine.js';
+import { createCompingEngine } from './drill-comping-engine.js';
 import { createDrillCompingEngineAppBindings } from './drill-comping-engine-app-bindings.js';
 
 /**

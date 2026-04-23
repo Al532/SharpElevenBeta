@@ -1,19 +1,22 @@
 // @ts-check
 
 /**
- * Creates the drill settings-normalization root context from live root-app
- * bindings. This keeps small settings/display normalizers out of `app.js`
- * while preserving the same normalization behavior.
+ * Creates the drill normalization root context from live root-app bindings.
+ * This keeps small pattern, preset, and display/settings normalizers out of
+ * `app.js` while preserving the same normalization behavior.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.constants]
  * @param {Record<string, Function>} [options.helpers]
  */
-export function createDrillSettingsNormalizationRootAppContext({
+export function createDrillNormalizationRootAppContext({
   constants = {},
   helpers = {}
 } = {}) {
   const {
+    patternModeBoth = 'both',
+    patternModeMajor = 'major',
+    patternModeMinor = 'minor',
     compingStyleOff = 'off',
     compingStyleStrings = 'strings',
     compingStylePiano = 'piano',
@@ -27,6 +30,24 @@ export function createDrillSettingsNormalizationRootAppContext({
   const {
     normalizeChordsPerBarBase = (value) => value
   } = helpers;
+
+  function normalizePatternMode(mode) {
+    if (mode === 'major/minor') return patternModeBoth;
+    return [patternModeMajor, patternModeMinor, patternModeBoth].includes(mode)
+      ? mode
+      : patternModeMajor;
+  }
+
+  function normalizePresetName(name) {
+    return String(name || '')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  function normalizePresetNameForInput(name) {
+    return String(name || '')
+      .replace(/\s{2,}/g, ' ');
+  }
 
   function normalizeCompingStyle(style) {
     if (style === 'piano-one-hand' || style === 'piano-two-hand') return compingStylePiano;
@@ -69,6 +90,9 @@ export function createDrillSettingsNormalizationRootAppContext({
   }
 
   return {
+    normalizePatternMode,
+    normalizePresetName,
+    normalizePresetNameForInput,
     normalizeCompingStyle,
     normalizeRepetitionsPerKey,
     normalizeChordsPerBar,

@@ -1,5 +1,5 @@
-import { createStringsComping } from './comping-strings.js';
-import { createPianoComping } from './comping-piano.js';
+import { createStringsComping } from './drill-comping-strings.js';
+import { createPianoComping } from './drill-comping-piano.js';
 
 export function createCompingEngine({ constants, helpers }) {
   const stringsComping = createStringsComping({ constants, helpers });

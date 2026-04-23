@@ -14,6 +14,30 @@ type DrillSettingsAppContextOptions = {
   resetterHelpers?: Record<string, any>;
 };
 
+function cloneOptions(options: Record<string, any> = {}) {
+  return { ...options };
+}
+
+export function createDrillSettingsDefaultsAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSettingsConstantsAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSettingsSnapshotHelpersAppContext(options: Record<string, any> = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSettingsLoadApplierHelpersAppContext(options: Record<string, any> = {}) {
+  return cloneOptions(options);
+}
+
 export function createDrillSettingsAppContextOptions({
   defaults = {},
   dom = {},

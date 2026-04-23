@@ -1,5 +1,5 @@
-import { createPlaybackScheduler } from '../../playback-scheduler.js';
-import { createPlaybackTransport } from '../../playback-transport.js';
+import { createPlaybackScheduler } from './drill-playback-scheduler.js';
+import { createPlaybackTransport } from './drill-playback-transport.js';
 
 export function initializeDrillPlaybackEngine({
   dom,

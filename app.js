@@ -1,68 +1,79 @@
-import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './analytics.js';
+import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './features/app/app-analytics.js';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
   normalizeProgressionEntry as normalizeProgressionEntryBase,
   normalizeProgressionsMap as normalizeProgressionsMapBase,
   parseDefaultProgressionsText as parseDefaultProgressionsTextBase
-} from './progression-library.js';
+} from './features/progression/progression-library.js';
 import {
   loadStoredKeySelectionPreset,
   loadStoredProgressionSettings,
   saveStoredKeySelectionPreset,
   saveStoredProgressionSettings
-} from './progression-storage.js';
-import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './display-placeholder-messages.js';
-import { renderAccidentalTextHtml, renderChordSymbolHtml } from './chord-symbol-display.js';
-import pianoRhythmConfig from './piano-rhythm-config.js';
-import voicingConfig from './voicing-config.js';
+} from './features/progression/progression-storage.js';
+import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './features/drill/drill-display-placeholder-messages.js';
+import { renderAccidentalTextHtml, renderChordSymbolHtml } from './core/music/chord-symbol-display.js';
+import pianoRhythmConfig from './core/music/piano-rhythm-config.js';
+import voicingConfig from './core/music/voicing-config.js';
+import {
+  AUDIO_LEVELS,
+  AUDIO_SCHEDULING,
+  AUDIO_TIMING,
+  COMPING_STYLES,
+  DISPLAY_MODES,
+  HARMONY_DISPLAY_MODES,
+  INSTRUMENT_RANGES,
+  NEXT_PREVIEW_UNITS,
+  ONE_TIME_MIGRATIONS,
+  PATTERN_MODES,
+  PIANO_SAMPLE_RANGE,
+  PIANO_SETTINGS_CONFIG,
+  REVIEW_STANDARD_CONVERSIONS_URL,
+  TRAINER_DEFAULTS,
+  WELCOME_CONFIG,
+  WELCOME_ONE_CHORDS,
+  WELCOME_PROGRESSIONS,
+  WELCOME_STANDARDS_FALLBACK
+} from './config/trainer-config.js';
 import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
-} from './harmony-context.js';
+} from './core/music/harmony-context.js';
 import {
   DEFAULT_SWING_RATIO,
-} from './swing-utils.js';
+} from './core/music/swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
 import { createDrillAudioRuntimeRootAppAssembly } from './features/drill/drill-audio-runtime-root-app-assembly.js';
 import { createDrillCompingEngineRootAppAssembly } from './features/drill/drill-comping-engine-root-app-assembly.js';
 import { createDrillDefaultProgressionsRootAppAssembly } from './features/drill/drill-default-progressions-root-app-assembly.js';
-import { createDrillDisplayRenderRootAppFacade } from './features/drill/drill-display-render-root-app-facade.js';
-import { createDrillKeySelectionRootAppFacade } from './features/drill/drill-key-selection-root-app-facade.js';
+import { createDrillDisplayRootAppFacade } from './features/drill/drill-display-root-app-facade.js';
+import { createDrillKeysRootAppAssembly } from './features/drill/drill-keys-root-app-assembly.js';
 import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
 import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
 import { createDrillPlaybackResourcesRootAppAssembly } from './features/drill/drill-playback-resources-root-app-assembly.js';
-import { createDrillKeyPickerRootAppAssembly } from './features/drill/drill-key-picker-root-app-assembly.js';
 import { createDrillVoicingRuntimeRootAppAssembly } from './features/drill/drill-voicing-runtime-root-app-assembly.js';
 import { createDrillWalkingBassRootAppAssembly } from './features/drill/drill-walking-bass-root-app-assembly.js';
 import { createDrillPianoMidiRuntimeRootAppAssembly } from './features/drill/drill-piano-midi-runtime-root-app-assembly.js';
 import { createDrillNextPreviewRootAppFacade } from './features/drill/drill-next-preview-root-app-facade.js';
-import { createDrillPatternNormalizationRootAppContext } from './features/drill/drill-pattern-normalization-root-app-context.js';
+import { createDrillNormalizationRootAppContext } from './features/drill/drill-normalization-root-app-context.js';
 import { createDrillPianoToolsRootAppFacade } from './features/drill/drill-piano-tools-root-app-facade.js';
 import { createDrillWelcomeRootAppFacade } from './features/drill/drill-welcome-root-app-facade.js';
-import { createDrillDisplayControlsRootAppFacade } from './features/drill/drill-display-controls-root-app-facade.js';
-import { createDrillDisplayShellRootAppFacade } from './features/drill/drill-display-shell-root-app-facade.js';
 import { createDrillDisplayRuntimeRootAppAssembly } from './features/drill/drill-display-runtime-root-app-assembly.js';
 import { createDrillProgressionRootAppAssembly } from './features/drill/drill-progression-root-app-assembly.js';
-import { createDrillRuntimeControlsRootAppContext } from './features/drill/drill-runtime-controls-root-app-context.js';
 import { createDrillStartupDataRootAppAssembly } from './features/drill/drill-startup-data-root-app-assembly.js';
-import { createDrillSettingsNormalizationRootAppContext } from './features/drill/drill-settings-normalization-root-app-context.js';
 import { createDrillSettingsPersistenceRootAppAssembly } from './features/drill/drill-settings-persistence-root-app-assembly.js';
 import { createDrillUiEventBindingsRootAppAssembly } from './features/drill/drill-ui-event-bindings-root-app-assembly.js';
-import { createDrillUiBootstrapScreenRootAppContext } from './features/drill/drill-ui-bootstrap-screen-root-app-context.js';
 import { createDrillSettingsRootAppAssembly } from './features/drill/drill-settings-root-app-assembly.js';
-import { createDrillSharedPlaybackDirectRuntimeRootAppContext } from './features/drill/drill-shared-playback-direct-runtime-root-app-context.js';
-import { createDrillSharedPlaybackHostRootAppContext } from './features/drill/drill-shared-playback-host-root-app-context.js';
-import { createDrillSharedPlaybackPatternUiRootAppContext } from './features/drill/drill-shared-playback-pattern-ui-root-app-context.js';
 import { initializeAppShell } from './features/app/app-shell.js';
 import { consumePendingDrillSessionIntoUi } from './features/drill/drill-session-import.js';
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
 import { createDrillSharedPlaybackRootAppAssembly } from './features/drill/drill-shared-playback-root-app-assembly.js';
+import { createDrillSharedPlaybackRootAppContext } from './features/drill/drill-shared-playback-root-app-context.js';
 import { createDrillPlaybackRuntimeHostRootAppAssembly } from './features/drill/drill-playback-runtime-host-root-app-assembly.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
 import { createDrillRuntimeStateRootAppAssembly } from './features/drill/drill-runtime-state-root-app-assembly.js';
 import { createDrillUiBootstrapRootAppAssembly } from './features/drill/drill-ui-bootstrap-root-app-assembly.js';
-import { createDrillWelcomeStandardsRootAppAssembly } from './features/drill/drill-welcome-standards-root-app-assembly.js';
 
 /* ============================================================
    Jazz Progression Trainer — app.js
@@ -111,23 +122,11 @@ const PIANO_BLACK_KEY_COLUMNS = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 const APP_URL_PARAMS = new URLSearchParams(window.location.search);
 const IS_EMBEDDED_DRILL_MODE = APP_URL_PARAMS.get('embedded') === '1';
-const ONE_TIME_MIGRATIONS = Object.freeze({
-  silentDefaultPresetReset: '2026-04-silent-default-preset-reset',
-  masterVolumeDefault50: '2026-04-master-volume-default-50'
-});
-const PIANO_SAMPLE_LOW = 45;
-const PIANO_SAMPLE_HIGH = 89;
-const DEFAULT_PIANO_FADE_SETTINGS = Object.freeze({
-  timeConstantLow: 0.095,
-  timeConstantHigh: 0.055,
-  ...(pianoRhythmConfig?.pianoFadeOut || {})
-});
-const DEFAULT_PIANO_MIDI_SETTINGS = Object.freeze({
-  enabled: false,
-  inputId: '',
-  sustainPedalEnabled: true
-});
-const PIANO_SETTINGS_PRESET_VERSION = 1;
+const PIANO_SAMPLE_LOW = PIANO_SAMPLE_RANGE.low;
+const PIANO_SAMPLE_HIGH = PIANO_SAMPLE_RANGE.high;
+const DEFAULT_PIANO_FADE_SETTINGS = PIANO_SETTINGS_CONFIG.defaultFadeSettings;
+const DEFAULT_PIANO_MIDI_SETTINGS = PIANO_SETTINGS_CONFIG.defaultMidiSettings;
+const PIANO_SETTINGS_PRESET_VERSION = PIANO_SETTINGS_CONFIG.presetVersion;
 
 // Centralized voicing/chord defaults loaded from voicing-config.js
 const {
@@ -147,43 +146,42 @@ const {
   RICH_DISPLAY_QUALITY_ALIASES = {}
 } = voicingConfig;
 
-const PATTERN_MODE_BOTH = 'both';
-const PATTERN_MODE_MAJOR = 'major';
-const PATTERN_MODE_MINOR = 'minor';
-const NEXT_PREVIEW_UNIT_BARS = 'bars';
-const NEXT_PREVIEW_UNIT_SECONDS = 'seconds';
-const DISPLAY_MODE_SHOW_BOTH = 'show-both';
-const DISPLAY_MODE_CHORDS_ONLY = 'chords-only';
-const DISPLAY_MODE_KEY_ONLY = 'key-only';
-const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
-const HARMONY_DISPLAY_MODE_RICH = 'rich';
-const DEFAULT_PROGRESSIONS_URL = './default-progressions.txt';
-const DEFAULT_REPETITIONS_PER_KEY = 2;
-const COMPING_STYLE_OFF = 'off';
-const DEFAULT_NEXT_PREVIEW_LEAD_BARS = 1;
-const COMPING_STYLE_STRINGS = 'strings';
-const COMPING_STYLE_PIANO = 'piano';
-const DEFAULT_CHORDS_PER_BAR = 1;
-const SUPPORTED_CHORDS_PER_BAR = Object.freeze([1, 2, 4]);
-const WELCOME_GOAL_PROGRESSION = 'progression';
-const WELCOME_GOAL_ONE_CHORD = 'one-chord';
-const WELCOME_GOAL_STANDARD = 'standard';
-const WELCOME_ONBOARDING_SETTINGS_KEY = 'welcomeCompleted';
-const WELCOME_SHOW_NEXT_TIME_SETTINGS_KEY = 'welcomeShowNextTime';
-const WELCOME_VERSION_SETTINGS_KEY = 'welcomeVersion';
-const WELCOME_VERSION = '2';
-const REVIEW_STANDARD_CONVERSIONS_URL = './parsing-projects/review-standard-conversions.txt';
+const PATTERN_MODE_BOTH = PATTERN_MODES.both;
+const PATTERN_MODE_MAJOR = PATTERN_MODES.major;
+const PATTERN_MODE_MINOR = PATTERN_MODES.minor;
+const NEXT_PREVIEW_UNIT_BARS = NEXT_PREVIEW_UNITS.bars;
+const NEXT_PREVIEW_UNIT_SECONDS = NEXT_PREVIEW_UNITS.seconds;
+const DISPLAY_MODE_SHOW_BOTH = DISPLAY_MODES.showBoth;
+const DISPLAY_MODE_CHORDS_ONLY = DISPLAY_MODES.chordsOnly;
+const DISPLAY_MODE_KEY_ONLY = DISPLAY_MODES.keyOnly;
+const HARMONY_DISPLAY_MODE_DEFAULT = HARMONY_DISPLAY_MODES.default;
+const HARMONY_DISPLAY_MODE_RICH = HARMONY_DISPLAY_MODES.rich;
+const DEFAULT_PROGRESSIONS_URL = TRAINER_DEFAULTS.progressionsUrl;
+const DEFAULT_REPETITIONS_PER_KEY = TRAINER_DEFAULTS.repetitionsPerKey;
+const COMPING_STYLE_OFF = COMPING_STYLES.off;
+const DEFAULT_NEXT_PREVIEW_LEAD_BARS = TRAINER_DEFAULTS.nextPreviewLeadBars;
+const COMPING_STYLE_STRINGS = COMPING_STYLES.strings;
+const COMPING_STYLE_PIANO = COMPING_STYLES.piano;
+const DEFAULT_CHORDS_PER_BAR = TRAINER_DEFAULTS.chordsPerBar;
+const SUPPORTED_CHORDS_PER_BAR = TRAINER_DEFAULTS.supportedChordsPerBar;
+const WELCOME_GOAL_PROGRESSION = WELCOME_CONFIG.goals.progression;
+const WELCOME_GOAL_ONE_CHORD = WELCOME_CONFIG.goals.oneChord;
+const WELCOME_GOAL_STANDARD = WELCOME_CONFIG.goals.standard;
+const WELCOME_ONBOARDING_SETTINGS_KEY = WELCOME_CONFIG.storageKeys.onboardingCompleted;
+const WELCOME_SHOW_NEXT_TIME_SETTINGS_KEY = WELCOME_CONFIG.storageKeys.showNextTime;
+const WELCOME_VERSION_SETTINGS_KEY = WELCOME_CONFIG.storageKeys.version;
+const WELCOME_VERSION = WELCOME_CONFIG.version;
 
-const BASS_LOW = 28;  // MIDI note for E1 (lowest bass sample)
-const BASS_HIGH = 48; // MIDI note for C3 (highest bass sample)
-const CELLO_LOW = 37;  // MIDI C#2
-const CELLO_HIGH = 80; // MIDI G#5
-const VIOLIN_LOW = 56; // MIDI G#3
-const VIOLIN_HIGH = 84; // MIDI C6
-const GUIDE_TONE_LOW = 49;  // MIDI C#3 — bottom of guide tone range
-const GUIDE_TONE_HIGH = 60; // MIDI C4  — top of guide tone range
-const SCHEDULE_AHEAD = 0.1;  // seconds
-const SCHEDULE_INTERVAL = 25; // ms
+const BASS_LOW = INSTRUMENT_RANGES.bass.low;  // MIDI note for E1 (lowest bass sample)
+const BASS_HIGH = INSTRUMENT_RANGES.bass.high; // MIDI note for C3 (highest bass sample)
+const CELLO_LOW = INSTRUMENT_RANGES.cello.low;  // MIDI C#2
+const CELLO_HIGH = INSTRUMENT_RANGES.cello.high; // MIDI G#5
+const VIOLIN_LOW = INSTRUMENT_RANGES.violin.low; // MIDI G#3
+const VIOLIN_HIGH = INSTRUMENT_RANGES.violin.high; // MIDI C6
+const GUIDE_TONE_LOW = INSTRUMENT_RANGES.guideTone.low;  // MIDI C#3 - bottom of guide tone range
+const GUIDE_TONE_HIGH = INSTRUMENT_RANGES.guideTone.high; // MIDI C4 - top of guide tone range
+const SCHEDULE_AHEAD = AUDIO_SCHEDULING.scheduleAheadSeconds;  // seconds
+const SCHEDULE_INTERVAL = AUDIO_SCHEDULING.scheduleIntervalMs; // ms
 
 // ---- Voicing Data ----
 
@@ -191,6 +189,7 @@ const SCHEDULE_INTERVAL = 25; // ms
 
 const dom = {
   appVersion:      document.getElementById('app-version'),
+  display:         document.getElementById('display'),
   selectedKeysSummary: document.getElementById('selected-keys-summary'),
   displayPlaceholder: document.getElementById('display-placeholder'),
   displayPlaceholderMessage: document.getElementById('display-placeholder-message'),
@@ -312,12 +311,6 @@ function setKeyPickerOpen(isOpen) {
   dom.keyPicker.open = Boolean(isOpen);
 }
 
-let restoreAllKeysIfNoneSelectedOnCloseImpl = () => {};
-
-function restoreAllKeysIfNoneSelectedOnClose(...args) {
-  return restoreAllKeysIfNoneSelectedOnCloseImpl(...args);
-}
-
 let createDefaultAppSettingsImpl = (..._args) => ({});
 
 function createDefaultAppSettings(...args) {
@@ -336,6 +329,9 @@ let syncCustomPatternUIImpl = () => {};
 let syncProgressionManagerStateImpl = () => {};
 let applyPatternModeAvailabilityImpl = () => {};
 let syncPatternPreviewImpl = () => {};
+let showNextColImpl = () => {};
+let hideNextColImpl = () => {};
+let applyCurrentHarmonyVisibilityImpl = () => {};
 let startImpl = () => {};
 let saveSettingsImpl = () => {};
 let loadSettingsImpl = () => {};
@@ -388,6 +384,18 @@ function syncPatternPreview(...args) {
   return syncPatternPreviewImpl(...args);
 }
 
+function showNextCol(...args) {
+  return showNextColImpl(...args);
+}
+
+function hideNextCol(...args) {
+  return hideNextColImpl(...args);
+}
+
+function applyCurrentHarmonyVisibility(...args) {
+  return applyCurrentHarmonyVisibilityImpl(...args);
+}
+
 function start(...args) {
   return startImpl(...args);
 }
@@ -426,196 +434,6 @@ let hasCompletedWelcomeOnboarding = false;
 let shouldShowWelcomeNextTime = true;
 let playbackSessionController = null;
 
-const WELCOME_PROGRESSIONS = Object.freeze({
-  'ii-v-i-major': {
-    summary: 'Suggested: II V I major, tempo 130, 2 reps per key.',
-    presetName: 'II V I',
-    majorMinor: false,
-    repetitionsPerKey: 2,
-    tempo: 130,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_PIANO,
-    drumsMode: 'full_swing',
-    enabledKeys: new Array(12).fill(true)
-  },
-  'ii-v-i-minor': {
-    summary: 'Suggested: II V I minor, tempo 130, 2 reps per key.',
-    presetName: 'II V I',
-    majorMinor: true,
-    repetitionsPerKey: 2,
-    tempo: 130,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_PIANO,
-    drumsMode: 'full_swing',
-    enabledKeys: new Array(12).fill(true)
-  },
-  turnaround: {
-    summary: 'Suggested: standard turnaround, tempo 130, 2 reps per key.',
-    presetName: 'Standard turnaround',
-    majorMinor: false,
-    repetitionsPerKey: 2,
-    tempo: 130,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_PIANO,
-    drumsMode: 'full_swing',
-    enabledKeys: new Array(12).fill(true)
-  }
-});
-
-const WELCOME_ONE_CHORDS = Object.freeze({
-  maj7: {
-    summary: 'Suggested: random maj7, tempo 90, 1 rep per key.',
-    patternName: 'Random maj7',
-    pattern: 'one: maj7',
-    patternMode: PATTERN_MODE_BOTH,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 90,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
-    drumsMode: 'hihats_2_4',
-    enabledKeys: new Array(12).fill(true)
-  },
-  m9: {
-    summary: 'Suggested: random m9, tempo 90, 1 rep per key.',
-    patternName: 'Random m9',
-    pattern: 'one: m9',
-    patternMode: PATTERN_MODE_BOTH,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 90,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
-    drumsMode: 'hihats_2_4',
-    enabledKeys: new Array(12).fill(true)
-  },
-  lyd: {
-    summary: 'Suggested: random lydian, tempo 90, 1 rep per key.',
-    patternName: 'Random lydian',
-    pattern: 'one: lyd',
-    patternMode: PATTERN_MODE_BOTH,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 90,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
-    drumsMode: 'hihats_2_4',
-    enabledKeys: new Array(12).fill(true)
-  },
-  '7alt': {
-    summary: 'Suggested: random altered, tempo 90, 1 rep per key.',
-    patternName: 'Random altered',
-    pattern: 'one: 7alt',
-    patternMode: PATTERN_MODE_BOTH,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 90,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
-    drumsMode: 'hihats_2_4',
-    enabledKeys: new Array(12).fill(true)
-  },
-  '13sus': {
-    summary: 'Suggested: random 13sus4, tempo 90, 1 rep per key.',
-    patternName: 'Random 13sus4',
-    pattern: 'one: 13sus',
-    patternMode: PATTERN_MODE_BOTH,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 90,
-    chordsPerBar: 1,
-    compingStyle: COMPING_STYLE_STRINGS,
-    drumsMode: 'hihats_2_4',
-    enabledKeys: new Array(12).fill(true)
-  }
-});
-
-const WELCOME_STANDARDS_FALLBACK = Object.freeze({
-  'all-the-things-you-are': {
-    summary: 'Suggested: All the Things You Are, single key, comfortable playback.',
-    patternName: 'All the Things You Are',
-    pattern: 'key: Ab | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | Dm7 G7 | Cmaj7 | Cmaj7 | Cm7 | Fm7 | Bb7 | Ebmaj7 | Abmaj7 | Am7 D7 | Gmaj7 | Gmaj7 | Am7 | D7 | Gmaj7 | Gmaj7 | F#m7b5 | B7b9 | Emaj7 | C7b9b13 | Fm7 | Bbm7 | Eb7 | Abmaj7 | Dbmaj7 | DbmMaj7 | Cm7 | Bdim7 | Bbm7 | Eb7 | Abmaj7 | Gm7b5 C7b9 |',
-    patternMode: PATTERN_MODE_MAJOR,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [false, false, false, false, false, false, false, false, true, false, false, false]
-  },
-  'autumn-leaves': {
-    summary: 'Suggested: Autumn Leaves, single key, comfortable playback.',
-    patternName: 'Autumn Leaves',
-    pattern: 'key: E | Am7 D7 | G | F#m7b5 B7 | Em | B7 | Em | Am7 D7 | G | F#m7b5 B7 | Em | F#m7b5 B7 | Em |',
-    patternMode: PATTERN_MODE_MINOR,
-    majorMinor: true,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [false, false, false, false, true, false, false, false, false, false, false, false]
-  },
-  'blue-bossa': {
-    summary: 'Suggested: Blue Bossa, single key, relaxed playback.',
-    patternName: 'Blue Bossa',
-    pattern: 'key: C | Cm | Fm | Dm7b5 G7 | Cm | Ebm7 Ab7 | Db | Dm7b5 G7 | Cm G7 |',
-    patternMode: PATTERN_MODE_MINOR,
-    majorMinor: true,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
-  },
-  solar: {
-    summary: 'Suggested: Solar, single key, medium-up tempo.',
-    patternName: 'Solar',
-    pattern: 'key: C | Cm | Gm7 C7 | F | Fm7 Bb7 | Eb | Ebm7 Ab7 | Db | Dm7b5 G7 |',
-    patternMode: PATTERN_MODE_MINOR,
-    majorMinor: true,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
-  },
-  'satin-doll': {
-    summary: 'Suggested: Satin Doll, single key, comfortable groove.',
-    patternName: 'Satin Doll',
-    pattern: 'key: C [: | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | D7 | Db7 | [1 C | A7 :| [2 C | C | Gm7 | C7 | F | F | Am7 | D7 | G7 | A7 ] | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | D7 | Db7 | C | C |',
-    patternMode: PATTERN_MODE_MAJOR,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
-  },
-  'satin-doll-ireal': {
-    summary: 'Suggested: Satin Doll (iReal), with repeats and explicit endings.',
-    patternName: 'Satin Doll (iReal)',
-    pattern: 'key: C [: | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | Am7 D7 | Abm7 Db7 | [1 Cmaj7 F7 | Em7 A7 :| [2 Cmaj7 | Cmaj7 ] [: | Gm7 C7 | Gm7 C7 | Fmaj7 | Fmaj7 | Am7 D7 | Am7 D7 | G7 | G7 :| | Dm7 G7 | Dm7 G7 | Em7 A7 | Em7 A7 | Am7 D7 | Abm7 Db7 | Cmaj7 F7 | Em7 A7 |',
-    patternMode: PATTERN_MODE_MAJOR,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [true, false, false, false, false, false, false, false, false, false, false, false]
-  },
-  'there-will-never-be-another-you': {
-    summary: 'Suggested: There Will Never Be Another You, single key, medium tempo.',
-    patternName: 'There Will Never Be Another You',
-    pattern: 'key: Eb | Eb | Dm7b5 G7 | Cm | Bbm7 Eb7 | Ab | Abm | Eb | Cm7 F7 | Fm7 Bb7 | Eb | Dm7b5 G7 | Cm | Bbm7 Eb7 | Ab | Abm | Eb C7 | Eb D7 | G7 C7 | Fm7 Bb7 | Eb |',
-    patternMode: PATTERN_MODE_MAJOR,
-    majorMinor: false,
-    repetitionsPerKey: 1,
-    tempo: 120,
-    chordsPerBar: 4,
-    compingStyle: COMPING_STYLE_PIANO,
-    enabledKeys: [false, false, false, true, false, false, false, false, false, false, false, false]
-  }
-});
 let welcomeStandards = { ...WELCOME_STANDARDS_FALLBACK };
 let currentRawChords = [];
 let nextRawChords = [];
@@ -642,7 +460,7 @@ const {
   normalizePatternMode,
   normalizePresetName,
   normalizePresetNameForInput
-} = createDrillPatternNormalizationRootAppContext({
+} = createDrillNormalizationRootAppContext({
   constants: {
     patternModeBoth: PATTERN_MODE_BOTH,
     patternModeMajor: PATTERN_MODE_MAJOR,
@@ -652,23 +470,7 @@ const {
 
 const {
   parseWelcomeStandardsText,
-  renderWelcomeStandardOptions
-} = createDrillWelcomeStandardsRootAppAssembly({
-  dom,
-  state: {
-    getWelcomeStandards: () => welcomeStandards
-  },
-  constants: {
-    noteLetterToSemitone: NOTE_LETTER_TO_SEMITONE,
-    patternModeMinor: PATTERN_MODE_MINOR,
-    compingStylePiano: COMPING_STYLE_PIANO
-  },
-  helpers: {
-    normalizePatternMode
-  }
-});
-
-const {
+  renderWelcomeStandardOptions,
   loadWelcomeStandards
 } = createDrillStartupDataRootAppAssembly({
   state: {
@@ -678,9 +480,13 @@ const {
     fetchImpl: (...args) => fetch(...args),
     url: REVIEW_STANDARD_CONVERSIONS_URL,
     version: APP_VERSION,
-    parseWelcomeStandardsText,
-    renderWelcomeStandardOptions,
-    welcomeStandardsFallback: WELCOME_STANDARDS_FALLBACK
+    welcomeStandardsFallback: WELCOME_STANDARDS_FALLBACK,
+    select: dom.welcomeStandardSelect,
+    getWelcomeStandards: () => welcomeStandards,
+    noteLetterToSemitone: NOTE_LETTER_TO_SEMITONE,
+    patternModeMinor: PATTERN_MODE_MINOR,
+    compingStylePiano: COMPING_STYLE_PIANO,
+    normalizePatternMode
   }
 });
 
@@ -731,7 +537,7 @@ const {
   normalizeChordsPerBar,
   normalizeDisplayMode,
   normalizeHarmonyDisplayMode
-} = createDrillSettingsNormalizationRootAppContext({
+} = createDrillNormalizationRootAppContext({
   constants: {
     compingStyleOff: COMPING_STYLE_OFF,
     compingStyleStrings: COMPING_STYLE_STRINGS,
@@ -1072,21 +878,21 @@ const {
 
 
 
-const NOTE_FADEOUT = 0.26;  // seconds — bass fadeout before next note
-const BASS_NOTE_ATTACK = 0.005; // seconds — tiny fade-in to avoid clicks on re-attacks
-const BASS_NOTE_OVERLAP = 0.11; // seconds - let bass notes overlap slightly
-const BASS_NOTE_RELEASE = 0.075; // seconds - fixed tail fade for walking bass notes
-const BASS_GAIN_RELEASE_TIMECONSTANT = 0.012; // seconds - smooth release to avoid clicks
-const CHORD_FADE_BEFORE = 0.1; // seconds — chord fade starts this long before end
-const CHORD_FADE_DUR = 0.2;    // seconds — chord fade duration
-const CHORD_VOLUME_MULTIPLIER = 1.35;
+const NOTE_FADEOUT = AUDIO_TIMING.noteFadeOutSeconds;  // seconds - bass fadeout before next note
+const BASS_NOTE_ATTACK = AUDIO_TIMING.bassNoteAttackSeconds; // seconds - tiny fade-in to avoid clicks on re-attacks
+const BASS_NOTE_OVERLAP = AUDIO_TIMING.bassNoteOverlapSeconds; // seconds - let bass notes overlap slightly
+const BASS_NOTE_RELEASE = AUDIO_TIMING.bassNoteReleaseSeconds; // seconds - fixed tail fade for walking bass notes
+const BASS_GAIN_RELEASE_TIMECONSTANT = AUDIO_TIMING.bassGainReleaseTimeConstant; // seconds - smooth release to avoid clicks
+const CHORD_FADE_BEFORE = AUDIO_TIMING.chordFadeBeforeSeconds; // seconds - chord fade starts this long before end
+const CHORD_FADE_DUR = AUDIO_TIMING.chordFadeDurationSeconds;    // seconds - chord fade duration
+const CHORD_VOLUME_MULTIPLIER = AUDIO_LEVELS.chordVolumeMultiplier;
 // Bass samples are now loudness-normalized around LUFS-S -16, so we only keep a light trim here
 // instead of the stronger attenuation that made sense with the older peak-normalized files.
-const BASS_GAIN = 0.8 * Math.pow(10, -2 / 20);
-const STRING_LOOP_START = 2.0;
-const STRING_LOOP_END = 9.0;
-const STRING_LOOP_CROSSFADE = 0.12;
-const STRING_LEGATO_MAX_DISTANCE = 2; // semitones
+const BASS_GAIN = AUDIO_LEVELS.bassGain;
+const STRING_LOOP_START = AUDIO_TIMING.stringLoopStartSeconds;
+const STRING_LOOP_END = AUDIO_TIMING.stringLoopEndSeconds;
+const STRING_LOOP_CROSSFADE = AUDIO_TIMING.stringLoopCrossfadeSeconds;
+const STRING_LEGATO_MAX_DISTANCE = AUDIO_TIMING.stringLegatoMaxDistanceSemitones; // semitones
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
@@ -1135,12 +941,12 @@ function getPianoFadeProfile(midi, volume, maxDuration) {
     timeConstant
   };
 }
-const STRING_LEGATO_GLIDE_TIME = 0.05; // seconds
-const STRING_LEGATO_PRE_DIP_TIME = 0.05; // seconds
-const STRING_LEGATO_PRE_DIP_RATIO = 0.7;
-const STRING_LEGATO_HOLD_TIME = 0.1; // seconds
-const STRING_LEGATO_FADE_TIME = 0.2; // seconds
-const AUTOMATION_CURVE_STEPS = 32;
+const STRING_LEGATO_GLIDE_TIME = AUDIO_TIMING.stringLegatoGlideTimeSeconds; // seconds
+const STRING_LEGATO_PRE_DIP_TIME = AUDIO_TIMING.stringLegatoPreDipTimeSeconds; // seconds
+const STRING_LEGATO_PRE_DIP_RATIO = AUDIO_TIMING.stringLegatoPreDipRatio;
+const STRING_LEGATO_HOLD_TIME = AUDIO_TIMING.stringLegatoHoldTimeSeconds; // seconds
+const STRING_LEGATO_FADE_TIME = AUDIO_TIMING.stringLegatoFadeTimeSeconds; // seconds
+const AUTOMATION_CURVE_STEPS = AUDIO_TIMING.automationCurveSteps;
 let activeNoteGain = null; // current bass note's GainNode for early cutoff
 let activeNoteFadeOut = NOTE_FADEOUT;
 let pianoFadeSettings = createDefaultPianoFadeSettings();
@@ -2007,36 +1813,7 @@ function getBaseChordDisplaySize() {
   return isMobile ? 3.0 : 5;
 }
 
-const {
-  applyBeatIndicatorVisibility,
-  applyCurrentHarmonyVisibility,
-  applyDisplayMode
-} = createDrillDisplayControlsRootAppFacade({
-  getBeatIndicator: () => dom.beatIndicator,
-  getShowBeatIndicatorEnabled: () => dom.showBeatIndicator?.checked !== false,
-  getDisplayElement: () => document.getElementById('display'),
-  getCurrentHarmonyHidden: () => dom.hideCurrentHarmony?.checked === true,
-  getDisplayMode: () => normalizeDisplayMode(dom.displayMode?.value),
-  applyDisplaySideLayout,
-  fitHarmonyDisplay
-});
-
-const {
-  showNextCol,
-  hideNextCol,
-  setDisplayPlaceholderVisible,
-  setDisplayPlaceholderMessage,
-  updateBeatDots,
-  clearBeatDots
-} = createDrillDisplayShellRootAppFacade({
-  dom,
-  fitHarmonyDisplay,
-  defaultDisplayPlaceholderMessage: DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE
-});
-
-setDisplayPlaceholderMessage();
-
-const drillDisplayRender = createDrillDisplayRenderRootAppFacade({
+const drillDisplay = createDrillDisplayRootAppFacade({
   dom,
   state: {
     getIsPlaying: () => isPlaying,
@@ -2045,10 +1822,14 @@ const drillDisplayRender = createDrillDisplayRenderRootAppFacade({
     getNextKeyValue: () => nextKeyValue,
     getCurrentChordIdx: () => currentChordIdx,
     getPaddedChords: () => paddedChords,
-    getNextRawChords: () => nextRawChords
+    getNextRawChords: () => nextRawChords,
+    getShowBeatIndicatorEnabled: () => dom.showBeatIndicator?.checked !== false,
+    getCurrentHarmonyHidden: () => dom.hideCurrentHarmony?.checked === true,
+    getDisplayMode: () => normalizeDisplayMode(dom.displayMode?.value)
   },
   constants: {
-    keyNamesMajor: KEY_NAMES_MAJOR
+    keyNamesMajor: KEY_NAMES_MAJOR,
+    defaultDisplayPlaceholderMessage: DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE
   },
   helpers: {
     transposeDisplayPitchClass,
@@ -2065,6 +1846,24 @@ const drillDisplayRender = createDrillDisplayRenderRootAppFacade({
     fitHarmonyDisplay
   }
 });
+
+const {
+  applyBeatIndicatorVisibility,
+  applyCurrentHarmonyVisibility: displayApplyCurrentHarmonyVisibility,
+  applyDisplayMode,
+  showNextCol: displayShowNextCol,
+  hideNextCol: displayHideNextCol,
+  setDisplayPlaceholderVisible,
+  setDisplayPlaceholderMessage,
+  updateBeatDots,
+  clearBeatDots
+} = drillDisplay;
+
+showNextColImpl = displayShowNextCol;
+hideNextColImpl = displayHideNextCol;
+applyCurrentHarmonyVisibilityImpl = displayApplyCurrentHarmonyVisibility;
+
+setDisplayPlaceholderMessage();
 
 // ---- Scheduler / Playback State ----
 
@@ -2164,14 +1963,17 @@ const {
   getEnabledKeyCount,
   persistKeySelectionPreset,
   syncSelectedKeysSummary,
-  restoreAllKeysIfNoneSelectedOnClose: keySelectionRestoreAllKeysIfNoneSelectedOnClose,
   isBlackDisplayPitchClass,
   updateKeyCheckboxVisualState,
   syncKeyCheckboxStates,
   applyEnabledKeys,
   saveCurrentKeySelectionPreset,
-  loadKeySelectionPreset
-} = createDrillKeySelectionRootAppFacade({
+  loadKeySelectionPreset,
+  initialize: initializeKeyPicker,
+  buildKeyCheckboxes,
+  setAllKeysEnabled,
+  invertKeysEnabled
+} = createDrillKeysRootAppAssembly({
   dom,
   state: {
     getEnabledKeys: () => enabledKeys,
@@ -2185,6 +1987,8 @@ const {
     PIANO_WHITE_KEY_COLUMNS
   },
   helpers: {
+    setKeyPickerOpen,
+    stopPlaybackIfRunning,
     getDisplayTranspositionSemitones,
     keyLabelForPicker,
     renderAccidentalTextHtml: renderPickerKeyHtml,
@@ -2192,33 +1996,6 @@ const {
     saveSettings,
     trackEvent,
     alert: (message) => window.alert(message)
-  }
-});
-
-restoreAllKeysIfNoneSelectedOnCloseImpl = keySelectionRestoreAllKeysIfNoneSelectedOnClose;
-
-const {
-  initialize: initializeKeyPicker,
-  buildKeyCheckboxes,
-  setAllKeysEnabled,
-  invertKeysEnabled
-} = createDrillKeyPickerRootAppAssembly({
-  dom,
-  state: {
-    getEnabledKeys: () => enabledKeys,
-    setEnabledKeys: (value) => { enabledKeys = value; },
-    setKeyPool: (value) => { keyPool = value; }
-  },
-  helpers: {
-    setKeyPickerOpen,
-    stopPlaybackIfRunning,
-    restoreAllKeysIfNoneSelectedOnClose,
-    updateKeyCheckboxVisualState,
-    syncSelectedKeysSummary,
-    saveSettings,
-    trackEvent,
-    getEnabledKeyCount,
-    applyEnabledKeys
   }
 });
 
@@ -2715,15 +2492,15 @@ startImpl = playbackStart;
 // ---- Key Picker ----
 
 function keyLabelForPicker(majorIndex) {
-  return drillDisplayRender.keyLabelForPicker(majorIndex);
+  return drillDisplay.keyLabelForPicker(majorIndex);
 }
 
 function updateKeyPickerLabels() {
-  return drillDisplayRender.updateKeyPickerLabels();
+  return drillDisplay.updateKeyPickerLabels();
 }
 
 function refreshDisplayedHarmony() {
-  return drillDisplayRender.refreshDisplayedHarmony();
+  return drillDisplay.refreshDisplayedHarmony();
 }
 
 function validateCustomPattern() {
@@ -3417,9 +3194,9 @@ async function initializeApp() {
   await drillUiBootstrap.initializeScreen();
 }
 
-const drillUiBootstrapScreen = createDrillUiBootstrapScreenRootAppContext({
-  dom,
-  state: {
+const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
+  screenDom: dom,
+  screenState: {
     getProgressions: () => progressions,
     getSavedPatternSelection: () => savedPatternSelection,
     getShouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
@@ -3427,10 +3204,10 @@ const drillUiBootstrapScreen = createDrillUiBootstrapScreenRootAppContext({
     setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
     setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; }
   },
-  constants: {
+  screenConstants: {
     customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
   },
-  helpers: {
+  screenHelpers: {
     initializeSocialShareLinks,
     loadDefaultProgressions,
     loadPatternHelp,
@@ -3464,24 +3241,43 @@ const drillUiBootstrapScreen = createDrillUiBootstrapScreenRootAppContext({
     }),
     setWelcomeOverlayVisible,
     maybeShowWelcomeOverlay
-  }
-});
-
-const drillRuntimeControls = createDrillRuntimeControlsRootAppContext({
-  dom,
-  state: {
+  },
+  pianoControls: {
+    dom,
+    readPianoFadeSettingsFromControls,
+    refreshPianoSettingsJson,
+    applyPianoFadeSettings: (nextSettings) => {
+      applyPianoFadeSettings(nextSettings);
+    },
+    refreshMidiInputs,
+    stopAllMidiPianoVoices,
+    applyPianoMidiSettings: (nextSettings, options) => {
+      if (nextSettings?.sustainPedalEnabled === false) {
+        midiSustainPedalDown = false;
+        for (const midi of [...sustainedMidiNotes]) {
+          stopMidiPianoVoice(midi);
+        }
+        sustainedMidiNotes.clear();
+      }
+      applyPianoMidiSettings(nextSettings, options);
+    },
+    getPianoMidiSettings: () => pianoMidiSettings,
+    ensureMidiPianoRangePreload
+  },
+  runtimeControlsDom: dom,
+  runtimeControlsState: {
     getIsPlaying: () => isPlaying,
     getAudioContext: () => audioCtx,
     getCurrentKey: () => currentKey,
     getNextPreviewLeadUnit: () => nextPreviewLeadUnit,
     getNextPreviewInputUnit: () => getNextPreviewInputUnit()
   },
-  constants: {
+  runtimeControlsConstants: {
     noteFadeout: NOTE_FADEOUT,
     nextPreviewUnitBars: NEXT_PREVIEW_UNIT_BARS,
     nextPreviewUnitSeconds: NEXT_PREVIEW_UNIT_SECONDS
   },
-  helpers: {
+  runtimeControlsHelpers: {
     stop,
     start,
     togglePause,
@@ -3512,34 +3308,7 @@ const drillRuntimeControls = createDrillRuntimeControlsRootAppContext({
     applyCurrentHarmonyVisibility,
     fitHarmonyDisplay,
     applyMixerSettings
-  }
-});
-
-const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
-  screen: drillUiBootstrapScreen,
-  pianoControls: {
-    dom,
-    readPianoFadeSettingsFromControls,
-    refreshPianoSettingsJson,
-    applyPianoFadeSettings: (nextSettings) => {
-      applyPianoFadeSettings(nextSettings);
-    },
-    refreshMidiInputs,
-    stopAllMidiPianoVoices,
-    applyPianoMidiSettings: (nextSettings, options) => {
-      if (nextSettings?.sustainPedalEnabled === false) {
-        midiSustainPedalDown = false;
-        for (const midi of [...sustainedMidiNotes]) {
-          stopMidiPianoVoice(midi);
-        }
-        sustainedMidiNotes.clear();
-      }
-      applyPianoMidiSettings(nextSettings, options);
-    },
-    getPianoMidiSettings: () => pianoMidiSettings,
-    ensureMidiPianoRangePreload
   },
-  runtimeControls: drillRuntimeControls,
   harmonyDisplayObservers: {
     fitHarmonyDisplay,
     chordDisplay: dom.chordDisplay,
@@ -3627,69 +3396,106 @@ drillUiBootstrap.initializeHarmonyDisplayObservers();
 
 drillUiEventBindings.bindLifecycleEvents();
 
-const drillSharedPlaybackHost = createDrillSharedPlaybackHostRootAppContext({
-  dom,
-  state: {
-    getLastPatternSelectValue: () => lastPatternSelectValue,
-    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-    getIsPlaying: () => isPlaying,
-    getIsPaused: () => isPaused,
-    getIsIntro: () => isIntro,
-    getCurrentBeat: () => currentBeat,
-    getCurrentChordIdx: () => currentChordIdx,
-    getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
-    getCurrentKey: () => currentKey,
-    getAudioContext: () => audioCtx
+const drillSharedPlayback = createDrillSharedPlaybackRootAppContext({
+  host: {
+    dom,
+    state: {
+      getLastPatternSelectValue: () => lastPatternSelectValue,
+      setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
+      getIsPlaying: () => isPlaying,
+      getIsPaused: () => isPaused,
+      getIsIntro: () => isIntro,
+      getCurrentBeat: () => currentBeat,
+      getCurrentChordIdx: () => currentChordIdx,
+      getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
+      getCurrentKey: () => currentKey,
+      getAudioContext: () => audioCtx
+    },
+    constants: {
+      customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
+    },
+    helpers: {
+      setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+      setPatternSelectValue,
+      setEditorPatternMode,
+      syncPatternSelectionFromInput,
+      startPlayback: () => start(),
+      stopPlayback: () => stop(),
+      togglePausePlayback: () => togglePause()
+    }
   },
-  constants: {
-    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
+  patternUi: {
+    helpers: {
+      clearProgressionEditingState,
+      closeProgressionManager,
+      syncCustomPatternUI,
+      normalizeChordsPerBarForCurrentPattern,
+      applyPatternModeAvailability,
+      syncPatternPreview,
+      applyDisplayMode,
+      applyBeatIndicatorVisibility,
+      applyCurrentHarmonyVisibility,
+      updateKeyPickerLabels,
+      refreshDisplayedHarmony,
+      fitHarmonyDisplay,
+      validateCustomPattern: () => validateCustomPattern(),
+      getCurrentPatternString,
+      getCurrentPatternMode
+    }
   },
-  helpers: {
-    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
-    setPatternSelectValue,
-    setEditorPatternMode,
-    syncPatternSelectionFromInput,
+  normalization: {
+    normalizePatternString,
+    normalizePresetName,
+    normalizePatternMode,
+    normalizeCompingStyle,
+    normalizeRepetitionsPerKey,
+    normalizeDisplayMode,
+    normalizeHarmonyDisplayMode
+  },
+  playbackSettings: {
+    getSwingRatio,
+    getCompingStyle,
+    getDrumsMode,
+    isWalkingBassEnabled,
+    getRepetitionsPerKey,
+    applyMixerSettings
+  },
+  embeddedPlaybackState: {
+    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE
+  },
+  embeddedPlaybackRuntime: {
+    ensureWalkingBassGenerator,
+    stopActiveChordVoices,
+    noteFadeout: NOTE_FADEOUT,
+    rebuildPreparedCompingPlans,
+    buildPreparedBassPlan,
+    preloadNearTermSamples
+  },
+  embeddedTransportActions: {},
+  directPlaybackRuntime: {
+    state: {
+      getAudioContext: () => audioCtx,
+      getCurrentKey: () => currentKey
+    },
+    constants: {
+      noteFadeout: NOTE_FADEOUT
+    },
+    helpers: {
+      ensureWalkingBassGenerator,
+      stopActiveChordVoices,
+      rebuildPreparedCompingPlans,
+      buildPreparedBassPlan,
+      preloadNearTermSamples,
+      validateCustomPattern: () => validateCustomPattern()
+    }
+  },
+  directPlaybackState: {
+    getIsPlaying: () => isPlaying
+  },
+  directTransportActions: {
     startPlayback: () => start(),
     stopPlayback: () => stop(),
     togglePausePlayback: () => togglePause()
-  }
-});
-
-const drillSharedPlaybackPatternUi = createDrillSharedPlaybackPatternUiRootAppContext({
-  helpers: {
-    clearProgressionEditingState,
-    closeProgressionManager,
-    syncCustomPatternUI,
-    normalizeChordsPerBarForCurrentPattern,
-    applyPatternModeAvailability,
-    syncPatternPreview,
-    applyDisplayMode,
-    applyBeatIndicatorVisibility,
-    applyCurrentHarmonyVisibility,
-    updateKeyPickerLabels,
-    refreshDisplayedHarmony,
-    fitHarmonyDisplay,
-    validateCustomPattern: () => validateCustomPattern(),
-    getCurrentPatternString,
-    getCurrentPatternMode
-  }
-});
-
-const drillSharedPlaybackDirectRuntime = createDrillSharedPlaybackDirectRuntimeRootAppContext({
-  state: {
-    getAudioContext: () => audioCtx,
-    getCurrentKey: () => currentKey
-  },
-  constants: {
-    noteFadeout: NOTE_FADEOUT
-  },
-  helpers: {
-    ensureWalkingBassGenerator,
-    stopActiveChordVoices,
-    rebuildPreparedCompingPlans,
-    buildPreparedBassPlan,
-    preloadNearTermSamples,
-    validateCustomPattern: () => validateCustomPattern()
   }
 });
 
@@ -3700,46 +3506,7 @@ const {
   getEmbeddedPlaybackState
 } = createDrillSharedPlaybackRootAppAssembly({
   dom,
-  host: drillSharedPlaybackHost,
-  patternUi: drillSharedPlaybackPatternUi,
-  normalization: {
-      normalizePatternString,
-      normalizePresetName,
-      normalizePatternMode,
-      normalizeCompingStyle,
-      normalizeRepetitionsPerKey,
-      normalizeDisplayMode,
-      normalizeHarmonyDisplayMode
-    },
-  playbackSettings: {
-      getSwingRatio,
-      getCompingStyle,
-      getDrumsMode,
-      isWalkingBassEnabled,
-      getRepetitionsPerKey,
-      applyMixerSettings
-    },
-  embeddedPlaybackState: {
-      isEmbeddedMode: IS_EMBEDDED_DRILL_MODE
-    },
-  embeddedPlaybackRuntime: {
-      ensureWalkingBassGenerator,
-      stopActiveChordVoices,
-      noteFadeout: NOTE_FADEOUT,
-      rebuildPreparedCompingPlans,
-      buildPreparedBassPlan,
-      preloadNearTermSamples
-    },
-  embeddedTransportActions: {},
-  directPlaybackRuntime: drillSharedPlaybackDirectRuntime,
-  directPlaybackState: {
-      getIsPlaying: () => isPlaying
-    },
-  directTransportActions: {
-      startPlayback: () => start(),
-      stopPlayback: () => stop(),
-      togglePausePlayback: () => togglePause()
-    }
+  ...drillSharedPlayback
 });
 
 function getPlaybackSessionController() {
@@ -3753,6 +3520,7 @@ function getPlaybackSessionController() {
 
 initializeApp();
 setDisplayPlaceholderVisible(true);
+
 
 
 

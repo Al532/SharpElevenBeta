@@ -43,7 +43,7 @@ const PIANO_VOICING_CONFIG = {
       shapes: {
         // Optional overrides only.
         // If a quality is omitted here, the two-hand voicing is derived from
-        // the one-hand shape using the drop/doubling rule in comping-piano.js.
+// the one-hand shape using the drop/doubling rule in drill-comping-piano.js.
         //
         // Example:
         // m9: {

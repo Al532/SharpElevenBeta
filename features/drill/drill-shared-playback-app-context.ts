@@ -13,6 +13,64 @@ type SharedPlaybackAppContextOptions = {
   publishDirectGlobals?: boolean;
 };
 
+function cloneOptions(options: Record<string, any> = {}) {
+  return { ...options };
+}
+
+export function createDrillSharedPlaybackHostAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackPatternUiAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackNormalizationAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackSettingsAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackDirectRuntimeAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackDirectStateAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackDirectTransportAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackEmbeddedRuntimeAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackEmbeddedStateAppContext(
+  options: Record<string, any> = {}
+) {
+  return cloneOptions(options);
+}
+
 export function createDrillSharedPlaybackAppContextOptions({
   dom = {},
   host = {},

@@ -1,9 +1,16 @@
 // @ts-check
 
+import {
+  buildDrillKeyCheckboxes,
+  invertDrillKeysEnabled,
+  setAllDrillKeysEnabled
+} from './drill-key-selection.js';
+import { initializeKeyPickerUi } from './drill-ui-runtime.js';
+
 /**
- * Creates the drill key-selection facade from live root-app bindings.
- * This keeps the enabled-keys UI/preset workflow out of `app.js` while
- * preserving the same key selection behavior.
+ * Creates the drill keys assembly from live root-app bindings. This keeps the
+ * key picker, selected-keys UI, and key-preset workflow together in one domain
+ * surface while preserving the same key-selection behavior.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.dom]
@@ -11,7 +18,7 @@
  * @param {Record<string, any>} [options.constants]
  * @param {Record<string, Function>} [options.helpers]
  */
-export function createDrillKeySelectionRootAppFacade({
+export function createDrillKeysRootAppAssembly({
   dom = {},
   state = {},
   constants = {},
@@ -29,6 +36,8 @@ export function createDrillKeySelectionRootAppFacade({
     PIANO_WHITE_KEY_COLUMNS = {}
   } = constants;
   const {
+    setKeyPickerOpen = () => {},
+    stopPlaybackIfRunning = () => {},
     getDisplayTranspositionSemitones = () => 0,
     keyLabelForPicker = (value) => String(value),
     renderAccidentalTextHtml = (value) => String(value),
@@ -127,7 +136,63 @@ export function createDrillKeySelectionRootAppFacade({
     });
   }
 
+  function initialize() {
+    initializeKeyPickerUi({
+      keyPicker: dom.keyPicker,
+      keyPickerBackdrop: dom.keyPickerBackdrop,
+      closeKeyPickerButton: dom.closeKeyPicker,
+      selectedKeysSummary: dom.selectedKeysSummary,
+      setKeyPickerOpen,
+      stopPlaybackIfRunning,
+      restoreAllKeysIfNoneSelectedOnClose
+    });
+  }
+
+  function buildKeyCheckboxes() {
+    buildDrillKeyCheckboxes({
+      keyCheckboxes: dom.keyCheckboxes,
+      enabledKeys: getEnabledKeys(),
+      updateKeyCheckboxVisualState,
+      syncSelectedKeysSummary,
+      onKeyChange: ({ index, checked, label, checkbox }) => {
+        const nextEnabledKeys = getEnabledKeys().slice();
+        nextEnabledKeys[index] = checked;
+        setEnabledKeys(nextEnabledKeys);
+        updateKeyCheckboxVisualState(label, checkbox, index);
+        setKeyPool([]);
+        syncSelectedKeysSummary();
+        saveSettings();
+        trackEvent('key_selection_changed', {
+          enabled_keys: getEnabledKeyCount(),
+          key_index: index,
+          key_state: checked ? 'enabled' : 'disabled'
+        });
+      }
+    });
+  }
+
+  function setAllKeysEnabled(isEnabled) {
+    setAllDrillKeysEnabled({
+      enabledKeys: getEnabledKeys(),
+      applyEnabledKeys,
+      saveSettings,
+      isEnabled
+    });
+  }
+
+  function invertKeysEnabled() {
+    invertDrillKeysEnabled({
+      enabledKeys: getEnabledKeys(),
+      applyEnabledKeys,
+      saveSettings
+    });
+  }
+
   return {
+    initialize,
+    buildKeyCheckboxes,
+    setAllKeysEnabled,
+    invertKeysEnabled,
     getEnabledKeyCount,
     persistKeySelectionPreset,
     syncSelectedKeysSummary,

@@ -170,7 +170,7 @@ import { createDrillSharedPlaybackRuntimeAppBindings } from '../features/drill/d
 import { createDrillPlaybackRuntimeAppBindings } from '../features/drill/drill-playback-runtime-app-bindings.js';
 import { createDrillVoicingRuntimeAppBindings } from '../features/drill/drill-voicing-runtime-app-bindings.js';
 import { createDrillWalkingBassAppBindings } from '../features/drill/drill-walking-bass-app-bindings.js';
-import { createWalkingBassGenerator } from '../walking-bass.js';
+import { createWalkingBassGenerator } from '../features/drill/drill-walking-bass.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

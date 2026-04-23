@@ -1,7 +1,7 @@
 import {
   DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE,
   STOP_SUGGESTION_MESSAGES
-} from './display-placeholder-messages.js';
+} from './drill-display-placeholder-messages.js';
 
 export function createPlaybackTransport({ dom, state, constants, helpers }) {
   const { NOTE_FADEOUT, SCHEDULE_INTERVAL } = constants;

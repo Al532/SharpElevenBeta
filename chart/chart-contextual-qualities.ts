@@ -3,7 +3,7 @@ import type { ChartChordSlot } from '../core/types/contracts';
 import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
-} from '../harmony-context.js';
+} from '../core/music/harmony-context.js';
 import { normalizeSemitone, parseNoteSymbol, splitChordSymbol } from './chart-harmony.js';
 
 /**

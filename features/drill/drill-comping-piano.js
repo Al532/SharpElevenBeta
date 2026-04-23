@@ -1,12 +1,12 @@
-import rhythmConfig from './piano-rhythm-config.js';
-import voicingConfig from './voicing-config.js';
-import pianoVoicingConfig from './piano-voicing-config.js';
-import { applyContextualQualityRules } from './harmony-context.js';
+import rhythmConfig from '../../core/music/piano-rhythm-config.js';
+import voicingConfig from '../../core/music/voicing-config.js';
+import pianoVoicingConfig from '../../core/music/piano-voicing-config.js';
+import { applyContextualQualityRules } from '../../core/music/harmony-context.js';
 import {
   DEFAULT_SWING_RATIO,
   getSwingFirstSubdivisionDurationBeats,
   getSwingOffbeatPositionBeats,
-} from './swing-utils.js';
+} from '../../core/music/swing-utils.js';
 
 const PIANO_SHAPE_INVERSION_START_INDEX = 2;
 const INTERVAL_SEMITONES = {

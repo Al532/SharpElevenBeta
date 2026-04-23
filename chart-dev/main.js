@@ -97,8 +97,8 @@ import {
   renderChartSelectionUi,
   updateChartMixerOutputs
 } from '../features/chart/chart-screen-state.js';
-import { renderChordSymbolHtml } from '../chord-symbol-display.js';
-import voicingConfig from '../voicing-config.js';
+import { renderChordSymbolHtml } from '../core/music/chord-symbol-display.js';
+import voicingConfig from '../core/music/voicing-config.js';
 
 const DEFAULT_TEMPO = 120;
 const DEFAULT_BAR_GROUP_SIZE = 4;

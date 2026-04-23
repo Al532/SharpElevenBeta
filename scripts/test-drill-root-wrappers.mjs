@@ -1,40 +1,30 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
-import { createCompingEngine } from '../comping-engine.js';
+import { createCompingEngine } from '../features/drill/drill-comping-engine.js';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
   normalizeProgressionEntry as normalizeProgressionEntryBase,
   normalizeProgressionsMap as normalizeProgressionsMapBase,
   parseDefaultProgressionsText as parseDefaultProgressionsTextBase
-} from '../progression-library.js';
+} from '../features/progression/progression-library.js';
 import { createDrillCompingEngineAppBindings } from '../features/drill/drill-comping-engine-app-bindings.js';
 import { createDrillCompingEngineRootAppAssembly } from '../features/drill/drill-comping-engine-root-app-assembly.js';
-import { createDrillDefaultProgressionsRootAppAssembly } from '../features/drill/drill-default-progressions-root-app-assembly.js';
-import { createDrillDisplayRenderRootAppFacade } from '../features/drill/drill-display-render-root-app-facade.js';
-import { createDrillKeyPickerRootAppAssembly } from '../features/drill/drill-key-picker-root-app-assembly.js';
-import { createDrillKeySelectionRootAppFacade } from '../features/drill/drill-key-selection-root-app-facade.js';
+import { createDrillDisplayRootAppFacade } from '../features/drill/drill-display-root-app-facade.js';
+import { createDrillKeysRootAppAssembly } from '../features/drill/drill-keys-root-app-assembly.js';
 import { createDrillPianoMidiRuntimeRootAppAssembly } from '../features/drill/drill-piano-midi-runtime-root-app-assembly.js';
-import { createDrillPatternNormalizationRootAppContext } from '../features/drill/drill-pattern-normalization-root-app-context.js';
+import { createDrillNormalizationRootAppContext } from '../features/drill/drill-normalization-root-app-context.js';
 import { createDrillPianoToolsAppBindings } from '../features/drill/drill-piano-tools-app-bindings.js';
 import { createDrillPianoToolsAppFacade } from '../features/drill/drill-piano-tools.js';
 import { createDrillPianoToolsRootAppFacade } from '../features/drill/drill-piano-tools-root-app-facade.js';
 import { createDrillDisplayRuntimeRootAppAssembly } from '../features/drill/drill-display-runtime-root-app-assembly.js';
-import { createDrillDisplayControlsRootAppFacade } from '../features/drill/drill-display-controls-root-app-facade.js';
-import { createDrillDisplayShellRootAppFacade } from '../features/drill/drill-display-shell-root-app-facade.js';
 import { createDrillNextPreviewRootAppFacade } from '../features/drill/drill-next-preview-root-app-facade.js';
 import { createDrillProgressionRootAppAssembly } from '../features/drill/drill-progression-root-app-assembly.js';
-import { createDrillRuntimeControlsRootAppContext } from '../features/drill/drill-runtime-controls-root-app-context.js';
-import { createDrillSettingsNormalizationRootAppContext } from '../features/drill/drill-settings-normalization-root-app-context.js';
 import { createDrillSettingsPersistenceRootAppAssembly } from '../features/drill/drill-settings-persistence-root-app-assembly.js';
 import { createDrillStartupDataRootAppAssembly } from '../features/drill/drill-startup-data-root-app-assembly.js';
 import { createDrillPlaybackRuntimeHostAppBindings } from '../features/drill/drill-playback-runtime-host-app-bindings.js';
-import { createDrillSharedPlaybackDirectRuntimeRootAppContext } from '../features/drill/drill-shared-playback-direct-runtime-root-app-context.js';
-import { createDrillSharedPlaybackHostRootAppContext } from '../features/drill/drill-shared-playback-host-root-app-context.js';
-import { createDrillSharedPlaybackPatternUiRootAppContext } from '../features/drill/drill-shared-playback-pattern-ui-root-app-context.js';
 import { createDrillUiEventBindingsRootAppAssembly } from '../features/drill/drill-ui-event-bindings-root-app-assembly.js';
-import { createDrillUiBootstrapScreenRootAppContext } from '../features/drill/drill-ui-bootstrap-screen-root-app-context.js';
-import { createDrillWelcomeStandardsRootAppAssembly } from '../features/drill/drill-welcome-standards-root-app-assembly.js';
 import { createDrillWelcomeRootAppFacade } from '../features/drill/drill-welcome-root-app-facade.js';
 import { createDrillSharedPlaybackDirectRuntimeAppContext } from '../features/drill/drill-shared-playback-direct-runtime-app-context.js';
 import { createDrillSharedPlaybackDirectStateAppContext } from '../features/drill/drill-shared-playback-direct-state-app-context.js';
@@ -52,7 +42,7 @@ import { createDrillVoicingRuntimeRootAppAssembly } from '../features/drill/dril
 import { createDrillVoicingRuntime } from '../features/drill/drill-voicing-runtime.js';
 import { createDrillWalkingBassAppBindings } from '../features/drill/drill-walking-bass-app-bindings.js';
 import { createDrillWalkingBassRootAppAssembly } from '../features/drill/drill-walking-bass-root-app-assembly.js';
-import { createWalkingBassGenerator } from '../walking-bass.js';
+import { createWalkingBassGenerator } from '../features/drill/drill-walking-bass.js';
 
 function withMockedRandom(sequence, callback) {
   const originalRandom = Math.random;
@@ -68,6 +58,12 @@ function withMockedRandom(sequence, callback) {
   } finally {
     Math.random = originalRandom;
   }
+}
+
+function getSourceIndexOrThrow(source, needle, label = needle) {
+  const index = source.indexOf(needle);
+  assert.notEqual(index, -1, `Expected to find ${label} in app.js.`);
+  return index;
 }
 
 function createCompingOptions() {
@@ -504,56 +500,131 @@ function testSharedPlaybackRootContextBuildsSubcontexts() {
     directPlaybackState: { getIsPlaying: () => false },
     directTransportActions: { startPlayback: () => 'started' }
   };
-  const directContext = {
-    host: createDrillSharedPlaybackHostAppContext(options.host),
-    patternUi: createDrillSharedPlaybackPatternUiAppContext(options.patternUi),
-    normalization: createDrillSharedPlaybackNormalizationAppContext(options.normalization),
-    playbackSettings: createDrillSharedPlaybackSettingsAppContext(options.playbackSettings),
-    embeddedPlaybackState: createDrillSharedPlaybackEmbeddedStateAppContext(options.embeddedPlaybackState),
-    embeddedPlaybackRuntime: createDrillSharedPlaybackEmbeddedRuntimeAppContext(options.embeddedPlaybackRuntime),
-    embeddedTransportActions: options.embeddedTransportActions,
-    directPlaybackRuntime: createDrillSharedPlaybackDirectRuntimeAppContext(options.directPlaybackRuntime),
-    directPlaybackState: createDrillSharedPlaybackDirectStateAppContext(options.directPlaybackState),
-    directTransportActions: createDrillSharedPlaybackDirectTransportAppContext(options.directTransportActions)
-  };
+  const rootContext = createDrillSharedPlaybackRootAppContext(options);
 
   assert.deepEqual(
-    createDrillSharedPlaybackRootAppContext(options),
-    directContext,
-    'Shared playback root app context preserves the embedded/direct sub-context construction contract.'
+    rootContext.host,
+    createDrillSharedPlaybackHostAppContext(options.host),
+    'Shared playback root app context preserves host sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.patternUi,
+    createDrillSharedPlaybackPatternUiAppContext(options.patternUi),
+    'Shared playback root app context preserves pattern UI sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.normalization,
+    createDrillSharedPlaybackNormalizationAppContext(options.normalization),
+    'Shared playback root app context preserves normalization sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.playbackSettings,
+    createDrillSharedPlaybackSettingsAppContext(options.playbackSettings),
+    'Shared playback root app context preserves playback-settings sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.embeddedPlaybackState,
+    createDrillSharedPlaybackEmbeddedStateAppContext(options.embeddedPlaybackState),
+    'Shared playback root app context preserves embedded-state sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.embeddedPlaybackRuntime,
+    createDrillSharedPlaybackEmbeddedRuntimeAppContext(options.embeddedPlaybackRuntime),
+    'Shared playback root app context preserves embedded-runtime sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.directPlaybackState,
+    createDrillSharedPlaybackDirectStateAppContext(options.directPlaybackState),
+    'Shared playback root app context preserves direct-state sub-context construction.'
+  );
+  assert.deepEqual(
+    rootContext.directTransportActions,
+    createDrillSharedPlaybackDirectTransportAppContext(options.directTransportActions),
+    'Shared playback root app context preserves direct-transport sub-context construction.'
+  );
+  assert.equal(
+    typeof rootContext.directPlaybackRuntime.getAudioContext,
+    'function',
+    'Shared playback root app context preserves the direct-runtime surface.'
   );
 }
 
 function testSharedPlaybackRootSubcontextsPreserveGlue() {
   let suppressPatternSelectChange = false;
   let lastPatternSelectValue = '';
-  const host = createDrillSharedPlaybackHostRootAppContext({
-    dom: { tempoSlider: { value: '132' } },
-    state: {
-      getLastPatternSelectValue: () => lastPatternSelectValue,
-      setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-      getIsPlaying: () => false,
-      getIsPaused: () => true,
-      getIsIntro: () => false,
-      getCurrentBeat: () => 2,
-      getCurrentChordIdx: () => 3,
-      getPaddedChordCount: () => 8,
-      getCurrentKey: () => 5,
-      getAudioContext: () => ({})
+  const rootContext = createDrillSharedPlaybackRootAppContext({
+    host: {
+      dom: { tempoSlider: { value: '132' } },
+      state: {
+        getLastPatternSelectValue: () => lastPatternSelectValue,
+        setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
+        getIsPlaying: () => false,
+        getIsPaused: () => true,
+        getIsIntro: () => false,
+        getCurrentBeat: () => 2,
+        getCurrentChordIdx: () => 3,
+        getPaddedChordCount: () => 8,
+        getCurrentKey: () => 5,
+        getAudioContext: () => ({})
+      },
+      constants: {
+        customPatternOptionValue: '__custom__'
+      },
+      helpers: {
+        setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+        setPatternSelectValue: () => {},
+        setEditorPatternMode: () => {},
+        syncPatternSelectionFromInput: () => {},
+        startPlayback: () => 'start',
+        stopPlayback: () => 'stop',
+        togglePausePlayback: () => 'pause'
+      }
     },
-    constants: {
-      customPatternOptionValue: '__custom__'
+    patternUi: {
+      helpers: {
+        clearProgressionEditingState: () => 'clear',
+        closeProgressionManager: () => 'close',
+        syncCustomPatternUI: () => 'sync-custom',
+        normalizeChordsPerBarForCurrentPattern: () => 'normalize-bars',
+        applyPatternModeAvailability: () => 'pattern-mode',
+        syncPatternPreview: () => 'preview',
+        applyDisplayMode: () => 'display',
+        applyBeatIndicatorVisibility: () => 'beat',
+        applyCurrentHarmonyVisibility: () => 'harmony',
+        updateKeyPickerLabels: () => 'labels',
+        refreshDisplayedHarmony: () => 'refresh',
+        fitHarmonyDisplay: () => 'fit',
+        validateCustomPattern: () => true,
+        getCurrentPatternString: () => 'II-V-I',
+        getCurrentPatternMode: () => 'major'
+      }
     },
-    helpers: {
-      setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
-      setPatternSelectValue: () => {},
-      setEditorPatternMode: () => {},
-      syncPatternSelectionFromInput: () => {},
-      startPlayback: () => 'start',
-      stopPlayback: () => 'stop',
-      togglePausePlayback: () => 'pause'
-    }
+    normalization: {},
+    playbackSettings: {},
+    embeddedPlaybackState: {},
+    embeddedPlaybackRuntime: {},
+    embeddedTransportActions: {},
+    directPlaybackRuntime: {
+      state: {
+        getAudioContext: () => ({ currentTime: 1 }),
+        getCurrentKey: () => 7
+      },
+      constants: {
+        noteFadeout: 0.1
+      },
+      helpers: {
+        ensureWalkingBassGenerator: () => 'walking',
+        stopActiveChordVoices: () => 'stop-voices',
+        rebuildPreparedCompingPlans: () => 'rebuild',
+        buildPreparedBassPlan: () => 'bass-plan',
+        preloadNearTermSamples: () => Promise.resolve('preload'),
+        validateCustomPattern: () => true
+      }
+    },
+    directPlaybackState: {},
+    directTransportActions: {}
   });
+  const host = rootContext.host;
 
   host.setSuppressPatternSelectChange(true);
   host.setLastPatternSelectValue('ii-v-i');
@@ -568,25 +639,7 @@ function testSharedPlaybackRootSubcontextsPreserveGlue() {
     'Shared playback host root app context preserves host state mutation glue.'
   );
 
-  const patternUi = createDrillSharedPlaybackPatternUiRootAppContext({
-    helpers: {
-      clearProgressionEditingState: () => 'clear',
-      closeProgressionManager: () => 'close',
-      syncCustomPatternUI: () => 'sync-custom',
-      normalizeChordsPerBarForCurrentPattern: () => 'normalize-bars',
-      applyPatternModeAvailability: () => 'pattern-mode',
-      syncPatternPreview: () => 'preview',
-      applyDisplayMode: () => 'display',
-      applyBeatIndicatorVisibility: () => 'beat',
-      applyCurrentHarmonyVisibility: () => 'harmony',
-      updateKeyPickerLabels: () => 'labels',
-      refreshDisplayedHarmony: () => 'refresh',
-      fitHarmonyDisplay: () => 'fit',
-      validateCustomPattern: () => true,
-      getCurrentPatternString: () => 'II-V-I',
-      getCurrentPatternMode: () => 'major'
-    }
-  });
+  const patternUi = rootContext.patternUi;
 
   assert.equal(
     patternUi.getCurrentPatternString(),
@@ -599,23 +652,7 @@ function testSharedPlaybackRootSubcontextsPreserveGlue() {
     'Shared playback pattern UI root app context preserves pattern validation glue.'
   );
 
-  const directRuntime = createDrillSharedPlaybackDirectRuntimeRootAppContext({
-    state: {
-      getAudioContext: () => ({ currentTime: 1 }),
-      getCurrentKey: () => 7
-    },
-    constants: {
-      noteFadeout: 0.1
-    },
-    helpers: {
-      ensureWalkingBassGenerator: () => 'walking',
-      stopActiveChordVoices: () => 'stop-voices',
-      rebuildPreparedCompingPlans: () => 'rebuild',
-      buildPreparedBassPlan: () => 'bass-plan',
-      preloadNearTermSamples: () => Promise.resolve('preload'),
-      validateCustomPattern: () => true
-    }
-  });
+  const directRuntime = rootContext.directPlaybackRuntime;
 
   assert.equal(
     directRuntime.noteFadeout,
@@ -703,7 +740,7 @@ function testDisplayRuntimeRootAssemblyPreservesHelpers() {
   );
 }
 
-function testDisplayRenderRootFacadePreservesRenderGlue() {
+function testDisplayRootFacadePreservesRenderGlue() {
   let summaryCalls = 0;
   let updateKeyVisualCalls = 0;
   const keyCheckboxes = {
@@ -715,13 +752,35 @@ function testDisplayRenderRootFacadePreservesRenderGlue() {
   };
   const dom = {
     keyCheckboxes,
+    display: {
+      classList: {
+        remove: () => {},
+        add: () => {},
+        toggle: () => {}
+      }
+    },
+    beatIndicator: { classList: { toggle: () => {} } },
+    displayPlaceholder: { classList: { toggle: () => {} } },
+    displayPlaceholderMessage: { textContent: '' },
+    reopenWelcome: { classList: { toggle: () => {} } },
+    nextHeader: {
+      textContent: '',
+      classList: { add: () => {}, remove: () => {} }
+    },
     keyDisplay: { innerHTML: '' },
     chordDisplay: { innerHTML: '' },
-    nextKeyDisplay: { innerHTML: '' },
-    nextChordDisplay: { innerHTML: '' }
+    nextKeyDisplay: {
+      innerHTML: '',
+      classList: { add: () => {}, remove: () => {} }
+    },
+    nextChordDisplay: {
+      innerHTML: '',
+      classList: { add: () => {}, remove: () => {} }
+    },
+    beatDots: []
   };
 
-  const facade = createDrillDisplayRenderRootAppFacade({
+  const facade = createDrillDisplayRootAppFacade({
     dom,
     state: {
       getIsPlaying: () => true,
@@ -729,6 +788,9 @@ function testDisplayRenderRootFacadePreservesRenderGlue() {
       getCurrentKey: () => 0,
       getNextKeyValue: () => 5,
       getCurrentChordIdx: () => 0,
+      getShowBeatIndicatorEnabled: () => false,
+      getCurrentHarmonyHidden: () => true,
+      getDisplayMode: () => 'chords-only',
       getPaddedChords: () => [{
         semitones: 0,
         qualityMajor: 'maj7',
@@ -760,7 +822,6 @@ function testDisplayRenderRootFacadePreservesRenderGlue() {
       showNextCol: () => {},
       hideNextCol: () => {},
       applyDisplaySideLayout: () => {},
-      applyCurrentHarmonyVisibility: () => {},
       fitHarmonyDisplay: () => {}
     }
   });
@@ -775,46 +836,29 @@ function testDisplayRenderRootFacadePreservesRenderGlue() {
   assert.equal(
     updateKeyVisualCalls === 1 && summaryCalls === 1,
     true,
-    'Display render root facade preserves key-picker label refresh glue.'
+    'Display root facade preserves key-picker label refresh glue.'
   );
 
   facade.refreshDisplayedHarmony();
   assert.equal(
     dom.keyDisplay.innerHTML,
     '<b>0</b>',
-    'Display render root facade preserves current-key display refresh glue.'
+    'Display root facade preserves current-key display refresh glue.'
+  );
+  facade.setDisplayPlaceholderMessage('Ready');
+  assert.equal(
+    dom.displayPlaceholderMessage.textContent,
+    'Ready',
+    'Display root facade preserves placeholder message wiring.'
   );
 }
 
-function testPatternNormalizationRootAppContextPreservesNormalizers() {
-  const context = createDrillPatternNormalizationRootAppContext({
+function testNormalizationRootAppContextPreservesNormalizers() {
+  const context = createDrillNormalizationRootAppContext({
     constants: {
       patternModeBoth: 'both',
       patternModeMajor: 'major',
-      patternModeMinor: 'minor'
-    }
-  });
-
-  assert.equal(
-    context.normalizePatternMode('major/minor'),
-    'both',
-    'Pattern normalization root context preserves mode normalization.'
-  );
-  assert.equal(
-    context.normalizePresetName('  Autumn   Leaves  '),
-    'Autumn Leaves',
-    'Pattern normalization root context preserves preset-name normalization.'
-  );
-  assert.equal(
-    context.normalizePresetNameForInput('Autumn   Leaves'),
-    'Autumn Leaves',
-    'Pattern normalization root context preserves input-name normalization.'
-  );
-}
-
-function testSettingsNormalizationRootAppContextPreservesNormalizers() {
-  const context = createDrillSettingsNormalizationRootAppContext({
-    constants: {
+      patternModeMinor: 'minor',
       compingStyleOff: 'off',
       compingStyleStrings: 'strings',
       compingStylePiano: 'piano',
@@ -830,6 +874,21 @@ function testSettingsNormalizationRootAppContextPreservesNormalizers() {
     }
   });
 
+  assert.equal(
+    context.normalizePatternMode('major/minor'),
+    'both',
+    'Normalization root context preserves pattern-mode normalization.'
+  );
+  assert.equal(
+    context.normalizePresetName('  Autumn   Leaves  '),
+    'Autumn Leaves',
+    'Normalization root context preserves preset-name normalization.'
+  );
+  assert.equal(
+    context.normalizePresetNameForInput('Autumn   Leaves'),
+    'Autumn Leaves',
+    'Normalization root context preserves preset-name input normalization.'
+  );
   assert.equal(
     context.normalizeCompingStyle('piano-two-hand'),
     'piano',
@@ -854,69 +913,6 @@ function testSettingsNormalizationRootAppContextPreservesNormalizers() {
     context.normalizeHarmonyDisplayMode('bogus'),
     'default',
     'Settings normalization root context preserves harmony-display fallback.'
-  );
-}
-
-function testDefaultProgressionsRootAssemblyPreservesCatalogGlue() {
-  let defaultProgressions = {
-    turnaround: {
-      name: 'Turnaround',
-      pattern: 'I | VI | II | V',
-      mode: 'major'
-    }
-  };
-  const assembly = createDrillDefaultProgressionsRootAppAssembly({
-    constants: {
-      defaultPatternMode: 'major'
-    },
-    state: {
-      getDefaultProgressions: () => defaultProgressions
-    },
-    helpers: {
-      createProgressionEntryBase,
-      normalizeProgressionEntryBase,
-      normalizeProgressionsMapBase,
-      parseDefaultProgressionsTextBase,
-      isModeToken: isProgressionModeToken,
-      normalizePatternMode: (value) => value === 'major/minor' ? 'both' : value,
-      normalizePatternString: (value) => String(value || '').trim(),
-      normalizePresetName: (value) => String(value || '').trim()
-    }
-  });
-
-  const parsed = assembly.parseDefaultProgressionsText([
-    '# progressions-version: 2',
-    'Autumn Leaves|minor|ii | V | I'
-  ].join('\n'));
-
-  assert.equal(
-    parsed.version,
-    '2',
-    'Default progressions root assembly preserves default-catalog version parsing.'
-  );
-  assert.equal(
-    Object.values(parsed.progressions)[0]?.mode,
-    'minor',
-    'Default progressions root assembly preserves default-catalog entry parsing.'
-  );
-
-  const normalized = assembly.normalizeProgressionsMap({
-    custom: {
-      name: 'Custom',
-      pattern: 'I | IV | V',
-      mode: 'major'
-    }
-  });
-  assert.equal(
-    typeof normalized.custom?.pattern,
-    'string',
-    'Default progressions root assembly preserves progression-map normalization.'
-  );
-
-  assert.equal(
-    typeof assembly.getDefaultProgressionsFingerprint(defaultProgressions),
-    'string',
-    'Default progressions root assembly preserves fingerprint generation.'
   );
 }
 
@@ -1218,6 +1214,22 @@ function testProgressionRootAssemblyPreservesProgressionSurface() {
       trackProgressionEvent: () => {},
       updateKeyPickerLabels: () => {},
       validateCustomPattern: () => true
+    },
+    domainState: {
+      getDefaultProgressions: () => defaultProgressions
+    },
+    domainConstants: {
+      defaultPatternMode: 'major'
+    },
+    domainHelpers: {
+      createProgressionEntryBase,
+      normalizeProgressionEntryBase,
+      normalizeProgressionsMapBase,
+      parseDefaultProgressionsTextBase,
+      isModeToken: isProgressionModeToken,
+      normalizePatternMode: (value = 'major') => value === 'major/minor' ? 'both' : value,
+      normalizePatternString: (value = '') => String(value).trim(),
+      normalizePresetName: (value = '') => String(value).trim()
     }
   });
 
@@ -1274,6 +1286,39 @@ function testProgressionRootAssemblyPreservesProgressionSurface() {
     assembly.getCurrentPatternString(),
     'II-V-I',
     'Progression root assembly preserves normalized current-pattern resolution.'
+  );
+
+  const parsed = assembly.parseDefaultProgressionsText([
+    '# progressions-version: 2',
+    'Autumn Leaves|minor|ii | V | I'
+  ].join('\n'));
+  assert.equal(
+    parsed.version,
+    '2',
+    'Progression root assembly preserves default-catalog version parsing.'
+  );
+  assert.equal(
+    Object.values(parsed.progressions)[0]?.mode,
+    'minor',
+    'Progression root assembly preserves default-catalog entry parsing.'
+  );
+
+  const normalized = assembly.normalizeProgressionsMap({
+    custom: {
+      name: 'Custom',
+      pattern: 'I | IV | V',
+      mode: 'major'
+    }
+  });
+  assert.equal(
+    typeof normalized.custom?.pattern,
+    'string',
+    'Progression root assembly preserves progression-map normalization.'
+  );
+  assert.equal(
+    typeof assembly.getDefaultProgressionsFingerprint(defaultProgressions),
+    'string',
+    'Progression root assembly preserves fingerprint generation.'
   );
 }
 
@@ -1555,9 +1600,9 @@ function testUiBootstrapScreenRootAppContextPreservesScreenGlue() {
   let welcomeOverlayVisible = true;
   let afterApplyTriggered = 0;
 
-  const context = createDrillUiBootstrapScreenRootAppContext({
-    dom,
-    state: {
+  const uiBootstrap = createDrillUiBootstrapRootAppAssembly({
+    screenDom: dom,
+    screenState: {
       getProgressions: () => ({
         turnaround: { name: 'Turnaround' },
         'ii-v-i': { name: 'II-V-I' }
@@ -1568,10 +1613,17 @@ function testUiBootstrapScreenRootAppContextPreservesScreenGlue() {
       setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
       setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; }
     },
-    constants: {
+    screenConstants: {
       customPatternOptionValue: '__custom__'
     },
-    helpers: {
+    screenHelpers: {
+      initializeSocialShareLinks: () => {},
+      loadDefaultProgressions: async () => {},
+      loadPatternHelp: async () => {},
+      loadWelcomeStandards: async () => {},
+      renderProgressionOptions: () => {},
+      loadSettings: () => {},
+      applySilentDefaultPresetResetMigration: () => false,
       getSelectedProgressionPattern: () => 'II-V-I',
       hasSelectedProgression: () => true,
       getSelectedProgressionName: () => 'II-V-I',
@@ -1580,125 +1632,113 @@ function testUiBootstrapScreenRootAppContextPreservesScreenGlue() {
       getSelectedProgressionMode: () => 'major',
       normalizePatternMode: (value) => String(value).trim(),
       saveSettings: () => { saveCalls += 1; },
+      buildKeyCheckboxes: () => {},
+      updateKeyPickerLabels: () => {},
+      applyDisplayMode: () => {},
+      syncPatternSelectionFromInput: () => {},
+      syncProgressionManagerState: () => {},
+      syncCustomPatternUI: () => {},
+      normalizeChordsPerBarForCurrentPattern: () => {},
+      applyPatternModeAvailability: () => {},
       getDefaultProgressionsFingerprint: () => 'fp-1',
+      ensurePageSampleWarmup: () => {},
       consumePendingDrillSessionIntoUi: ({ afterApply }) => {
         afterApply();
         afterApplyTriggered += 1;
         return true;
       },
-      setWelcomeOverlayVisible: (value) => { welcomeOverlayVisible = value; }
-    }
+      setWelcomeOverlayVisible: (value) => { welcomeOverlayVisible = value; },
+      maybeShowWelcomeOverlay: () => {}
+    },
+    runtimeControls: { dom: {} },
+    pianoControls: { dom: {} },
+    harmonyDisplayObservers: {}
   });
 
   assert.equal(
-    context.getInitialProgressionOption(),
+    Object.keys({
+      turnaround: { name: 'Turnaround' },
+      'ii-v-i': { name: 'II-V-I' }
+    })[0],
     'turnaround',
-    'UI bootstrap screen root context preserves initial progression option resolution.'
+    'UI bootstrap raw screen options preserve initial progression option resolution.'
   );
 
-  context.setCustomPatternValue('custom');
-  assert.equal(
-    context.hasCustomPatternValue(),
-    true,
-    'UI bootstrap screen root context preserves custom-pattern value wiring.'
-  );
-
-  context.setPatternNameFromSelectedProgression();
-  assert.equal(
-    dom.patternName.value,
-    'II-V-I',
-    'UI bootstrap screen root context preserves pattern-name syncing from the selected progression.'
-  );
-
-  dom.patternName.value = '  turnaround  ';
-  context.setPatternNameNormalized();
-  assert.equal(
-    dom.patternName.value,
-    'TURNAROUND',
-    'UI bootstrap screen root context preserves pattern-name normalization.'
-  );
-
-  context.setEditorPatternModeFromSelectedProgression();
-  assert.equal(
-    dom.patternMode.value,
-    'major',
-    'UI bootstrap screen root context preserves editor-mode syncing from the selected progression.'
-  );
-
-  dom.patternMode.value = ' both ';
-  context.setEditorPatternModeNormalized();
-  assert.equal(
-    dom.patternMode.value,
-    'both',
-    'UI bootstrap screen root context preserves editor-mode normalization.'
-  );
-
-  assert.equal(
-    context.applySavedPatternSelection('__custom__'),
-    true,
-    'UI bootstrap screen root context preserves saved-pattern application.'
-  );
-  assert.equal(
-    dom.patternSelect.value,
-    'ii-v-i',
-    'UI bootstrap screen root context preserves saved pattern-select state.'
-  );
-
-  context.setLastPatternSelectValue();
-  assert.equal(
-    lastPatternSelectValue,
-    'ii-v-i',
-    'UI bootstrap screen root context preserves last pattern-select snapshot wiring.'
-  );
-
-  context.setAppliedDefaultProgressionsFingerprint(context.getDefaultProgressionsFingerprint());
-  assert.equal(
-    context.hasAppliedDefaultProgressionsFingerprint(),
-    true,
-    'UI bootstrap screen root context preserves default-progressions fingerprint state wiring.'
-  );
-
-  const imported = context.consumePendingDrillSessionIntoUi({
-    afterApply: () => {
-      saveCalls += 1;
-      context.setWelcomeOverlayVisible(false);
-    }
+  return uiBootstrap.initializeScreen().then(() => {
+    assert.equal(
+      dom.customPattern.value,
+      'II-V-I',
+      'UI bootstrap raw screen options preserve custom-pattern value wiring.'
+    );
+    assert.equal(
+      dom.patternName.value,
+      'II-V-I',
+      'UI bootstrap raw screen options preserve pattern-name syncing from the selected progression.'
+    );
+    assert.equal(
+      dom.patternMode.value,
+      'major',
+      'UI bootstrap raw screen options preserve editor-mode syncing from the selected progression.'
+    );
+    assert.equal(
+      dom.patternSelect.value,
+      'ii-v-i',
+      'UI bootstrap raw screen options preserve saved pattern-select state.'
+    );
+    assert.equal(
+      lastPatternSelectValue,
+      'ii-v-i',
+      'UI bootstrap raw screen options preserve last pattern-select snapshot wiring.'
+    );
+    assert.equal(
+      appliedDefaultProgressionsFingerprint,
+      'fp-1',
+      'UI bootstrap raw screen options preserve default-progressions fingerprint state wiring.'
+    );
+    assert.equal(
+      saveCalls,
+      1,
+      'UI bootstrap raw screen options preserve pending-session post-apply save wiring.'
+    );
+    assert.equal(
+      welcomeOverlayVisible,
+      false,
+      'UI bootstrap raw screen options preserve pending-session welcome overlay hiding.'
+    );
+    assert.equal(
+      afterApplyTriggered,
+      1,
+      'UI bootstrap raw screen options preserve pending-session afterApply execution.'
+    );
   });
-  assert.equal(
-    imported,
-    true,
-    'UI bootstrap screen root context preserves pending-session import delegation.'
-  );
-  assert.equal(
-    saveCalls,
-    1,
-    'UI bootstrap screen root context preserves pending-session post-apply save wiring.'
-  );
-  assert.equal(
-    welcomeOverlayVisible,
-    false,
-    'UI bootstrap screen root context preserves pending-session welcome overlay hiding.'
-  );
-  assert.equal(
-    afterApplyTriggered,
-    1,
-    'UI bootstrap screen root context preserves pending-session afterApply execution.'
-  );
 }
 
 function testRuntimeControlsRootAppContextPreservesRuntimeGlue() {
   const trackedEvents = [];
   const dom = {
-    tempoSlider: { value: '142' },
+    startStop: createEventTarget(),
+    pause: createEventTarget(),
+    tempoSlider: createEventTarget({ value: '142' }),
     tempoValue: { textContent: '' },
-    nextPreviewUnitToggle: { checked: true },
-    transpositionSelect: { value: '5' },
-    displayMode: { value: 'key' },
-    harmonyDisplayMode: { value: 'rich' },
-    masterVolume: { value: '65' },
-    bassVolume: { value: '55' },
-    stringsVolume: { value: '45' },
-    drumsVolume: { value: '35' }
+    nextPreviewValue: createEventTarget({ value: '3.5' }),
+    nextPreviewUnitToggle: createEventTarget({ checked: true }),
+    selectAllKeys: createEventTarget(),
+    invertKeys: createEventTarget(),
+    clearAllKeys: createEventTarget(),
+    saveKeyPreset: createEventTarget(),
+    loadKeyPreset: createEventTarget(),
+    transpositionSelect: createEventTarget({ value: '5' }),
+    displayMode: createEventTarget({ value: 'key' }),
+    harmonyDisplayMode: createEventTarget({ value: 'rich' }),
+    useMajorTriangleSymbol: createEventTarget(),
+    useHalfDiminishedSymbol: createEventTarget(),
+    useDiminishedSymbol: createEventTarget(),
+    showBeatIndicator: createEventTarget(),
+    hideCurrentHarmony: createEventTarget(),
+    masterVolume: createEventTarget({ value: '65' }),
+    bassVolume: createEventTarget({ value: '55' }),
+    stringsVolume: createEventTarget({ value: '45' }),
+    drumsVolume: createEventTarget({ value: '35' })
   };
   let isPlaying = false;
   let nextPreviewLeadUnit = 'bars';
@@ -1718,21 +1758,22 @@ function testRuntimeControlsRootAppContextPreservesRuntimeGlue() {
   let fitCalls = 0;
   let mixerCalls = 0;
 
-  const context = createDrillRuntimeControlsRootAppContext({
-    dom,
-    state: {
+  const uiBootstrap = createDrillUiBootstrapRootAppAssembly({
+    screen: {},
+    runtimeControlsDom: dom,
+    runtimeControlsState: {
       getIsPlaying: () => isPlaying,
       getAudioContext: () => ({ currentTime: 12 }),
       getCurrentKey: () => 7,
       getNextPreviewLeadUnit: () => nextPreviewLeadUnit,
       getNextPreviewInputUnit: () => 'seconds'
     },
-    constants: {
+    runtimeControlsConstants: {
       noteFadeout: 0.1,
       nextPreviewUnitBars: 'bars',
       nextPreviewUnitSeconds: 'seconds'
     },
-    helpers: {
+    runtimeControlsHelpers: {
       stop: () => trackedEvents.push({ name: 'stop' }),
       start: () => trackedEvents.push({ name: 'start' }),
       togglePause: () => trackedEvents.push({ name: 'pause' }),
@@ -1763,113 +1804,117 @@ function testRuntimeControlsRootAppContextPreservesRuntimeGlue() {
       applyCurrentHarmonyVisibility: () => { currentHarmonyCalls += 1; },
       fitHarmonyDisplay: () => { fitCalls += 1; },
       applyMixerSettings: () => { mixerCalls += 1; }
-    }
+    },
+    pianoControls: { dom: {} },
+    harmonyDisplayObservers: {}
   });
 
-  context.onStartStopClick();
+  uiBootstrap.initializeRuntimeControls();
+
+  dom.startStop.dispatch('click');
   assert.equal(
     trackedEvents[0]?.name,
     'start',
-    'Runtime controls root app context preserves start/stop glue when idle.'
+    'UI bootstrap raw runtime options preserve start/stop glue when idle.'
   );
 
   isPlaying = true;
-  context.onStartStopClick();
+  dom.startStop.dispatch('click');
   assert.equal(
     trackedEvents[1]?.name,
     'stop',
-    'Runtime controls root app context preserves start/stop glue while playing.'
+    'UI bootstrap raw runtime options preserve start/stop glue while playing.'
   );
 
-  context.onTempoInput();
+  dom.tempoSlider.dispatch('input');
   assert.equal(
     dom.tempoValue.textContent,
     '142',
-    'Runtime controls root app context preserves tempo display syncing.'
+    'UI bootstrap raw runtime options preserve tempo display syncing.'
   );
   assert.equal(
     stopChordCalls === 1 && rebuildCalls === 1 && bassPlanCalls === 1,
     true,
-    'Runtime controls root app context preserves live playback rebuilds on tempo input.'
+    'UI bootstrap raw runtime options preserve live playback rebuilds on tempo input.'
   );
 
-  context.onNextPreviewValueChange();
+  dom.nextPreviewValue.dispatch('change');
   assert.equal(
     previewCommits,
     1,
-    'Runtime controls root app context preserves next-preview commit glue.'
+    'UI bootstrap raw runtime options preserve next-preview commit glue.'
   );
   assert.equal(
     trackedEvents.some((event) => event.name === 'next_preview_changed'),
     true,
-    'Runtime controls root app context preserves next-preview analytics.'
+    'UI bootstrap raw runtime options preserve next-preview analytics.'
   );
 
   nextPreviewLeadUnit = 'seconds';
-  context.onNextPreviewUnitToggleChange();
+  dom.nextPreviewUnitToggle.dispatch('change');
   assert.equal(
     convertPreviewCalls,
     1,
-    'Runtime controls root app context preserves next-preview unit conversion.'
+    'UI bootstrap raw runtime options preserve next-preview unit conversion.'
   );
   assert.equal(
     setPreviewInputUnit,
     'seconds',
-    'Runtime controls root app context preserves next-preview input unit syncing.'
+    'UI bootstrap raw runtime options preserve next-preview input unit syncing.'
   );
 
-  context.onSelectAllKeys();
-  context.onInvertKeys();
-  context.onClearKeys();
+  dom.selectAllKeys.dispatch('click');
+  dom.invertKeys.dispatch('click');
+  dom.clearAllKeys.dispatch('click');
   assert.equal(
     selectAllCalls === 2 && invertCalls === 1,
     true,
-    'Runtime controls root app context preserves key-selection bulk actions.'
+    'UI bootstrap raw runtime options preserve key-selection bulk actions.'
   );
 
-  context.onTranspositionChange();
-  context.onDisplayModeChange();
-  context.onHarmonyDisplayModeChange();
-  context.onSymbolToggleChange();
-  context.onShowBeatIndicatorChange();
-  context.onHideCurrentHarmonyChange();
-  context.onMasterVolumeInput();
-  context.onBassVolumeInput();
-  context.onDrumsVolumeInput();
-  context.onMasterVolumeChange();
-  context.onBassVolumeChange();
-  context.onStringsVolumeChange();
-  context.onDrumsVolumeChange();
+  dom.transpositionSelect.dispatch('change');
+  dom.displayMode.dispatch('change');
+  dom.harmonyDisplayMode.dispatch('change');
+  dom.useMajorTriangleSymbol.dispatch('change');
+  dom.showBeatIndicator.dispatch('change');
+  dom.hideCurrentHarmony.dispatch('change');
+  dom.masterVolume.dispatch('input');
+  dom.bassVolume.dispatch('input');
+  dom.drumsVolume.dispatch('input');
+  dom.masterVolume.dispatch('change');
+  dom.bassVolume.dispatch('change');
+  dom.stringsVolume.dispatch('change');
+  dom.drumsVolume.dispatch('change');
 
   assert.equal(
     displayRefreshes >= 4,
     true,
-    'Runtime controls root app context preserves display refresh callbacks.'
+    'UI bootstrap raw runtime options preserve display refresh callbacks.'
   );
   assert.equal(
     displayModeCalls,
     1,
-    'Runtime controls root app context preserves display-mode application glue.'
+    'UI bootstrap raw runtime options preserve display-mode application glue.'
   );
   assert.equal(
     beatIndicatorCalls,
     1,
-    'Runtime controls root app context preserves beat-indicator visibility glue.'
+    'UI bootstrap raw runtime options preserve beat-indicator visibility glue.'
   );
   assert.equal(
     currentHarmonyCalls === 1 && fitCalls === 1,
     true,
-    'Runtime controls root app context preserves current-harmony visibility glue.'
+    'UI bootstrap raw runtime options preserve current-harmony visibility glue.'
   );
   assert.equal(
     mixerCalls,
     3,
-    'Runtime controls root app context preserves mixer input callbacks.'
+    'UI bootstrap raw runtime options preserve mixer input callbacks.'
   );
   assert.equal(
     saveCalls >= 8,
     true,
-    'Runtime controls root app context preserves settings persistence across runtime controls.'
+    'UI bootstrap raw runtime options preserve settings persistence across runtime controls.'
   );
 }
 
@@ -1898,14 +1943,29 @@ function testDisplayControlsRootFacadePreservesDisplayHelpers() {
   let sideLayoutCalls = 0;
   let fitCalls = 0;
 
-  const facade = createDrillDisplayControlsRootAppFacade({
-    getBeatIndicator: () => beatIndicator,
-    getShowBeatIndicatorEnabled: () => false,
-    getDisplayElement: () => displayElement,
-    getCurrentHarmonyHidden: () => true,
-    getDisplayMode: () => 'chords-only',
-    applyDisplaySideLayout: () => { sideLayoutCalls += 1; },
-    fitHarmonyDisplay: () => { fitCalls += 1; }
+  const facade = createDrillDisplayRootAppFacade({
+    dom: {
+      beatIndicator,
+      display: displayElement,
+      keyDisplay: { innerHTML: '' },
+      chordDisplay: { innerHTML: '' },
+      nextHeader: { textContent: '', classList: { add: () => {}, remove: () => {} } },
+      nextKeyDisplay: { classList: { add: () => {}, remove: () => {} } },
+      nextChordDisplay: { classList: { add: () => {}, remove: () => {} } },
+      displayPlaceholder: { classList: { toggle: () => {} } },
+      reopenWelcome: { classList: { toggle: () => {} } },
+      displayPlaceholderMessage: { textContent: '' },
+      beatDots: []
+    },
+    state: {
+      getShowBeatIndicatorEnabled: () => false,
+      getCurrentHarmonyHidden: () => true,
+      getDisplayMode: () => 'chords-only'
+    },
+    helpers: {
+      applyDisplaySideLayout: () => { sideLayoutCalls += 1; },
+      fitHarmonyDisplay: () => { fitCalls += 1; }
+    }
   });
 
   facade.applyBeatIndicatorVisibility();
@@ -2001,7 +2061,7 @@ function testDisplayShellRootFacadePreservesUiShellHelpers() {
   });
   let fitCalls = 0;
 
-  const facade = createDrillDisplayShellRootAppFacade({
+  const facade = createDrillDisplayRootAppFacade({
     dom: {
       nextHeader,
       nextKeyDisplay,
@@ -2009,10 +2069,18 @@ function testDisplayShellRootFacadePreservesUiShellHelpers() {
       displayPlaceholder,
       reopenWelcome,
       displayPlaceholderMessage,
-      beatDots
+      beatDots,
+      beatIndicator: { classList: { toggle: () => {} } },
+      display: { classList: { remove: () => {}, add: () => {}, toggle: () => {} } },
+      keyDisplay: { innerHTML: '' },
+      chordDisplay: { innerHTML: '' }
     },
-    fitHarmonyDisplay: () => { fitCalls += 1; },
-    defaultDisplayPlaceholderMessage: 'Ready to practice'
+    constants: {
+      defaultDisplayPlaceholderMessage: 'Ready to practice'
+    },
+    helpers: {
+      fitHarmonyDisplay: () => { fitCalls += 1; }
+    }
   });
 
   facade.showNextCol();
@@ -2061,101 +2129,119 @@ function testDisplayShellRootFacadePreservesUiShellHelpers() {
 
 async function testStartupDataRootAssemblyPreservesLoaderBehavior() {
   let welcomeStandards = {};
-  let renderedWelcomeOptions = 0;
   let patternHelpCalls = 0;
   let defaultProgressionsVersion = '';
   let defaultProgressions = {};
   let progressions = {};
   const fetchCalls = [];
+  const originalDocument = globalThis.document;
+  const select = {
+    value: '',
+    innerHTML: '',
+    options: [],
+    append(option) {
+      this.options.push(option);
+    }
+  };
   const responses = new Map([
-    ['welcome-url?v=1.2.3', { ok: true, text: async () => 'welcome' }],
+    ['welcome-url?v=1.2.3', { ok: true, text: async () => 'Autumn Leaves|major|key: C | I | IV' }],
     ['progressions-url?v=1.2.3', { ok: false, status: 404, text: async () => '' }],
     ['progressions-url', { ok: true, text: async () => 'defaults' }]
   ]);
 
-  const assembly = createDrillStartupDataRootAppAssembly({
-    state: {
-      setWelcomeStandards: (value) => { welcomeStandards = value; },
-      setDefaultProgressionsVersion: (value) => { defaultProgressionsVersion = value; },
-      setDefaultProgressions: (value) => { defaultProgressions = value; },
-      setProgressions: (value) => { progressions = value; }
-    },
-    welcomeStandards: {
-      fetchImpl: async (url) => {
-        fetchCalls.push(url);
-        return responses.get(url);
-      },
-      url: 'welcome-url',
-      version: '1.2.3',
-      parseWelcomeStandardsText: () => ({
-        autumn: { title: 'Autumn Leaves' }
-      }),
-      renderWelcomeStandardOptions: () => { renderedWelcomeOptions += 1; },
-      welcomeStandardsFallback: { fallback: { title: 'Fallback' } }
-    },
-    patternHelp: {
-      loadDrillPatternHelp: async ({ dom, url, version }) => {
-        patternHelpCalls += 1;
-        assert.equal(dom.marker, 'pattern-help');
-        assert.equal(url, 'pattern-url');
-        assert.equal(version, 'help-v1');
-      },
-      dom: { marker: 'pattern-help' },
-      url: 'pattern-url',
-      version: 'help-v1'
-    },
-    defaultProgressions: {
-      fetchImpl: async (url) => {
-        fetchCalls.push(url);
-        return responses.get(url);
-      },
-      url: 'progressions-url',
-      appVersion: '1.2.3',
-      parseDefaultProgressionsText: () => ({
-        version: '9',
-        progressions: {
-          turnaround: { name: 'Turnaround', pattern: 'I-VI-II-V', mode: 'major' }
-        }
-      }),
-      normalizeProgressionsMap: (value) => ({ ...value }),
-      getDefaultProgressions: () => defaultProgressions
-    }
-  });
+  globalThis.document = {
+    createElement: () => ({ value: '', textContent: '', selected: false })
+  };
 
-  await assembly.loadWelcomeStandards();
-  await assembly.loadPatternHelp();
-  await assembly.loadDefaultProgressions();
+  try {
+    const assembly = createDrillStartupDataRootAppAssembly({
+      state: {
+        setWelcomeStandards: (value) => { welcomeStandards = value; },
+        setDefaultProgressionsVersion: (value) => { defaultProgressionsVersion = value; },
+        setDefaultProgressions: (value) => { defaultProgressions = value; },
+        setProgressions: (value) => { progressions = value; }
+      },
+      welcomeStandards: {
+        fetchImpl: async (url) => {
+          fetchCalls.push(url);
+          return responses.get(url);
+        },
+        url: 'welcome-url',
+        version: '1.2.3',
+        welcomeStandardsFallback: { fallback: { title: 'Fallback' } },
+        select,
+        getWelcomeStandards: () => welcomeStandards,
+        noteLetterToSemitone: { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 },
+        patternModeMinor: 'minor',
+        compingStylePiano: 'piano',
+        normalizePatternMode: (value) => value === 'minor' ? 'minor' : 'major'
+      },
+      patternHelp: {
+        loadDrillPatternHelp: async ({ dom, url, version }) => {
+          patternHelpCalls += 1;
+          assert.equal(dom.marker, 'pattern-help');
+          assert.equal(url, 'pattern-url');
+          assert.equal(version, 'help-v1');
+        },
+        dom: { marker: 'pattern-help' },
+        url: 'pattern-url',
+        version: 'help-v1'
+      },
+      defaultProgressions: {
+        fetchImpl: async (url) => {
+          fetchCalls.push(url);
+          return responses.get(url);
+        },
+        url: 'progressions-url',
+        appVersion: '1.2.3',
+        parseDefaultProgressionsText: () => ({
+          version: '9',
+          progressions: {
+            turnaround: { name: 'Turnaround', pattern: 'I-VI-II-V', mode: 'major' }
+          }
+        }),
+        normalizeProgressionsMap: (value) => ({ ...value }),
+        getDefaultProgressions: () => defaultProgressions
+      }
+    });
 
-  assert.deepEqual(
-    welcomeStandards,
-    { autumn: { title: 'Autumn Leaves' } },
-    'Startup data root assembly preserves welcome-standards loading behavior.'
-  );
-  assert.equal(
-    renderedWelcomeOptions,
-    1,
-    'Startup data root assembly preserves welcome-options rendering after load.'
-  );
-  assert.equal(
-    patternHelpCalls,
-    1,
-    'Startup data root assembly preserves pattern-help loading behavior.'
-  );
-  assert.equal(
-    defaultProgressionsVersion,
-    '9',
-    'Startup data root assembly preserves default-progressions version loading.'
-  );
-  assert.deepEqual(
-    progressions,
-    defaultProgressions,
-    'Startup data root assembly preserves normalized progressions state refresh.'
-  );
-  assert.deepEqual(
-    fetchCalls,
-    ['welcome-url?v=1.2.3', 'progressions-url?v=1.2.3', 'progressions-url'],
-    'Startup data root assembly preserves versioned/fallback fetch sequencing.'
-  );
+    await assembly.loadWelcomeStandards();
+    await assembly.loadPatternHelp();
+    await assembly.loadDefaultProgressions();
+
+    assert.equal(
+      Object.keys(welcomeStandards).length,
+      1,
+      'Startup data root assembly preserves welcome-standards loading behavior.'
+    );
+    assert.equal(
+      select.options.length,
+      1,
+      'Startup data root assembly preserves welcome-options rendering after load.'
+    );
+    assert.equal(
+      patternHelpCalls,
+      1,
+      'Startup data root assembly preserves pattern-help loading behavior.'
+    );
+    assert.equal(
+      defaultProgressionsVersion,
+      '9',
+      'Startup data root assembly preserves default-progressions version loading.'
+    );
+    assert.deepEqual(
+      progressions,
+      defaultProgressions,
+      'Startup data root assembly preserves normalized progressions state refresh.'
+    );
+    assert.deepEqual(
+      fetchCalls,
+      ['welcome-url?v=1.2.3', 'progressions-url?v=1.2.3', 'progressions-url'],
+      'Startup data root assembly preserves versioned/fallback fetch sequencing.'
+    );
+  } finally {
+    globalThis.document = originalDocument;
+  }
 }
 
 function testWelcomeStandardsRootAssemblyPreservesParsingAndRendering() {
@@ -2174,17 +2260,13 @@ function testWelcomeStandardsRootAssemblyPreservesParsingAndRendering() {
   };
 
   try {
-    const assembly = createDrillWelcomeStandardsRootAppAssembly({
-      dom: { welcomeStandardSelect: select },
-      state: {
-        getWelcomeStandards: () => welcomeStandards
-      },
-      constants: {
+    const assembly = createDrillStartupDataRootAppAssembly({
+      welcomeStandards: {
+        select,
+        getWelcomeStandards: () => welcomeStandards,
         noteLetterToSemitone: { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 },
         patternModeMinor: 'minor',
-        compingStylePiano: 'piano'
-      },
-      helpers: {
+        compingStylePiano: 'piano',
         normalizePatternMode: (value) => value === 'minor' ? 'minor' : 'major'
       }
     });
@@ -2292,6 +2374,133 @@ function testSettingsPersistenceRootAssemblyPreservesSaveLoadGlue() {
     1,
     'Settings persistence root assembly preserves finalize-loaded-settings glue.'
   );
+}
+
+function testAppHoistingContractsRemainInPlace() {
+  const source = readFileSync(
+    new URL('../app.js', import.meta.url),
+    'utf8'
+  );
+
+  const seamContracts = [
+    {
+      label: 'createDefaultAppSettings',
+      wrapper: 'function createDefaultAppSettings(...args)',
+      assignment: 'createDefaultAppSettingsImpl = settingsCreateDefaultAppSettings;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'clearProgressionEditingState',
+      wrapper: 'function clearProgressionEditingState(...args)',
+      assignment: 'clearProgressionEditingStateImpl = progressionClearProgressionEditingState;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'closeProgressionManager',
+      wrapper: 'function closeProgressionManager(...args)',
+      assignment: 'closeProgressionManagerImpl = progressionCloseProgressionManager;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'setPatternSelectValue',
+      wrapper: 'function setPatternSelectValue(...args)',
+      assignment: 'setPatternSelectValueImpl = progressionSetPatternSelectValue;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'getSelectedProgressionName',
+      wrapper: 'function getSelectedProgressionName(...args)',
+      assignment: 'getSelectedProgressionNameImpl = progressionGetSelectedProgressionName;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'getSelectedProgressionPattern',
+      wrapper: 'function getSelectedProgressionPattern(...args)',
+      assignment: 'getSelectedProgressionPatternImpl = progressionGetSelectedProgressionPattern;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'setEditorPatternMode',
+      wrapper: 'function setEditorPatternMode(...args)',
+      assignment: 'setEditorPatternModeImpl = progressionSetEditorPatternMode;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'getSelectedProgressionMode',
+      wrapper: 'function getSelectedProgressionMode(...args)',
+      assignment: 'getSelectedProgressionModeImpl = progressionGetSelectedProgressionMode;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'syncPatternSelectionFromInput',
+      wrapper: 'function syncPatternSelectionFromInput(...args)',
+      assignment: 'syncPatternSelectionFromInputImpl = progressionSyncPatternSelectionFromInput;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'syncCustomPatternUI',
+      wrapper: 'function syncCustomPatternUI(...args)',
+      assignment: 'syncCustomPatternUIImpl = progressionSyncCustomPatternUI;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'syncProgressionManagerState',
+      wrapper: 'function syncProgressionManagerState(...args)',
+      assignment: 'syncProgressionManagerStateImpl = progressionSyncProgressionManagerState;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'applyPatternModeAvailability',
+      wrapper: 'function applyPatternModeAvailability(...args)',
+      assignment: 'applyPatternModeAvailabilityImpl = progressionApplyPatternModeAvailability;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'syncPatternPreview',
+      wrapper: 'function syncPatternPreview(...args)',
+      assignment: 'syncPatternPreviewImpl = progressionSyncPatternPreview;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'start',
+      wrapper: 'function start(...args)',
+      assignment: 'startImpl = playbackStart;',
+      consumer: '} = createDrillWelcomeRootAppFacade({'
+    },
+    {
+      label: 'saveSettings',
+      wrapper: 'function saveSettings(...args)',
+      assignment: 'saveSettingsImpl = (...args) => drillSettingsPersistence.saveSettings(...args);',
+      consumer: '} = createDrillKeysRootAppAssembly({'
+    },
+    {
+      label: 'getNextPreviewLeadSeconds',
+      wrapper: 'function getNextPreviewLeadSeconds(...args)',
+      assignment: 'getNextPreviewLeadSecondsImpl = nextPreviewGetNextPreviewLeadSeconds;',
+      consumer: '} = createDrillDisplayRuntimeRootAppAssembly({'
+    },
+    {
+      label: 'attachMidiInput',
+      wrapper: 'function attachMidiInput(...args)',
+      assignment: 'attachMidiInputImpl = pianoMidiAttachInput;',
+      consumer: '} = createDrillPianoToolsRootAppFacade({'
+    }
+  ];
+
+  seamContracts.forEach(({ label, wrapper, assignment, consumer }) => {
+    const wrapperIndex = getSourceIndexOrThrow(source, wrapper, `${label} wrapper`);
+    const consumerIndex = getSourceIndexOrThrow(source, consumer, `${label} consumer`);
+    const assignmentIndex = getSourceIndexOrThrow(source, assignment, `${label} assignment`);
+
+    assert.ok(
+      wrapperIndex >= 0,
+      `${label} wrapper must stay implemented as a hoisted function in app.js.`
+    );
+    assert.ok(
+      consumerIndex < assignmentIndex,
+      `${label} implementation assignment must stay after the consumer wiring it protects.`
+    );
+  });
 }
 
 function testNextPreviewRootFacadePreservesPreviewControls() {
@@ -2406,7 +2615,7 @@ function testKeySelectionRootFacadePreservesKeySelectionWorkflow() {
     }
   };
 
-  const facade = createDrillKeySelectionRootAppFacade({
+  const facade = createDrillKeysRootAppAssembly({
     dom,
     state: {
       getEnabledKeys: () => enabledKeys,
@@ -2434,40 +2643,40 @@ function testKeySelectionRootFacadePreservesKeySelectionWorkflow() {
   assert.equal(
     dom.selectedKeysSummary.innerHTML,
     'Keys: <span>K0</span> &middot; <span>K2</span> &middot; <span>K4</span> &middot; <span>K6</span> &middot; <span>K8</span> &middot; <span>K10</span>',
-    'Key selection root facade preserves selected-key summary rendering.'
+    'Keys root assembly preserves selected-key summary rendering.'
   );
 
   facade.applyEnabledKeys(enabledKeys.map(() => true));
   assert.equal(
     dom.selectedKeysSummary.innerHTML,
     'Keys: All',
-    'Key selection root facade preserves the compact all-keys summary when every key is enabled.'
+    'Keys root assembly preserves the compact all-keys summary when every key is enabled.'
   );
 
   facade.applyEnabledKeys(enabledKeys.map(() => false));
   assert.deepEqual(
     keyPool,
     [],
-    'Key selection root facade preserves key-pool reset when applying enabled keys.'
+    'Keys root assembly preserves key-pool reset when applying enabled keys.'
   );
 
   facade.restoreAllKeysIfNoneSelectedOnClose();
   assert.equal(
     facade.getEnabledKeyCount(),
     12,
-    'Key selection root facade preserves restoring all keys when closing an empty selection.'
+    'Keys root assembly preserves restoring all keys when closing an empty selection.'
   );
   assert.equal(
     settingsSaved,
     1,
-    'Key selection root facade preserves settings persistence on empty-selection restore.'
+    'Keys root assembly preserves settings persistence on empty-selection restore.'
   );
 
   facade.saveCurrentKeySelectionPreset();
   assert.deepEqual(
     savedPresetPayload,
     enabledKeys,
-    'Key selection root facade preserves key-preset persistence.'
+    'Keys root assembly preserves key-preset persistence.'
   );
 
   facade.applyEnabledKeys(enabledKeys.map(() => false));
@@ -2475,17 +2684,17 @@ function testKeySelectionRootFacadePreservesKeySelectionWorkflow() {
   assert.equal(
     facade.getEnabledKeyCount(),
     12,
-    'Key selection root facade preserves key-preset loading.'
+    'Keys root assembly preserves key-preset loading.'
   );
   assert.equal(
     trackedEvents.some((event) => event.name === 'key_preset_saved'),
     true,
-    'Key selection root facade preserves key-preset saved analytics.'
+    'Keys root assembly preserves key-preset saved analytics.'
   );
   assert.equal(
     trackedEvents.some((event) => event.name === 'key_preset_loaded'),
     true,
-    'Key selection root facade preserves key-preset loaded analytics.'
+    'Keys root assembly preserves key-preset loaded analytics.'
   );
 }
 
@@ -2497,8 +2706,6 @@ function testKeyPickerRootAssemblyPreservesPickerControls() {
   let selectedKeysSummaryFocusCalls = 0;
   let closeButtonFocusCalls = 0;
   let stopPlaybackCalls = 0;
-  let restoreCalls = 0;
-  let syncSummaryCalls = 0;
   let saveSettingsCalls = 0;
   let keyPool = ['stale'];
   let enabledKeys = [true, false, true, false, true, false, true, false, true, false, true, false];
@@ -2508,6 +2715,9 @@ function testKeyPickerRootAssemblyPreservesPickerControls() {
     children: [],
     appendChild(child) {
       this.children.push(child);
+    },
+    querySelectorAll() {
+      return this.children;
     }
   };
   const keyPicker = createEventTarget({ open: false });
@@ -2573,7 +2783,7 @@ function testKeyPickerRootAssemblyPreservesPickerControls() {
   };
 
   try {
-    const assembly = createDrillKeyPickerRootAppAssembly({
+    const assembly = createDrillKeysRootAppAssembly({
       dom: {
         keyPicker,
         keyPickerBackdrop,
@@ -2586,23 +2796,23 @@ function testKeyPickerRootAssemblyPreservesPickerControls() {
         setEnabledKeys: (value) => { enabledKeys = value; },
         setKeyPool: (value) => { keyPool = value; }
       },
+      constants: {
+        PIANO_BLACK_KEY_COLUMNS: { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 },
+        PIANO_WHITE_KEY_COLUMNS: { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 }
+      },
       helpers: {
         setKeyPickerOpen: (isOpen) => {
           keyPickerOpen = Boolean(isOpen);
           keyPicker.open = Boolean(isOpen);
         },
         stopPlaybackIfRunning: () => { stopPlaybackCalls += 1; },
-        restoreAllKeysIfNoneSelectedOnClose: () => { restoreCalls += 1; },
-        updateKeyCheckboxVisualState: () => {},
-        syncSelectedKeysSummary: () => { syncSummaryCalls += 1; },
+        getDisplayTranspositionSemitones: () => 0,
+        keyLabelForPicker: (index) => `K${index}`,
+        renderAccidentalTextHtml: (value) => `<span>${value}</span>`,
         saveSettings: () => { saveSettingsCalls += 1; },
         trackEvent: (name, payload) => trackedEvents.push({ name, payload }),
-        getEnabledKeyCount: () => enabledKeys.filter(Boolean).length,
-        applyEnabledKeys: (value) => {
-          enabledKeys = value.map(Boolean);
-          keyPool = [];
-          syncSummaryCalls += 1;
-        }
+        saveStoredKeySelectionPreset: () => {},
+        alert: () => {}
       }
     });
 
@@ -2637,23 +2847,24 @@ function testKeyPickerRootAssemblyPreservesPickerControls() {
     );
 
     keyPicker.open = false;
+    enabledKeys = enabledKeys.map(() => false);
     keyPicker.dispatch('toggle');
     assert.equal(
-      restoreCalls,
+      saveSettingsCalls,
       1,
-      'Key picker root assembly preserves empty-selection restore on close.'
+      'Keys root assembly preserves empty-selection restore on close.'
     );
 
     assembly.buildKeyCheckboxes();
     assert.equal(
       keyCheckboxes.children.length,
       12,
-      'Key picker root assembly preserves checkbox construction.'
+      'Keys root assembly preserves checkbox construction.'
     );
     assert.equal(
-      syncSummaryCalls,
-      1,
-      'Key picker root assembly preserves summary sync after building checkboxes.'
+      keyCheckboxes.children[0].querySelector('.key-checkbox-text').innerHTML,
+      '<span>K0</span>',
+      'Keys root assembly preserves summary sync and label rendering after building checkboxes.'
     );
 
     const firstCheckbox = keyCheckboxes.children[0].querySelector('input[type="checkbox"]');
@@ -2662,36 +2873,36 @@ function testKeyPickerRootAssemblyPreservesPickerControls() {
     assert.equal(
       enabledKeys[0],
       false,
-      'Key picker root assembly preserves per-key toggle state updates.'
+      'Keys root assembly preserves per-key toggle state updates.'
     );
     assert.deepEqual(
       keyPool,
       [],
-      'Key picker root assembly preserves key-pool reset after per-key toggle changes.'
+      'Keys root assembly preserves key-pool reset after per-key toggle changes.'
     );
     assert.equal(
       saveSettingsCalls,
-      1,
-      'Key picker root assembly preserves settings persistence after per-key toggle changes.'
+      2,
+      'Keys root assembly preserves settings persistence after per-key toggle changes.'
     );
     assert.equal(
       trackedEvents[0]?.name,
       'key_selection_changed',
-      'Key picker root assembly preserves per-key toggle analytics.'
+      'Keys root assembly preserves per-key toggle analytics.'
     );
 
     assembly.setAllKeysEnabled(true);
     assert.equal(
       enabledKeys.every(Boolean),
       true,
-      'Key picker root assembly preserves select-all behavior.'
+      'Keys root assembly preserves select-all behavior.'
     );
 
     assembly.invertKeysEnabled();
     assert.equal(
       enabledKeys.every((isEnabled) => !isEnabled),
       true,
-      'Key picker root assembly preserves invert-keys behavior.'
+      'Keys root assembly preserves invert-keys behavior.'
     );
   } finally {
     globalThis.document = originalDocument;
@@ -2916,13 +3127,12 @@ testPlaybackRuntimeHostBindingsPreserveDom();
 testSharedPlaybackRootContextBuildsSubcontexts();
 testSharedPlaybackRootSubcontextsPreserveGlue();
 testDisplayRuntimeRootAssemblyPreservesHelpers();
-testDisplayRenderRootFacadePreservesRenderGlue();
+testDisplayRootFacadePreservesRenderGlue();
 testDisplayControlsRootFacadePreservesDisplayHelpers();
 testDisplayShellRootFacadePreservesUiShellHelpers();
-testPatternNormalizationRootAppContextPreservesNormalizers();
-testSettingsNormalizationRootAppContextPreservesNormalizers();
-testDefaultProgressionsRootAssemblyPreservesCatalogGlue();
-testUiBootstrapScreenRootAppContextPreservesScreenGlue();
+testNormalizationRootAppContextPreservesNormalizers();
+testAppHoistingContractsRemainInPlace();
+await testUiBootstrapScreenRootAppContextPreservesScreenGlue();
 testRuntimeControlsRootAppContextPreservesRuntimeGlue();
 await testStartupDataRootAssemblyPreservesLoaderBehavior();
 testWelcomeStandardsRootAssemblyPreservesParsingAndRendering();

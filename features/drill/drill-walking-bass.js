@@ -1,13 +1,13 @@
-import voicingConfig from './voicing-config.js';
+import voicingConfig from '../../core/music/voicing-config.js';
 import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
-} from './harmony-context.js';
+} from '../../core/music/harmony-context.js';
 import {
   DEFAULT_SWING_RATIO,
   getSwingFirstSubdivisionDurationBeats,
   getSwingSecondSubdivisionDurationBeats,
-} from './swing-utils.js';
+} from '../../core/music/swing-utils.js';
 
 const {
   GUIDE_TONES,
