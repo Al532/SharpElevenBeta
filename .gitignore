@@ -1,5 +1,12 @@
 node_modules/
 dist/
+mobile/node_modules/
+mobile/www/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/App/Pods/
+mobile/ios/App/App/public/
+mobile/.idea/
 
 .env
 .env.*

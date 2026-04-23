@@ -1,0 +1,34 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vite';
+import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator';
+
+const packageJsonUrl = new URL('./package.json', import.meta.url);
+const packageJson = JSON.parse(readFileSync(fileURLToPath(packageJsonUrl), 'utf8'));
+
+export default defineConfig({
+  base: './',
+  publicDir: 'public',
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version)
+  },
+  plugins: [
+    obfuscatorPlugin({
+      apply: 'build',
+      options: {
+        compact: true,
+        identifierNamesGenerator: 'hexadecimal',
+        renameGlobals: false,
+        stringArray: true,
+        stringArrayThreshold: 0.75,
+        splitStrings: true,
+        splitStringsChunkLength: 8
+      }
+    })
+  ],
+  build: {
+    sourcemap: false,
+    outDir: 'mobile/www',
+    emptyOutDir: true
+  }
+});

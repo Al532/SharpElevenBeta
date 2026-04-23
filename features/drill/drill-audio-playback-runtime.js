@@ -49,6 +49,37 @@ export function createDrillAudioPlaybackRuntime({
     initMixerNodes();
   }
 
+  async function resumeAudioContext() {
+    initAudio();
+    const audioCtx = getAudioContext();
+    if (!audioCtx || typeof audioCtx.resume !== 'function' || audioCtx.state === 'closed') {
+      return audioCtx;
+    }
+    if (audioCtx.state !== 'running') {
+      try {
+        await audioCtx.resume();
+      } catch {}
+    }
+    return audioCtx;
+  }
+
+  async function suspendAudioContext() {
+    const audioCtx = getAudioContext();
+    if (!audioCtx || typeof audioCtx.suspend !== 'function' || audioCtx.state === 'closed') {
+      return audioCtx;
+    }
+    if (audioCtx.state !== 'suspended') {
+      try {
+        await audioCtx.suspend();
+      } catch {}
+    }
+    return audioCtx;
+  }
+
+  function getAudioContextState() {
+    return getAudioContext()?.state || 'missing';
+  }
+
   function initMixerNodes() {
     const audioCtx = getAudioContext();
     if (!audioCtx || getMixerNodes()) return;
@@ -158,6 +189,9 @@ export function createDrillAudioPlaybackRuntime({
 
   return {
     initAudio,
+    resumeAudioContext,
+    suspendAudioContext,
+    getAudioContextState,
     initMixerNodes,
     getMixerDestination,
     playClick,

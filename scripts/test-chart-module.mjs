@@ -91,6 +91,12 @@ import { createChartSheetRendererBindings } from '../features/chart/chart-sheet-
 import { createChartSheetRendererAppBindings } from '../features/chart/chart-sheet-renderer-app-bindings.js';
 import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
+import { bindChartLifecycleEvents } from '../features/chart/chart-lifecycle.js';
+import {
+  applyPlaybackTransportState,
+  startPlaybackPolling,
+  stopPlaybackPolling
+} from '../features/chart/chart-playback-runtime.js';
 import { createAppShellBindings } from '../features/app/app-shell-bindings.js';
 import { initializeEmbeddedDrillRuntime } from '../features/drill/drill-embedded-runtime.js';
 import { createDrillAudioRuntime } from '../features/drill/drill-audio-runtime.js';
@@ -176,6 +182,116 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const sourcePath = path.join(projectRoot, 'parsing-projects', 'ireal', 'sources', 'jazz-1460.txt');
+
+{
+  const playbackRuntimeState = {
+    playbackPollTimer: 12,
+    isPlaying: false,
+    isPaused: false
+  };
+  const clearedTimers = [];
+  let scheduledIntervalMs = 0;
+  let pollingTicks = 0;
+
+  applyPlaybackTransportState({
+    state: playbackRuntimeState,
+    nextState: { isPlaying: true, isPaused: true }
+  });
+  assert.deepEqual(
+    {
+      isPlaying: playbackRuntimeState.isPlaying,
+      isPaused: playbackRuntimeState.isPaused
+    },
+    { isPlaying: true, isPaused: true },
+    'Chart playback runtime applies transport state snapshots to the live screen state.'
+  );
+
+  startPlaybackPolling({
+    state: playbackRuntimeState,
+    intervalMs: 240,
+    onTick: () => { pollingTicks += 1; },
+    setTimer: (callback, intervalMs) => {
+      scheduledIntervalMs = intervalMs;
+      callback();
+      return 42;
+    },
+    clearTimer: (timerId) => {
+      clearedTimers.push(timerId);
+    }
+  });
+  assert.deepEqual(
+    clearedTimers,
+    [12],
+    'Chart playback runtime clears the previous poll timer before starting a new one.'
+  );
+  assert.equal(
+    scheduledIntervalMs,
+    240,
+    'Chart playback runtime preserves the requested poll cadence.'
+  );
+  assert.equal(
+    pollingTicks,
+    1,
+    'Chart playback runtime invokes the supplied sync tick through the scheduled poller.'
+  );
+  assert.equal(
+    playbackRuntimeState.playbackPollTimer,
+    42,
+    'Chart playback runtime stores the active poll timer id on the screen state.'
+  );
+
+  stopPlaybackPolling({
+    state: playbackRuntimeState,
+    clearTimer: (timerId) => {
+      clearedTimers.push(timerId);
+    }
+  });
+  assert.deepEqual(
+    clearedTimers,
+    [12, 42],
+    'Chart playback runtime stops the active poll timer and clears it from state.'
+  );
+  assert.equal(
+    playbackRuntimeState.playbackPollTimer,
+    null,
+    'Chart playback runtime resets the poll timer slot after stopping polling.'
+  );
+}
+
+{
+  const listeners = new Map();
+  const visibilityListeners = new Map();
+  const chartState = {
+    playbackPollTimer: null,
+    isPlaying: true
+  };
+  let lifecycleTicks = 0;
+
+  bindChartLifecycleEvents({
+    lifecycleTarget: {
+      addEventListener(eventName, handler) {
+        listeners.set(eventName, handler);
+      }
+    },
+    visibilityTarget: {
+      hidden: false,
+      addEventListener(eventName, handler) {
+        visibilityListeners.set(eventName, handler);
+      }
+    },
+    state: chartState,
+    intervalMs: 180,
+    onTick: () => {
+      lifecycleTicks += 1;
+    }
+  });
+
+  assert.equal(
+    listeners.has('pagehide') && listeners.has('pageshow') && visibilityListeners.has('visibilitychange'),
+    true,
+    'Chart lifecycle bindings register background/foreground listeners for playback polling.'
+  );
+}
 
 const drillPatternAnalysis = createDrillPatternAnalysis({
   romanToSemitones: { I: 0, II: 2, III: 4, IV: 5, V: 7, VI: 9, VII: 11 },

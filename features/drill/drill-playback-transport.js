@@ -17,6 +17,8 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     getProgressionAnalyticsProps,
     hideNextCol,
     initAudio,
+    resumeAudioContext,
+    suspendAudioContext,
     preloadStartupSamples,
     prepareNextProgression,
     registerSessionAction,
@@ -31,8 +33,14 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
 
   async function start() {
     ensureSessionStarted('play_start');
-    initAudio();
-    if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+    let audioContext = null;
+    if (typeof resumeAudioContext === 'function') {
+      audioContext = await resumeAudioContext();
+    } else {
+      initAudio();
+      audioContext = state.audioCtx;
+    }
+    if (!audioContext) return;
     if (dom.walkingBass?.checked) {
       await ensureWalkingBassGenerator();
     }
@@ -78,7 +86,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     }
     trackProgressionEvent('play_start', getPlaybackAnalyticsProps());
 
-    state.nextBeatTime = state.audioCtx.currentTime + 0.3;
+    state.nextBeatTime = audioContext.currentTime + 0.3;
     state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
   }
 
@@ -123,7 +131,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
       state.isPaused = false;
       dom.pause.textContent = 'Pause';
       dom.pause.classList.remove('paused');
-      state.audioCtx.resume();
+      Promise.resolve(resumeAudioContext?.()).catch(() => {});
       trackProgressionEvent('play_resume', getPlaybackAnalyticsProps());
       state.nextBeatTime = state.audioCtx.currentTime + 0.05;
       state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
@@ -141,7 +149,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     stopScheduledAudio();
     state.activeNoteGain = null;
     stopActiveComping(state.audioCtx.currentTime, NOTE_FADEOUT);
-    state.audioCtx.suspend();
+    Promise.resolve(suspendAudioContext?.()).catch(() => {});
     trackProgressionEvent('play_pause', getPlaybackAnalyticsProps());
   }
 

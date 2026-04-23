@@ -27,6 +27,10 @@
   --shadow-soft: 0 10px 24px rgba(4, 10, 24, 0.18);
 }
 
+html {
+  background: #1b1d34;
+}
+
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background:
@@ -34,9 +38,16 @@ body {
     linear-gradient(180deg, #1b1d34, var(--bg));
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding:
+    max(0px, env(safe-area-inset-top))
+    max(0px, env(safe-area-inset-right))
+    max(0px, env(safe-area-inset-bottom))
+    max(0px, env(safe-area-inset-left));
+  overscroll-behavior-y: contain;
 }
 
 #app {
@@ -44,6 +55,13 @@ body {
   max-width: 860px;
   padding: 2rem 1.5rem;
   text-align: center;
+}
+
+button,
+input,
+select,
+summary {
+  touch-action: manipulation;
 }
 
 .app-header {
@@ -403,7 +421,7 @@ h1 {
   left: 50%;
   transform: translate(-50%, calc(-50% - 0.5rem));
   width: min(68rem, calc(100vw - 2rem));
-  max-height: min(40rem, calc(100vh - 2rem));
+  max-height: min(40rem, calc(100dvh - 2rem));
   margin-top: 0;
   padding: 1rem 1rem 1.1rem;
   border: 1px solid var(--border-strong);
@@ -948,7 +966,11 @@ input[type="range"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem;
+  padding:
+    max(1.25rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
   background: rgba(7, 12, 28, 0.72);
   backdrop-filter: blur(8px);
 }
@@ -1042,7 +1064,11 @@ body.welcome-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem;
+  padding:
+    max(1.25rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
   background:
     radial-gradient(circle at top left, rgba(226, 183, 20, 0.18), transparent 34%),
     radial-gradient(circle at right 20%, rgba(110, 198, 255, 0.18), transparent 30%),
@@ -1056,7 +1082,7 @@ body.welcome-open {
 
 .welcome-card {
   width: min(100%, 52rem);
-  max-height: min(92vh, 60rem);
+  max-height: min(92dvh, 60rem);
   overflow: auto;
   padding: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2221,6 +2247,10 @@ body.welcome-open {
 }
 
 @media (max-width: 720px) {
+  body {
+    align-items: flex-start;
+  }
+
   .social-share-link span {
     display: none;
   }
@@ -2231,6 +2261,7 @@ body.welcome-open {
 
   #app {
     max-width: 520px;
+    padding: 1rem 1rem calc(1.4rem + env(safe-area-inset-bottom));
   }
 
   #display {
@@ -2261,6 +2292,12 @@ body.welcome-open {
 
   #controls {
     grid-template-columns: 1fr;
+  }
+
+  #transport-buttons {
+    position: sticky;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 12;
   }
 
   .control-panel-compact {
@@ -2294,6 +2331,15 @@ body.welcome-open {
   .progression-manager-item-actions {
     grid-column: 2;
     flex-wrap: wrap;
+  }
+
+  .modal-overlay,
+  .welcome-overlay {
+    align-items: flex-start;
+  }
+
+  .welcome-card {
+    max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 
   .progression-manager-item-mode {

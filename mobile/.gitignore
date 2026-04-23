@@ -1,0 +1,9 @@
+node_modules/
+www/
+android/.gradle/
+android/local.properties
+android/captures/
+ios/App/Pods/
+ios/App/App/public/
+ios/DerivedData/
+.idea/

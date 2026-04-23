@@ -1,6 +1,7 @@
 // @ts-check
 
 import { bindDrillWelcomeControls } from './drill-welcome.js';
+import { createDrillMobileLifecycle } from './drill-mobile-lifecycle.js';
 
 /**
  * Creates the drill UI event-binding assembly from live root-app bindings.
@@ -12,6 +13,7 @@ import { bindDrillWelcomeControls } from './drill-welcome.js';
  * @param {Record<string, any>} [options.analyticsLink]
  * @param {Record<string, any>} [options.settingsControls]
  * @param {Record<string, any>} [options.pianoPresetControls]
+ * @param {Record<string, any>} [options.lifecycleControls]
  * @param {EventTarget | { addEventListener?: Function }} [options.lifecycleTarget]
  * @param {Function} [options.trackSessionDuration]
  */
@@ -20,6 +22,7 @@ export function createDrillUiEventBindingsRootAppAssembly({
   analyticsLink = {},
   settingsControls = {},
   pianoPresetControls = {},
+  lifecycleControls = {},
   lifecycleTarget = globalThis.window,
   trackSessionDuration
 } = {}) {
@@ -201,9 +204,19 @@ export function createDrillUiEventBindingsRootAppAssembly({
   }
 
   function bindLifecycleEvents() {
-    lifecycleTarget?.addEventListener?.('pagehide', () => {
-      trackSessionDuration?.();
+    const mobileLifecycle = createDrillMobileLifecycle({
+      lifecycleTarget,
+      visibilityTarget: lifecycleControls.visibilityTarget,
+      userGestureTarget: lifecycleControls.userGestureTarget,
+      getIsPlaying: lifecycleControls.getIsPlaying,
+      getIsPaused: lifecycleControls.getIsPaused,
+      getAudioContext: lifecycleControls.getAudioContext,
+      resumeAudioContext: lifecycleControls.resumeAudioContext,
+      togglePausePlayback: lifecycleControls.togglePausePlayback,
+      trackSessionDuration
     });
+    mobileLifecycle.bindLifecycleEvents();
+    mobileLifecycle.bindUserGestureUnlock();
   }
 
   function bindAll() {

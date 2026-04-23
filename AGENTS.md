@@ -9,8 +9,9 @@ Default workflow in this repository:
 - If the user explicitly asks `builde` or requests a build, run the build and increment the application version.
 - When incrementing the application version, update `package.json` and keep `package-lock.json` aligned if needed.
 - After a requested build, commit the current repository locally without pushing it online.
-- After a requested build, also commit and push the external build-output repository at `..\JazzProgressionTrainerDemo`.
-- Use the application version number in both commit messages for the current repository and the external repository.
+- Do not update, commit, or push the external demo repository at `..\JazzProgressionTrainerDemo` unless the user explicitly asks for that repository to be updated.
+- Android/mobile builds remain local to this repository and do not require any external demo-repository update.
+- When a build is requested for the local app, use the application version number in the local repository commit message.
 - Do not increment the `# progressions-version:` header in `default-progressions.txt`.
 - Do not increment the `# progressions-version:` header in `public/default-progressions.txt`.
 

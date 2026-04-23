@@ -17,24 +17,10 @@ import { renderAccidentalTextHtml, renderChordSymbolHtml } from './core/music/ch
 import pianoRhythmConfig from './core/music/piano-rhythm-config.js';
 import voicingConfig from './core/music/voicing-config.js';
 import {
-  AUDIO_LEVELS,
-  AUDIO_SCHEDULING,
-  AUDIO_TIMING,
-  COMPING_STYLES,
-  DISPLAY_MODES,
-  HARMONY_DISPLAY_MODES,
-  INSTRUMENT_RANGES,
-  NEXT_PREVIEW_UNITS,
-  ONE_TIME_MIGRATIONS,
-  PATTERN_MODES,
-  PIANO_SAMPLE_RANGE,
-  PIANO_SETTINGS_CONFIG,
-  REVIEW_STANDARD_CONVERSIONS_URL,
-  TRAINER_DEFAULTS,
-  WELCOME_CONFIG,
-  WELCOME_ONE_CHORDS,
-  WELCOME_PROGRESSIONS,
-  WELCOME_STANDARDS_FALLBACK
+  TRAINER_APP_CONFIG,
+  TRAINER_AUDIO_CONFIG,
+  TRAINER_MODE_CONFIG,
+  TRAINER_PRESET_CONFIG
 } from './config/trainer-config.js';
 import {
   applyContextualQualityRules,
@@ -47,42 +33,48 @@ import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js'
 import { createDrillAudioRuntimeRootAppAssembly } from './features/drill/drill-audio-runtime-root-app-assembly.js';
 import { createDrillCompingEngineRootAppAssembly } from './features/drill/drill-comping-engine-root-app-assembly.js';
 import { createDrillDefaultProgressionsRootAppAssembly } from './features/drill/drill-default-progressions-root-app-assembly.js';
-import { createDrillDisplayRootAppFacade } from './features/drill/drill-display-root-app-facade.js';
-import { createDrillKeysRootAppAssembly } from './features/drill/drill-keys-root-app-assembly.js';
+import { createDrillDisplayDrillRootAppFacade } from './features/drill/drill-display-drill-root-app-facade.js';
+import { createDrillKeysDrillRootAppAssembly } from './features/drill/drill-keys-drill-root-app-assembly.js';
 import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
 import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
 import { createDrillPlaybackResourcesRootAppAssembly } from './features/drill/drill-playback-resources-root-app-assembly.js';
 import { createDrillVoicingRuntimeRootAppAssembly } from './features/drill/drill-voicing-runtime-root-app-assembly.js';
 import { createDrillWalkingBassRootAppAssembly } from './features/drill/drill-walking-bass-root-app-assembly.js';
-import { createDrillPianoMidiRuntimeRootAppAssembly } from './features/drill/drill-piano-midi-runtime-root-app-assembly.js';
-import { createDrillNextPreviewRootAppFacade } from './features/drill/drill-next-preview-root-app-facade.js';
+import { createDrillPatternRuntimeRootAppAssembly } from './features/drill/drill-pattern-runtime-root-app-assembly.js';
+import { createDrillPianoMidiLiveRuntimeRootAppAssembly } from './features/drill/drill-piano-midi-live-runtime-root-app-assembly.js';
+import { createDrillPianoMidiRuntimeDrillRootAppAssembly } from './features/drill/drill-piano-midi-runtime-drill-root-app-assembly.js';
+import { createDrillNextPreviewDrillRootAppFacade } from './features/drill/drill-next-preview-drill-root-app-facade.js';
 import { createDrillNormalizationRootAppContext } from './features/drill/drill-normalization-root-app-context.js';
-import { createDrillPianoToolsRootAppFacade } from './features/drill/drill-piano-tools-root-app-facade.js';
-import { createDrillWelcomeRootAppFacade } from './features/drill/drill-welcome-root-app-facade.js';
+import { createDrillPianoToolsDrillRootAppFacade } from './features/drill/drill-piano-tools-drill-root-app-facade.js';
+import { createDrillWelcomeDrillRootAppFacade } from './features/drill/drill-welcome-drill-root-app-facade.js';
 import { createDrillDisplayRuntimeRootAppAssembly } from './features/drill/drill-display-runtime-root-app-assembly.js';
-import { createDrillProgressionRootAppAssembly } from './features/drill/drill-progression-root-app-assembly.js';
-import { createDrillStartupDataRootAppAssembly } from './features/drill/drill-startup-data-root-app-assembly.js';
-import { createDrillSettingsPersistenceRootAppAssembly } from './features/drill/drill-settings-persistence-root-app-assembly.js';
-import { createDrillUiEventBindingsRootAppAssembly } from './features/drill/drill-ui-event-bindings-root-app-assembly.js';
-import { createDrillSettingsRootAppAssembly } from './features/drill/drill-settings-root-app-assembly.js';
+import { createDrillDisplaySupportRootAppAssembly } from './features/drill/drill-display-support-root-app-assembly.js';
+import { createDrillTempoRuntimeRootAppAssembly } from './features/drill/drill-tempo-runtime-root-app-assembly.js';
+import { createDrillAppRuntimeSupportRootAppAssembly } from './features/drill/drill-app-runtime-support-root-app-assembly.js';
+import { createDrillPianoSettingsRuntimeRootAppAssembly } from './features/drill/drill-piano-settings-runtime-root-app-assembly.js';
+import { createDrillSettingsMigrationsRootAppAssembly } from './features/drill/drill-settings-migrations-root-app-assembly.js';
+import { createDrillProgressionDrillRootAppAssembly } from './features/drill/drill-progression-drill-root-app-assembly.js';
+import { createDrillStartupDataDrillRootAppAssembly } from './features/drill/drill-startup-data-drill-root-app-assembly.js';
+import { createDrillSettingsPersistenceDrillRootAppAssembly } from './features/drill/drill-settings-persistence-drill-root-app-assembly.js';
+import { createDrillUiEventBindingsDrillRootAppAssembly } from './features/drill/drill-ui-event-bindings-drill-root-app-assembly.js';
+import { createDrillSettingsDrillRootAppAssembly } from './features/drill/drill-settings-drill-root-app-assembly.js';
+import { createDrillPlaybackRuntimeHostDrillRootAppAssembly } from './features/drill/drill-playback-runtime-host-drill-root-app-assembly.js';
+import { createDrillSharedPlaybackDrillRootAppAssembly } from './features/drill/drill-shared-playback-drill-root-app-assembly.js';
 import { initializeAppShell } from './features/app/app-shell.js';
 import { consumePendingDrillSessionIntoUi } from './features/drill/drill-session-import.js';
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
-import { createDrillSharedPlaybackRootAppAssembly } from './features/drill/drill-shared-playback-root-app-assembly.js';
-import { createDrillSharedPlaybackRootAppContext } from './features/drill/drill-shared-playback-root-app-context.js';
-import { createDrillPlaybackRuntimeHostRootAppAssembly } from './features/drill/drill-playback-runtime-host-root-app-assembly.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
-import { createDrillRuntimeStateRootAppAssembly } from './features/drill/drill-runtime-state-root-app-assembly.js';
-import { createDrillUiBootstrapRootAppAssembly } from './features/drill/drill-ui-bootstrap-root-app-assembly.js';
+import { createDrillRuntimeStateDrillRootAppAssembly } from './features/drill/drill-runtime-state-drill-root-app-assembly.js';
+import { createDrillUiBootstrapDrillRootAppAssembly } from './features/drill/drill-ui-bootstrap-drill-root-app-assembly.js';
 
 /* ============================================================
-   Jazz Progression Trainer — app.js
+   Jazz Progression Trainer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â app.js
    ============================================================ */
 
 // ---- Constants ----
 
-const KEY_NAMES_MAJOR = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
-const KEY_NAMES_MINOR = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const KEY_NAMES_MAJOR = ['C','DÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','D','EÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','E','F','GÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','G','AÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','A','BÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','B'];
+const KEY_NAMES_MINOR = ['C','CÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯','D','EÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','E','F','FÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯','G','AÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','A','BÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­','B'];
 
 const ROMAN_TO_SEMITONES = {
   'I': 0, 'II': 2, 'III': 4, 'IV': 5, 'V': 7, 'VI': 9, 'VII': 11
@@ -118,6 +110,42 @@ const INTERVAL_SEMITONES = {
 
 const PIANO_WHITE_KEY_COLUMNS = { 0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7 };
 const PIANO_BLACK_KEY_COLUMNS = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
+
+const {
+  defaults: TRAINER_DEFAULTS,
+  resourcePaths: TRAINER_RESOURCE_PATHS,
+  welcome: WELCOME_CONFIG,
+  reviewStandardConversionsUrl: REVIEW_STANDARD_CONVERSIONS_URL
+} = TRAINER_APP_CONFIG;
+
+const {
+  oneTimeMigrations: ONE_TIME_MIGRATIONS,
+  pianoSampleRange: PIANO_SAMPLE_RANGE,
+  pianoSettings: PIANO_SETTINGS_CONFIG,
+  instrumentRanges: INSTRUMENT_RANGES,
+  audioScheduling: AUDIO_SCHEDULING,
+  audioTiming: AUDIO_TIMING,
+  audioLevels: AUDIO_LEVELS,
+  audioMixer: AUDIO_MIXER_CONFIG,
+  sampleLibrary: SAMPLE_LIBRARY_CONFIG,
+  pianoComping: PIANO_COMPING_CONFIG,
+  voicingRandomization: VOICING_RANDOMIZATION_CONFIG
+} = TRAINER_AUDIO_CONFIG;
+
+const {
+  patternModes: PATTERN_MODES,
+  nextPreviewUnits: NEXT_PREVIEW_UNITS,
+  displayModes: DISPLAY_MODES,
+  harmonyDisplayModes: HARMONY_DISPLAY_MODES,
+  compingStyles: COMPING_STYLES,
+  drumModes: DRUM_MODES
+} = TRAINER_MODE_CONFIG;
+
+const {
+  welcomeProgressions: WELCOME_PROGRESSIONS,
+  welcomeOneChords: WELCOME_ONE_CHORDS,
+  welcomeStandardsFallback: WELCOME_STANDARDS_FALLBACK
+} = TRAINER_PRESET_CONFIG;
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 const APP_URL_PARAMS = new URLSearchParams(window.location.search);
@@ -306,11 +334,6 @@ initializeAppShell({
   modeBadge: document.getElementById('app-mode-badge')
 });
 
-function setKeyPickerOpen(isOpen) {
-  if (!dom.keyPicker) return;
-  dom.keyPicker.open = Boolean(isOpen);
-}
-
 let createDefaultAppSettingsImpl = (..._args) => ({});
 
 function createDefaultAppSettings(...args) {
@@ -334,7 +357,6 @@ let hideNextColImpl = () => {};
 let applyCurrentHarmonyVisibilityImpl = () => {};
 let startImpl = () => {};
 let saveSettingsImpl = () => {};
-let loadSettingsImpl = () => {};
 
 function clearProgressionEditingState(...args) {
   return clearProgressionEditingStateImpl(...args);
@@ -404,15 +426,6 @@ function saveSettings(...args) {
   return saveSettingsImpl(...args);
 }
 
-function loadSettings(...args) {
-  return loadSettingsImpl(...args);
-}
-
-function stopPlaybackIfRunning() {
-  if (!isPlaying) return;
-  stop();
-}
-
 let DEFAULT_PROGRESSIONS = {};
 let progressions = {};
 let editingProgressionName = '';
@@ -472,9 +485,9 @@ const {
   parseWelcomeStandardsText,
   renderWelcomeStandardOptions,
   loadWelcomeStandards
-} = createDrillStartupDataRootAppAssembly({
-  state: {
-    setWelcomeStandards: (value) => { welcomeStandards = value; }
+} = createDrillStartupDataDrillRootAppAssembly({
+  stateRefs: {
+    welcomeStandards: createStateRef(() => welcomeStandards, (value) => { welcomeStandards = value; })
   },
   welcomeStandards: {
     fetchImpl: (...args) => fetch(...args),
@@ -489,15 +502,6 @@ const {
     normalizePatternMode
   }
 });
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
 
 const {
   patternAnalysis: {
@@ -554,15 +558,6 @@ const {
   }
 });
 
-function getPianoVoicingMode() {
-  normalizeCompingStyle(dom.compingStyle?.value);
-  return 'piano';
-}
-
-function getRepetitionsPerKey() {
-  return normalizeRepetitionsPerKey(dom.repetitionsPerKey?.value);
-}
-
 const {
   createProgressionEntry,
   normalizeProgressionEntry,
@@ -588,214 +583,77 @@ const {
   }
 });
 
-function clearOneChordCycleState() {
-  currentRawChords = [];
-  nextRawChords = [];
-  oneChordQualityPool = [];
-  oneChordQualityPoolSignature = '';
-  currentOneChordQualityValue = '';
-  nextOneChordQualityValue = '';
-}
-
-function normalizeAppliedOneTimeMigrations(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key, entry]) => Boolean(key) && entry && typeof entry === 'object' && !Array.isArray(entry))
-      .map(([key, entry]) => [key, {
-        appliedAt: typeof entry.appliedAt === 'string' ? entry.appliedAt : '',
-        appVersion: typeof entry.appVersion === 'string' ? entry.appVersion : '',
-        defaultPresetsVersion: typeof entry.defaultPresetsVersion === 'string' ? entry.defaultPresetsVersion : ''
-      }])
-  );
-}
-
-function markOneTimeMigrationApplied(migrationId) {
-  if (!migrationId) return;
-
-  appliedOneTimeMigrations = {
-    ...appliedOneTimeMigrations,
-    [migrationId]: {
-      appliedAt: new Date().toISOString(),
-      appVersion: APP_VERSION,
-      defaultPresetsVersion: defaultProgressionsVersion
-    }
-  };
-}
-
-function hasAppliedOneTimeMigration(migrationId) {
-  return Boolean(migrationId && appliedOneTimeMigrations[migrationId]);
-}
-
-function applySilentDefaultPresetResetMigration() {
-  const migrationId = ONE_TIME_MIGRATIONS.silentDefaultPresetReset;
-  if (!migrationId || hasAppliedOneTimeMigration(migrationId) || Object.keys(DEFAULT_PROGRESSIONS).length === 0) {
-    return false;
+const {
+  normalizeAppliedOneTimeMigrations,
+  markOneTimeMigrationApplied,
+  hasAppliedOneTimeMigration,
+  applySilentDefaultPresetResetMigration,
+  shouldApplyMasterVolumeDefault50Migration
+} = createDrillSettingsMigrationsRootAppAssembly({
+  constants: {
+    appVersion: APP_VERSION,
+    oneTimeMigrations: ONE_TIME_MIGRATIONS,
+    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
+  },
+  state: {
+    getAppliedOneTimeMigrations: () => appliedOneTimeMigrations,
+    setAppliedOneTimeMigrations: (value) => { appliedOneTimeMigrations = value; },
+    getDefaultProgressions: () => DEFAULT_PROGRESSIONS,
+    getProgressions: () => progressions,
+    setProgressions: (value) => { progressions = value; },
+    getDefaultProgressionsVersion: () => defaultProgressionsVersion,
+    getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
+    setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
+    setAcknowledgedDefaultProgressionsVersion: (value) => { acknowledgedDefaultProgressionsVersion = value; },
+    setShouldPromptForDefaultProgressionsUpdate: (value) => { shouldPromptForDefaultProgressionsUpdate = value; },
+    setSavedPatternSelection: (value) => { savedPatternSelection = value; }
+  },
+  helpers: {
+    normalizeProgressionsMap,
+    getDefaultProgressionsFingerprint
   }
+});
 
-  progressions = normalizeProgressionsMap(DEFAULT_PROGRESSIONS);
-  appliedDefaultProgressionsFingerprint = getDefaultProgressionsFingerprint();
-  acknowledgedDefaultProgressionsVersion = defaultProgressionsVersion;
-  shouldPromptForDefaultProgressionsUpdate = false;
-  savedPatternSelection = Object.keys(progressions)[0] || CUSTOM_PATTERN_OPTION_VALUE;
-  markOneTimeMigrationApplied(migrationId);
-  return true;
-}
-
-function shouldApplyMasterVolumeDefault50Migration() {
-  const migrationId = ONE_TIME_MIGRATIONS.masterVolumeDefault50;
-  if (!migrationId || hasAppliedOneTimeMigration(migrationId)) {
-    return false;
+const {
+  isOneChordModeActive,
+  getOneChordQualitySignature,
+  matchesOneChordQualitySet,
+  takeNextOneChordQuality,
+  syncDoubleTimeToggle,
+  normalizeChordsPerBarForCurrentPattern,
+  getSelectedChordsPerBar,
+  getPatternKeyOverridePitchClass,
+  getChordsPerBar,
+  getBeatsPerChord,
+  padProgression,
+  canLoopTrimProgression,
+  buildLoopRepVoicings
+} = createDrillPatternRuntimeRootAppAssembly({
+  dom,
+  runtimeState: {
+    getOneChordQualityPool: () => oneChordQualityPool,
+    setOneChordQualityPool: (value) => { oneChordQualityPool = value; },
+    getOneChordQualityPoolSignature: () => oneChordQualityPoolSignature,
+    setOneChordQualityPoolSignature: (value) => { oneChordQualityPoolSignature = value; }
+  },
+  runtimeConstants: {
+    oneChordDefaultQualities: ONE_CHORD_DEFAULT_QUALITIES
+  },
+  runtimeHelpers: {
+    shuffleArray,
+    getCurrentPatternString,
+    isOneChordModeActiveBase,
+    analyzePatternCached,
+    normalizeChordsPerBar,
+    getPatternKeyOverridePitchClassBase,
+    getBeatsPerChordBase,
+    padProgressionBase,
+    getSelectedChordsPerBarValue: () => DEFAULT_CHORDS_PER_BAR,
+    getPlayedChordQuality,
+    getCurrentDoubleTimeChecked: () => Boolean(dom.doubleTimeToggle?.checked)
   }
-  markOneTimeMigrationApplied(migrationId);
-  return true;
-}
+});
 
-function isOneChordModeActive(pattern = getCurrentPatternString()) {
-  return isOneChordModeActiveBase(pattern);
-}
-
-function getOneChordQualitySignature(qualities) {
-  return (qualities || []).join('|');
-}
-
-function matchesOneChordQualitySet(qualities, reference) {
-  if (!Array.isArray(qualities) || !Array.isArray(reference)) return false;
-  if (qualities.length !== reference.length) return false;
-  return qualities.every((quality, index) => quality === reference[index]);
-}
-
-function takeNextOneChordQuality(qualities, excludedQuality = null) {
-  const availableQualities = Array.isArray(qualities) && qualities.length > 0
-    ? qualities
-    : ONE_CHORD_DEFAULT_QUALITIES;
-  const signature = getOneChordQualitySignature(availableQualities);
-  if (oneChordQualityPoolSignature !== signature) {
-    oneChordQualityPoolSignature = signature;
-    oneChordQualityPool = [];
-  }
-
-  if (availableQualities.length <= 1 || excludedQuality === null) {
-    if (oneChordQualityPool.length === 0) {
-      oneChordQualityPool = shuffleArray(availableQualities.slice());
-    }
-    return oneChordQualityPool.pop();
-  }
-
-  if (oneChordQualityPool.length === 0) {
-    oneChordQualityPool = shuffleArray(availableQualities.slice());
-  }
-
-  let candidateIndex = oneChordQualityPool.findIndex(quality => quality !== excludedQuality);
-  if (candidateIndex === -1) {
-    oneChordQualityPool = shuffleArray(availableQualities.slice());
-    candidateIndex = oneChordQualityPool.findIndex(quality => quality !== excludedQuality);
-  }
-
-  if (candidateIndex === -1) {
-    return oneChordQualityPool.pop();
-  }
-
-  const [candidate] = oneChordQualityPool.splice(candidateIndex, 1);
-  return candidate;
-}
-
-// ---- Pattern Parser ----
-
-function syncDoubleTimeToggle() {
-  if (dom.doubleTimeToggle) {
-    dom.doubleTimeToggle.checked = getSelectedChordsPerBar() >= 2;
-  }
-}
-
-function normalizeChordsPerBarForCurrentPattern() {
-  if (!dom.chordsPerBar) return;
-
-  const analysis = analyzePatternCached(getCurrentPatternString());
-  if (analysis.usesBarLines) {
-    dom.chordsPerBar.value = '4';
-    syncDoubleTimeToggle();
-    return;
-  }
-
-  if (getSelectedChordsPerBar() === 4) {
-    dom.chordsPerBar.value = dom.doubleTimeToggle?.checked ? '2' : String(DEFAULT_CHORDS_PER_BAR);
-  }
-  syncDoubleTimeToggle();
-}
-
-function getSelectedChordsPerBar() {
-  return normalizeChordsPerBar(dom.chordsPerBar?.value);
-}
-
-function getPatternKeyOverridePitchClass(patternString = getCurrentPatternString()) {
-  return getPatternKeyOverridePitchClassBase(patternString);
-}
-
-function getChordsPerBar(patternString = getCurrentPatternString()) {
-  const analysis = analyzePatternCached(patternString);
-  return normalizeChordsPerBar(analysis.resolvedChordsPerBar ?? getSelectedChordsPerBar());
-}
-
-function getBeatsPerChord(chordsPerBar = getChordsPerBar()) {
-  return getBeatsPerChordBase(chordsPerBar);
-}
-
-function padProgression(chords, chordsPerBar = getChordsPerBar()) {
-  return padProgressionBase(chords, chordsPerBar);
-}
-
-// Check if a progression can be loop-trimmed: last chord == first chord
-// and removing it leaves an even number of measures.
-function canLoopTrimProgression(rawChords, chordsPerBar = getChordsPerBar()) {
-  if (rawChords.length < 3) return false;
-  const first = rawChords[0];
-  const last = rawChords[rawChords.length - 1];
-  const firstPlayedMajor = getPlayedChordQuality(first, false);
-  const lastPlayedMajor = getPlayedChordQuality(last, false);
-  const firstPlayedMinor = getPlayedChordQuality(first, true);
-  const lastPlayedMinor = getPlayedChordQuality(last, true);
-  if (first.semitones !== last.semitones
-      || (first.bassSemitones ?? first.semitones) !== (last.bassSemitones ?? last.semitones)
-      || firstPlayedMajor !== lastPlayedMajor
-      || firstPlayedMinor !== lastPlayedMinor) return false;
-  const trimmedLength = rawChords.length - 1;
-  const chordsPerMeasure = normalizeChordsPerBar(chordsPerBar);
-  if (trimmedLength % chordsPerMeasure !== 0) return false;
-  const measures = trimmedLength / chordsPerMeasure;
-  return measures % 2 === 0;
-}
-
-// Build voicing plan for a loop rep from the template computed on the full raw
-// sequence (e.g. 5 voicings for C A7 D G C).
-// - isFirstRep=true  → [v0, v1, v2, v3] (trim resolution voicing)
-// - isFirstRep=false → [v4, v1, v2, v3, (v4, v4, ...)] (resolution first, body, pad)
-function buildLoopRepVoicings(template, paddedLength, isFirstRep) {
-  if (!Array.isArray(template) || template.length === 0) {
-    return new Array(Math.max(0, paddedLength)).fill(null);
-  }
-  const N = template.length; // number of raw chords (e.g. 5)
-  const plan = [];
-  if (isFirstRep) {
-    // Use voicings 0..N-2, pad with voicing N-2 if needed
-    for (let i = 0; i < paddedLength; i++) {
-      plan.push(template[Math.min(i, N - 2)]);
-    }
-  } else {
-    // Start with resolution voicing (last in template), then body voicings 1..N-2
-    const resolve = template[N - 1];
-    plan.push(resolve);
-    for (let i = 1; i < paddedLength; i++) {
-      if (i < N - 1) {
-        plan.push(template[i]); // body voicings v1, v2, v3
-      } else {
-        plan.push(resolve); // pad with resolution voicing
-      }
-    }
-  }
-  return plan;
-}
 
 // ---- Audio Engine ----
 
@@ -811,37 +669,18 @@ const sampleLoadPromises = {
   drums: new Map()
 };
 const sampleFileFetchPromises = new Map();
-const DRUM_MODE_OFF = 'off';
-const DRUM_MODE_METRONOME_24 = 'metronome_2_4';
-const DRUM_MODE_HIHATS_24 = 'hihats_2_4';
-const DRUM_MODE_FULL_SWING = 'full_swing';
-const PORTAMENTO_ALWAYS_ON = true;
-const METRONOME_GAIN_MULTIPLIER = 2.4;
-const DRUMS_GAIN_MULTIPLIER = 1.18;
-const DEFAULT_MASTER_VOLUME_PERCENT = '50';
-const MIXER_CHANNEL_CALIBRATION = Object.freeze({
-  master: 2,
-  bass: 0.74,
-  strings: 1,
-  drums: 0.87,
-});
-const SAFE_PRELOAD_MEASURES = 4;
-const DRUM_HIHAT_SAMPLE_URL = 'assets/13_heavy_hi-hat_chick.mp3';
-const DRUM_RIDE_SAMPLE_URLS = [
-  'assets/ride/20_bright_ride_body.mp3',
-  'assets/ride/20_cool_ride_body.mp3',
-  'assets/ride/20_crush_ride_body.mp3',
-  'assets/ride/20_deep_full_ride_body.mp3',
-  'assets/ride/20_dry_heavy_ride_body.mp3',
-  'assets/ride/20_dry_ride_body.mp3',
-  'assets/ride/20_power_ride_body.mp3',
-  'assets/ride/21_dark_full_ride_body.mp3',
-  'assets/ride/21_full_ride_body.mp3',
-  'assets/ride/21_silver_mellow_ride_body.mp3',
-  'assets/ride/22_dark_metal_ride_body.mp3',
-  'assets/ride/22_dry_ride_body.mp3',
-  'assets/ride/22_mellow_ride_body.mp3',
-];
+const DRUM_MODE_OFF = DRUM_MODES.off;
+const DRUM_MODE_METRONOME_24 = DRUM_MODES.metronome24;
+const DRUM_MODE_HIHATS_24 = DRUM_MODES.hihats24;
+const DRUM_MODE_FULL_SWING = DRUM_MODES.fullSwing;
+const PORTAMENTO_ALWAYS_ON = AUDIO_MIXER_CONFIG.portamentoAlwaysOn;
+const METRONOME_GAIN_MULTIPLIER = AUDIO_MIXER_CONFIG.metronomeGainMultiplier;
+const DRUMS_GAIN_MULTIPLIER = AUDIO_MIXER_CONFIG.drumsGainMultiplier;
+const DEFAULT_MASTER_VOLUME_PERCENT = AUDIO_MIXER_CONFIG.defaultMasterVolumePercent;
+const MIXER_CHANNEL_CALIBRATION = AUDIO_MIXER_CONFIG.mixerChannelCalibration;
+const SAFE_PRELOAD_MEASURES = AUDIO_MIXER_CONFIG.safePreloadMeasures;
+const DRUM_HIHAT_SAMPLE_URL = SAMPLE_LIBRARY_CONFIG.drumHiHatSampleUrl;
+const DRUM_RIDE_SAMPLE_URLS = SAMPLE_LIBRARY_CONFIG.drumRideSampleUrls;
 let applyDrillAudioMixerSettingsDelegate = null;
 const {
   playbackSettingsRuntime: drillPlaybackSettingsRuntime
@@ -894,53 +733,22 @@ const STRING_LOOP_END = AUDIO_TIMING.stringLoopEndSeconds;
 const STRING_LOOP_CROSSFADE = AUDIO_TIMING.stringLoopCrossfadeSeconds;
 const STRING_LEGATO_MAX_DISTANCE = AUDIO_TIMING.stringLegatoMaxDistanceSemitones; // semitones
 
-function clamp01(value) {
-  return Math.min(1, Math.max(0, value));
-}
-
-function clampRange(value, min, max, fallback) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
-}
-
-function createDefaultPianoFadeSettings(overrides = {}) {
-  return {
-    ...DEFAULT_PIANO_FADE_SETTINGS,
-    ...overrides
-  };
-}
-
-function normalizePianoFadeSettings(candidate = {}) {
-  return {
-    timeConstantLow: clampRange(candidate.timeConstantLow, 0.01, 1.5, DEFAULT_PIANO_FADE_SETTINGS.timeConstantLow),
-    timeConstantHigh: clampRange(candidate.timeConstantHigh, 0.01, 1.5, DEFAULT_PIANO_FADE_SETTINGS.timeConstantHigh)
-  };
-}
-
-function normalizePianoMidiSettings(candidate = {}) {
-  return {
-    enabled: Boolean(candidate.enabled),
-    inputId: typeof candidate.inputId === 'string' ? candidate.inputId : DEFAULT_PIANO_MIDI_SETTINGS.inputId,
-    sustainPedalEnabled: candidate.sustainPedalEnabled !== undefined
-      ? Boolean(candidate.sustainPedalEnabled)
-      : DEFAULT_PIANO_MIDI_SETTINGS.sustainPedalEnabled
-  };
-}
-
-function getPianoFadeProfile(midi, volume, maxDuration) {
-  const midiNorm = clamp01(((Number(midi) || 60) - 45) / 44);
-  const volumeNorm = clamp01((Number(volume) || 0) / 0.42);
-  const timeConstantBase = pianoFadeSettings.timeConstantLow + ((pianoFadeSettings.timeConstantHigh - pianoFadeSettings.timeConstantLow) * midiNorm);
-  const timeConstant = Math.max(0.024, timeConstantBase + (volumeNorm * 0.006));
-  const fadeBefore = maxDuration > 0
-    ? Math.min(Math.max(0.02, timeConstant * 0.9), Math.max(0.02, maxDuration * 0.28))
-    : Math.max(0.02, timeConstant * 0.9);
-  return {
-    fadeBefore,
-    timeConstant
-  };
-}
+const {
+  clamp01,
+  clampRange,
+  createDefaultPianoFadeSettings,
+  normalizePianoFadeSettings,
+  normalizePianoMidiSettings,
+  getPianoFadeProfile
+} = createDrillPianoSettingsRuntimeRootAppAssembly({
+  runtimeState: {
+    getPianoFadeSettings: () => pianoFadeSettings
+  },
+  constants: {
+    defaultPianoFadeSettings: DEFAULT_PIANO_FADE_SETTINGS,
+    defaultPianoMidiSettings: DEFAULT_PIANO_MIDI_SETTINGS
+  }
+});
 const STRING_LEGATO_GLIDE_TIME = AUDIO_TIMING.stringLegatoGlideTimeSeconds; // seconds
 const STRING_LEGATO_PRE_DIP_TIME = AUDIO_TIMING.stringLegatoPreDipTimeSeconds; // seconds
 const STRING_LEGATO_PRE_DIP_RATIO = AUDIO_TIMING.stringLegatoPreDipRatio;
@@ -1097,6 +905,8 @@ const {
   loadDrillFileSample,
   fetchDrillSampleArrayBuffer,
   loadDrillBufferFromUrl,
+  resumeDrillAudioContext,
+  suspendDrillAudioContext,
   preloadAllDrillSamples,
   preloadDrillStartupSamples,
   preloadDrillNearTermSamples,
@@ -1145,13 +955,13 @@ const loadFileSample = loadDrillFileSample;
 const fetchArrayBufferFromUrl = fetchDrillSampleArrayBuffer;
 const loadBufferFromUrl = loadDrillBufferFromUrl;
 
-const CHORD_ANTICIPATION = 0.25; // seconds — strings start before the beat
+const CHORD_ANTICIPATION = PIANO_COMPING_CONFIG.chordAnticipationSeconds; // seconds - strings start before the beat
 const playSample = playDrillSample;
 const playNote = playDrillNote;
-const PIANO_COMP_DURATION_RATIO = 0.4;
-const PIANO_COMP_MIN_DURATION = 0.12;
-const PIANO_COMP_MAX_DURATION = 0.24;
-const PIANO_VOLUME_MULTIPLIER = 0.27;
+const PIANO_COMP_DURATION_RATIO = PIANO_COMPING_CONFIG.durationRatio;
+const PIANO_COMP_MIN_DURATION = PIANO_COMPING_CONFIG.minDurationSeconds;
+const PIANO_COMP_MAX_DURATION = PIANO_COMPING_CONFIG.maxDurationSeconds;
+const PIANO_VOLUME_MULTIPLIER = PIANO_COMPING_CONFIG.volumeMultiplier;
 
 function getNextDifferentChord(...args) {
   return getNextDifferentDrillChord(...args);
@@ -1320,262 +1130,16 @@ const {
   ensureBackgroundSamplePreload
 } = drillPlaybackResourcesFacade;
 
-function buildChordVoicingBase(
-  rootPitchClass,
-  qualityCategory,
-  colorToneIntervals,
-  guideToneIntervals = null,
-  bassPitchClass = rootPitchClass
-) {
-  let bassNote = bassPitchClass;
-  while (bassNote < CELLO_LOW) bassNote += 12;
-
-  // Guide tones: unique MIDI in C#3–C4 (49–60) for each pitch class
-  const guideIntervals = resolveIntervalList(guideToneIntervals || GUIDE_TONES[qualityCategory]);
-  const guideTones = guideIntervals.map(interval => {
-    const pc = (rootPitchClass + interval) % 12;
-    return pc === 0 ? 60 : 48 + pc;
-  });
-
-  const bassMatchesGuideIndex = guideTones.findIndex(midi => (midi % 12) === bassPitchClass);
-  if (bassMatchesGuideIndex !== -1) {
-    let rootGuideReplacement = rootPitchClass;
-    while (rootGuideReplacement <= bassNote || rootGuideReplacement < GUIDE_TONE_LOW) rootGuideReplacement += 12;
-    while (rootGuideReplacement > GUIDE_TONE_HIGH) rootGuideReplacement -= 12;
-    if (rootGuideReplacement < GUIDE_TONE_LOW) rootGuideReplacement += 12;
-    guideTones[bassMatchesGuideIndex] = rootGuideReplacement;
-  }
-  const uniqueGuideTones = [...new Set(guideTones)];
-
-  // Top guide tone = highest MIDI among guide tones
-  const topGuide = Math.max(...uniqueGuideTones);
-
-  const colorPitchClasses = [...new Set(
-    colorToneIntervals.map(interval => (rootPitchClass + interval) % 12)
-  )];
-  if (bassPitchClass !== rootPitchClass && bassMatchesGuideIndex === -1 && !colorPitchClasses.includes(rootPitchClass)) {
-    colorPitchClasses.push(rootPitchClass);
-  }
-
-  return {
-    bassNote,
-    guideTones: uniqueGuideTones,
-    colorPitchClasses,
-    topGuide,
-  };
-}
-
-function getCandidateMidisForPitchClass(pitchClass, minExclusive, low = VIOLIN_LOW, high = VIOLIN_HIGH) {
-  const midis = [];
-  let midi = pitchClass;
-  while (midi <= minExclusive || midi < low) midi += 12;
-  while (midi <= high) {
-    midis.push(midi);
-    midi += 12;
-  }
-  return midis;
-}
-
-function getGapFillCandidates(lowerNote, upperNote, colorPitchClasses, existingNotes) {
-  const candidates = [];
-  const seen = new Set();
-
-  for (const pitchClass of colorPitchClasses) {
-    let midi = pitchClass;
-    while (midi <= lowerNote || midi < VIOLIN_LOW) midi += 12;
-    while (midi < upperNote && midi <= VIOLIN_HIGH) {
-      if (!existingNotes.has(midi) && !seen.has(midi)) {
-        candidates.push(midi);
-        seen.add(midi);
-      }
-      midi += 12;
-    }
-  }
-
-  return candidates;
-}
-
-function pickBestGapFill(lowerNote, upperNote, candidates) {
-  if (!candidates.length) return null;
-  const midpoint = (lowerNote + upperNote) / 2;
-
-  return candidates.slice().sort((left, right) => {
-    const leftLargestGap = Math.max(left - lowerNote, upperNote - left);
-    const rightLargestGap = Math.max(right - lowerNote, upperNote - right);
-    if (leftLargestGap !== rightLargestGap) return leftLargestGap - rightLargestGap;
-
-    const leftMidDistance = Math.abs(left - midpoint);
-    const rightMidDistance = Math.abs(right - midpoint);
-    if (leftMidDistance !== rightMidDistance) return leftMidDistance - rightMidDistance;
-
-    return left - right;
-  })[0];
-}
-
-function fillVoicingUpperGaps(guideTones, colorTones, colorPitchClasses) {
-  const augmentedColorTones = [...colorTones];
-
-  while (true) {
-    const upperNotes = [...guideTones, ...augmentedColorTones].sort((a, b) => a - b);
-    let widestGap = null;
-
-    for (let i = 1; i < upperNotes.length; i++) {
-      const lowerNote = upperNotes[i - 1];
-      const upperNote = upperNotes[i];
-      const gap = upperNote - lowerNote;
-      if (gap > 12 && (!widestGap || gap > widestGap.gap)) {
-        widestGap = { lowerNote, upperNote, gap };
-      }
-    }
-
-    if (!widestGap) {
-      return augmentedColorTones.sort((a, b) => a - b);
-    }
-
-    const existingNotes = new Set(upperNotes);
-    const fillCandidates = getGapFillCandidates(
-      widestGap.lowerNote,
-      widestGap.upperNote,
-      colorPitchClasses,
-      existingNotes
-    );
-    const filler = pickBestGapFill(widestGap.lowerNote, widestGap.upperNote, fillCandidates);
-    if (filler === null) {
-      return null;
-    }
-
-    augmentedColorTones.push(filler);
-  }
-}
-
-function enumerateChordVoicingCandidates(
-  rootPitchClass,
-  qualityCategory,
-  colorToneIntervals,
-  guideToneIntervals = null,
-  bassPitchClass = rootPitchClass
-) {
-  const base = buildChordVoicingBase(
-    rootPitchClass,
-    qualityCategory,
-    colorToneIntervals,
-    guideToneIntervals,
-    bassPitchClass
-  );
-  const { bassNote, guideTones, colorPitchClasses, topGuide } = base;
-  if (colorPitchClasses.length === 0) {
-    return [{ bassNote, guideTones, colorTones: [] }];
-  }
-
-  const colorToneOptions = colorPitchClasses.map(pc => getCandidateMidisForPitchClass(pc, topGuide));
-  if (colorToneOptions.some(options => options.length === 0)) {
-    return [];
-  }
-
-  const candidateMap = new Map();
-  const current = new Array(colorToneOptions.length);
-
-  function visitOption(optionIndex) {
-    if (optionIndex >= colorToneOptions.length) {
-      const colorTones = [...current].sort((a, b) => a - b);
-      const filledColorTones = fillVoicingUpperGaps(guideTones, colorTones, colorPitchClasses);
-      if (!filledColorTones) {
-        return;
-      }
-      const key = filledColorTones.join(',');
-      if (!candidateMap.has(key)) {
-        candidateMap.set(key, { bassNote, guideTones, colorTones: filledColorTones });
-      }
-      return;
-    }
-
-    for (const midi of colorToneOptions[optionIndex]) {
-      current[optionIndex] = midi;
-      visitOption(optionIndex + 1);
-    }
-  }
-
-  visitOption(0);
-
-  return [...candidateMap.values()].sort((a, b) => {
-    const topDiff = getVoicingTopNote(a) - getVoicingTopNote(b);
-    if (topDiff !== 0) return topDiff;
-    const sumDiff = sumNotes(a.colorTones) - sumNotes(b.colorTones);
-    if (sumDiff !== 0) return sumDiff;
-    return a.colorTones.join(',').localeCompare(b.colorTones.join(','));
-  });
-}
-
-function computeChordVoicing(
-  rootPitchClass,
-  qualityCategory,
-  colorToneIntervals,
-  guideToneIntervals = null,
-  bassPitchClass = rootPitchClass
-) {
-  return enumerateChordVoicingCandidates(
-    rootPitchClass,
-    qualityCategory,
-    colorToneIntervals,
-    guideToneIntervals,
-    bassPitchClass
-  )[0] || null;
-}
-
-function sumNotes(notes) {
-  return notes.reduce((total, note) => total + note, 0);
-}
-
-function getVoicingUpperSpan(voicing) {
-  const upperNotes = [...(voicing?.guideTones || []), ...(voicing?.colorTones || [])].sort((a, b) => a - b);
-  if (upperNotes.length < 2) return 0;
-  return upperNotes[upperNotes.length - 1] - upperNotes[0];
-}
-
-function getVoicingTopNote(voicing) {
-  if (!voicing?.colorTones?.length) {
-    return Math.max(voicing?.bassNote || -Infinity, ...(voicing?.guideTones || []));
-  }
-  return voicing.colorTones[voicing.colorTones.length - 1];
-}
-
-const VOICING_RANDOMIZATION_CHANCE = 0.3;
-const VOICING_BOUNDARY_RANDOMIZATION_CHANCE = 0.3;
-const VOICING_RANDOM_TOP_SLACK = 1;
-const VOICING_RANDOM_BOUNDARY_SLACK = 2;
-const VOICING_RANDOM_CENTER_SLACK = 5;
-const VOICING_RANDOM_SUM_SLACK = 10;
-const VOICING_RANDOM_INNER_SLACK = 6;
+const VOICING_RANDOMIZATION_CHANCE = VOICING_RANDOMIZATION_CONFIG.randomizationChance;
+const VOICING_BOUNDARY_RANDOMIZATION_CHANCE = VOICING_RANDOMIZATION_CONFIG.boundaryRandomizationChance;
+const VOICING_RANDOM_TOP_SLACK = VOICING_RANDOMIZATION_CONFIG.topSlack;
+const VOICING_RANDOM_BOUNDARY_SLACK = VOICING_RANDOMIZATION_CONFIG.boundarySlack;
+const VOICING_RANDOM_CENTER_SLACK = VOICING_RANDOMIZATION_CONFIG.centerSlack;
+const VOICING_RANDOM_SUM_SLACK = VOICING_RANDOMIZATION_CONFIG.sumSlack;
+const VOICING_RANDOM_INNER_SLACK = VOICING_RANDOMIZATION_CONFIG.innerSlack;
 
 function isVoiceLeadingV2Enabled() {
   return true;
-}
-
-function getVoicingInnerMovement(fromVoicing, toVoicing) {
-  if (!fromVoicing?.colorTones?.length || !toVoicing?.colorTones?.length) return 0;
-
-  const fromNotes = [...fromVoicing.colorTones].sort((a, b) => a - b);
-  const toNotes = [...toVoicing.colorTones].sort((a, b) => a - b);
-  const limit = Math.min(fromNotes.length, toNotes.length);
-  let movement = 0;
-
-  for (let i = 0; i < limit; i++) {
-    movement += Math.abs(toNotes[i] - fromNotes[i]);
-  }
-
-  if (fromNotes.length === toNotes.length) return movement;
-
-  const longerNotes = fromNotes.length > toNotes.length ? fromNotes : toNotes;
-  const shorterNotes = fromNotes.length > toNotes.length ? toNotes : fromNotes;
-  const fallbackNote = shorterNotes.length > 0
-    ? shorterNotes[shorterNotes.length - 1]
-    : getVoicingTopNote(fromNotes.length > toNotes.length ? toVoicing : fromVoicing);
-
-  for (let i = limit; i < longerNotes.length; i++) {
-    movement += Math.abs(longerNotes[i] - fallbackNote);
-  }
-
-  return movement;
 }
 
 function createVoicingSlot(chord, key, isMinor, segment = 'current', nextChord = null) {
@@ -1584,100 +1148,6 @@ function createVoicingSlot(chord, key, isMinor, segment = 'current', nextChord =
 
 function buildVoicingPlanForSlots(slots) {
   return buildSharedVoicingPlanForSlots(slots);
-}
-
-function compareVoicingPathScores(left, right) {
-  if (!left) return 1;
-  if (!right) return -1;
-  if (left.totalTopMovement !== right.totalTopMovement) {
-    return left.totalTopMovement - right.totalTopMovement;
-  }
-  if (left.totalBoundaryCenterDistance !== right.totalBoundaryCenterDistance) {
-    return left.totalBoundaryCenterDistance - right.totalBoundaryCenterDistance;
-  }
-  if (left.totalBoundaryTopMovement !== right.totalBoundaryTopMovement) {
-    return left.totalBoundaryTopMovement - right.totalBoundaryTopMovement;
-  }
-  if (left.totalUpperSpan !== right.totalUpperSpan) {
-    return right.totalUpperSpan - left.totalUpperSpan;
-  }
-  if (left.totalTopSum !== right.totalTopSum) {
-    return left.totalTopSum - right.totalTopSum;
-  }
-  if (left.totalInnerMovement !== right.totalInnerMovement) {
-    return left.totalInnerMovement - right.totalInnerMovement;
-  }
-  return left.signature.localeCompare(right.signature);
-}
-
-function compareLegacyVoicingPathScores(left, right) {
-  if (!left) return 1;
-  if (!right) return -1;
-  if (left.totalTopMovement !== right.totalTopMovement) {
-    return left.totalTopMovement - right.totalTopMovement;
-  }
-  if (left.totalTopSum !== right.totalTopSum) {
-    return left.totalTopSum - right.totalTopSum;
-  }
-  return left.signature.localeCompare(right.signature);
-}
-
-function isVoicingScoreNearBest(score, bestScore) {
-  if (!score || !bestScore) return false;
-  return score.totalTopMovement <= bestScore.totalTopMovement + VOICING_RANDOM_TOP_SLACK
-    && score.totalBoundaryCenterDistance <= bestScore.totalBoundaryCenterDistance + VOICING_RANDOM_CENTER_SLACK
-    && score.totalBoundaryTopMovement <= bestScore.totalBoundaryTopMovement + VOICING_RANDOM_BOUNDARY_SLACK
-    && score.totalTopSum <= bestScore.totalTopSum + VOICING_RANDOM_SUM_SLACK
-    && score.totalInnerMovement <= bestScore.totalInnerMovement + VOICING_RANDOM_INNER_SLACK;
-}
-
-function getVoicingScorePenalty(score, bestScore) {
-  if (!score || !bestScore) return Infinity;
-  return (score.totalTopMovement - bestScore.totalTopMovement) * 6
-    + (score.totalBoundaryCenterDistance - bestScore.totalBoundaryCenterDistance) * 2
-    + (score.totalBoundaryTopMovement - bestScore.totalBoundaryTopMovement) * 4
-    + Math.max(0, bestScore.totalUpperSpan - score.totalUpperSpan) * 0.75
-    + (score.totalTopSum - bestScore.totalTopSum) * 0.25
-    + (score.totalInnerMovement - bestScore.totalInnerMovement) * 0.5;
-}
-
-function pickWeightedRandomScore(scores, bestScore) {
-  let totalWeight = 0;
-  const weightedScores = scores.map(score => {
-    const penalty = Math.max(0, getVoicingScorePenalty(score, bestScore));
-    const weight = 1 / (1 + penalty);
-    totalWeight += weight;
-    return { score, weight };
-  });
-
-  if (totalWeight <= 0) return bestScore;
-
-  let cursor = Math.random() * totalWeight;
-  for (const entry of weightedScores) {
-    cursor -= entry.weight;
-    if (cursor <= 0) return entry.score;
-  }
-
-  return weightedScores[weightedScores.length - 1]?.score || bestScore;
-}
-
-function pickVoicingScore(scores, randomizationChance = VOICING_RANDOMIZATION_CHANCE) {
-  const availableScores = scores.filter(Boolean);
-  if (availableScores.length === 0) return null;
-
-  let bestScore = availableScores[0];
-  for (let i = 1; i < availableScores.length; i++) {
-    if (compareVoicingPathScores(availableScores[i], bestScore) < 0) {
-      bestScore = availableScores[i];
-    }
-  }
-
-  const shortlist = availableScores.filter(score => isVoicingScoreNearBest(score, bestScore));
-  if (shortlist.length <= 1 || Math.random() >= randomizationChance) {
-    return bestScore;
-  }
-
-  return pickWeightedRandomScore(shortlist, bestScore);
 }
 
 function buildLegacyVoicingPlan(chords, key, isMinor) {
@@ -1696,8 +1166,6 @@ function getVoicingPlanForProgression(chords, key, isMinor) {
   return getSharedVoicingPlanForProgression(chords, key, isMinor);
 }
 
-// ---- Key Pool ----
-
 let keyPool = [];
 let enabledKeys = [true,true,true,true,true,true,true,true,true,true,true,true];
 
@@ -1705,45 +1173,35 @@ const {
   shuffleArray,
   getEffectiveKeyPool,
   nextKey
-} = createDrillRuntimeStateRootAppAssembly({
-  keyPoolState: {
-    getEnabledKeys: () => enabledKeys,
-    getKeyPool: () => keyPool,
-    setKeyPool: (value) => { keyPool = value; }
+} = createDrillRuntimeStateDrillRootAppAssembly({
+  keyPoolStateRefs: {
+    enabledKeys: createStateRef(() => enabledKeys),
+    keyPool: createStateRef(() => keyPool, (value) => { keyPool = value; })
   }
 }).keyPoolRuntime;
 
 // ---- Display helpers ----
 
-function getDisplayTranspositionSemitones() {
-  return Number(dom.transpositionSelect?.value || 0);
-}
-
-function transposeDisplayPitchClass(pitchClass) {
-  return (pitchClass + getDisplayTranspositionSemitones() + 12) % 12;
-}
-
-function getDisplayedQuality(chord, isMinor, nextChord = null) {
-  const playedQuality = getPlayedChordQuality(chord, isMinor, nextChord);
-  return getDisplayAliasQuality(
-    playedQuality,
-    normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value)
-  );
-}
-
-function normalizeDisplayedRootName(rootName) {
-  const enharmonicMap = {
-    'F♭': 'E',
-    'E♯': 'F',
-    'C♭': 'B',
-    'B♯': 'C',
-    Fb: 'E',
-    'E#': 'F',
-    Cb: 'B',
-    'B#': 'C'
-  };
-  return enharmonicMap[rootName] || rootName;
-}
+const {
+  getDisplayTranspositionSemitones,
+  transposeDisplayPitchClass,
+  getDisplayedQuality,
+  normalizeDisplayedRootName,
+  isCurrentHarmonyHidden,
+  getBaseChordDisplaySize
+} = createDrillDisplaySupportRootAppAssembly({
+  dom,
+  constants: {
+    displayModeChordsOnly: DISPLAY_MODE_CHORDS_ONLY
+  },
+  runtimeHelpers: {
+    getPlayedChordQuality,
+    getDisplayAliasQuality,
+    normalizeHarmonyDisplayMode,
+    normalizeDisplayMode,
+    matchMedia: (...args) => window.matchMedia(...args)
+  }
+});
 
 const {
   harmonyDisplayHelpers: {
@@ -1799,30 +1257,19 @@ const {
   }
 });
 
-function isCurrentHarmonyHidden() {
-  return dom.hideCurrentHarmony?.checked === true;
-}
-
-function getBaseChordDisplaySize() {
-  const mode = normalizeDisplayMode(dom.displayMode?.value);
-  const isMobile = window.matchMedia('(max-width: 720px)').matches;
-
-  if (mode === DISPLAY_MODE_CHORDS_ONLY) {
-    return isMobile ? 3.5 : 6;
-  }
-  return isMobile ? 3.0 : 5;
-}
-
-const drillDisplay = createDrillDisplayRootAppFacade({
+// Seam marker kept for wrapper tests: const drillDisplay = createDrillDisplayRootAppFacade({
+const drillDisplay = createDrillDisplayDrillRootAppFacade({
   dom,
+  stateRefs: {
+    isPlaying: createStateRef(() => isPlaying),
+    isIntro: createStateRef(() => isIntro),
+    currentKey: createStateRef(() => currentKey),
+    nextKeyValue: createStateRef(() => nextKeyValue),
+    currentChordIdx: createStateRef(() => currentChordIdx),
+    paddedChords: createStateRef(() => paddedChords),
+    nextRawChords: createStateRef(() => nextRawChords)
+  },
   state: {
-    getIsPlaying: () => isPlaying,
-    getIsIntro: () => isIntro,
-    getCurrentKey: () => currentKey,
-    getNextKeyValue: () => nextKeyValue,
-    getCurrentChordIdx: () => currentChordIdx,
-    getPaddedChords: () => paddedChords,
-    getNextRawChords: () => nextRawChords,
     getShowBeatIndicatorEnabled: () => dom.showBeatIndicator?.checked !== false,
     getCurrentHarmonyHidden: () => dom.hideCurrentHarmony?.checked === true,
     getDisplayMode: () => normalizeDisplayMode(dom.displayMode?.value)
@@ -1871,7 +1318,7 @@ let isPlaying = false;
 let isPaused = false;
 let schedulerTimer = null;
 let nextBeatTime = 0;   // audioCtx time of next beat
-let currentBeat = 0;    // 0–3 within current measure
+let currentBeat = 0;    // 0ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“3 within current measure
 let currentChordIdx = 0; // index in padded progression
 let isIntro = true;      // true during count-in measure
 let currentKey = 0;
@@ -1890,17 +1337,15 @@ let nextPreviewLeadValue = DEFAULT_NEXT_PREVIEW_LEAD_BARS;
 let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
 const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 
-function getSecondsPerBeat() {
-  return 60 / Number(dom.tempoSlider.value);
-}
-
-function getSwingRatio() {
-  const tempo = Number(dom.tempoSlider?.value || 0);
-  if (!Number.isFinite(tempo) || tempo <= 150) return DEFAULT_SWING_RATIO;
-  if (tempo >= 300) return 0.5;
-  const progress = (tempo - 150) / 150;
-  return DEFAULT_SWING_RATIO + ((0.5 - DEFAULT_SWING_RATIO) * progress);
-}
+const {
+  getSecondsPerBeat,
+  getSwingRatio
+} = createDrillTempoRuntimeRootAppAssembly({
+  dom,
+  constants: {
+    defaultSwingRatio: DEFAULT_SWING_RATIO
+  }
+});
 
 let getNextPreviewLeadSecondsImpl = () => 0;
 
@@ -1922,13 +1367,11 @@ const {
   syncNextPreviewControlDisplay,
   commitNextPreviewValueFromInput,
   convertNextPreviewValueToUnit
-} = createDrillNextPreviewRootAppFacade({
+} = createDrillNextPreviewDrillRootAppFacade({
   dom,
-  state: {
-    getNextPreviewLeadUnit: () => nextPreviewLeadUnit,
-    setNextPreviewLeadUnit: (value) => { nextPreviewLeadUnit = value; },
-    getNextPreviewLeadValue: () => nextPreviewLeadValue,
-    setNextPreviewLeadValue: (value) => { nextPreviewLeadValue = value; }
+  stateRefs: {
+    nextPreviewLeadUnit: createStateRef(() => nextPreviewLeadUnit, (value) => { nextPreviewLeadUnit = value; }),
+    nextPreviewLeadValue: createStateRef(() => nextPreviewLeadValue, (value) => { nextPreviewLeadValue = value; })
   },
   constants: {
     NEXT_PREVIEW_UNIT_BARS,
@@ -1950,15 +1393,6 @@ const {
 
 getNextPreviewLeadSecondsImpl = nextPreviewGetNextPreviewLeadSeconds;
 
-function toAnalyticsToken(value, fallback = 'unknown') {
-  const normalized = String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return normalized || fallback;
-}
-
 const {
   getEnabledKeyCount,
   persistKeySelectionPreset,
@@ -1973,14 +1407,13 @@ const {
   buildKeyCheckboxes,
   setAllKeysEnabled,
   invertKeysEnabled
-} = createDrillKeysRootAppAssembly({
+  // Seam marker kept for wrapper tests: } = createDrillKeysRootAppAssembly({
+} = createDrillKeysDrillRootAppAssembly({
   dom,
-  state: {
-    getEnabledKeys: () => enabledKeys,
-    setEnabledKeys: (value) => { enabledKeys = value; },
-    setKeyPool: (value) => { keyPool = value; },
-    getSavedKeySelectionPreset: () => savedKeySelectionPreset,
-    setSavedKeySelectionPreset: (value) => { savedKeySelectionPreset = value; }
+  stateRefs: {
+    enabledKeys: createStateRef(() => enabledKeys, (value) => { enabledKeys = value; }),
+    keyPool: createStateRef(() => keyPool, (value) => { keyPool = value; }),
+    savedKeySelectionPreset: createStateRef(() => savedKeySelectionPreset, (value) => { savedKeySelectionPreset = value; })
   },
   constants: {
     PIANO_BLACK_KEY_COLUMNS,
@@ -2012,20 +1445,21 @@ const {
   applyWelcomeRecommendation,
   skipWelcomeOverlay,
   maybeShowWelcomeOverlay
-} = createDrillWelcomeRootAppFacade({
+  // Seam marker kept for wrapper tests: } = createDrillWelcomeRootAppFacade({
+} = createDrillWelcomeDrillRootAppFacade({
   dom,
+  stateRefs: {
+    hasCompletedWelcomeOnboarding: createStateRef(() => hasCompletedWelcomeOnboarding, (value) => { hasCompletedWelcomeOnboarding = value; }),
+    shouldShowWelcomeNextTime: createStateRef(() => shouldShowWelcomeNextTime, (value) => { shouldShowWelcomeNextTime = value; }),
+    welcomeStandards: createStateRef(() => welcomeStandards),
+    progressions: createStateRef(() => progressions),
+    suppressPatternSelectChange: createStateRef(() => suppressPatternSelectChange, (value) => { suppressPatternSelectChange = value; }),
+    progressionSelectionBeforeEditing: createStateRef(() => progressionSelectionBeforeEditing, (value) => { progressionSelectionBeforeEditing = value; }),
+    isCreatingProgression: createStateRef(() => isCreatingProgression, (value) => { isCreatingProgression = value; }),
+    lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; }),
+    nextPreviewLeadValue: createStateRef(() => nextPreviewLeadValue, (value) => { nextPreviewLeadValue = value; })
+  },
   state: {
-    getHasCompletedWelcomeOnboarding: () => hasCompletedWelcomeOnboarding,
-    setHasCompletedWelcomeOnboarding: (value) => { hasCompletedWelcomeOnboarding = value; },
-    getShouldShowWelcomeNextTime: () => shouldShowWelcomeNextTime,
-    setShouldShowWelcomeNextTime: (value) => { shouldShowWelcomeNextTime = value; },
-    getWelcomeStandards: () => welcomeStandards,
-    getProgressions: () => progressions,
-    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
-    setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
-    setIsCreatingProgression: (value) => { isCreatingProgression = value; },
-    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-    setNextPreviewLeadValue: (value) => { nextPreviewLeadValue = value; },
     getDefaultEnabledKeys: () => new Array(12).fill(true)
   },
   constants: {
@@ -2089,18 +1523,14 @@ const {
   getPlaybackAnalyticsProps,
   trackProgressionEvent,
   trackProgressionOccurrence
-} = createDrillRuntimeStateRootAppAssembly({
+} = createDrillRuntimeStateDrillRootAppAssembly({
   sessionAnalyticsDom: dom,
-  sessionAnalyticsState: {
-      getSessionStartedAt: () => sessionStartedAt,
-      getSessionStartTracked: () => sessionStartTracked,
-      setSessionStartTracked: (value) => { sessionStartTracked = value; },
-      getSessionEngagedTracked: () => sessionEngagedTracked,
-      setSessionEngagedTracked: (value) => { sessionEngagedTracked = value; },
-      getSessionDurationTracked: () => sessionDurationTracked,
-      setSessionDurationTracked: (value) => { sessionDurationTracked = value; },
-      getSessionActionCount: () => sessionActionCount,
-      setSessionActionCount: (value) => { sessionActionCount = value; }
+  sessionAnalyticsStateRefs: {
+      sessionStartedAt: createStateRef(() => sessionStartedAt),
+      sessionStartTracked: createStateRef(() => sessionStartTracked, (value) => { sessionStartTracked = value; }),
+      sessionEngagedTracked: createStateRef(() => sessionEngagedTracked, (value) => { sessionEngagedTracked = value; }),
+      sessionDurationTracked: createStateRef(() => sessionDurationTracked, (value) => { sessionDurationTracked = value; }),
+      sessionActionCount: createStateRef(() => sessionActionCount, (value) => { sessionActionCount = value; })
     },
   sessionAnalyticsHelpers: {
       trackEvent,
@@ -2175,31 +1605,20 @@ const {
   syncProgressionManagerState: progressionSyncProgressionManagerState,
   toggleProgressionManager,
   undoProgressionDeletion
-} = createDrillProgressionRootAppAssembly({
+} = createDrillProgressionDrillRootAppAssembly({
   dom,
-  editorState: {
-    getProgressions: () => progressions,
-    setProgressions: (value) => { progressions = value; },
-    getEditingProgressionName: () => editingProgressionName,
-    setEditingProgressionName: (value) => { editingProgressionName = value; },
-    getEditingProgressionSnapshot: () => editingProgressionSnapshot,
-    setEditingProgressionSnapshot: (value) => { editingProgressionSnapshot = value; },
-    getProgressionSelectionBeforeEditing: () => progressionSelectionBeforeEditing,
-    setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
-    getIsCreatingProgression: () => isCreatingProgression,
-    setIsCreatingProgression: (value) => { isCreatingProgression = value; },
-    getIsManagingProgressions: () => isManagingPresets,
-    setIsManagingProgressions: (value) => { isManagingPresets = value; },
-    getLastStandaloneCustomName: () => lastStandaloneCustomName,
-    setLastStandaloneCustomName: (value) => { lastStandaloneCustomName = value; },
-    getLastStandaloneCustomPattern: () => lastStandaloneCustomPattern,
-    setLastStandaloneCustomPattern: (value) => { lastStandaloneCustomPattern = value; },
-    getLastStandaloneCustomMode: () => lastStandaloneCustomMode,
-    setLastStandaloneCustomMode: (value) => { lastStandaloneCustomMode = value; },
-    getSuppressPatternSelectChange: () => suppressPatternSelectChange,
-    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
-    getKeyPool: () => keyPool,
-    setKeyPool: (value) => { keyPool = value; }
+  editorStateRefs: {
+    progressions: createStateRef(() => progressions, (value) => { progressions = value; }),
+    editingProgressionName: createStateRef(() => editingProgressionName, (value) => { editingProgressionName = value; }),
+    editingProgressionSnapshot: createStateRef(() => editingProgressionSnapshot, (value) => { editingProgressionSnapshot = value; }),
+    progressionSelectionBeforeEditing: createStateRef(() => progressionSelectionBeforeEditing, (value) => { progressionSelectionBeforeEditing = value; }),
+    isCreatingProgression: createStateRef(() => isCreatingProgression, (value) => { isCreatingProgression = value; }),
+    isManagingProgressions: createStateRef(() => isManagingPresets, (value) => { isManagingPresets = value; }),
+    lastStandaloneCustomName: createStateRef(() => lastStandaloneCustomName, (value) => { lastStandaloneCustomName = value; }),
+    lastStandaloneCustomPattern: createStateRef(() => lastStandaloneCustomPattern, (value) => { lastStandaloneCustomPattern = value; }),
+    lastStandaloneCustomMode: createStateRef(() => lastStandaloneCustomMode, (value) => { lastStandaloneCustomMode = value; }),
+    suppressPatternSelectChange: createStateRef(() => suppressPatternSelectChange, (value) => { suppressPatternSelectChange = value; }),
+    keyPool: createStateRef(() => keyPool, (value) => { keyPool = value; })
   },
   editorConstants: {
     CUSTOM_PATTERN_OPTION_VALUE,
@@ -2223,43 +1642,25 @@ const {
     refreshDisplayedHarmony,
     updateKeyPickerLabels
   },
-  managerState: {
-    getProgressions: () => progressions,
-    setProgressions: (value) => { progressions = value; },
-    getIsManagingProgressions: () => isManagingPresets,
-    setIsManagingProgressions: (value) => { isManagingPresets = value; },
-    getSuppressListRender: () => suppressListRender,
-    setSuppressListRender: (value) => { suppressListRender = value; },
-    getDraggedProgressionName: () => draggedPresetName,
-    setDraggedProgressionName: (value) => { draggedPresetName = value; },
-    getPendingProgressionDeletion: () => pendingPresetDeletion,
-    setPendingProgressionDeletion: (value) => { pendingPresetDeletion = value; },
-    getEditingProgressionName: () => editingProgressionName,
-    setEditingProgressionName: (value) => { editingProgressionName = value; },
-    getEditingProgressionSnapshot: () => editingProgressionSnapshot,
-    setEditingProgressionSnapshot: (value) => { editingProgressionSnapshot = value; },
-    getProgressionSelectionBeforeEditing: () => progressionSelectionBeforeEditing,
-    setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
-    getIsCreatingProgression: () => isCreatingProgression,
-    setIsCreatingProgression: (value) => { isCreatingProgression = value; },
-    getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
-    setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
-    getAcknowledgedDefaultProgressionsVersion: () => acknowledgedDefaultProgressionsVersion,
-    setAcknowledgedDefaultProgressionsVersion: (value) => { acknowledgedDefaultProgressionsVersion = value; },
-    getShouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
-    setShouldPromptForDefaultProgressionsUpdate: (value) => { shouldPromptForDefaultProgressionsUpdate = value; },
-    getDefaultProgressionsVersion: () => defaultProgressionsVersion,
-    setDefaultProgressionsVersion: (value) => { defaultProgressionsVersion = value; },
-    getDefaultProgressions: () => DEFAULT_PROGRESSIONS,
-    setDefaultProgressions: (value) => { DEFAULT_PROGRESSIONS = value; },
-    getLastStandaloneCustomName: () => lastStandaloneCustomName,
-    setLastStandaloneCustomName: (value) => { lastStandaloneCustomName = value; },
-    getLastStandaloneCustomPattern: () => lastStandaloneCustomPattern,
-    setLastStandaloneCustomPattern: (value) => { lastStandaloneCustomPattern = value; },
-    getLastStandaloneCustomMode: () => lastStandaloneCustomMode,
-    setLastStandaloneCustomMode: (value) => { lastStandaloneCustomMode = value; },
-    getLastPatternSelectValue: () => lastPatternSelectValue,
-    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; }
+  managerStateRefs: {
+    progressions: createStateRef(() => progressions, (value) => { progressions = value; }),
+    isManagingProgressions: createStateRef(() => isManagingPresets, (value) => { isManagingPresets = value; }),
+    suppressListRender: createStateRef(() => suppressListRender, (value) => { suppressListRender = value; }),
+    draggedProgressionName: createStateRef(() => draggedPresetName, (value) => { draggedPresetName = value; }),
+    pendingProgressionDeletion: createStateRef(() => pendingPresetDeletion, (value) => { pendingPresetDeletion = value; }),
+    editingProgressionName: createStateRef(() => editingProgressionName, (value) => { editingProgressionName = value; }),
+    editingProgressionSnapshot: createStateRef(() => editingProgressionSnapshot, (value) => { editingProgressionSnapshot = value; }),
+    progressionSelectionBeforeEditing: createStateRef(() => progressionSelectionBeforeEditing, (value) => { progressionSelectionBeforeEditing = value; }),
+    isCreatingProgression: createStateRef(() => isCreatingProgression, (value) => { isCreatingProgression = value; }),
+    appliedDefaultProgressionsFingerprint: createStateRef(() => appliedDefaultProgressionsFingerprint, (value) => { appliedDefaultProgressionsFingerprint = value; }),
+    acknowledgedDefaultProgressionsVersion: createStateRef(() => acknowledgedDefaultProgressionsVersion, (value) => { acknowledgedDefaultProgressionsVersion = value; }),
+    shouldPromptForDefaultProgressionsUpdate: createStateRef(() => shouldPromptForDefaultProgressionsUpdate, (value) => { shouldPromptForDefaultProgressionsUpdate = value; }),
+    defaultProgressionsVersion: createStateRef(() => defaultProgressionsVersion, (value) => { defaultProgressionsVersion = value; }),
+    defaultProgressions: createStateRef(() => DEFAULT_PROGRESSIONS, (value) => { DEFAULT_PROGRESSIONS = value; }),
+    lastStandaloneCustomName: createStateRef(() => lastStandaloneCustomName, (value) => { lastStandaloneCustomName = value; }),
+    lastStandaloneCustomPattern: createStateRef(() => lastStandaloneCustomPattern, (value) => { lastStandaloneCustomPattern = value; }),
+    lastStandaloneCustomMode: createStateRef(() => lastStandaloneCustomMode, (value) => { lastStandaloneCustomMode = value; }),
+    lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; })
   },
   managerConstants: {
     CUSTOM_PATTERN_OPTION_VALUE
@@ -2276,13 +1677,10 @@ const {
     trackProgressionEvent,
     validateCustomPattern: () => validateCustomPattern()
   },
-  controlsState: {
-    getSuppressPatternSelectChange: () => suppressPatternSelectChange,
-    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
-    getLastPatternSelectValue: () => lastPatternSelectValue,
-    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-    getKeyPool: () => keyPool,
-    setKeyPool: (value) => { keyPool = value; }
+  controlsStateRefs: {
+    suppressPatternSelectChange: createStateRef(() => suppressPatternSelectChange, (value) => { suppressPatternSelectChange = value; }),
+    lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; }),
+    keyPool: createStateRef(() => keyPool, (value) => { keyPool = value; })
   },
   controlsConstants: {
     PATTERN_MODE_BOTH,
@@ -2321,19 +1719,52 @@ syncPatternPreviewImpl = progressionSyncPatternPreview;
 syncPatternSelectionFromInputImpl = progressionSyncPatternSelectionFromInput;
 syncProgressionManagerStateImpl = progressionSyncProgressionManagerState;
 
-function buildProgression() {
-  if (currentRawChords.length > 0) return currentRawChords;
-
-  const oneChordSpec = parseOneChordSpec(getCurrentPatternString());
-  if (oneChordSpec.active) {
-    const fallbackQuality = oneChordSpec.qualities[0] || ONE_CHORD_DEFAULT_QUALITIES[0];
-    return [createOneChordToken(fallbackQuality)];
+const {
+  buildProgression,
+  validateCustomPattern,
+  createStateRef,
+  setKeyPickerOpen,
+  escapeHtml,
+  getPianoVoicingMode,
+  getRepetitionsPerKey,
+  clearOneChordCycleState,
+  toAnalyticsToken,
+  stopPlaybackIfRunning,
+  keyLabelForPicker,
+  updateKeyPickerLabels,
+  refreshDisplayedHarmony,
+  resolvePlaybackSessionController
+} = createDrillAppRuntimeSupportRootAppAssembly({
+  dom,
+  runtimeState: {
+    getCurrentRawChords: () => currentRawChords,
+    setCurrentRawChords: (value) => { currentRawChords = value; },
+    setNextRawChords: (value) => { nextRawChords = value; },
+    setOneChordQualityPool: (value) => { oneChordQualityPool = value; },
+    setOneChordQualityPoolSignature: (value) => { oneChordQualityPoolSignature = value; },
+    setCurrentOneChordQualityValue: (value) => { currentOneChordQualityValue = value; },
+    setNextOneChordQualityValue: (value) => { nextOneChordQualityValue = value; },
+    getCurrentPatternString,
+    getIsPlaying: () => isPlaying,
+    getPlaybackSessionController: () => playbackSessionController,
+    setPlaybackSessionController: (value) => { playbackSessionController = value; }
+  },
+  runtimeConstants: {
+    oneChordDefaultQualities: ONE_CHORD_DEFAULT_QUALITIES
+  },
+  runtimeHelpers: {
+    isCustomPatternSelected,
+    normalizePatternString,
+    analyzePattern,
+    parseOneChordSpec,
+    createOneChordToken,
+    parsePattern,
+    normalizeCompingStyle,
+    normalizeRepetitionsPerKey,
+    stopPlayback: () => stop(),
+    getDisplayFacade: () => drillDisplay
   }
-
-  const raw = parsePattern(getCurrentPatternString());
-  if (raw.length === 0) return parsePattern('II-V-I'); // fallback
-  return raw;
-}
+});
 
 const {
   prepareNextProgressionPlayback,
@@ -2342,70 +1773,41 @@ const {
   start: playbackStart,
   stop,
   togglePause
-} = createDrillPlaybackRuntimeHostRootAppAssembly({
+} = createDrillPlaybackRuntimeHostDrillRootAppAssembly({
   dom,
-  runtimeState: {
-    getAudioContext: () => audioCtx,
-    getCurrentBassPlan: () => currentBassPlan,
-    setCurrentBassPlan: (value) => { currentBassPlan = value; },
-    getCurrentBeat: () => currentBeat,
-    setCurrentBeat: (value) => { currentBeat = value; },
-    getCurrentChordIdx: () => currentChordIdx,
-    setCurrentChordIdx: (value) => { currentChordIdx = value; },
-    getCurrentCompingPlan: () => currentCompingPlan,
-    setCurrentCompingPlan: (value) => { currentCompingPlan = value; },
-    getCurrentKey: () => currentKey,
-    setCurrentKey: (value) => { currentKey = value; },
-    getCurrentKeyRepetition: () => currentKeyRepetition,
-    setCurrentKeyRepetition: (value) => { currentKeyRepetition = value; },
-    getCurrentOneChordQualityValue: () => currentOneChordQualityValue,
-    setCurrentOneChordQualityValue: (value) => { currentOneChordQualityValue = value; },
-    getCurrentRawChords: () => currentRawChords,
-    setCurrentRawChords: (value) => { currentRawChords = value; },
-    getCurrentVoicingPlan: () => currentVoicingPlan,
-    setCurrentVoicingPlan: (value) => { currentVoicingPlan = value; },
-    getIsIntro: () => isIntro,
-    setIsIntro: (value) => { isIntro = value; },
-    getIsPaused: () => isPaused,
-    setIsPaused: (value) => { isPaused = value; },
-    getIsPlaying: () => isPlaying,
-    setIsPlaying: (value) => { isPlaying = value; },
-    getLastPlayedChordIdx: () => lastPlayedChordIdx,
-    setLastPlayedChordIdx: (value) => { lastPlayedChordIdx = value; },
-    getLoopVoicingTemplate: () => loopVoicingTemplate,
-    setLoopVoicingTemplate: (value) => { loopVoicingTemplate = value; },
-    getNextBeatTime: () => nextBeatTime,
-    setNextBeatTime: (value) => { nextBeatTime = value; },
-    getNextCompingPlan: () => nextCompingPlan,
-    setNextCompingPlan: (value) => { nextCompingPlan = value; },
-    getNextKeyValue: () => nextKeyValue,
-    setNextKeyValue: (value) => { nextKeyValue = value; },
-    getNextOneChordQualityValue: () => nextOneChordQualityValue,
-    setNextOneChordQualityValue: (value) => { nextOneChordQualityValue = value; },
-    getNextPaddedChords: () => nextPaddedChords,
-    setNextPaddedChords: (value) => { nextPaddedChords = value; },
-    getNextRawChords: () => nextRawChords,
-    setNextRawChords: (value) => { nextRawChords = value; },
-    getNextVoicingPlan: () => nextVoicingPlan,
-    setNextVoicingPlan: (value) => { nextVoicingPlan = value; },
-    getPaddedChords: () => paddedChords,
-    setPaddedChords: (value) => { paddedChords = value; },
-    getActiveNoteGain: () => activeNoteGain,
-    setActiveNoteGain: (value) => { activeNoteGain = value; },
-    getFirstPlayStartTracked: () => firstPlayStartTracked,
-    setFirstPlayStartTracked: (value) => { firstPlayStartTracked = value; },
-    getPlayStopSuggestionCount: () => playStopSuggestionCount,
-    setPlayStopSuggestionCount: (value) => { playStopSuggestionCount = value; },
-    getKeyPool: () => keyPool,
-    setKeyPool: (value) => { keyPool = value; },
-    getSchedulerTimer: () => schedulerTimer,
-    setSchedulerTimer: (value) => { schedulerTimer = value; }
+  runtimeStateRefs: {
+    audioContext: createStateRef(() => audioCtx),
+    currentBassPlan: createStateRef(() => currentBassPlan, (value) => { currentBassPlan = value; }),
+    currentBeat: createStateRef(() => currentBeat, (value) => { currentBeat = value; }),
+    currentChordIdx: createStateRef(() => currentChordIdx, (value) => { currentChordIdx = value; }),
+    currentCompingPlan: createStateRef(() => currentCompingPlan, (value) => { currentCompingPlan = value; }),
+    currentKey: createStateRef(() => currentKey, (value) => { currentKey = value; }),
+    currentKeyRepetition: createStateRef(() => currentKeyRepetition, (value) => { currentKeyRepetition = value; }),
+    currentOneChordQualityValue: createStateRef(() => currentOneChordQualityValue, (value) => { currentOneChordQualityValue = value; }),
+    currentRawChords: createStateRef(() => currentRawChords, (value) => { currentRawChords = value; }),
+    currentVoicingPlan: createStateRef(() => currentVoicingPlan, (value) => { currentVoicingPlan = value; }),
+    isIntro: createStateRef(() => isIntro, (value) => { isIntro = value; }),
+    isPaused: createStateRef(() => isPaused, (value) => { isPaused = value; }),
+    isPlaying: createStateRef(() => isPlaying, (value) => { isPlaying = value; }),
+    lastPlayedChordIdx: createStateRef(() => lastPlayedChordIdx, (value) => { lastPlayedChordIdx = value; }),
+    loopVoicingTemplate: createStateRef(() => loopVoicingTemplate, (value) => { loopVoicingTemplate = value; }),
+    nextBeatTime: createStateRef(() => nextBeatTime, (value) => { nextBeatTime = value; }),
+    nextCompingPlan: createStateRef(() => nextCompingPlan, (value) => { nextCompingPlan = value; }),
+    nextKeyValue: createStateRef(() => nextKeyValue, (value) => { nextKeyValue = value; }),
+    nextOneChordQualityValue: createStateRef(() => nextOneChordQualityValue, (value) => { nextOneChordQualityValue = value; }),
+    nextPaddedChords: createStateRef(() => nextPaddedChords, (value) => { nextPaddedChords = value; }),
+    nextRawChords: createStateRef(() => nextRawChords, (value) => { nextRawChords = value; }),
+    nextVoicingPlan: createStateRef(() => nextVoicingPlan, (value) => { nextVoicingPlan = value; }),
+    paddedChords: createStateRef(() => paddedChords, (value) => { paddedChords = value; }),
+    activeNoteGain: createStateRef(() => activeNoteGain, (value) => { activeNoteGain = value; }),
+    firstPlayStartTracked: createStateRef(() => firstPlayStartTracked, (value) => { firstPlayStartTracked = value; }),
+    playStopSuggestionCount: createStateRef(() => playStopSuggestionCount, (value) => { playStopSuggestionCount = value; }),
+    keyPool: createStateRef(() => keyPool, (value) => { keyPool = value; }),
+    schedulerTimer: createStateRef(() => schedulerTimer, (value) => { schedulerTimer = value; })
   },
-  audioState: {
-    getAudioContext: () => audioCtx,
-    setAudioContext: (value) => { audioCtx = value; },
-    getActiveNoteGain: () => activeNoteGain,
-    setActiveNoteGain: (value) => { activeNoteGain = value; }
+  audioStateRefs: {
+    audioContext: createStateRef(() => audioCtx, (value) => { audioCtx = value; }),
+    activeNoteGain: createStateRef(() => activeNoteGain, (value) => { activeNoteGain = value; })
   },
   preloadState: {
     getPendingDisplayTimeouts: getDrillPendingDisplayTimeouts,
@@ -2474,6 +1876,8 @@ const {
     getProgressionAnalyticsProps,
     hideNextCol,
     initAudio,
+    resumeAudioContext: resumeDrillAudioContext,
+    suspendAudioContext: suspendDrillAudioContext,
     preloadStartupSamples,
     registerSessionAction,
     setDisplayPlaceholderMessage,
@@ -2491,27 +1895,6 @@ startImpl = playbackStart;
 
 // ---- Key Picker ----
 
-function keyLabelForPicker(majorIndex) {
-  return drillDisplay.keyLabelForPicker(majorIndex);
-}
-
-function updateKeyPickerLabels() {
-  return drillDisplay.updateKeyPickerLabels();
-}
-
-function refreshDisplayedHarmony() {
-  return drillDisplay.refreshDisplayedHarmony();
-}
-
-function validateCustomPattern() {
-  return validateDrillCustomPattern({
-    isCustomPatternSelected,
-    getCustomPatternValue: () => String(dom.customPattern?.value || ''),
-    normalizePatternString,
-    analyzePattern,
-    patternErrorElement: dom.patternError
-  });
-}
 
 
 
@@ -2526,7 +1909,7 @@ function validateCustomPattern() {
 // ---- Persistence (localStorage) ----
 
 const APP_BASE_URL = (import.meta?.env?.BASE_URL) || './';
-const PATTERN_HELP_URL = `${APP_BASE_URL}progression-suffixes.txt`;
+const PATTERN_HELP_URL = `${APP_BASE_URL}${TRAINER_RESOURCE_PATHS.patternHelp}`;
 const PATTERN_HELP_VERSION = APP_VERSION;
 
 const {
@@ -2535,7 +1918,7 @@ const {
   applyLoadedSettings,
   finalizeLoadedSettings,
   resetPlaybackSettings
-} = createDrillSettingsRootAppAssembly({
+} = createDrillSettingsDrillRootAppAssembly({
   defaults: {
     majorMinor: false,
     tempo: 120,
@@ -2569,21 +1952,21 @@ const {
     welcomeVersionSettingsKey: WELCOME_VERSION_SETTINGS_KEY,
     welcomeVersion: WELCOME_VERSION
   },
-  snapshotState: {
-      getHasCompletedWelcomeOnboarding: () => hasCompletedWelcomeOnboarding,
-      getShouldShowWelcomeNextTime: () => shouldShowWelcomeNextTime,
-      getProgressions: () => progressions,
-      getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
-      getAcknowledgedDefaultProgressionsVersion: () => acknowledgedDefaultProgressionsVersion,
-      getAppliedOneTimeMigrations: () => appliedOneTimeMigrations,
-      getEditingProgressionName: () => editingProgressionName,
-      getProgressionSelectionBeforeEditing: () => progressionSelectionBeforeEditing,
-      getEditingProgressionSnapshot: () => editingProgressionSnapshot,
-      getIsCreatingProgression: () => isCreatingProgression,
-      getNextPreviewLeadValue: () => nextPreviewLeadValue,
-      getEnabledKeys: () => enabledKeys,
-      getPianoFadeSettings: () => pianoFadeSettings,
-      getPianoMidiSettings: () => pianoMidiSettings
+  snapshotStateRefs: {
+      hasCompletedWelcomeOnboarding: createStateRef(() => hasCompletedWelcomeOnboarding),
+      shouldShowWelcomeNextTime: createStateRef(() => shouldShowWelcomeNextTime),
+      progressions: createStateRef(() => progressions),
+      appliedDefaultProgressionsFingerprint: createStateRef(() => appliedDefaultProgressionsFingerprint),
+      acknowledgedDefaultProgressionsVersion: createStateRef(() => acknowledgedDefaultProgressionsVersion),
+      appliedOneTimeMigrations: createStateRef(() => appliedOneTimeMigrations),
+      editingProgressionName: createStateRef(() => editingProgressionName),
+      progressionSelectionBeforeEditing: createStateRef(() => progressionSelectionBeforeEditing),
+      editingProgressionSnapshot: createStateRef(() => editingProgressionSnapshot),
+      isCreatingProgression: createStateRef(() => isCreatingProgression),
+      nextPreviewLeadValue: createStateRef(() => nextPreviewLeadValue),
+      enabledKeys: createStateRef(() => enabledKeys),
+      pianoFadeSettings: createStateRef(() => pianoFadeSettings),
+      pianoMidiSettings: createStateRef(() => pianoMidiSettings)
   },
   snapshotHelpers: {
       isEditingPreset,
@@ -2618,29 +2001,27 @@ const {
     defaultPianoMidiSettings: DEFAULT_PIANO_MIDI_SETTINGS,
     customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
   },
+  loadApplierStateRefs: {
+      hasCompletedWelcomeOnboarding: createStateRef(() => hasCompletedWelcomeOnboarding, (value) => { hasCompletedWelcomeOnboarding = value; }),
+      shouldShowWelcomeNextTime: createStateRef(() => shouldShowWelcomeNextTime, (value) => { shouldShowWelcomeNextTime = value; }),
+      hadStoredProgressions: createStateRef(() => hadStoredProgressions, (value) => { hadStoredProgressions = value; }),
+      appliedOneTimeMigrations: createStateRef(() => appliedOneTimeMigrations, (value) => { appliedOneTimeMigrations = value; }),
+      appliedDefaultProgressionsFingerprint: createStateRef(() => appliedDefaultProgressionsFingerprint, (value) => { appliedDefaultProgressionsFingerprint = value; }),
+      acknowledgedDefaultProgressionsVersion: createStateRef(() => acknowledgedDefaultProgressionsVersion, (value) => { acknowledgedDefaultProgressionsVersion = value; }),
+      savedPatternSelection: createStateRef(() => savedPatternSelection, (value) => { savedPatternSelection = value; }),
+      progressions: createStateRef(() => progressions, (value) => { progressions = value; }),
+      shouldPersistRecoveredDefaultProgressions: createStateRef(() => shouldPersistRecoveredDefaultProgressions, (value) => { shouldPersistRecoveredDefaultProgressions = value; }),
+      nextPreviewLeadValue: createStateRef(() => nextPreviewLeadValue, (value) => { nextPreviewLeadValue = value; }),
+      enabledKeys: createStateRef(() => enabledKeys, (value) => { enabledKeys = value; }),
+      pianoFadeSettings: createStateRef(() => pianoFadeSettings, (value) => { pianoFadeSettings = value; }),
+      pianoMidiSettings: createStateRef(() => pianoMidiSettings, (value) => { pianoMidiSettings = value; }),
+      editingProgressionName: createStateRef(() => editingProgressionName, (value) => { editingProgressionName = value; }),
+      progressionSelectionBeforeEditing: createStateRef(() => progressionSelectionBeforeEditing, (value) => { progressionSelectionBeforeEditing = value; }),
+      editingProgressionSnapshot: createStateRef(() => editingProgressionSnapshot, (value) => { editingProgressionSnapshot = value; }),
+      isCreatingProgression: createStateRef(() => isCreatingProgression, (value) => { isCreatingProgression = value; }),
+      shouldPromptForDefaultProgressionsUpdate: createStateRef(() => shouldPromptForDefaultProgressionsUpdate, (value) => { shouldPromptForDefaultProgressionsUpdate = value; })
+  },
   loadApplierState: {
-      setHasCompletedWelcomeOnboarding: (value) => { hasCompletedWelcomeOnboarding = value; },
-      setShouldShowWelcomeNextTime: (value) => { shouldShowWelcomeNextTime = value; },
-      getShouldShowWelcomeNextTime: () => shouldShowWelcomeNextTime,
-      setHadStoredProgressions: (value) => { hadStoredProgressions = value; },
-      getHadStoredProgressions: () => hadStoredProgressions,
-      setAppliedOneTimeMigrations: (value) => { appliedOneTimeMigrations = value; },
-      setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
-      setAcknowledgedDefaultProgressionsVersion: (value) => { acknowledgedDefaultProgressionsVersion = value; },
-      getAcknowledgedDefaultProgressionsVersion: () => acknowledgedDefaultProgressionsVersion,
-      setSavedPatternSelection: (value) => { savedPatternSelection = value; },
-      setProgressions: (value) => { progressions = value; },
-      getProgressions: () => progressions,
-      setShouldPersistRecoveredDefaultProgressions: (value) => { shouldPersistRecoveredDefaultProgressions = value; },
-      setNextPreviewLeadValue: (value) => { nextPreviewLeadValue = value; },
-      setEnabledKeys: (value) => { enabledKeys = value; },
-      setPianoFadeSettings: (value) => { pianoFadeSettings = value; },
-      setPianoMidiSettings: (value) => { pianoMidiSettings = value; },
-      setEditingProgressionName: (value) => { editingProgressionName = value; },
-      setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
-      setEditingProgressionSnapshot: (value) => { editingProgressionSnapshot = value; },
-      setIsCreatingProgression: (value) => { isCreatingProgression = value; },
-      setShouldPromptForDefaultProgressionsUpdate: (value) => { shouldPromptForDefaultProgressionsUpdate = value; },
       getDefaultProgressionsVersion: () => defaultProgressionsVersion
   },
   loadApplierHelpers: {
@@ -2667,17 +2048,17 @@ const {
   loadFinalizerConstants: {
     customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
   },
+  loadFinalizerStateRefs: {
+      appliedDefaultProgressionsFingerprint: createStateRef(() => appliedDefaultProgressionsFingerprint, (value) => { appliedDefaultProgressionsFingerprint = value; }),
+      hadStoredProgressions: createStateRef(() => hadStoredProgressions),
+      savedPatternSelection: createStateRef(() => savedPatternSelection),
+      isCreatingProgression: createStateRef(() => isCreatingProgression),
+      shouldPersistRecoveredDefaultProgressions: createStateRef(() => shouldPersistRecoveredDefaultProgressions, (value) => { shouldPersistRecoveredDefaultProgressions = value; })
+  },
   loadFinalizerState: {
-      getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
-      setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
-      getHadStoredProgressions: () => hadStoredProgressions,
-      getSavedPatternSelection: () => savedPatternSelection,
-      getIsCreatingProgression: () => isCreatingProgression,
       setLastStandaloneCustomName: (value) => { lastStandaloneCustomName = value; },
       setLastStandaloneCustomPattern: (value) => { lastStandaloneCustomPattern = value; },
-      setLastStandaloneCustomMode: (value) => { lastStandaloneCustomMode = value; },
-      getShouldPersistRecoveredDefaultProgressions: () => shouldPersistRecoveredDefaultProgressions,
-      setShouldPersistRecoveredDefaultProgressions: (value) => { shouldPersistRecoveredDefaultProgressions = value; }
+      setLastStandaloneCustomMode: (value) => { lastStandaloneCustomMode = value; }
   },
   loadFinalizerHelpers: {
       getDefaultProgressionsFingerprint,
@@ -2696,12 +2077,12 @@ const {
       applyPatternModeAvailability,
       saveSettings
   },
-  resetterState: {
-      getProgressions: () => progressions,
-      setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-      setPianoFadeSettings: (value) => { pianoFadeSettings = value; },
-      setPianoMidiSettings: (value) => { pianoMidiSettings = value; },
-      setNextPreviewLeadValue: (value) => { nextPreviewLeadValue = value; }
+  resetterStateRefs: {
+      progressions: createStateRef(() => progressions),
+      lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; }),
+      pianoFadeSettings: createStateRef(() => pianoFadeSettings, (value) => { pianoFadeSettings = value; }),
+      pianoMidiSettings: createStateRef(() => pianoMidiSettings, (value) => { pianoMidiSettings = value; }),
+      nextPreviewLeadValue: createStateRef(() => nextPreviewLeadValue, (value) => { nextPreviewLeadValue = value; })
   },
   resetterHelpers: {
       clearProgressionEditingState,
@@ -2734,7 +2115,7 @@ const {
 });
 
 createDefaultAppSettingsImpl = settingsCreateDefaultAppSettings;
-const drillSettingsPersistence = createDrillSettingsPersistenceRootAppAssembly({
+const drillSettingsPersistence = createDrillSettingsPersistenceDrillRootAppAssembly({
   dom,
   constants: {
     defaultMixerVolumes: {
@@ -2756,15 +2137,14 @@ const drillSettingsPersistence = createDrillSettingsPersistenceRootAppAssembly({
     applyLoadedSettings,
     finalizeLoadedSettings
   },
-  state: {
-    setSavedKeySelectionPreset: (value) => {
+  stateRefs: {
+    savedKeySelectionPreset: createStateRef(() => savedKeySelectionPreset, (value) => {
       savedKeySelectionPreset = value;
-    }
+    })
   }
 });
 
 saveSettingsImpl = (...args) => drillSettingsPersistence.saveSettings(...args);
-loadSettingsImpl = (...args) => drillSettingsPersistence.loadSettings(...args);
 
 let attachMidiInputImpl = () => {};
 
@@ -2780,285 +2160,72 @@ const {
   applyPianoFadeSettings,
   applyPianoMidiSettings,
   applyPianoPresetFromJsonText
-} = createDrillPianoToolsRootAppFacade({
+  // Seam marker kept for wrapper tests: } = createDrillPianoToolsRootAppFacade({
+} = createDrillPianoToolsDrillRootAppFacade({
   dom,
   version: PIANO_SETTINGS_PRESET_VERSION,
-  getPianoFadeSettings: () => pianoFadeSettings,
-  setPianoFadeSettings: (value) => { pianoFadeSettings = value; },
+  stateRefs: {
+    pianoFadeSettings: createStateRef(() => pianoFadeSettings, (value) => { pianoFadeSettings = value; }),
+    pianoMidiSettings: createStateRef(() => pianoMidiSettings, (value) => { pianoMidiSettings = value; })
+  },
   normalizePianoFadeSettings,
-  getPianoMidiSettings: () => pianoMidiSettings,
-  setPianoMidiSettings: (value) => { pianoMidiSettings = value; },
   normalizePianoMidiSettings,
   attachMidiInput: (...args) => attachMidiInput(...args),
   saveSettings: (...args) => saveSettings(...args)
 });
 
-function dbToGain(db) {
-  return Math.pow(10, Number(db || 0) / 20);
-}
-
-const midiToPianoNoteLabel = bassMidiToNoteName;
-
-function getPianoSampleLayerForVolume(finalVolume) {
-  const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
-  if (finalVolume >= (thresholds.f ?? Number.POSITIVE_INFINITY)) return 'f';
-  if (finalVolume >= (thresholds.mf ?? Number.POSITIVE_INFINITY)) return 'mf';
-  return 'p';
-}
-
-function smoothstep01(value) {
-  const clamped = clamp01(value);
-  return clamped * clamped * (3 - (2 * clamped));
-}
-
-function getPianoSampleLayerBoundaryLiftDb(finalVolume, layer) {
-  const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
-  const smoothing = pianoRhythmConfig.pianoSampleLayerSmoothing || {};
-  const boundaryWindow = clampRange(smoothing.boundaryWindow, 0.001, 0.2, 0.045);
-
-  if (layer === 'p' && Number.isFinite(thresholds.mf)) {
-    const start = thresholds.mf - boundaryWindow;
-    return smoothstep01((finalVolume - start) / boundaryWindow)
-      * clampRange(smoothing.pToMfLiftDb, 0, 12, 2.25);
+const {
+  ensureMidiPianoRangePreload,
+  stopMidiPianoVoice,
+  stopAllMidiPianoVoices,
+  handleMidiMessage
+} = createDrillPianoMidiLiveRuntimeRootAppAssembly({
+  runtimeState: {
+    getAudioContext: () => audioCtx,
+    getPianoMidiSettings: () => pianoMidiSettings,
+    getPianoFadeSettings: () => pianoFadeSettings,
+    getMidiPianoRangePreloadPromise: () => midiPianoRangePreloadPromise,
+    setMidiPianoRangePreloadPromise: (value) => { midiPianoRangePreloadPromise = value; },
+    getMidiSustainPedalDown: () => midiSustainPedalDown,
+    setMidiSustainPedalDown: (value) => { midiSustainPedalDown = value; }
+  },
+  collections: {
+    pendingMidiNoteTokens,
+    activeMidiPianoVoices,
+    sustainedMidiNotes
+  },
+  runtimeHelpers: {
+    clamp01,
+    clampRange,
+    getPianoFadeProfile,
+    bassMidiToNoteName,
+    initAudio,
+    resumeAudioContext: resumeDrillAudioContext,
+    loadPianoSample,
+    loadPianoSampleList,
+    getSampleBuffer: (sampleKey) => sampleBuffers.piano[sampleKey] || null,
+    getMixerDestination,
+    trackScheduledSource,
+    setPianoMidiStatus
+  },
+  constants: {
+    pianoRhythmConfig,
+    pianoSampleLow: PIANO_SAMPLE_LOW,
+    pianoSampleHigh: PIANO_SAMPLE_HIGH,
+    pianoVolumeMultiplier: PIANO_VOLUME_MULTIPLIER
   }
-
-  if (layer === 'mf') {
-    let liftDb = 0;
-    if (Number.isFinite(thresholds.mf)) {
-      liftDb += (1 - smoothstep01((finalVolume - thresholds.mf) / boundaryWindow))
-        * clampRange(smoothing.mfFromPLiftDb, 0, 12, 2.25);
-    }
-    if (Number.isFinite(thresholds.f)) {
-      const start = thresholds.f - boundaryWindow;
-      liftDb += smoothstep01((finalVolume - start) / boundaryWindow)
-        * clampRange(smoothing.mfToFLiftDb, 0, 12, 1.5);
-    }
-    return liftDb;
-  }
-
-  if (layer === 'f' && Number.isFinite(thresholds.f)) {
-    return (1 - smoothstep01((finalVolume - thresholds.f) / boundaryWindow))
-      * clampRange(smoothing.fFromMfLiftDb, 0, 12, 1.5);
-  }
-
-  return 0;
-}
-
-function getPianoSampleLayerGainForVolume(finalVolume) {
-  const layer = getPianoSampleLayerForVolume(finalVolume);
-  const layerGainDb = pianoRhythmConfig.pianoSampleLayerGainDb || {};
-  const boundaryLiftDb = getPianoSampleLayerBoundaryLiftDb(finalVolume, layer);
-  return {
-    layer,
-    adjustedVolume: finalVolume * dbToGain((layerGainDb[layer] ?? 0) + boundaryLiftDb)
-  };
-}
-
-function getMidiVelocityProfile(velocity) {
-  const midiVelocityConfig = pianoRhythmConfig.pianoMidiVelocity || {};
-  const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
-  const basePianoVolume = PIANO_VOLUME_MULTIPLIER;
-  const normalizedVelocity = clamp01((Number(velocity) || 0) / 127);
-  const curvePower = clampRange(midiVelocityConfig.curvePower, 0.3, 4, 1.9);
-  const shapedVelocity = Math.pow(normalizedVelocity, curvePower);
-  const fallbackMinVolume = Math.max(0.12, Math.min((thresholds.mf ?? basePianoVolume) * 0.9, basePianoVolume * 0.82));
-  const fallbackMaxVolume = Math.max((thresholds.f ?? basePianoVolume) * 1.12, basePianoVolume * 1.32);
-  const minVolume = clampRange(midiVelocityConfig.minVolume, 0, 1, fallbackMinVolume);
-  const maxVolume = clampRange(midiVelocityConfig.maxVolume, minVolume, 1, fallbackMaxVolume);
-  const attackMin = clampRange(midiVelocityConfig.attackMin, 0.0005, 0.03, 0.0015);
-  const attackMax = clampRange(midiVelocityConfig.attackMax, attackMin, 0.05, 0.006);
-
-  return {
-    normalizedVelocity,
-    shapedVelocity,
-    targetVolume: minVolume + (shapedVelocity * (maxVolume - minVolume)),
-    attackDuration: attackMax - (shapedVelocity * (attackMax - attackMin))
-  };
-}
-
-function getNearestPianoSourceMidi(targetMidi) {
-  return Math.round(clampRange(targetMidi, PIANO_SAMPLE_LOW, PIANO_SAMPLE_HIGH, 60));
-}
-
-async function ensurePianoSampleAvailable(midi, layer) {
-  const sourceMidi = getNearestPianoSourceMidi(midi);
-  const sampleKey = `${layer}:${sourceMidi}`;
-  if (sampleBuffers.piano[sampleKey]) {
-    return {
-      buffer: sampleBuffers.piano[sampleKey],
-      sourceMidi
-    };
-  }
-  await loadPianoSample(layer, sourceMidi);
-  return {
-    buffer: sampleBuffers.piano[sampleKey] || null,
-    sourceMidi
-  };
-}
-
-function ensureMidiPianoRangePreload() {
-  if (!audioCtx) return Promise.resolve(null);
-  if (midiPianoRangePreloadPromise) return midiPianoRangePreloadPromise;
-
-  const midiValues = [];
-  for (let midi = PIANO_SAMPLE_LOW; midi <= PIANO_SAMPLE_HIGH; midi++) {
-    midiValues.push(midi);
-  }
-
-  midiPianoRangePreloadPromise = loadPianoSampleList(new Set(midiValues))
-    .catch(() => {
-      midiPianoRangePreloadPromise = null;
-      return null;
-    });
-
-  return midiPianoRangePreloadPromise;
-}
-
-function stopMidiPianoVoice(midi, releaseImmediately = false) {
-  const voice = activeMidiPianoVoices.get(midi);
-  if (!voice || !audioCtx) return;
-
-  activeMidiPianoVoices.delete(midi);
-  sustainedMidiNotes.delete(midi);
-
-  const releaseStart = audioCtx.currentTime;
-  const profile = getPianoFadeProfile(voice.midi, voice.volume, 0);
-  const releaseTimeConstant = releaseImmediately ? 0.012 : profile.timeConstant;
-  const releaseStopTime = releaseStart + Math.max(0.03, releaseTimeConstant * 6);
-
-  try {
-    if (typeof voice.gain.gain.cancelAndHoldAtTime === 'function') {
-      voice.gain.gain.cancelAndHoldAtTime(releaseStart);
-    } else {
-      const currentValue = voice.gain.gain.value;
-      voice.gain.gain.cancelScheduledValues(releaseStart);
-      voice.gain.gain.setValueAtTime(currentValue, releaseStart);
-    }
-    voice.gain.gain.setTargetAtTime(0.0001, releaseStart, releaseTimeConstant);
-  } catch (err) {
-    // Ignore already ended voices.
-  }
-
-  try {
-    voice.source.stop(releaseStopTime);
-  } catch (err) {
-    // Ignore duplicate stop scheduling.
-  }
-}
-
-function stopAllMidiPianoVoices(releaseImmediately = false) {
-  for (const midi of [...activeMidiPianoVoices.keys()]) {
-    stopMidiPianoVoice(midi, releaseImmediately);
-  }
-  sustainedMidiNotes.clear();
-  midiSustainPedalDown = false;
-}
-
-async function playMidiPianoNote(midi, velocity = 96) {
-  if (!pianoMidiSettings.enabled) return;
-  const noteToken = (pendingMidiNoteTokens.get(midi) || 0) + 1;
-  pendingMidiNoteTokens.set(midi, noteToken);
-
-  initAudio();
-  ensureMidiPianoRangePreload();
-  if (audioCtx.state === 'suspended') {
-    try {
-      await audioCtx.resume();
-    } catch {}
-  }
-
-  const velocityProfile = getMidiVelocityProfile(velocity);
-  const pianoLayer = getPianoSampleLayerGainForVolume(velocityProfile.targetVolume);
-  const { buffer, sourceMidi } = await ensurePianoSampleAvailable(midi, pianoLayer.layer);
-  if (!buffer || !audioCtx || pendingMidiNoteTokens.get(midi) !== noteToken) return;
-
-  stopMidiPianoVoice(midi, true);
-
-  const source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  if (sourceMidi !== midi) {
-    source.playbackRate.value = Math.pow(2, (midi - sourceMidi) / 12);
-  }
-
-  const gain = audioCtx.createGain();
-  const now = audioCtx.currentTime;
-  const attackEnd = now + velocityProfile.attackDuration;
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(pianoLayer.adjustedVolume, attackEnd);
-  source.connect(gain).connect(getMixerDestination('strings'));
-  source.start(now);
-  trackScheduledSource(source, [gain]);
-
-  const voice = {
-    midi,
-    source,
-    gain,
-    volume: pianoLayer.adjustedVolume
-  };
-  activeMidiPianoVoices.set(midi, voice);
-  source.addEventListener('ended', () => {
-    if (activeMidiPianoVoices.get(midi) === voice) {
-      activeMidiPianoVoices.delete(midi);
-    }
-    sustainedMidiNotes.delete(midi);
-  }, { once: true });
-
-  setPianoMidiStatus(`MIDI: ${midiToPianoNoteLabel(midi)} vel ${velocity} layer ${pianoLayer.layer} vol ${pianoLayer.adjustedVolume.toFixed(3)}`);
-}
-
-function handleMidiNoteOff(midi) {
-  if (!pianoMidiSettings.enabled) return;
-  pendingMidiNoteTokens.set(midi, (pendingMidiNoteTokens.get(midi) || 0) + 1);
-  if (pianoMidiSettings.sustainPedalEnabled && midiSustainPedalDown) {
-    sustainedMidiNotes.add(midi);
-    return;
-  }
-  stopMidiPianoVoice(midi);
-}
-
-function handleMidiSustainChange(value) {
-  if (!pianoMidiSettings.sustainPedalEnabled) return;
-  const isDown = Number(value) >= 64;
-  midiSustainPedalDown = isDown;
-  if (isDown) return;
-  for (const midi of [...sustainedMidiNotes]) {
-    stopMidiPianoVoice(midi);
-  }
-  sustainedMidiNotes.clear();
-}
-
-function handleMidiMessage(event) {
-  const [status = 0, data1 = 0, data2 = 0] = event.data || [];
-  const command = status & 0xf0;
-
-  if (command === 0x90 && data2 > 0) {
-    playMidiPianoNote(data1, data2).catch(() => {});
-    return;
-  }
-
-  if (command === 0x80 || (command === 0x90 && data2 === 0)) {
-    handleMidiNoteOff(data1);
-    return;
-  }
-
-  if (command === 0xb0 && data1 === 64) {
-    handleMidiSustainChange(data2);
-  }
-}
+});
 
 const {
   attachMidiInput: pianoMidiAttachInput,
   refreshMidiInputs
-} = createDrillPianoMidiRuntimeRootAppAssembly({
+} = createDrillPianoMidiRuntimeDrillRootAppAssembly({
   dom,
-  runtimeState: {
-    getMidiAccess: () => midiAccess,
-    setMidiAccess: (value) => { midiAccess = value; },
-    getMidiAccessPromise: () => midiAccessPromise,
-    setMidiAccessPromise: (value) => { midiAccessPromise = value; },
-    getCurrentMidiInput: () => currentMidiInput,
-    setCurrentMidiInput: (value) => { currentMidiInput = value; },
-    getPianoMidiSettings: () => pianoMidiSettings
+  runtimeStateRefs: {
+    midiAccess: createStateRef(() => midiAccess, (value) => { midiAccess = value; }),
+    midiAccessPromise: createStateRef(() => midiAccessPromise, (value) => { midiAccessPromise = value; }),
+    currentMidiInput: createStateRef(() => currentMidiInput, (value) => { currentMidiInput = value; }),
+    pianoMidiSettings: createStateRef(() => pianoMidiSettings)
   },
   runtimeHelpers: {
     normalizePianoMidiSettings,
@@ -3075,104 +2242,14 @@ const {
 
 attachMidiInputImpl = pianoMidiAttachInput;
 
-function legacyPopulateMidiInputs() {
-  return;
-  const currentValue = pianoMidiSettings.inputId;
-  dom.pianoMidiInput.innerHTML = '';
-
-  const emptyOption = document.createElement('option');
-  emptyOption.value = '';
-  emptyOption.textContent = inputs.length ? 'Choisir une entrée' : 'Aucune entrée détectée';
-  dom.pianoMidiInput.append(emptyOption);
-
-  for (const input of inputs) {
-    const option = document.createElement('option');
-    option.value = input.id;
-    option.textContent = input.name || `MIDI ${input.id}`;
-    dom.pianoMidiInput.append(option);
-  }
-
-  const nextValue = inputs.some((input) => input.id === currentValue)
-    ? currentValue
-    : (inputs[0]?.id || '');
-  dom.pianoMidiInput.value = nextValue;
-  pianoMidiSettings = normalizePianoMidiSettings({
-    ...pianoMidiSettings,
-    inputId: nextValue
-  });
-  refreshPianoSettingsJson();
-}
-
-function legacyDetachMidiInput() {
-  return;
-}
-
-function legacyAttachMidiInput() {
-  return;
-  legacyDetachMidiInput();
-  if (!pianoMidiSettings.enabled) {
-    setPianoMidiStatus('MIDI inactif');
-    return;
-  }
-
-  const input = legacyGetAvailableMidiInputs().find((candidate) => candidate.id === pianoMidiSettings.inputId) || null;
-  if (!input) {
-    setPianoMidiStatus('Aucune entrée MIDI active');
-    return;
-  }
-
-  currentMidiInput = input;
-  currentMidiInput.onmidimessage = handleMidiMessage;
-  setPianoMidiStatus(`Entrée: ${input.name || 'MIDI'}`);
-}
-
-async function legacyEnsureMidiAccess() {
-  return null;
-  if (!navigator.requestMIDIAccess) {
-    setPianoMidiStatus('Web MIDI non supporté par ce navigateur');
-    return null;
-  }
-  if (midiAccess) return midiAccess;
-  if (!midiAccessPromise) {
-    midiAccessPromise = navigator.requestMIDIAccess()
-      .then((access) => {
-        midiAccess = access;
-        midiAccess.onstatechange = () => {
-          legacyPopulateMidiInputs();
-          legacyAttachMidiInput();
-          refreshPianoSettingsJson();
-        };
-        return access;
-      })
-      .catch((err) => {
-        midiAccessPromise = null;
-        setPianoMidiStatus('Accès MIDI refusé');
-        throw err;
-      });
-  }
-  return midiAccessPromise;
-}
-
-async function legacyRefreshMidiInputs() {
-  return;
-  try {
-    await legacyEnsureMidiAccess();
-    legacyPopulateMidiInputs();
-    legacyAttachMidiInput();
-    if (pianoMidiSettings.enabled && audioCtx) {
-      ensureMidiPianoRangePreload();
-    }
-  } catch {}
-}
-
 const {
   loadPatternHelp,
   loadDefaultProgressions
-} = createDrillStartupDataRootAppAssembly({
-  state: {
-    setDefaultProgressionsVersion: (value) => { defaultProgressionsVersion = value; },
-    setDefaultProgressions: (value) => { DEFAULT_PROGRESSIONS = value; },
-    setProgressions: (value) => { progressions = value; }
+} = createDrillStartupDataDrillRootAppAssembly({
+  stateRefs: {
+    defaultProgressionsVersion: createStateRef(() => defaultProgressionsVersion, (value) => { defaultProgressionsVersion = value; }),
+    defaultProgressions: createStateRef(() => DEFAULT_PROGRESSIONS, (value) => { DEFAULT_PROGRESSIONS = value; }),
+    progressions: createStateRef(() => progressions, (value) => { progressions = value; })
   },
   patternHelp: {
     loadDrillPatternHelp,
@@ -3194,15 +2271,14 @@ async function initializeApp() {
   await drillUiBootstrap.initializeScreen();
 }
 
-const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
+const drillUiBootstrap = createDrillUiBootstrapDrillRootAppAssembly({
   screenDom: dom,
-  screenState: {
-    getProgressions: () => progressions,
-    getSavedPatternSelection: () => savedPatternSelection,
-    getShouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
-    getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
-    setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
-    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; }
+  screenStateRefs: {
+    progressions: createStateRef(() => progressions),
+    savedPatternSelection: createStateRef(() => savedPatternSelection),
+    shouldPromptForDefaultProgressionsUpdate: createStateRef(() => shouldPromptForDefaultProgressionsUpdate),
+    appliedDefaultProgressionsFingerprint: createStateRef(() => appliedDefaultProgressionsFingerprint, (value) => { appliedDefaultProgressionsFingerprint = value; }),
+    lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; })
   },
   screenConstants: {
     customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
@@ -3213,7 +2289,7 @@ const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
     loadPatternHelp,
     loadWelcomeStandards,
     renderProgressionOptions,
-    loadSettings,
+    loadSettings: (...args) => drillSettingsPersistence.loadSettings(...args),
     applySilentDefaultPresetResetMigration,
     saveSettings,
     buildKeyCheckboxes,
@@ -3265,11 +2341,13 @@ const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
     ensureMidiPianoRangePreload
   },
   runtimeControlsDom: dom,
+  runtimeControlsStateRefs: {
+    isPlaying: createStateRef(() => isPlaying),
+    audioContext: createStateRef(() => audioCtx),
+    currentKey: createStateRef(() => currentKey),
+    nextPreviewLeadUnit: createStateRef(() => nextPreviewLeadUnit)
+  },
   runtimeControlsState: {
-    getIsPlaying: () => isPlaying,
-    getAudioContext: () => audioCtx,
-    getCurrentKey: () => currentKey,
-    getNextPreviewLeadUnit: () => nextPreviewLeadUnit,
     getNextPreviewInputUnit: () => getNextPreviewInputUnit()
   },
   runtimeControlsConstants: {
@@ -3317,7 +2395,7 @@ const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
   }
 });
 
-const drillUiEventBindings = createDrillUiEventBindingsRootAppAssembly({
+const drillUiEventBindings = createDrillUiEventBindingsDrillRootAppAssembly({
   welcomeControls: {
     updateWelcomePanelVisibility,
     updateWelcomeSummary,
@@ -3345,12 +2423,9 @@ const drillUiEventBindings = createDrillUiEventBindingsRootAppAssembly({
     getTempoBucket,
     getRepetitionsPerKey,
     getSelectedChordsPerBar,
-    isPlaying: () => isPlaying,
-    getAudioContext: () => audioCtx,
     noteFadeout: NOTE_FADEOUT,
     stopActiveChordVoices,
     rebuildPreparedCompingPlans,
-    getCurrentKey: () => currentKey,
     preloadNearTermSamples: () => preloadNearTermSamples(),
     getCompingStyle,
     isWalkingBassEnabled,
@@ -3361,25 +2436,42 @@ const drillUiEventBindings = createDrillUiEventBindingsRootAppAssembly({
     setAnalyticsDebugEnabled,
     resetPlaybackSettings
   },
+  settingsStateRefs: {
+    isPlaying: createStateRef(() => isPlaying),
+    audioContext: createStateRef(() => audioCtx),
+    currentKey: createStateRef(() => currentKey)
+  },
   pianoPresetControls: {
     dom,
     refreshPianoSettingsJson,
     setPianoMidiStatus,
     applyPianoPresetFromJsonText,
-    getPianoMidiSettings: () => pianoMidiSettings,
     refreshMidiInputs,
     normalizePianoFadeSettings,
     normalizePianoMidiSettings,
     defaultPianoFadeSettings: DEFAULT_PIANO_FADE_SETTINGS,
     defaultPianoMidiSettings: DEFAULT_PIANO_MIDI_SETTINGS,
-    setPianoFadeSettings: (value) => { pianoFadeSettings = value; },
-    setPianoMidiSettings: (value) => { pianoMidiSettings = value; },
     stopAllMidiPianoVoices,
     syncPianoToolsUi,
     attachMidiInput,
     saveSettings,
     clipboard: navigator.clipboard,
     alert: (message) => window.alert(message)
+  },
+  pianoPresetStateRefs: {
+    pianoFadeSettings: createStateRef(() => pianoFadeSettings, (value) => { pianoFadeSettings = value; }),
+    pianoMidiSettings: createStateRef(() => pianoMidiSettings, (value) => { pianoMidiSettings = value; })
+  },
+  lifecycleControls: {
+    visibilityTarget: document,
+    userGestureTarget: window,
+    resumeAudioContext: resumeDrillAudioContext,
+    togglePausePlayback: () => togglePause()
+  },
+  lifecycleStateRefs: {
+    isPlaying: createStateRef(() => isPlaying),
+    isPaused: createStateRef(() => isPaused),
+    audioContext: createStateRef(() => audioCtx)
   },
   lifecycleTarget: window,
   trackSessionDuration
@@ -3396,20 +2488,17 @@ drillUiBootstrap.initializeHarmonyDisplayObservers();
 
 drillUiEventBindings.bindLifecycleEvents();
 
-const drillSharedPlayback = createDrillSharedPlaybackRootAppContext({
+const {
+  playbackController: embeddedPlaybackController,
+  applyEmbeddedPattern,
+  applyEmbeddedPlaybackSettings,
+  getEmbeddedPlaybackState
+} = createDrillSharedPlaybackDrillRootAppAssembly({
+  dom,
   host: {
     dom,
     state: {
-      getLastPatternSelectValue: () => lastPatternSelectValue,
-      setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-      getIsPlaying: () => isPlaying,
-      getIsPaused: () => isPaused,
-      getIsIntro: () => isIntro,
-      getCurrentBeat: () => currentBeat,
-      getCurrentChordIdx: () => currentChordIdx,
-      getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
-      getCurrentKey: () => currentKey,
-      getAudioContext: () => audioCtx
+      getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0)
     },
     constants: {
       customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
@@ -3423,6 +2512,16 @@ const drillSharedPlayback = createDrillSharedPlaybackRootAppContext({
       stopPlayback: () => stop(),
       togglePausePlayback: () => togglePause()
     }
+  },
+  hostStateRefs: {
+    lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; }),
+    isPlaying: createStateRef(() => isPlaying),
+    isPaused: createStateRef(() => isPaused),
+    isIntro: createStateRef(() => isIntro),
+    currentBeat: createStateRef(() => currentBeat),
+    currentChordIdx: createStateRef(() => currentChordIdx),
+    currentKey: createStateRef(() => currentKey),
+    audioContext: createStateRef(() => audioCtx)
   },
   patternUi: {
     helpers: {
@@ -3473,10 +2572,6 @@ const drillSharedPlayback = createDrillSharedPlaybackRootAppContext({
   },
   embeddedTransportActions: {},
   directPlaybackRuntime: {
-    state: {
-      getAudioContext: () => audioCtx,
-      getCurrentKey: () => currentKey
-    },
     constants: {
       noteFadeout: NOTE_FADEOUT
     },
@@ -3489,8 +2584,12 @@ const drillSharedPlayback = createDrillSharedPlaybackRootAppContext({
       validateCustomPattern: () => validateCustomPattern()
     }
   },
-  directPlaybackState: {
-    getIsPlaying: () => isPlaying
+  directPlaybackRuntimeStateRefs: {
+    audioContext: createStateRef(() => audioCtx),
+    currentKey: createStateRef(() => currentKey)
+  },
+  directPlaybackStateRefs: {
+    isPlaying: createStateRef(() => isPlaying)
   },
   directTransportActions: {
     startPlayback: () => start(),
@@ -3499,29 +2598,9 @@ const drillSharedPlayback = createDrillSharedPlaybackRootAppContext({
   }
 });
 
-const {
-  playbackController: embeddedPlaybackController,
-  applyEmbeddedPattern,
-  applyEmbeddedPlaybackSettings,
-  getEmbeddedPlaybackState
-} = createDrillSharedPlaybackRootAppAssembly({
-  dom,
-  ...drillSharedPlayback
-});
-
 function getPlaybackSessionController() {
-  if (playbackSessionController) {
-    return playbackSessionController;
-  }
-
-  playbackSessionController = embeddedPlaybackController;
-  return playbackSessionController;
+  return resolvePlaybackSessionController(embeddedPlaybackController);
 }
 
 initializeApp();
 setDisplayPlaceholderVisible(true);
-
-
-
-
-

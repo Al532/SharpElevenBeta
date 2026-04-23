@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Jazz Progression Trainer Demo</title>
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=1.1.35">
-  <link rel="shortcut icon" href="./favicon.svg?v=1.1.35">
-  <link rel="stylesheet" href="./style.css?v=1.1.35">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=1.1.36">
+  <link rel="shortcut icon" href="./favicon.svg?v=1.1.36">
+  <link rel="stylesheet" href="./style.css?v=1.1.36">
   <script>
     window.JAZZ_TRAINER_GOATCOUNTER_ENDPOINT = 'https://aminel.goatcounter.com/count';
     window.goatcounter = window.goatcounter || {};
@@ -16,11 +16,21 @@
       }
       return path;
     };
+    window.JAZZ_TRAINER_ENABLE_GOATCOUNTER = !(
+      location.hostname === 'localhost' ||
+      location.hostname === '127.0.0.1' ||
+      location.protocol === 'file:'
+    );
   </script>
-  <script
-    async
-    data-goatcounter="https://aminel.goatcounter.com/count"
-    src="//gc.zgo.at/count.js"></script>
+  <script>
+    if (window.JAZZ_TRAINER_ENABLE_GOATCOUNTER) {
+      const analyticsScript = document.createElement('script');
+      analyticsScript.async = true;
+      analyticsScript.dataset.goatcounter = 'https://aminel.goatcounter.com/count';
+      analyticsScript.src = '//gc.zgo.at/count.js';
+      document.head.appendChild(analyticsScript);
+    }
+  </script>
 </head>
 <body class="demo-page">
   <div id="app" class="demo-app">
@@ -35,7 +45,7 @@
         <h2 id="demo-video-0-title">Practicing a lick over minor II-V-I</h2>
         <div class="demo-video-frame">
           <iframe
-            src="https://www.youtube.com/embed/FqNIHfLFGSw"
+            src="https://www.youtube-nocookie.com/embed/FqNIHfLFGSw"
             title="Jazz Progression Trainer demo video"
             loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -48,7 +58,7 @@
         <p>To reproduce this setup in edit mode, enter the progression <code>Cmaj7</code>.</p>
         <div class="demo-video-frame demo-video-frame-portrait">
           <iframe
-            src="https://www.youtube.com/embed/iHtHOSwDCCw"
+            src="https://www.youtube-nocookie.com/embed/iHtHOSwDCCw"
             title="Jazz Progression Trainer demo video"
             loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

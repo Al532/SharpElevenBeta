@@ -42,6 +42,7 @@ import {
 import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
 import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
+import { bindChartLifecycleEvents } from '../features/chart/chart-lifecycle.js';
 import {
   applyPlaybackTransportState,
   startPlaybackPolling,
@@ -913,4 +914,12 @@ async function loadFixtures() {
 
 loadFixtures().catch((error) => {
   dom.transportStatus.textContent = `Failed to load charts: ${getErrorMessage(error)}`;
+});
+
+bindChartLifecycleEvents({
+  lifecycleTarget: window,
+  visibilityTarget: document,
+  state,
+  intervalMs: PLAYBACK_STATE_POLL_INTERVAL_MS,
+  onTick: syncPlaybackState
 });

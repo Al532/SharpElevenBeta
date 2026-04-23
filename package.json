@@ -1,7 +1,7 @@
 {
   "name": "ii-v-i",
   "private": true,
-  "version": "1.1.35",
+  "version": "1.1.36",
   "scripts": {
     "dev": "vite",
     "dev:chart": "vite --config vite.chart.config.js",
@@ -10,6 +10,13 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "node scripts/sync-public-files.mjs public",
     "build": "vite build",
+    "prebuild:mobile": "node scripts/sync-public-files.mjs public",
+    "build:mobile": "vite build --config vite.mobile.config.js",
+    "mobile:install": "npm --prefix mobile install",
+    "mobile:copy": "npm --prefix mobile run copy",
+    "mobile:sync": "npm --prefix mobile run sync",
+    "mobile:open:android": "npm --prefix mobile run open:android",
+    "mobile:open:ios": "npm --prefix mobile run open:ios",
     "postbuild": "node scripts/sync-public-files.mjs build",
     "preview": "vite preview"
   },

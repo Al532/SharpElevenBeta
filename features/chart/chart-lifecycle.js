@@ -1,0 +1,55 @@
+// @ts-check
+
+import {
+  startPlaybackPolling,
+  stopPlaybackPolling
+} from './chart-playback-runtime.js';
+
+/**
+ * Binds lightweight chart lifecycle listeners so playback polling is paused
+ * while the page is backgrounded and resynchronized on return.
+ *
+ * @param {object} [options]
+ * @param {EventTarget | { addEventListener?: Function }} [options.lifecycleTarget]
+ * @param {EventTarget | { addEventListener?: Function, hidden?: boolean }} [options.visibilityTarget]
+ * @param {{ playbackPollTimer?: number | null, isPlaying?: boolean }} [options.state]
+ * @param {number} [options.intervalMs]
+ * @param {() => void} [options.onTick]
+ */
+export function bindChartLifecycleEvents({
+  lifecycleTarget = globalThis.window,
+  visibilityTarget = globalThis.document,
+  state,
+  intervalMs = 120,
+  onTick = () => {}
+} = {}) {
+  function suspendPolling() {
+    stopPlaybackPolling({
+      state
+    });
+  }
+
+  function resumePolling() {
+    if (!state?.isPlaying) {
+      onTick?.();
+      return;
+    }
+
+    startPlaybackPolling({
+      state,
+      intervalMs,
+      onTick
+    });
+    onTick?.();
+  }
+
+  lifecycleTarget?.addEventListener?.('pagehide', suspendPolling);
+  lifecycleTarget?.addEventListener?.('pageshow', resumePolling);
+  visibilityTarget?.addEventListener?.('visibilitychange', () => {
+    if (visibilityTarget?.hidden) {
+      suspendPolling();
+      return;
+    }
+    resumePolling();
+  });
+}
