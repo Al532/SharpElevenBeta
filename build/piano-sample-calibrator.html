@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Piano Sample Calibrator</title>
+  <style>
+    :root {
+      --bg: #f4f0e8;
+      --panel: #fffaf2;
+      --line: #d8c8ae;
+      --text: #2d2418;
+      --muted: #72634f;
+      --accent: #a5572b;
+      --accent-soft: #f0dcc9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, #fff7ea 0, transparent 26%),
+        linear-gradient(180deg, #f8f2e7 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    .panel {
+      background: color-mix(in srgb, var(--panel) 92%, white);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 14px 32px rgba(93, 66, 39, 0.08);
+    }
+
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    label,
+    .field-title {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    select,
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: #d7b796;
+      color: #2d2418;
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--line);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .layer-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: white;
+    }
+
+    .layer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .layer-header strong {
+      font-size: 1rem;
+    }
+
+    .db-readout {
+      min-width: 56px;
+      text-align: right;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--accent-soft);
+      color: #5c3417;
+      font-size: 0.92rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th,
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Piano Sample Calibrator</h1>
+    <p>Outil local pour comparer les layers <span class="mono">p</span>, <span class="mono">mf</span>, <span class="mono">f</span>, ajuster des offsets en dB, et écouter rapidement les écarts de niveau sur une même note.</p>
+
+    <div class="layout">
+      <section class="panel stack">
+        <div>
+          <h2>Lecture</h2>
+          <div class="stack">
+            <div class="field">
+              <label for="note-select">Note MIDI</label>
+              <select id="note-select"></select>
+            </div>
+            <div class="field">
+              <label for="duration-input">Durée de lecture</label>
+              <input id="duration-input" type="number" min="0.05" max="8" step="0.05" value="1.2">
+            </div>
+            <div class="button-row">
+              <button id="play-all-btn">Jouer p → mf → f</button>
+              <button id="play-stacked-btn" class="secondary">Jouer ensemble</button>
+              <button id="stop-btn" class="ghost">Stop</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h2>Offsets</h2>
+          <div class="stack" id="layer-controls"></div>
+        </div>
+
+        <div>
+          <h2>Outils</h2>
+          <div class="button-row">
+            <button id="copy-settings-btn" class="secondary">Copier les offsets</button>
+            <button id="reset-btn" class="ghost">Reset offsets</button>
+          </div>
+          <div class="hint">Si tu veux intégrer ces valeurs ensuite dans le moteur, les offsets copiés donneront une base pratique.</div>
+        </div>
+
+        <div id="status" class="status">Clique sur un bouton de lecture pour initialiser l’audio.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Mesures du sample sélectionné</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Fichier</th>
+              <th class="num">Durée</th>
+              <th class="num">Peak dBFS</th>
+              <th class="num">RMS dBFS</th>
+              <th class="num">Offset</th>
+            </tr>
+          </thead>
+          <tbody id="metrics-body"></tbody>
+        </table>
+        <div class="hint">Le RMS ici n’est pas du LUFS, mais il est très utile pour comparer vite les layers d’une même note. Le plus important est la cohérence relative entre <span class="mono">p</span>, <span class="mono">mf</span> et <span class="mono">f</span>.</div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="./piano-sample-calibrator.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+package io.github.al532.sharpelevenapp;
+
+import android.content.Intent;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+@CapacitorPlugin(name = "IrealBrowser")
+public class IrealBrowserPlugin extends Plugin {
+
+    @PluginMethod
+    public void open(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.trim().isEmpty()) {
+            call.reject("A browser URL is required.");
+            return;
+        }
+
+        Intent intent = new Intent(getActivity(), IrealBrowserActivity.class);
+        intent.putExtra(IrealBrowserActivity.EXTRA_URL, url);
+        intent.putExtra(IrealBrowserActivity.EXTRA_TITLE, call.getString("title", ""));
+        getActivity().startActivity(intent);
+        call.resolve();
+    }
+}

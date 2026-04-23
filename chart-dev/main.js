@@ -49,6 +49,7 @@ import {
 } from '../features/chart/chart-renderer.js';
 import { createAppShellBindings } from '../features/app/app-shell-bindings.js';
 import { initializeAppShell } from '../features/app/app-shell.js';
+import { openIrealBrowser } from '../features/app/ireal-browser.js';
 import { consumePendingIRealLink, isIRealDeepLink, storePendingIRealLink } from '../features/app/app-pending-mobile-import.js';
 import { createChartSheetRenderer } from '../features/chart/chart-sheet-renderer.js';
 import {
@@ -876,7 +877,11 @@ function bindImportControls() {
     forumTracksUrl: IREAL_FORUM_TRACKS_URL,
     setImportStatus,
     onBackupFileSelection: handleBackupFileSelection,
-    onPastedLinkImport: handlePastedIRealLinkImport
+    onPastedLinkImport: handlePastedIRealLinkImport,
+    onOpenForumTracks: () => openIrealBrowser({
+      url: IREAL_FORUM_TRACKS_URL,
+      title: 'iReal forum tracks'
+    })
   }));
 }
 

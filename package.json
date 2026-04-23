@@ -1,18 +1,21 @@
 {
   "name": "sharp-eleven-app",
   "private": true,
-  "version": "1.1.41",
+  "version": "1.1.42",
   "dependencies": {
     "@capacitor/app": "^8.0.0"
   },
   "scripts": {
     "dev": "vite",
+    "dev:android:web": "vite --host 0.0.0.0 --port 5173 --strictPort",
+    "dev:typecheck": "tsc --noEmit --watch",
     "dev:chart": "vite --config vite.chart.config.js",
     "test:chart": "node scripts/test-chart-module.mjs",
     "test:drill-wrappers": "node scripts/test-drill-root-wrappers.mjs",
     "typecheck": "tsc --noEmit",
     "prebuild": "node scripts/sync-public-files.mjs public",
     "build": "vite build",
+    "build:demo": "vite build --config vite.demo.config.js",
     "prebuild:mobile": "node scripts/sync-public-files.mjs public",
     "build:mobile:app": "vite build --config vite.mobile.config.js",
     "build:mobile:assets": "node scripts/sync-mobile-shell-assets.mjs",
@@ -21,6 +24,7 @@
     "mobile:install": "npm --prefix mobile install",
     "mobile:copy": "npm --prefix mobile run copy",
     "mobile:sync": "npm --prefix mobile run sync",
+    "mobile:run:android:live": "npm --prefix mobile run android:live",
     "mobile:open:android": "npm --prefix mobile run open:android",
     "mobile:open:ios": "npm --prefix mobile run open:ios",
     "postbuild": "node scripts/sync-public-files.mjs build",

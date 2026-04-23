@@ -13,10 +13,16 @@
 ### Builds
 
 - Do not run a build unless the user explicitly asks for it.
-- If the user explicitly asks `builde` or requests a build, run the build and increment the application version.
+- Interpret build requests with these exact defaults:
+  - `fais un build` = run the local web app build for this repository
+  - `fais un build demo` = run the external demo build targeting `..\JazzProgressionTrainerDemo`
+  - `fais un build Android` = run the Android build workflow
+- If the user explicitly asks `builde` or requests a build, run the requested build target and increment the application version.
 - When incrementing the application version, update `package.json` and keep `package-lock.json` aligned if needed.
 - After a requested build, commit the current repository locally without pushing it online.
 - When a build is requested for the local app, use the application version number in the local repository commit message.
+- For a local web build request, use `npm run build`.
+- For an external demo build request, use `npm run build:demo`.
 
 #### Android Build Procedure
 
@@ -85,6 +91,28 @@ Synced static assets:
 - Do not increment the `# progressions-version:` header in `public/default-progressions.txt`.
 
 ## On-Demand Workflows
+
+### Android Live-Reload Workflow
+
+- Prefer Android live-reload for iterative mobile development when the user wants to verify changes quickly on a connected Android device without running a full mobile build.
+- Treat Android live-reload as the default mobile iteration loop for web-layer changes:
+  1. `npm run dev:android:web`
+  2. `npm run dev:typecheck`
+  3. `npm run mobile:run:android:live`
+- Use this loop for:
+  - UI changes
+  - TS/JS logic changes
+  - CSS/layout changes
+  - most state, parsing, and rendering work
+- In this workflow, keep the Android app connected to the Vite dev server through `adb reverse` on port `5173`, so changes appear immediately on the device without rebuilding the bundled web shell.
+- Do not switch to a full Android build just for ordinary web iteration.
+- Fall back to `npm run mobile:sync`, `npm run build:mobile`, or a full Android build only when changes affect:
+  - Capacitor plugin configuration
+  - Android native code or Android resources
+  - manifest or Gradle settings
+  - anything that depends on bundled static output instead of the dev server
+- Keep release behavior unchanged: any HTTP cleartext allowance for live-reload must remain limited to debug Android builds only.
+- If the user asks to "launch Android live-reload", "start the Android iteration loop", or equivalent, execute the workflow autonomously and report any device or connectivity blocker clearly.
 
 ### Structural Consolidation
 

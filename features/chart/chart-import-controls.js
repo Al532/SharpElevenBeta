@@ -127,7 +127,8 @@ export async function handlePastedChartIRealLinkImport({
  *   forumTracksUrl?: string,
  *   setImportStatus?: (message: string, isError?: boolean) => void,
  *   onBackupFileSelection?: EventListener,
- *   onPastedLinkImport?: () => void
+ *   onPastedLinkImport?: () => void,
+ *   onOpenForumTracks?: () => Promise<boolean> | boolean
  * }} [options]
  * @returns {void}
  */
@@ -142,7 +143,8 @@ export function bindChartImportControls({
   forumTracksUrl,
   setImportStatus,
   onBackupFileSelection,
-  onPastedLinkImport
+  onPastedLinkImport,
+  onOpenForumTracks
 } = {}) {
   importIRealBackupButton?.addEventListener('click', () => {
     irealBackupInput?.click();
@@ -152,7 +154,12 @@ export function bindChartImportControls({
     window.open(defaultPlaylistsUrl, '_blank', 'noopener,noreferrer');
     setImportStatus?.('Default playlists opened in a new tab. Paste an irealb:// link here when ready.');
   });
-  openIRealForumButton?.addEventListener('click', () => {
+  openIRealForumButton?.addEventListener('click', async () => {
+    const openedInternally = await onOpenForumTracks?.();
+    if (openedInternally) {
+      setImportStatus?.('Forum tracks opened in the in-app browser. Tap an irealb:// link there to import it here.');
+      return;
+    }
     window.open(forumTracksUrl, '_blank', 'noopener,noreferrer');
     setImportStatus?.('Forum tracks opened in a new tab. Paste an irealb:// link here when ready.');
   });
