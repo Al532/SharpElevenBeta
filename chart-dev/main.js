@@ -49,6 +49,7 @@ import {
 } from '../features/chart/chart-renderer.js';
 import { createAppShellBindings } from '../features/app/app-shell-bindings.js';
 import { initializeAppShell } from '../features/app/app-shell.js';
+import { consumePendingIRealLink, isIRealDeepLink, storePendingIRealLink } from '../features/app/app-pending-mobile-import.js';
 import { createChartSheetRenderer } from '../features/chart/chart-sheet-renderer.js';
 import {
   bindChartImportControls,
@@ -92,6 +93,7 @@ import {
   openChartOverlay,
   toggleChartPopover
 } from '../features/chart/chart-ui-shell.js';
+import { createMobileBackNavigationController } from '../features/app/app-mobile-back-navigation.js';
 import { bindChartRuntimeControls } from '../features/chart/chart-runtime-controls.js';
 import { createContiguousBarSelectionController } from '../features/chart/chart-selection-controller.js';
 import {
@@ -231,6 +233,37 @@ const state = {
     active: false
   }
 };
+
+function isPopoverOpen(popover) {
+  return Boolean(popover && !popover.hidden);
+}
+
+function isOverlayOpen() {
+  return dom.chartApp?.classList.contains('overlay-open') === true;
+}
+
+function handleChartDismissibleBack() {
+  if (isPopoverOpen(dom.settingsPopover) || isPopoverOpen(dom.manageChartsPopover)) {
+    closeAllPopovers();
+    chartBackNavigation.sync();
+    return true;
+  }
+  if (isOverlayOpen()) {
+    closeOverlay();
+    chartBackNavigation.sync();
+    return true;
+  }
+  return false;
+}
+
+const chartBackNavigation = createMobileBackNavigationController({
+  canHandleBack: () => (
+    isPopoverOpen(dom.settingsPopover)
+    || isPopoverOpen(dom.manageChartsPopover)
+    || isOverlayOpen()
+  ),
+  handleBack: handleChartDismissibleBack
+});
 
 const chartDirectPlaybackRuntimeHost = createChartDirectPlaybackRuntimeHost(createChartDirectPlaybackRuntimeHostBindings({
   getExistingFrame: () => dom.playbackBridgeFrame,
@@ -390,6 +423,48 @@ function setImportStatus(message, isError = false) {
     isError
   });
   setChartImportStatus(bindings.chartImportStatus, bindings.message, bindings.isError);
+}
+
+async function importIncomingIRealLink(rawText, sourceLabel = 'incoming iReal link') {
+  const trimmedText = String(rawText || '').trim();
+  if (!trimmedText) return false;
+  try {
+    const documents = await importDocumentsFromIRealText(trimmedText, sourceLabel);
+    applyImportedLibrary({
+      documents,
+      source: sourceLabel,
+      statusMessage: `Loaded ${documents.length} charts from ${sourceLabel}.`
+    });
+    return true;
+  } catch (error) {
+    setImportStatus(`Import failed: ${getErrorMessage(error)}`, true);
+    return false;
+  }
+}
+
+async function consumePendingMobileImport() {
+  const pendingIRealLink = consumePendingIRealLink();
+  if (!pendingIRealLink) return false;
+  dom.irealLinkInput.value = pendingIRealLink;
+  return importIncomingIRealLink(pendingIRealLink, 'incoming iReal link');
+}
+
+async function bindIncomingMobileImports() {
+  if (!window.Capacitor?.isNativePlatform?.()) return;
+  let appPlugin = null;
+  try {
+    const capacitorAppModule = await import('@capacitor/app');
+    appPlugin = capacitorAppModule?.App || null;
+  } catch (_error) {
+    appPlugin = window.Capacitor?.Plugins?.App || null;
+  }
+  if (!appPlugin?.addListener) return;
+
+  appPlugin.addListener('appUrlOpen', async ({ url }) => {
+    if (!isIRealDeepLink(url)) return;
+    storePendingIRealLink(url);
+    await consumePendingMobileImport();
+  });
 }
 
 async function importDocumentsFromIRealText(rawText, sourceFile = '') {
@@ -731,6 +806,7 @@ function closeAllPopovers() {
     popovers: [dom.manageChartsPopover, dom.settingsPopover]
   });
   closeAllChartPopovers(bindings.popovers);
+  chartBackNavigation.sync();
 }
 
 function togglePopover(targetPopover, otherPopover) {
@@ -739,6 +815,7 @@ function togglePopover(targetPopover, otherPopover) {
     popovers: [targetPopover, otherPopover]
   });
   toggleChartPopover(bindings.targetPopover, bindings.popovers);
+  chartBackNavigation.sync();
 }
 
 function openOverlay() {
@@ -747,6 +824,7 @@ function openOverlay() {
     chartTopOverlay: dom.chartTopOverlay,
     chartBottomOverlay: dom.chartBottomOverlay
   }));
+  chartBackNavigation.sync();
 }
 
 function closeOverlay() {
@@ -756,6 +834,7 @@ function closeOverlay() {
     chartBottomOverlay: dom.chartBottomOverlay,
     popovers: [dom.manageChartsPopover, dom.settingsPopover]
   }));
+  chartBackNavigation.sync();
 }
 
 async function importDefaultFixtureLibrary() {
@@ -912,11 +991,14 @@ async function loadFixtures() {
       dom.transportStatus.textContent = message;
     }
   })));
+  await consumePendingMobileImport();
 }
 
 loadFixtures().catch((error) => {
   dom.transportStatus.textContent = `Failed to load charts: ${getErrorMessage(error)}`;
 });
+
+void bindIncomingMobileImports();
 
 bindChartLifecycleEvents({
   lifecycleTarget: window,

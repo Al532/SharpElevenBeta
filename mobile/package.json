@@ -1,7 +1,7 @@
 {
   "name": "sharp-eleven-app-mobile",
   "private": true,
-  "version": "1.1.40",
+  "version": "1.1.41",
   "scripts": {
     "copy": "npx cap copy",
     "sync": "npx cap sync",
@@ -9,6 +9,7 @@
     "open:ios": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.0.0"
   },
   "devDependencies": {

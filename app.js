@@ -68,6 +68,8 @@ import {
   createDrillWelcomeDrillRootAppFacade
 } from './features/drill/drill-root-app-adapters.js';
 import { initializeAppShell } from './features/app/app-shell.js';
+import { createMobileBackNavigationController } from './features/app/app-mobile-back-navigation.js';
+import { isIRealDeepLink, storePendingIRealLink } from './features/app/app-pending-mobile-import.js';
 import { consumePendingPracticeSessionIntoUi } from './features/drill/drill-session-import.js';
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
@@ -401,7 +403,9 @@ function clearProgressionEditingState(...args) {
 }
 
 function closeProgressionManager(...args) {
-  return closeProgressionManagerImpl(...args);
+  const result = closeProgressionManagerImpl(...args);
+  drillBackNavigation.sync();
+  return result;
 }
 
 function setPatternSelectValue(...args) {
@@ -481,7 +485,101 @@ function validateCustomPattern(...args) {
 }
 
 function setKeyPickerOpen(...args) {
-  return setKeyPickerOpenImpl(...args);
+  const result = setKeyPickerOpenImpl(...args);
+  drillBackNavigation.sync();
+  return result;
+}
+
+function isElementVisible(element) {
+  return Boolean(element && !element.classList.contains('hidden'));
+}
+
+function isKeyPickerOpen() {
+  return Boolean(dom.keyPicker?.open);
+}
+
+function handleDrillDismissibleBack() {
+  if (isElementVisible(dom.progressionUpdateModal)) {
+    setProgressionUpdateModalVisibility(false);
+    drillBackNavigation.sync();
+    return true;
+  }
+  if (isKeyPickerOpen()) {
+    setKeyPickerOpen(false);
+    drillBackNavigation.sync();
+    return true;
+  }
+  if (isElementVisible(dom.progressionManagerPanel)) {
+    closeProgressionManager();
+    drillBackNavigation.sync();
+    return true;
+  }
+  if (isElementVisible(dom.welcomeOverlay)) {
+    setWelcomeOverlayVisible(false);
+    drillBackNavigation.sync();
+    return true;
+  }
+  return false;
+}
+
+const drillBackNavigation = createMobileBackNavigationController({
+  canHandleBack: () => (
+    isElementVisible(dom.progressionUpdateModal)
+    || isKeyPickerOpen()
+    || isElementVisible(dom.progressionManagerPanel)
+    || isElementVisible(dom.welcomeOverlay)
+  ),
+  handleBack: handleDrillDismissibleBack
+});
+
+if (typeof MutationObserver !== 'undefined') {
+  const drillBackObserver = new MutationObserver(() => {
+    drillBackNavigation.sync();
+  });
+  if (dom.progressionUpdateModal) {
+    drillBackObserver.observe(dom.progressionUpdateModal, {
+      attributes: true,
+      attributeFilter: ['class', 'aria-hidden']
+    });
+  }
+  if (dom.progressionManagerPanel) {
+    drillBackObserver.observe(dom.progressionManagerPanel, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+  if (dom.welcomeOverlay) {
+    drillBackObserver.observe(dom.welcomeOverlay, {
+      attributes: true,
+      attributeFilter: ['class', 'aria-hidden', 'inert']
+    });
+  }
+  if (dom.keyPicker) {
+    drillBackObserver.observe(dom.keyPicker, {
+      attributes: true,
+      attributeFilter: ['open']
+    });
+  }
+}
+
+async function bindIncomingMobileImports() {
+  if (!window.Capacitor?.isNativePlatform?.()) return;
+  let appPlugin = null;
+  try {
+    const capacitorAppModule = await import('@capacitor/app');
+    appPlugin = capacitorAppModule?.App || null;
+  } catch (_error) {
+    appPlugin = window.Capacitor?.Plugins?.App || null;
+  }
+  if (!appPlugin?.addListener) return;
+
+  appPlugin.addListener('appUrlOpen', ({ url }) => {
+    if (!isIRealDeepLink(url)) return;
+    const stored = storePendingIRealLink(url);
+    if (!stored) return;
+    const targetUrl = new URL('./chart-dev/index.html', window.location.href);
+    window.location.assign(targetUrl.href);
+  });
 }
 
 function escapeHtml(...args) {
@@ -2428,6 +2526,8 @@ const {
 async function initializeApp() {
   await drillUiBootstrap.initializeScreen();
 }
+
+void bindIncomingMobileImports();
 
 const drillUiBootstrap = createDrillUiBootstrapDrillRootAppAssembly({
   screenDom: dom,
