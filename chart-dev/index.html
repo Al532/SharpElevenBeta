@@ -134,53 +134,52 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Bottom overlay: transport controls -->
-    <div class="chart-bottom-overlay" id="chart-bottom-overlay" aria-hidden="true">
-      <div class="chart-transport-controls">
-        <label class="chart-select-field chart-tempo-field">
-          <span>Tempo</span>
-          <input id="tempo-input" type="number" min="40" max="320" step="1" value="120">
-        </label>
-        <label class="chart-select-field">
-          <span>Comping style</span>
-          <select id="comping-style-select">
-            <option value="off">Off</option>
-            <option value="strings" selected>Strings</option>
-            <option value="piano">Piano</option>
-          </select>
-        </label>
-        <label class="chart-select-field">
-          <span>Drums</span>
-          <select id="drums-select">
-            <option value="off">Off</option>
-            <option value="metronome_2_4">Metronome 2 &amp; 4</option>
-            <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
-            <option value="full_swing" selected>Full swing drum pattern</option>
-          </select>
-        </label>
-        <label class="chart-select-field">
-          <span>Key</span>
-          <select id="transpose-select">
-            <option value="0">Concert</option>
-            <option value="2">Bb</option>
-            <option value="9">Eb</option>
-            <option value="7">F</option>
-          </select>
-        </label>
-      </div>
-      <div class="chart-transport-bottom-row">
-        <div class="chart-transport-meta">
-          <span id="transport-status">Ready</span>
-          <span id="transport-position">Bar 0 / 0</span>
-          <span id="selection-summary">No selection</span>
+      <!-- Bottom overlay: transport controls -->
+      <div class="chart-bottom-overlay" id="chart-bottom-overlay" aria-hidden="true">
+        <div class="chart-transport-controls">
+          <label class="chart-select-field chart-tempo-field">
+            <span>Tempo</span>
+            <input id="tempo-input" type="number" min="40" max="320" step="1" value="120">
+          </label>
+          <label class="chart-select-field">
+            <span>Comping style</span>
+            <select id="comping-style-select">
+              <option value="off">Off</option>
+              <option value="strings" selected>Strings</option>
+              <option value="piano">Piano</option>
+            </select>
+          </label>
+          <label class="chart-select-field">
+            <span>Drums</span>
+            <select id="drums-select">
+              <option value="off">Off</option>
+              <option value="metronome_2_4">Metronome 2 &amp; 4</option>
+              <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
+              <option value="full_swing" selected>Full swing drum pattern</option>
+            </select>
+          </label>
+          <label class="chart-select-field">
+            <span>Key</span>
+            <select id="transpose-select">
+              <option value="0">Concert</option>
+              <option value="2">Bb</option>
+              <option value="9">Eb</option>
+              <option value="7">F</option>
+            </select>
+          </label>
         </div>
-        <div class="chart-transport-buttons">
-          <button id="clear-selection-button" type="button" class="chart-transport-button">Clear selection</button>
-          <button id="send-selection-to-drill-button" type="button" class="chart-transport-button">Send to Drill</button>
-          <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
-          <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
+        <div class="chart-transport-bottom-row">
+          <div class="chart-transport-meta">
+            <span id="transport-status">Ready</span>
+            <span id="transport-position">Bar 0 / 0</span>
+            <span id="selection-summary">No selection</span>
+          </div>
+          <div class="chart-transport-buttons">
+            <button id="clear-selection-button" type="button" class="chart-transport-button">Clear selection</button>
+            <button id="send-selection-to-drill-button" type="button" class="chart-transport-button">Send to Drill</button>
+            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
+            <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
+          </div>
         </div>
       </div>
     </div>

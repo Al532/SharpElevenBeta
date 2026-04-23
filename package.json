@@ -1,7 +1,7 @@
 {
   "name": "sharp-eleven-app",
   "private": true,
-  "version": "1.1.39",
+  "version": "1.1.40",
   "scripts": {
     "dev": "vite",
     "dev:chart": "vite --config vite.chart.config.js",

@@ -109,6 +109,10 @@ export function renderChartSelector({
 } = {}) {
   if (!fixtureSelect || !chartLibraryCount) return null;
 
+  const sourceLabel = currentLibrarySourceLabel === 'bundled default library'
+    ? 'bundled library'
+    : currentLibrarySourceLabel;
+
   if (documents.length === 0) {
     fixtureSelect.innerHTML = '';
     fixtureSelect.disabled = true;
@@ -142,7 +146,7 @@ export function renderChartSelector({
   fixtureSelect.value = selectedId;
 
   const resultLabel = `${documents.length} / ${totalDocumentCount || documents.length}`;
-  const suffix = currentLibrarySourceLabel ? ` from ${currentLibrarySourceLabel}` : '';
+  const suffix = sourceLabel ? ` from ${sourceLabel}` : '';
   chartLibraryCount.textContent = currentSearch
     ? `${resultLabel} charts match${suffix}`
     : `${resultLabel} charts${suffix}`;
