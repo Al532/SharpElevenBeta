@@ -445,7 +445,7 @@ async function importIncomingIRealLink(rawText, sourceLabel = 'incoming iReal li
 }
 
 async function consumePendingMobileImport() {
-  const pendingIRealLink = consumePendingIRealLink();
+  const pendingIRealLink = await consumePendingIRealLink();
   if (!pendingIRealLink) return false;
   dom.irealLinkInput.value = pendingIRealLink;
   return importIncomingIRealLink(pendingIRealLink, 'incoming iReal link');

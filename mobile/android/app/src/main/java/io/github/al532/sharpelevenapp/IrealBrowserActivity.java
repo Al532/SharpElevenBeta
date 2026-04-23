@@ -100,7 +100,17 @@ public class IrealBrowserActivity extends AppCompatActivity {
             return false;
         }
         if ("irealb".equalsIgnoreCase(scheme)) {
-            Intent intent = new Intent(Intent.ACTION_VIEW, uri, this, MainActivity.class);
+            try {
+                PendingIrealImportStore.persist(this, uri.toString());
+            } catch (IOException error) {
+                return false;
+            }
+            Intent intent = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse(PendingIrealImportStore.PENDING_IREAL_LINK_MARKER),
+                this,
+                MainActivity.class
+            );
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(intent);
             finish();

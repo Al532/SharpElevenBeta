@@ -3,8 +3,10 @@ package io.github.al532.sharpelevenapp;
 import android.content.Intent;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.IOException;
 
 @CapacitorPlugin(name = "IrealBrowser")
 public class IrealBrowserPlugin extends Plugin {
@@ -22,5 +24,17 @@ public class IrealBrowserPlugin extends Plugin {
         intent.putExtra(IrealBrowserActivity.EXTRA_TITLE, call.getString("title", ""));
         getActivity().startActivity(intent);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void consumePendingIRealLink(PluginCall call) {
+        try {
+            String url = PendingIrealImportStore.consume(getContext());
+            JSObject result = new JSObject();
+            result.put("url", url);
+            call.resolve(result);
+        } catch (IOException error) {
+            call.reject("Failed to load the pending iReal link.", error);
+        }
     }
 }

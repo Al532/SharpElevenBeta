@@ -573,12 +573,24 @@ async function bindIncomingMobileImports() {
   }
   if (!appPlugin?.addListener) return;
 
-  appPlugin.addListener('appUrlOpen', ({ url }) => {
-    if (!isIRealDeepLink(url)) return;
+  const redirectToChartImport = (url) => {
+    if (!isIRealDeepLink(url)) return false;
     const stored = storePendingIRealLink(url);
-    if (!stored) return;
+    if (!stored) return false;
     const targetUrl = new URL('./chart-dev/index.html', window.location.href);
     window.location.assign(targetUrl.href);
+    return true;
+  };
+
+  try {
+    const launchUrl = await appPlugin.getLaunchUrl?.();
+    redirectToChartImport(launchUrl?.url || '');
+  } catch (_error) {
+    // Ignore launch URL failures and keep the listener active.
+  }
+
+  appPlugin.addListener('appUrlOpen', ({ url }) => {
+    redirectToChartImport(url);
   });
 }
 
