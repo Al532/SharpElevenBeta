@@ -1,10 +1,12 @@
 package io.github.al532.sharpelevenapp;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebChromeClient;
@@ -17,6 +19,11 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 public class IrealBrowserActivity extends AppCompatActivity {
 
@@ -34,13 +41,6 @@ public class IrealBrowserActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.ireal_browser_progress);
         webView = findViewById(R.id.ireal_browser_webview);
-
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setDisplayHomeAsUpEnabled(true);
-            String explicitTitle = getIntent().getStringExtra(EXTRA_TITLE);
-            actionBar.setTitle(explicitTitle == null || explicitTitle.isBlank() ? getString(R.string.ireal_browser_title) : explicitTitle);
-        }
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -89,12 +89,9 @@ public class IrealBrowserActivity extends AppCompatActivity {
             }
         });
 
-        String initialUrl = getIntent().getStringExtra(EXTRA_URL);
-        if (initialUrl == null || initialUrl.isBlank()) {
+        if (!loadInitialContent(getIntent())) {
             finish();
-            return;
         }
-        webView.loadUrl(initialUrl);
     }
 
     private boolean handleNavigation(@NonNull Uri uri) {
@@ -110,6 +107,108 @@ public class IrealBrowserActivity extends AppCompatActivity {
             return true;
         }
         return false;
+    }
+
+    private boolean loadInitialContent(Intent intent) {
+        ActionBar actionBar = getSupportActionBar();
+        String explicitTitle = intent.getStringExtra(EXTRA_TITLE);
+        String resolvedTitle = explicitTitle == null || explicitTitle.isBlank()
+            ? getString(R.string.ireal_browser_title)
+            : explicitTitle;
+
+        if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            Uri sharedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (sharedUri != null) {
+                if (actionBar != null) {
+                    actionBar.setDisplayHomeAsUpEnabled(true);
+                    actionBar.setTitle(resolveSharedDocumentTitle(sharedUri, resolvedTitle));
+                }
+                return loadSharedHtml(sharedUri);
+            }
+
+            CharSequence sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+            if (sharedText != null && !sharedText.toString().isBlank()) {
+                if (actionBar != null) {
+                    actionBar.setDisplayHomeAsUpEnabled(true);
+                    actionBar.setTitle(resolvedTitle);
+                }
+                webView.loadDataWithBaseURL(
+                    "https://localhost/shared-import/",
+                    sharedText.toString(),
+                    "text/html",
+                    "utf-8",
+                    null
+                );
+                return true;
+            }
+        }
+
+        String initialUrl = intent.getStringExtra(EXTRA_URL);
+        if (initialUrl == null || initialUrl.isBlank()) {
+            return false;
+        }
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setTitle(resolvedTitle);
+        }
+        webView.loadUrl(initialUrl);
+        return true;
+    }
+
+    private boolean loadSharedHtml(@NonNull Uri sharedUri) {
+        ContentResolver resolver = getContentResolver();
+        try (InputStream stream = resolver.openInputStream(sharedUri)) {
+            if (stream == null) {
+                return false;
+            }
+            String html = readText(stream);
+            webView.loadDataWithBaseURL(
+                sharedUri.toString(),
+                html,
+                "text/html",
+                "utf-8",
+                null
+            );
+            return true;
+        } catch (IOException error) {
+            return false;
+        }
+    }
+
+    @NonNull
+    private String resolveSharedDocumentTitle(@NonNull Uri sharedUri, @NonNull String fallbackTitle) {
+        try (android.database.Cursor cursor = getContentResolver().query(
+            sharedUri,
+            new String[] { OpenableColumns.DISPLAY_NAME },
+            null,
+            null,
+            null
+        )) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int columnIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (columnIndex >= 0) {
+                    String displayName = cursor.getString(columnIndex);
+                    if (displayName != null && !displayName.isBlank()) {
+                        return displayName;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return fallbackTitle;
+    }
+
+    @NonNull
+    private String readText(@NonNull InputStream stream) throws IOException {
+        StringBuilder builder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            char[] buffer = new char[4096];
+            int count;
+            while ((count = reader.read(buffer)) != -1) {
+                builder.append(buffer, 0, count);
+            }
+        }
+        return builder.toString();
     }
 
     @Override
