@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * Groups the app-level bindings consumed by the drill runtime primitives
+ * Groups the app-level bindings passed into the drill runtime primitives
  * assembly.
  *
  * @param {object} [options]

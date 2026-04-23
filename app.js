@@ -6,10 +6,6 @@ import {
   normalizeProgressionsMap as normalizeProgressionsMapBase,
   parseDefaultProgressionsText as parseDefaultProgressionsTextBase
 } from './progression-library.js';
-import { bindProgressionControls } from './progression-bindings.js';
-import { createProgressionEditor } from './progression-editor.js';
-import { createProgressionManager } from './progression-manager.js';
-import { createWalkingBassGenerator } from './walking-bass.js';
 import {
   loadStoredKeySelectionPreset,
   loadStoredProgressionSettings,
@@ -30,56 +26,43 @@ import {
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
 import { createDrillAudioRuntimeRootAppAssembly } from './features/drill/drill-audio-runtime-root-app-assembly.js';
 import { createDrillCompingEngineRootAppAssembly } from './features/drill/drill-comping-engine-root-app-assembly.js';
+import { createDrillDefaultProgressionsRootAppAssembly } from './features/drill/drill-default-progressions-root-app-assembly.js';
+import { createDrillDisplayRenderRootAppFacade } from './features/drill/drill-display-render-root-app-facade.js';
+import { createDrillKeySelectionRootAppFacade } from './features/drill/drill-key-selection-root-app-facade.js';
 import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
 import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
 import { createDrillPlaybackResourcesRootAppAssembly } from './features/drill/drill-playback-resources-root-app-assembly.js';
-import {
-  buildDrillKeyCheckboxes,
-  invertDrillKeysEnabled,
-  setAllDrillKeysEnabled
-} from './features/drill/drill-key-selection.js';
+import { createDrillKeyPickerRootAppAssembly } from './features/drill/drill-key-picker-root-app-assembly.js';
 import { createDrillVoicingRuntimeRootAppAssembly } from './features/drill/drill-voicing-runtime-root-app-assembly.js';
-import { createDrillWalkingBassAppBindings } from './features/drill/drill-walking-bass-app-bindings.js';
-import { initializeDrillRuntimeControls } from './features/drill/drill-runtime-controls.js';
-import { bindDrillWelcomeControls } from './features/drill/drill-welcome.js';
-import { initializeDrillPianoControls } from './features/drill/drill-piano-tools.js';
+import { createDrillWalkingBassRootAppAssembly } from './features/drill/drill-walking-bass-root-app-assembly.js';
+import { createDrillPianoMidiRuntimeRootAppAssembly } from './features/drill/drill-piano-midi-runtime-root-app-assembly.js';
+import { createDrillNextPreviewRootAppFacade } from './features/drill/drill-next-preview-root-app-facade.js';
+import { createDrillPatternNormalizationRootAppContext } from './features/drill/drill-pattern-normalization-root-app-context.js';
 import { createDrillPianoToolsRootAppFacade } from './features/drill/drill-piano-tools-root-app-facade.js';
-import {
-  applyDrillBeatIndicatorVisibility,
-  applyDrillCurrentHarmonyVisibility,
-  applyDrillDisplayMode,
-  createDrillHarmonyDisplayHelpers,
-  createDrillHarmonyLayoutHelpers,
-  createDrillPreviewTimingHelpers,
-  refreshDrillDisplayedHarmony,
-  updateDrillKeyPickerLabels
-} from './features/drill/drill-display-runtime.js';
-import {
-  loadDrillSettings,
-  saveDrillSettings
-} from './features/drill/drill-settings.js';
+import { createDrillWelcomeRootAppFacade } from './features/drill/drill-welcome-root-app-facade.js';
+import { createDrillDisplayControlsRootAppFacade } from './features/drill/drill-display-controls-root-app-facade.js';
+import { createDrillDisplayShellRootAppFacade } from './features/drill/drill-display-shell-root-app-facade.js';
+import { createDrillDisplayRuntimeRootAppAssembly } from './features/drill/drill-display-runtime-root-app-assembly.js';
+import { createDrillProgressionRootAppAssembly } from './features/drill/drill-progression-root-app-assembly.js';
+import { createDrillRuntimeControlsRootAppContext } from './features/drill/drill-runtime-controls-root-app-context.js';
+import { createDrillStartupDataRootAppAssembly } from './features/drill/drill-startup-data-root-app-assembly.js';
+import { createDrillSettingsNormalizationRootAppContext } from './features/drill/drill-settings-normalization-root-app-context.js';
+import { createDrillSettingsPersistenceRootAppAssembly } from './features/drill/drill-settings-persistence-root-app-assembly.js';
+import { createDrillUiEventBindingsRootAppAssembly } from './features/drill/drill-ui-event-bindings-root-app-assembly.js';
+import { createDrillUiBootstrapScreenRootAppContext } from './features/drill/drill-ui-bootstrap-screen-root-app-context.js';
 import { createDrillSettingsRootAppAssembly } from './features/drill/drill-settings-root-app-assembly.js';
+import { createDrillSharedPlaybackDirectRuntimeRootAppContext } from './features/drill/drill-shared-playback-direct-runtime-root-app-context.js';
+import { createDrillSharedPlaybackHostRootAppContext } from './features/drill/drill-shared-playback-host-root-app-context.js';
+import { createDrillSharedPlaybackPatternUiRootAppContext } from './features/drill/drill-shared-playback-pattern-ui-root-app-context.js';
 import { initializeAppShell } from './features/app/app-shell.js';
 import { consumePendingDrillSessionIntoUi } from './features/drill/drill-session-import.js';
-import { initializeDrillScreen } from './features/drill/drill-ui-shell.js';
-import {
-  initializeHarmonyDisplayObservers,
-  initializeKeyPickerUi,
-  initializeSocialShareLinks
-} from './features/drill/drill-ui-runtime.js';
+import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
 import { createDrillSharedPlaybackRootAppAssembly } from './features/drill/drill-shared-playback-root-app-assembly.js';
-import { createDrillSharedPlaybackDirectStateAppContext } from './features/drill/drill-shared-playback-direct-state-app-context.js';
-import { createDrillSharedPlaybackHostAppContext } from './features/drill/drill-shared-playback-host-app-context.js';
-import { createDrillSharedPlaybackEmbeddedStateAppContext } from './features/drill/drill-shared-playback-embedded-state-app-context.js';
-import { createDrillSharedPlaybackEmbeddedRuntimeAppContext } from './features/drill/drill-shared-playback-embedded-runtime-app-context.js';
-import { createDrillSharedPlaybackDirectRuntimeAppContext } from './features/drill/drill-shared-playback-direct-runtime-app-context.js';
-import { createDrillSharedPlaybackDirectTransportAppContext } from './features/drill/drill-shared-playback-direct-transport-app-context.js';
-import { createDrillSharedPlaybackNormalizationAppContext } from './features/drill/drill-shared-playback-normalization-app-context.js';
-import { createDrillSharedPlaybackPatternUiAppContext } from './features/drill/drill-shared-playback-pattern-ui-app-context.js';
-import { createDrillSharedPlaybackSettingsAppContext } from './features/drill/drill-shared-playback-settings-app-context.js';
 import { createDrillPlaybackRuntimeHostRootAppAssembly } from './features/drill/drill-playback-runtime-host-root-app-assembly.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
 import { createDrillRuntimeStateRootAppAssembly } from './features/drill/drill-runtime-state-root-app-assembly.js';
+import { createDrillUiBootstrapRootAppAssembly } from './features/drill/drill-ui-bootstrap-root-app-assembly.js';
+import { createDrillWelcomeStandardsRootAppAssembly } from './features/drill/drill-welcome-standards-root-app-assembly.js';
 
 /* ============================================================
    Jazz Progression Trainer — app.js
@@ -169,6 +152,11 @@ const PATTERN_MODE_MAJOR = 'major';
 const PATTERN_MODE_MINOR = 'minor';
 const NEXT_PREVIEW_UNIT_BARS = 'bars';
 const NEXT_PREVIEW_UNIT_SECONDS = 'seconds';
+const DISPLAY_MODE_SHOW_BOTH = 'show-both';
+const DISPLAY_MODE_CHORDS_ONLY = 'chords-only';
+const DISPLAY_MODE_KEY_ONLY = 'key-only';
+const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
+const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const DEFAULT_PROGRESSIONS_URL = './default-progressions.txt';
 const DEFAULT_REPETITIONS_PER_KEY = 2;
 const COMPING_STYLE_OFF = 'off';
@@ -324,20 +312,98 @@ function setKeyPickerOpen(isOpen) {
   dom.keyPicker.open = Boolean(isOpen);
 }
 
+let restoreAllKeysIfNoneSelectedOnCloseImpl = () => {};
+
+function restoreAllKeysIfNoneSelectedOnClose(...args) {
+  return restoreAllKeysIfNoneSelectedOnCloseImpl(...args);
+}
+
+let createDefaultAppSettingsImpl = (..._args) => ({});
+
+function createDefaultAppSettings(...args) {
+  return createDefaultAppSettingsImpl(...args);
+}
+
+let clearProgressionEditingStateImpl = () => {};
+let closeProgressionManagerImpl = () => {};
+let setPatternSelectValueImpl = () => {};
+let getSelectedProgressionNameImpl = () => '';
+let getSelectedProgressionPatternImpl = () => '';
+let setEditorPatternModeImpl = () => {};
+let getSelectedProgressionModeImpl = () => '';
+let syncPatternSelectionFromInputImpl = () => {};
+let syncCustomPatternUIImpl = () => {};
+let syncProgressionManagerStateImpl = () => {};
+let applyPatternModeAvailabilityImpl = () => {};
+let syncPatternPreviewImpl = () => {};
+let startImpl = () => {};
+let saveSettingsImpl = () => {};
+let loadSettingsImpl = () => {};
+
+function clearProgressionEditingState(...args) {
+  return clearProgressionEditingStateImpl(...args);
+}
+
+function closeProgressionManager(...args) {
+  return closeProgressionManagerImpl(...args);
+}
+
+function setPatternSelectValue(...args) {
+  return setPatternSelectValueImpl(...args);
+}
+
+function getSelectedProgressionName(...args) {
+  return getSelectedProgressionNameImpl(...args);
+}
+
+function getSelectedProgressionPattern(...args) {
+  return getSelectedProgressionPatternImpl(...args);
+}
+
+function setEditorPatternMode(...args) {
+  return setEditorPatternModeImpl(...args);
+}
+
+function getSelectedProgressionMode(...args) {
+  return getSelectedProgressionModeImpl(...args);
+}
+
+function syncPatternSelectionFromInput(...args) {
+  return syncPatternSelectionFromInputImpl(...args);
+}
+
+function syncCustomPatternUI(...args) {
+  return syncCustomPatternUIImpl(...args);
+}
+
+function syncProgressionManagerState(...args) {
+  return syncProgressionManagerStateImpl(...args);
+}
+
+function applyPatternModeAvailability(...args) {
+  return applyPatternModeAvailabilityImpl(...args);
+}
+
+function syncPatternPreview(...args) {
+  return syncPatternPreviewImpl(...args);
+}
+
+function start(...args) {
+  return startImpl(...args);
+}
+
+function saveSettings(...args) {
+  return saveSettingsImpl(...args);
+}
+
+function loadSettings(...args) {
+  return loadSettingsImpl(...args);
+}
+
 function stopPlaybackIfRunning() {
   if (!isPlaying) return;
   stop();
 }
-
-initializeKeyPickerUi({
-  keyPicker: dom.keyPicker,
-  keyPickerBackdrop: dom.keyPickerBackdrop,
-  closeKeyPickerButton: dom.closeKeyPicker,
-  selectedKeysSummary: dom.selectedKeysSummary,
-  setKeyPickerOpen,
-  stopPlaybackIfRunning,
-  restoreAllKeysIfNoneSelectedOnClose
-});
 
 let DEFAULT_PROGRESSIONS = {};
 let progressions = {};
@@ -572,188 +638,51 @@ let sessionEngagedTracked = false;
 let sessionDurationTracked = false;
 let sessionActionCount = 0;
 
-function normalizePatternMode(mode) {
-  if (mode === 'major/minor') return PATTERN_MODE_BOTH;
-  return [PATTERN_MODE_MAJOR, PATTERN_MODE_MINOR, PATTERN_MODE_BOTH].includes(mode)
-    ? mode
-    : PATTERN_MODE_MAJOR;
-}
-
-function normalizePresetName(name) {
-  return String(name || '')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function slugifyWelcomeStandardName(name) {
-  return normalizePresetName(name)
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'standard';
-}
-
-function parsePitchClassFromKeyName(name) {
-  const normalized = String(name || '').trim();
-  const match = normalized.match(/^([A-Ga-g])([b#]?)/);
-  if (!match) return null;
-  const letter = match[1].toUpperCase();
-  const accidental = match[2] || '';
-  let pitchClass = NOTE_LETTER_TO_SEMITONE[letter];
-  if (!Number.isFinite(pitchClass)) return null;
-  if (accidental === 'b') pitchClass = (pitchClass + 11) % 12;
-  if (accidental === '#') pitchClass = (pitchClass + 1) % 12;
-  return pitchClass;
-}
-
-function buildSingleEnabledKeySelectionFromPattern(pattern) {
-  const match = String(pattern || '').match(/\bkey:\s*([A-G](?:b|#)?)/i);
-  const pitchClass = parsePitchClassFromKeyName(match?.[1] || '');
-  if (!Number.isFinite(pitchClass)) return [true, false, false, false, false, false, false, false, false, false, false, false];
-  return Array.from({ length: 12 }, (_, index) => index === pitchClass);
-}
-
-function parseWelcomeStandardsText(text) {
-  const entries = {};
-  const lines = String(text || '').split(/\r?\n/);
-  let pendingTempo = 120;
-
-  // Accumulate multi-line entries: header on one line, bars on following lines
-  let pendingName = null;
-  let pendingMode = null;
-  let pendingPatternParts = [];
-
-  function flushPending() {
-    if (!pendingName) return;
-    const pattern = pendingPatternParts.join(' | ');
-    const normalizedMode = normalizePatternMode(pendingMode);
-    const keyMatch = pattern.match(/\bkey:\s*([A-G](?:b|#)?)/i);
-    const keyName = keyMatch?.[1] || 'C';
-    const isMinor = normalizedMode === PATTERN_MODE_MINOR;
-    const keyPitchClass = parsePitchClassFromKeyName(keyName);
-    const fallbackPitchClass = Number.isFinite(keyPitchClass) ? keyPitchClass : 0;
-    entries[slugifyWelcomeStandardName(pendingName)] = {
-      summary: `Suggested: ${pendingName}, single key, ${pendingTempo >= 140 ? 'up-tempo' : 'comfortable'} groove.`,
-      patternName: pendingName,
-      pattern,
-      patternMode: normalizedMode,
-      majorMinor: isMinor,
-      repetitionsPerKey: 1,
-      tempo: pendingTempo,
-      chordsPerBar: 4,
-      compingStyle: COMPING_STYLE_PIANO,
-      enabledKeys: buildSingleEnabledKeySelectionFromPattern(pattern),
-      sourcePitchClass: fallbackPitchClass
-    };
-    pendingName = null;
-    pendingMode = null;
-    pendingPatternParts = [];
+const {
+  normalizePatternMode,
+  normalizePresetName,
+  normalizePresetNameForInput
+} = createDrillPatternNormalizationRootAppContext({
+  constants: {
+    patternModeBoth: PATTERN_MODE_BOTH,
+    patternModeMajor: PATTERN_MODE_MAJOR,
+    patternModeMinor: PATTERN_MODE_MINOR
   }
+});
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('#')) {
-      const tempoMatch = trimmed.match(/\bTempo:\s*(\d+)/i);
-      if (tempoMatch) pendingTempo = Number.parseInt(tempoMatch[1], 10) || 120;
-      continue;
-    }
-    if (!trimmed) {
-      flushPending();
-      continue;
-    }
-
-    const entryMatch = trimmed.match(/^([^|]+)\|([^|]+)\|(.*)$/);
-    if (!entryMatch) continue;
-
-    const col1 = entryMatch[1].trim();
-    const col2 = entryMatch[2].trim();
-    const col3 = entryMatch[3].trim();
-
-    // Detect a header line: col2 is a mode word and col3 starts with "key:"
-    const isHeader = /^(major|minor)$/i.test(col2) && /^key:/i.test(col3);
-    if (isHeader) {
-      flushPending();
-      pendingName = col1;
-      pendingMode = col2;
-      pendingPatternParts = [col3];
-      continue;
-    }
-
-    // If we have a pending entry, this is a continuation bars line
-    if (pendingName) {
-      // This line has bars separated by |, re-join them
-      pendingPatternParts.push(trimmed);
-      continue;
-    }
-
-    // Legacy single-line format fallback
-    const patternName = col1;
-    const rawMode = col2;
-    const pattern = col3;
-    const normalizedMode = normalizePatternMode(rawMode);
-    const keyMatch = pattern.match(/\bkey:\s*([A-G](?:b|#)?)/i);
-    const keyName = keyMatch?.[1] || 'C';
-    const isMinor = normalizedMode === PATTERN_MODE_MINOR;
-    const keyPitchClass = parsePitchClassFromKeyName(keyName);
-    const fallbackPitchClass = Number.isFinite(keyPitchClass) ? keyPitchClass : 0;
-
-    entries[slugifyWelcomeStandardName(patternName)] = {
-      summary: `Suggested: ${patternName}, single key, ${pendingTempo >= 140 ? 'up-tempo' : 'comfortable'} groove.`,
-      patternName,
-      pattern,
-      patternMode: normalizedMode,
-      majorMinor: isMinor,
-      repetitionsPerKey: 1,
-      tempo: pendingTempo,
-      chordsPerBar: 4,
-      compingStyle: COMPING_STYLE_PIANO,
-      enabledKeys: buildSingleEnabledKeySelectionFromPattern(pattern),
-      sourcePitchClass: fallbackPitchClass
-    };
+const {
+  parseWelcomeStandardsText,
+  renderWelcomeStandardOptions
+} = createDrillWelcomeStandardsRootAppAssembly({
+  dom,
+  state: {
+    getWelcomeStandards: () => welcomeStandards
+  },
+  constants: {
+    noteLetterToSemitone: NOTE_LETTER_TO_SEMITONE,
+    patternModeMinor: PATTERN_MODE_MINOR,
+    compingStylePiano: COMPING_STYLE_PIANO
+  },
+  helpers: {
+    normalizePatternMode
   }
+});
 
-  flushPending();
-  return entries;
-}
-
-function renderWelcomeStandardOptions() {
-  if (!dom.welcomeStandardSelect) return;
-
-  const previousValue = dom.welcomeStandardSelect.value;
-  const entries = Object.entries(welcomeStandards);
-  dom.welcomeStandardSelect.innerHTML = '';
-
-  entries.forEach(([key, entry], index) => {
-    const option = document.createElement('option');
-    option.value = key;
-    option.textContent = entry.patternName || key;
-    if ((previousValue && previousValue === key) || (!previousValue && index === 0)) {
-      option.selected = true;
-    }
-    dom.welcomeStandardSelect.append(option);
-  });
-}
-
-async function loadWelcomeStandards() {
-  try {
-    const response = await fetch(`${REVIEW_STANDARD_CONVERSIONS_URL}?v=${encodeURIComponent(APP_VERSION)}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const parsed = parseWelcomeStandardsText(await response.text());
-    if (Object.keys(parsed).length > 0) {
-      welcomeStandards = parsed;
-    }
-  } catch (error) {
-    welcomeStandards = { ...WELCOME_STANDARDS_FALLBACK };
+const {
+  loadWelcomeStandards
+} = createDrillStartupDataRootAppAssembly({
+  state: {
+    setWelcomeStandards: (value) => { welcomeStandards = value; }
+  },
+  welcomeStandards: {
+    fetchImpl: (...args) => fetch(...args),
+    url: REVIEW_STANDARD_CONVERSIONS_URL,
+    version: APP_VERSION,
+    parseWelcomeStandardsText,
+    renderWelcomeStandardOptions,
+    welcomeStandardsFallback: WELCOME_STANDARDS_FALLBACK
   }
-
-  renderWelcomeStandardOptions();
-}
-
-function normalizePresetNameForInput(name) {
-  return String(name || '')
-    .replace(/\s{2,}/g, ' ');
-}
+});
 
 function escapeHtml(value) {
   return String(value || '')
@@ -762,61 +691,6 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-function normalizeCompingStyle(style) {
-  if (style === 'piano-one-hand' || style === 'piano-two-hand') return COMPING_STYLE_PIANO;
-  return [
-    COMPING_STYLE_OFF,
-    COMPING_STYLE_STRINGS,
-    COMPING_STYLE_PIANO
-  ].includes(style)
-    ? style
-    : COMPING_STYLE_STRINGS;
-}
-
-function getPianoVoicingMode() {
-  normalizeCompingStyle(dom.compingStyle?.value);
-  return 'piano';
-}
-
-function normalizeRepetitionsPerKey(value) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return DEFAULT_REPETITIONS_PER_KEY;
-  return Math.min(8, Math.max(1, parsed));
-}
-
-function getRepetitionsPerKey() {
-  return normalizeRepetitionsPerKey(dom.repetitionsPerKey?.value);
-}
-
-function createProgressionEntry(pattern, mode = PATTERN_MODE_MAJOR, name = '') {
-  return createProgressionEntryBase(
-    pattern,
-    normalizePatternMode,
-    normalizePatternString,
-    mode,
-    name,
-    normalizePresetName
-  );
-}
-
-function normalizeProgressionEntry(name, entry) {
-  return normalizeProgressionEntryBase(name, entry, {
-    createEntry: createProgressionEntry,
-    defaultMode: PATTERN_MODE_MAJOR
-  });
-}
-
-function normalizeProgressionsMap(source) {
-  return normalizeProgressionsMapBase(source, DEFAULT_PROGRESSIONS, normalizeProgressionEntry);
-}
-
-function parseDefaultProgressionsText(source) {
-  return parseDefaultProgressionsTextBase(source, {
-    createEntry: createProgressionEntry,
-    isModeToken: isProgressionModeToken
-  });
 }
 
 const {
@@ -851,6 +725,63 @@ const {
   }
 });
 
+const {
+  normalizeCompingStyle,
+  normalizeRepetitionsPerKey,
+  normalizeChordsPerBar,
+  normalizeDisplayMode,
+  normalizeHarmonyDisplayMode
+} = createDrillSettingsNormalizationRootAppContext({
+  constants: {
+    compingStyleOff: COMPING_STYLE_OFF,
+    compingStyleStrings: COMPING_STYLE_STRINGS,
+    compingStylePiano: COMPING_STYLE_PIANO,
+    defaultRepetitionsPerKey: DEFAULT_REPETITIONS_PER_KEY,
+    displayModeShowBoth: DISPLAY_MODE_SHOW_BOTH,
+    displayModeChordsOnly: DISPLAY_MODE_CHORDS_ONLY,
+    displayModeKeyOnly: DISPLAY_MODE_KEY_ONLY,
+    harmonyDisplayModeDefault: HARMONY_DISPLAY_MODE_DEFAULT,
+    harmonyDisplayModeRich: HARMONY_DISPLAY_MODE_RICH
+  },
+  helpers: {
+    normalizeChordsPerBarBase
+  }
+});
+
+function getPianoVoicingMode() {
+  normalizeCompingStyle(dom.compingStyle?.value);
+  return 'piano';
+}
+
+function getRepetitionsPerKey() {
+  return normalizeRepetitionsPerKey(dom.repetitionsPerKey?.value);
+}
+
+const {
+  createProgressionEntry,
+  normalizeProgressionEntry,
+  normalizeProgressionsMap,
+  parseDefaultProgressionsText,
+  getDefaultProgressionsFingerprint
+} = createDrillDefaultProgressionsRootAppAssembly({
+  constants: {
+    defaultPatternMode: PATTERN_MODE_MAJOR
+  },
+  state: {
+    getDefaultProgressions: () => DEFAULT_PROGRESSIONS
+  },
+  helpers: {
+    createProgressionEntryBase,
+    normalizeProgressionEntryBase,
+    normalizeProgressionsMapBase,
+    parseDefaultProgressionsTextBase,
+    isModeToken: isProgressionModeToken,
+    normalizePatternMode,
+    normalizePatternString,
+    normalizePresetName
+  }
+});
+
 function clearOneChordCycleState() {
   currentRawChords = [];
   nextRawChords = [];
@@ -858,15 +789,6 @@ function clearOneChordCycleState() {
   oneChordQualityPoolSignature = '';
   currentOneChordQualityValue = '';
   nextOneChordQualityValue = '';
-}
-
-function getDefaultProgressionsFingerprint(source = DEFAULT_PROGRESSIONS) {
-  return JSON.stringify(
-    Object.entries(source || {}).map(([name, entry]) => {
-      const normalized = normalizeProgressionEntry(name, entry);
-      return [name, normalized.name || '', normalized.mode || PATTERN_MODE_MAJOR];
-    })
-  );
 }
 
 function normalizeAppliedOneTimeMigrations(value) {
@@ -974,10 +896,6 @@ function takeNextOneChordQuality(qualities, excludedQuality = null) {
 }
 
 // ---- Pattern Parser ----
-
-function normalizeChordsPerBar(value) {
-  return normalizeChordsPerBarBase(value);
-}
 
 function syncDoubleTimeToggle() {
   if (dom.doubleTimeToggle) {
@@ -1532,13 +1450,11 @@ function getBassPreloadRange() {
   return { low: BASS_LOW, high: BASS_HIGH };
 }
 
-const walkingBassGenerator = createWalkingBassGenerator({
-  ...createDrillWalkingBassAppBindings({
-    constants: {
-      BASS_LOW,
-      BASS_HIGH
-    }
-  })
+const walkingBassGenerator = createDrillWalkingBassRootAppAssembly({
+  constants: {
+    BASS_LOW,
+    BASS_HIGH
+  }
 });
 
 const {
@@ -2001,18 +1917,6 @@ function transposeDisplayPitchClass(pitchClass) {
   return (pitchClass + getDisplayTranspositionSemitones() + 12) % 12;
 }
 
-function keyName(key) {
-  return buildDisplayedKeyName(key);
-}
-
-function keyNameHtml(key) {
-  return buildDisplayedKeyNameHtml(key);
-}
-
-function renderPickerKeyHtml(value) {
-  return buildPickerKeyHtml(value);
-}
-
 function getDisplayedQuality(chord, isMinor, nextChord = null) {
   const playedQuality = getPlayedChordQuality(chord, isMinor, nextChord);
   return getDisplayAliasQuality(
@@ -2036,126 +1940,61 @@ function normalizeDisplayedRootName(rootName) {
 }
 
 const {
-  keyName: buildDisplayedKeyName,
-  keyNameHtml: buildDisplayedKeyNameHtml,
-  renderPickerKeyHtml: buildPickerKeyHtml,
-  degreeRootName: buildDegreeRootName,
-  chordSymbol: buildChordSymbol,
-  chordSymbolHtml: buildChordSymbolHtml,
-  getChordSymbolRenderOptions: buildChordSymbolRenderOptions
-} = createDrillHarmonyDisplayHelpers({
-  keyNamesMajor: KEY_NAMES_MAJOR,
-  keyNamesMinor: KEY_NAMES_MINOR,
-  letters: LETTERS,
-  naturalSemitones: NATURAL_SEMITONES,
-  degreeIndices: DEGREE_INDICES,
-  escapeHtml,
-  renderChordSymbolHtml,
-  getDisplayTranspositionSemitones,
-  isOneChordModeActive,
-  isMinorMode: () => dom.majorMinor.checked,
-  getDisplayedQuality,
-  normalizeDisplayedRootName,
-  normalizeHarmonyDisplayMode,
-  getUseMajorTriangleSymbol: () => dom.useMajorTriangleSymbol?.checked,
-  getUseHalfDiminishedSymbol: () => dom.useHalfDiminishedSymbol?.checked,
-  getUseDiminishedSymbol: () => dom.useDiminishedSymbol?.checked
+  harmonyDisplayHelpers: {
+    keyName,
+    keyNameHtml,
+    renderPickerKeyHtml,
+    degreeRootName,
+    chordSymbol,
+    chordSymbolHtml
+  },
+  previewTimingHelpers: {
+    getRemainingBeatsUntilNextProgression,
+    shouldShowNextPreview
+  },
+  harmonyLayoutHelpers: {
+    applyDisplaySideLayout,
+    fitHarmonyDisplay
+  }
+} = createDrillDisplayRuntimeRootAppAssembly({
+  harmonyDisplay: {
+    keyNamesMajor: KEY_NAMES_MAJOR,
+    keyNamesMinor: KEY_NAMES_MINOR,
+    letters: LETTERS,
+    naturalSemitones: NATURAL_SEMITONES,
+    degreeIndices: DEGREE_INDICES,
+    escapeHtml,
+    renderChordSymbolHtml,
+    getDisplayTranspositionSemitones,
+    isOneChordModeActive,
+    isMinorMode: () => dom.majorMinor.checked,
+    getDisplayedQuality,
+    normalizeDisplayedRootName,
+    normalizeHarmonyDisplayMode,
+    getUseMajorTriangleSymbol: () => dom.useMajorTriangleSymbol?.checked,
+    getUseHalfDiminishedSymbol: () => dom.useHalfDiminishedSymbol?.checked,
+    getUseDiminishedSymbol: () => dom.useDiminishedSymbol?.checked
+  },
+  previewTiming: {
+    getChordsPerBar,
+    getSecondsPerBeat,
+    getNextPreviewLeadSeconds,
+    getCurrentChordIdx: () => currentChordIdx,
+    getCurrentBeat: () => currentBeat,
+    getChordCount: () => paddedChords.length
+  },
+  harmonyLayout: {
+    requestAnimationFrameImpl: (callback) => window.requestAnimationFrame(callback),
+    getDisplayElement: () => document.getElementById('display'),
+    getChordDisplayElement: () => dom.chordDisplay,
+    getNextChordDisplayElement: () => dom.nextChordDisplay,
+    getBaseChordDisplaySize,
+    isCurrentHarmonyHidden
+  }
 });
-const {
-  getRemainingBeatsUntilNextProgression: buildRemainingBeatsUntilNextProgression,
-  shouldShowNextPreview: buildShouldShowNextPreview
-} = createDrillPreviewTimingHelpers({
-  getChordsPerBar,
-  getSecondsPerBeat,
-  getNextPreviewLeadSeconds,
-  getCurrentChordIdx: () => currentChordIdx,
-  getCurrentBeat: () => currentBeat,
-  getChordCount: () => paddedChords.length
-});
-const {
-  applyDisplaySideLayout: applySharedDisplaySideLayout,
-  fitChordDisplay: fitSharedChordDisplay,
-  refreshChordDisplayLayout: refreshSharedChordDisplayLayout,
-  fitHarmonyDisplay: fitSharedHarmonyDisplay
-} = createDrillHarmonyLayoutHelpers({
-  requestAnimationFrameImpl: (callback) => window.requestAnimationFrame(callback),
-  getDisplayElement: () => document.getElementById('display'),
-  getChordDisplayElement: () => dom.chordDisplay,
-  getNextChordDisplayElement: () => dom.nextChordDisplay,
-  getBaseChordDisplaySize,
-  isCurrentHarmonyHidden
-});
 
-function getDisplayedBassName(key, chord, isMinor) {
-  if (!chord || (chord.bassSemitones ?? chord.semitones) === chord.semitones) return null;
-  return normalizeDisplayedRootName(
-    degreeRootName(transposeDisplayPitchClass(key), chord.roman, chord.bassSemitones, isMinor)
-  );
-}
-
-function chordSymbol(key, chord, isMinorOverride = null, nextChord = null) {
-  return buildChordSymbol(key, chord, isMinorOverride, nextChord);
-}
-
-function chordSymbolHtml(key, chord, isMinorOverride = null, nextChord = null) {
-  return buildChordSymbolHtml(key, chord, isMinorOverride, nextChord);
-}
-
-function getChordSymbolRenderOptions() {
-  return buildChordSymbolRenderOptions();
-}
-
-function refreshChordDisplayLayout(element, baseRem) {
-  if (!element) return;
-  fitChordDisplay(element, baseRem);
-}
-
-// Compute the displayed note name from the parsed pitch class so display matches playback.
-function degreeRootName(keyIndex, roman, semitoneOffset, isMinor) {
-  return buildDegreeRootName(keyIndex, roman, semitoneOffset, isMinor);
-}
-
-function showNextCol() {
-  dom.nextHeader.textContent = 'Next';
-  dom.nextHeader.classList.remove('hidden');
-  dom.nextKeyDisplay.classList.remove('hidden');
-  dom.nextChordDisplay.classList.remove('hidden');
-  fitHarmonyDisplay();
-}
-function hideNextCol() {
-  dom.nextHeader.textContent = '';
-  dom.nextHeader.classList.add('hidden');
-  dom.nextKeyDisplay.classList.add('hidden');
-  dom.nextChordDisplay.classList.add('hidden');
-  fitHarmonyDisplay();
-}
-
-function setDisplayPlaceholderVisible(visible) {
-  dom.displayPlaceholder?.classList.toggle('hidden', !visible);
-  dom.reopenWelcome?.classList.toggle('hidden', !visible);
-}
-
-function setDisplayPlaceholderMessage(message = DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE) {
-  if (!dom.displayPlaceholderMessage) return;
-  dom.displayPlaceholderMessage.textContent = message;
-}
-
-setDisplayPlaceholderMessage();
-
-function getRemainingBeatsUntilNextProgression(chordIndex = currentChordIdx, beatInMeasure = currentBeat, chordCount = paddedChords.length) {
-  return buildRemainingBeatsUntilNextProgression(chordIndex, beatInMeasure, chordCount);
-}
-
-function shouldShowNextPreview(currentKeyValue, upcomingKeyValue, remainingBeats = getRemainingBeatsUntilNextProgression()) {
-  return buildShouldShowNextPreview(currentKeyValue, upcomingKeyValue, remainingBeats);
-}
-
-function applyDisplaySideLayout() {
-  applySharedDisplaySideLayout();
-}
-
-function fitChordDisplay(element, baseRem) {
-  fitSharedChordDisplay(element, baseRem);
+function isCurrentHarmonyHidden() {
+  return dom.hideCurrentHarmony?.checked === true;
 }
 
 function getBaseChordDisplaySize() {
@@ -2168,38 +2007,64 @@ function getBaseChordDisplaySize() {
   return isMobile ? 3.0 : 5;
 }
 
-function fitHarmonyDisplay() {
-  fitSharedHarmonyDisplay();
-}
+const {
+  applyBeatIndicatorVisibility,
+  applyCurrentHarmonyVisibility,
+  applyDisplayMode
+} = createDrillDisplayControlsRootAppFacade({
+  getBeatIndicator: () => dom.beatIndicator,
+  getShowBeatIndicatorEnabled: () => dom.showBeatIndicator?.checked !== false,
+  getDisplayElement: () => document.getElementById('display'),
+  getCurrentHarmonyHidden: () => dom.hideCurrentHarmony?.checked === true,
+  getDisplayMode: () => normalizeDisplayMode(dom.displayMode?.value),
+  applyDisplaySideLayout,
+  fitHarmonyDisplay
+});
 
-function updateBeatDots(beat, isIntro) {
-  dom.beatDots.forEach((dot, i) => {
-    dot.classList.toggle('active', i === beat && !isIntro);
-    dot.classList.toggle('intro', i === beat && isIntro);
-  });
-}
+const {
+  showNextCol,
+  hideNextCol,
+  setDisplayPlaceholderVisible,
+  setDisplayPlaceholderMessage,
+  updateBeatDots,
+  clearBeatDots
+} = createDrillDisplayShellRootAppFacade({
+  dom,
+  fitHarmonyDisplay,
+  defaultDisplayPlaceholderMessage: DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE
+});
 
-function clearBeatDots() {
-  dom.beatDots.forEach(d => { d.classList.remove('active', 'intro'); });
-}
+setDisplayPlaceholderMessage();
 
-function applyBeatIndicatorVisibility() {
-  applyDrillBeatIndicatorVisibility({
-    beatIndicator: dom.beatIndicator,
-    showBeatIndicatorEnabled: dom.showBeatIndicator?.checked !== false
-  });
-}
-
-function isCurrentHarmonyHidden() {
-  return dom.hideCurrentHarmony?.checked === true;
-}
-
-function applyCurrentHarmonyVisibility() {
-  applyDrillCurrentHarmonyVisibility({
-    displayElement: document.getElementById('display'),
-    currentHarmonyHidden: isCurrentHarmonyHidden()
-  });
-}
+const drillDisplayRender = createDrillDisplayRenderRootAppFacade({
+  dom,
+  state: {
+    getIsPlaying: () => isPlaying,
+    getIsIntro: () => isIntro,
+    getCurrentKey: () => currentKey,
+    getNextKeyValue: () => nextKeyValue,
+    getCurrentChordIdx: () => currentChordIdx,
+    getPaddedChords: () => paddedChords,
+    getNextRawChords: () => nextRawChords
+  },
+  constants: {
+    keyNamesMajor: KEY_NAMES_MAJOR
+  },
+  helpers: {
+    transposeDisplayPitchClass,
+    getUpdateKeyCheckboxVisualState: () => updateKeyCheckboxVisualState,
+    getSyncSelectedKeysSummary: () => syncSelectedKeysSummary,
+    getRemainingBeatsUntilNextProgression,
+    shouldShowNextPreview,
+    keyNameHtml,
+    chordSymbolHtml,
+    showNextCol,
+    hideNextCol,
+    applyDisplaySideLayout,
+    applyCurrentHarmonyVisibility,
+    fitHarmonyDisplay
+  }
+});
 
 // ---- Scheduler / Playback State ----
 
@@ -2238,95 +2103,53 @@ function getSwingRatio() {
   return DEFAULT_SWING_RATIO + ((0.5 - DEFAULT_SWING_RATIO) * progress);
 }
 
-function normalizeNextPreviewUnit(unit) {
-  return unit === NEXT_PREVIEW_UNIT_SECONDS ? NEXT_PREVIEW_UNIT_SECONDS : NEXT_PREVIEW_UNIT_BARS;
+let getNextPreviewLeadSecondsImpl = () => 0;
+
+function getNextPreviewLeadSeconds(...args) {
+  return getNextPreviewLeadSecondsImpl(...args);
 }
 
-function normalizeNextPreviewLeadValue(value) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return DEFAULT_NEXT_PREVIEW_LEAD_BARS;
-  return Math.min(32, Math.max(0, Math.round(parsed * 100) / 100));
-}
-
-function formatPreviewNumber(value, maximumFractionDigits = 2) {
-  const rounded = Math.round(Number(value || 0) * 100) / 100;
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits,
-    minimumFractionDigits: 0
-  }).format(rounded);
-}
-
-function barsToSeconds(bars) {
-  return normalizeNextPreviewLeadValue(bars) * 4 * getSecondsPerBeat();
-}
-
-function secondsToBars(seconds) {
-  const parsed = Number.parseFloat(seconds);
-  if (!Number.isFinite(parsed)) return nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_BARS ? nextPreviewLeadValue : DEFAULT_NEXT_PREVIEW_LEAD_BARS;
-  return normalizeNextPreviewLeadValue(parsed / (4 * getSecondsPerBeat()));
-}
-
-function getNextPreviewInputUnit() {
-  return nextPreviewLeadUnit;
-}
-
-function setNextPreviewInputUnit(unit) {
-  nextPreviewLeadUnit = normalizeNextPreviewUnit(unit);
-  if (!dom.nextPreviewUnitToggle) return;
-  dom.nextPreviewUnitToggle.checked = nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_SECONDS;
-}
-
-function getNextPreviewLeadSeconds() {
-  return nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_SECONDS
-    ? nextPreviewLeadValue
-    : barsToSeconds(nextPreviewLeadValue);
-}
-
-function getNextPreviewLeadBars() {
-  return nextPreviewLeadUnit === NEXT_PREVIEW_UNIT_BARS
-    ? nextPreviewLeadValue
-    : secondsToBars(nextPreviewLeadValue);
-}
-
-function formatBarsLabel(value) {
-  return `${formatPreviewNumber(value)} ${value === 1 ? 'bar' : 'bars'}`;
-}
-
-function syncNextPreviewControlDisplay() {
-  const unit = getNextPreviewInputUnit();
-  if (dom.nextPreviewValue) {
-    dom.nextPreviewValue.value = formatPreviewNumber(nextPreviewLeadValue, unit === NEXT_PREVIEW_UNIT_SECONDS ? 1 : 2);
-    dom.nextPreviewValue.step = unit === NEXT_PREVIEW_UNIT_SECONDS ? '0.1' : '0.25';
+const {
+  normalizeNextPreviewUnit,
+  normalizeNextPreviewLeadValue,
+  formatPreviewNumber,
+  barsToSeconds,
+  secondsToBars,
+  getNextPreviewInputUnit,
+  setNextPreviewInputUnit,
+  getNextPreviewLeadSeconds: nextPreviewGetNextPreviewLeadSeconds,
+  getNextPreviewLeadBars,
+  formatBarsLabel,
+  syncNextPreviewControlDisplay,
+  commitNextPreviewValueFromInput,
+  convertNextPreviewValueToUnit
+} = createDrillNextPreviewRootAppFacade({
+  dom,
+  state: {
+    getNextPreviewLeadUnit: () => nextPreviewLeadUnit,
+    setNextPreviewLeadUnit: (value) => { nextPreviewLeadUnit = value; },
+    getNextPreviewLeadValue: () => nextPreviewLeadValue,
+    setNextPreviewLeadValue: (value) => { nextPreviewLeadValue = value; }
+  },
+  constants: {
+    NEXT_PREVIEW_UNIT_BARS,
+    NEXT_PREVIEW_UNIT_SECONDS,
+    DEFAULT_NEXT_PREVIEW_LEAD_BARS
+  },
+  helpers: {
+    getSecondsPerBeat,
+    refreshDisplayedHarmony,
+    formatNumber: (value, maximumFractionDigits = 2) => {
+      const rounded = Math.round(Number(value || 0) * 100) / 100;
+      return new Intl.NumberFormat('en-US', {
+        maximumFractionDigits,
+        minimumFractionDigits: 0
+      }).format(rounded);
+    }
   }
-  if (dom.nextPreviewHint) {
-    const tempo = Number(dom.tempoSlider?.value || 120);
-    dom.nextPreviewHint.textContent = unit === NEXT_PREVIEW_UNIT_SECONDS
-      ? `${formatBarsLabel(getNextPreviewLeadBars())} at ${tempo} BPM`
-      : `${formatPreviewNumber(getNextPreviewLeadSeconds(), 1)} seconds at ${tempo} BPM`;
-  }
-}
+});
 
-function commitNextPreviewValueFromInput() {
-  const rawValue = Number.parseFloat(dom.nextPreviewValue?.value ?? '');
-  if (!Number.isFinite(rawValue)) {
-    syncNextPreviewControlDisplay();
-    return;
-  }
-  nextPreviewLeadValue = normalizeNextPreviewLeadValue(rawValue);
-  syncNextPreviewControlDisplay();
-  refreshDisplayedHarmony();
-}
-
-function convertNextPreviewValueToUnit(nextUnit) {
-  const normalizedNextUnit = normalizeNextPreviewUnit(nextUnit);
-  if (normalizedNextUnit === nextPreviewLeadUnit) return;
-
-  const valueInSeconds = getNextPreviewLeadSeconds();
-  nextPreviewLeadUnit = normalizedNextUnit;
-  nextPreviewLeadValue = normalizedNextUnit === NEXT_PREVIEW_UNIT_SECONDS
-    ? normalizeNextPreviewLeadValue(valueInSeconds)
-    : secondsToBars(valueInSeconds);
-}
+getNextPreviewLeadSecondsImpl = nextPreviewGetNextPreviewLeadSeconds;
 
 function toAnalyticsToken(value, fallback = 'unknown') {
   const normalized = String(value || '')
@@ -2337,305 +2160,147 @@ function toAnalyticsToken(value, fallback = 'unknown') {
   return normalized || fallback;
 }
 
-function getEnabledKeyCount() {
-  return enabledKeys.filter(Boolean).length;
-}
-
-function persistKeySelectionPreset() {
-  saveStoredKeySelectionPreset(savedKeySelectionPreset);
-}
-
-function syncSelectedKeysSummary() {
-  if (!dom.selectedKeysSummary) return;
-
-  const selectedKeys = enabledKeys
-    .map((isEnabled, index) => (isEnabled ? keyLabelForPicker(index) : ''))
-    .filter(Boolean);
-
-  if (selectedKeys.length === 0) {
-    dom.selectedKeysSummary.textContent = 'Keys: none';
-    dom.selectedKeysSummary.setAttribute('aria-label', 'Open key selection. Current selection: none');
-    return;
+const {
+  getEnabledKeyCount,
+  persistKeySelectionPreset,
+  syncSelectedKeysSummary,
+  restoreAllKeysIfNoneSelectedOnClose: keySelectionRestoreAllKeysIfNoneSelectedOnClose,
+  isBlackDisplayPitchClass,
+  updateKeyCheckboxVisualState,
+  syncKeyCheckboxStates,
+  applyEnabledKeys,
+  saveCurrentKeySelectionPreset,
+  loadKeySelectionPreset
+} = createDrillKeySelectionRootAppFacade({
+  dom,
+  state: {
+    getEnabledKeys: () => enabledKeys,
+    setEnabledKeys: (value) => { enabledKeys = value; },
+    setKeyPool: (value) => { keyPool = value; },
+    getSavedKeySelectionPreset: () => savedKeySelectionPreset,
+    setSavedKeySelectionPreset: (value) => { savedKeySelectionPreset = value; }
+  },
+  constants: {
+    PIANO_BLACK_KEY_COLUMNS,
+    PIANO_WHITE_KEY_COLUMNS
+  },
+  helpers: {
+    getDisplayTranspositionSemitones,
+    keyLabelForPicker,
+    renderAccidentalTextHtml: renderPickerKeyHtml,
+    saveStoredKeySelectionPreset,
+    saveSettings,
+    trackEvent,
+    alert: (message) => window.alert(message)
   }
+});
 
-  if (selectedKeys.length === 12) {
-    dom.selectedKeysSummary.textContent = 'Keys: all (click to select)';
-    dom.selectedKeysSummary.setAttribute('aria-label', 'Open key selection. Current selection: all. Click to select keys.');
-    return;
+restoreAllKeysIfNoneSelectedOnCloseImpl = keySelectionRestoreAllKeysIfNoneSelectedOnClose;
+
+const {
+  initialize: initializeKeyPicker,
+  buildKeyCheckboxes,
+  setAllKeysEnabled,
+  invertKeysEnabled
+} = createDrillKeyPickerRootAppAssembly({
+  dom,
+  state: {
+    getEnabledKeys: () => enabledKeys,
+    setEnabledKeys: (value) => { enabledKeys = value; },
+    setKeyPool: (value) => { keyPool = value; }
+  },
+  helpers: {
+    setKeyPickerOpen,
+    stopPlaybackIfRunning,
+    restoreAllKeysIfNoneSelectedOnClose,
+    updateKeyCheckboxVisualState,
+    syncSelectedKeysSummary,
+    saveSettings,
+    trackEvent,
+    getEnabledKeyCount,
+    applyEnabledKeys
   }
+});
 
-  dom.selectedKeysSummary.innerHTML = `Keys: ${selectedKeys.map(renderPickerKeyHtml).join(' &middot; ')}`;
-  dom.selectedKeysSummary.setAttribute('aria-label', `Open key selection. Current selection: ${selectedKeys.join(', ')}`);
-}
+initializeKeyPicker();
 
-function restoreAllKeysIfNoneSelectedOnClose() {
-  if (getEnabledKeyCount() !== 0) return;
-  applyEnabledKeys(enabledKeys.map(() => true));
-  saveSettings();
-}
-
-function isBlackDisplayPitchClass(pitchClass) {
-  return Object.prototype.hasOwnProperty.call(PIANO_BLACK_KEY_COLUMNS, pitchClass);
-}
-
-function updateKeyCheckboxVisualState(label, checkbox, keyIndex) {
-  const displayPitchClass = transposeDisplayPitchClass(keyIndex);
-  const isBlackKey = isBlackDisplayPitchClass(displayPitchClass);
-  const text = label.querySelector('.key-checkbox-text');
-
-  label.classList.toggle('is-selected', checkbox.checked);
-  label.classList.toggle('key-checkbox-black', isBlackKey);
-  label.classList.toggle('key-checkbox-white', !isBlackKey);
-  label.style.gridRow = isBlackKey ? '1' : '2';
-  label.style.gridColumn = String(
-    isBlackKey
-      ? PIANO_BLACK_KEY_COLUMNS[displayPitchClass]
-      : PIANO_WHITE_KEY_COLUMNS[displayPitchClass]
-  );
-
-  if (text) {
-    text.innerHTML = renderAccidentalTextHtml(keyLabelForPicker(keyIndex));
+const {
+  getCheckedInputValue,
+  setWelcomeOverlayVisible,
+  getSelectedWelcomeRecommendation,
+  updateWelcomePanelVisibility,
+  updateWelcomeSummary,
+  markWelcomeOnboardingCompleted,
+  syncWelcomeShowNextTimePreference,
+  applyWelcomeRecommendation,
+  skipWelcomeOverlay,
+  maybeShowWelcomeOverlay
+} = createDrillWelcomeRootAppFacade({
+  dom,
+  state: {
+    getHasCompletedWelcomeOnboarding: () => hasCompletedWelcomeOnboarding,
+    setHasCompletedWelcomeOnboarding: (value) => { hasCompletedWelcomeOnboarding = value; },
+    getShouldShowWelcomeNextTime: () => shouldShowWelcomeNextTime,
+    setShouldShowWelcomeNextTime: (value) => { shouldShowWelcomeNextTime = value; },
+    getWelcomeStandards: () => welcomeStandards,
+    getProgressions: () => progressions,
+    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+    setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
+    setIsCreatingProgression: (value) => { isCreatingProgression = value; },
+    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
+    setNextPreviewLeadValue: (value) => { nextPreviewLeadValue = value; },
+    getDefaultEnabledKeys: () => new Array(12).fill(true)
+  },
+  constants: {
+    CUSTOM_PATTERN_OPTION_VALUE,
+    DEFAULT_CHORDS_PER_BAR,
+    DRUM_MODE_FULL_SWING,
+    IS_EMBEDDED_DRILL_MODE,
+    NEXT_PREVIEW_UNIT_BARS,
+    PATTERN_MODE_BOTH,
+    WELCOME_GOAL_ONE_CHORD,
+    WELCOME_GOAL_PROGRESSION,
+    WELCOME_GOAL_STANDARD,
+    WELCOME_ONE_CHORDS,
+    WELCOME_PROGRESSIONS,
+    WELCOME_STANDARDS_FALLBACK
+  },
+  helpers: {
+    createDefaultAppSettings,
+    normalizeRepetitionsPerKey,
+    normalizeChordsPerBar,
+    normalizeCompingStyle,
+    normalizeDisplayMode,
+    clearProgressionEditingState,
+    closeProgressionManager,
+    setPatternSelectValue,
+    getSelectedProgressionName,
+    getSelectedProgressionPattern,
+    setEditorPatternMode,
+    getSelectedProgressionMode,
+    syncPatternSelectionFromInput,
+    syncDoubleTimeToggle,
+    applyEnabledKeys,
+    syncCustomPatternUI,
+    normalizeChordsPerBarForCurrentPattern,
+    syncProgressionManagerState,
+    applyPatternModeAvailability,
+    validateCustomPattern,
+    syncPatternPreview,
+    syncNextPreviewControlDisplay,
+    applyDisplayMode,
+    applyBeatIndicatorVisibility,
+    applyCurrentHarmonyVisibility,
+    applyMixerSettings,
+    updateKeyPickerLabels,
+    refreshDisplayedHarmony,
+    saveSettings,
+    start,
+    trackEvent,
+    setNextPreviewInputUnit,
+    normalizeNextPreviewLeadValue
   }
-}
-
-function syncKeyCheckboxStates() {
-  dom.keyCheckboxes.querySelectorAll('.key-checkbox-label').forEach((label, index) => {
-    const checkbox = label.querySelector('input[type="checkbox"]');
-    if (!checkbox) return;
-    checkbox.checked = enabledKeys[index];
-    updateKeyCheckboxVisualState(label, checkbox, index);
-  });
-}
-
-function applyEnabledKeys(nextEnabledKeys) {
-  if (!Array.isArray(nextEnabledKeys) || nextEnabledKeys.length !== 12) return;
-  enabledKeys = nextEnabledKeys.map(Boolean);
-  keyPool = [];
-  syncKeyCheckboxStates();
-  syncSelectedKeysSummary();
-}
-
-function saveCurrentKeySelectionPreset() {
-  savedKeySelectionPreset = enabledKeys.map(Boolean);
-  persistKeySelectionPreset();
-  trackEvent('key_preset_saved', {
-    enabled_keys: getEnabledKeyCount()
-  });
-}
-
-function loadKeySelectionPreset() {
-  if (!Array.isArray(savedKeySelectionPreset) || savedKeySelectionPreset.length !== 12) {
-    window.alert('No saved key preset yet.');
-    return;
-  }
-
-  applyEnabledKeys(savedKeySelectionPreset);
-  saveSettings();
-  trackEvent('key_preset_loaded', {
-    enabled_keys: getEnabledKeyCount()
-  });
-}
-
-function getCheckedInputValue(name, fallback = '') {
-  return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
-}
-
-function setWelcomeOverlayVisible(isVisible) {
-  if (!dom.welcomeOverlay) return;
-  if (!isVisible) {
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement && dom.welcomeOverlay.contains(activeElement)) {
-      const nextFocusTarget = dom.reopenWelcome || dom.startStop || document.body;
-      if (nextFocusTarget instanceof HTMLElement) {
-        nextFocusTarget.focus();
-      } else {
-        activeElement.blur();
-      }
-    }
-  }
-  dom.welcomeOverlay.classList.toggle('hidden', !isVisible);
-  dom.welcomeOverlay.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
-  dom.welcomeOverlay.toggleAttribute('inert', !isVisible);
-  document.body.classList.toggle('welcome-open', isVisible);
-  if (isVisible) {
-    window.requestAnimationFrame(() => {
-      dom.welcomeApply?.focus();
-    });
-  }
-}
-
-function getSelectedWelcomeRecommendation() {
-  const goal = getCheckedInputValue('welcome-goal', WELCOME_GOAL_PROGRESSION);
-  const instrument = getCheckedInputValue('welcome-instrument', '0');
-
-  const baseConfig = createDefaultAppSettings({
-    goal,
-    instrument
-  });
-
-  if (goal === WELCOME_GOAL_ONE_CHORD) {
-    const quality = getCheckedInputValue('welcome-one-chord', 'maj7');
-    return {
-      ...baseConfig,
-      ...WELCOME_ONE_CHORDS[quality],
-      customMediumSwingBass: false,
-      nextPreviewLeadValue: 2,
-      nextPreviewUnit: NEXT_PREVIEW_UNIT_BARS
-    };
-  }
-
-  if (goal === WELCOME_GOAL_STANDARD) {
-    const standard = dom.welcomeStandardSelect?.value || Object.keys(welcomeStandards)[0] || 'all-the-things-you-are';
-    return {
-      ...baseConfig,
-      ...(welcomeStandards[standard] || WELCOME_STANDARDS_FALLBACK[standard] || Object.values(welcomeStandards)[0] || Object.values(WELCOME_STANDARDS_FALLBACK)[0]),
-      enabledKeys: [...createDefaultAppSettings().enabledKeys]
-    };
-  }
-
-  const progression = getCheckedInputValue('welcome-progression', 'ii-v-i-major');
-  return {
-    ...baseConfig,
-    ...WELCOME_PROGRESSIONS[progression]
-  };
-}
-
-function updateWelcomePanelVisibility() {
-  const goal = getCheckedInputValue('welcome-goal', WELCOME_GOAL_PROGRESSION);
-  dom.welcomeGoalPanels?.forEach((panel) => {
-    panel.classList.toggle('hidden', panel.dataset.welcomePanel !== goal);
-  });
-}
-
-function updateWelcomeSummary() {
-  const recommendation = getSelectedWelcomeRecommendation();
-  if (dom.welcomeSummary) {
-    dom.welcomeSummary.textContent = recommendation.summary || 'Suggested preset: moderate tempo and adapted playback settings.';
-  }
-}
-
-function markWelcomeOnboardingCompleted() {
-  hasCompletedWelcomeOnboarding = true;
-}
-
-function syncWelcomeShowNextTimePreference() {
-  shouldShowWelcomeNextTime = dom.welcomeShowNextTime?.checked !== false;
-}
-
-function applyWelcomeRecommendation() {
-  const recommendation = getSelectedWelcomeRecommendation();
-
-  clearProgressionEditingState();
-  closeProgressionManager();
-
-  suppressPatternSelectChange = true;
-  if (recommendation.presetName) {
-    setPatternSelectValue(recommendation.presetName);
-    dom.patternName.value = getSelectedProgressionName();
-    dom.customPattern.value = getSelectedProgressionPattern();
-    setEditorPatternMode(getSelectedProgressionMode());
-  } else {
-    progressionSelectionBeforeEditing = Object.keys(progressions)[0] || '';
-    isCreatingProgression = true;
-    setPatternSelectValue(CUSTOM_PATTERN_OPTION_VALUE);
-    dom.patternName.value = recommendation.patternName || '';
-    dom.customPattern.value = recommendation.pattern || '';
-    setEditorPatternMode(recommendation.patternMode || PATTERN_MODE_BOTH);
-    syncPatternSelectionFromInput();
-  }
-  suppressPatternSelectChange = false;
-  lastPatternSelectValue = dom.patternSelect.value;
-
-  dom.majorMinor.checked = Boolean(recommendation.majorMinor);
-  dom.transpositionSelect.value = String(recommendation.instrument || '0');
-  dom.tempoSlider.value = String(recommendation.tempo || 120);
-  dom.tempoValue.textContent = dom.tempoSlider.value;
-  if (dom.repetitionsPerKey) {
-    dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(recommendation.repetitionsPerKey));
-  }
-  if (dom.chordsPerBar) {
-    const recommendedChordsPerBar = recommendation.chordsPerBar !== undefined
-      ? recommendation.chordsPerBar
-      : (recommendation.doubleTime ? 2 : DEFAULT_CHORDS_PER_BAR);
-    dom.chordsPerBar.value = String(normalizeChordsPerBar(recommendedChordsPerBar));
-    syncDoubleTimeToggle();
-  }
-  if (dom.compingStyle) {
-    dom.compingStyle.value = normalizeCompingStyle(recommendation.compingStyle);
-  }
-  if (dom.walkingBass) {
-    dom.walkingBass.checked = recommendation.customMediumSwingBass !== false;
-  }
-  if (dom.drumsSelect) {
-    dom.drumsSelect.value = recommendation.drumsMode || DRUM_MODE_FULL_SWING;
-  }
-  if (dom.displayMode) {
-    dom.displayMode.value = normalizeDisplayMode(recommendation.displayMode);
-  }
-  if (dom.showBeatIndicator) {
-    dom.showBeatIndicator.checked = recommendation.showBeatIndicator !== false;
-  }
-  if (dom.hideCurrentHarmony) {
-    dom.hideCurrentHarmony.checked = recommendation.hideCurrentHarmony === true;
-  }
-  if (dom.masterVolume) dom.masterVolume.value = recommendation.masterVolume || '100';
-  if (dom.bassVolume) dom.bassVolume.value = recommendation.bassVolume || '100';
-  if (dom.stringsVolume) dom.stringsVolume.value = recommendation.stringsVolume || '100';
-  if (dom.drumsVolume) dom.drumsVolume.value = recommendation.drumsVolume || '100';
-
-  nextPreviewLeadValue = normalizeNextPreviewLeadValue(recommendation.nextPreviewLeadValue);
-  setNextPreviewInputUnit(recommendation.nextPreviewUnit);
-  applyEnabledKeys(
-    Array.isArray(recommendation.enabledKeys) && recommendation.enabledKeys.length === 12
-      ? recommendation.enabledKeys
-      : new Array(12).fill(true)
-  );
-
-  syncCustomPatternUI();
-  normalizeChordsPerBarForCurrentPattern();
-  syncProgressionManagerState();
-  applyPatternModeAvailability();
-  validateCustomPattern();
-  syncPatternPreview();
-  syncNextPreviewControlDisplay();
-  applyDisplayMode();
-  applyBeatIndicatorVisibility();
-  applyCurrentHarmonyVisibility();
-  applyMixerSettings();
-  updateKeyPickerLabels();
-  refreshDisplayedHarmony();
-
-  syncWelcomeShowNextTimePreference();
-  markWelcomeOnboardingCompleted();
-  saveSettings();
-  setWelcomeOverlayVisible(false);
-  start();
-
-  trackEvent('welcome_preset_applied', {
-    welcome_goal: recommendation.goal,
-    welcome_progression: getCheckedInputValue('welcome-progression', 'ii-v-i-major'),
-    welcome_one_chord: getCheckedInputValue('welcome-one-chord', 'maj7'),
-    welcome_standard: dom.welcomeStandardSelect?.value || '',
-    transposition: recommendation.instrument || '0',
-    progression_mode: recommendation.majorMinor ? 'minor' : 'major'
-  });
-}
-
-function skipWelcomeOverlay() {
-  syncWelcomeShowNextTimePreference();
-  markWelcomeOnboardingCompleted();
-  saveSettings();
-  setWelcomeOverlayVisible(false);
-  trackEvent('welcome_skipped');
-}
-
-function maybeShowWelcomeOverlay() {
-  if (IS_EMBEDDED_DRILL_MODE) return;
-  if (!shouldShowWelcomeNextTime || !dom.welcomeOverlay) return;
-  updateWelcomePanelVisibility();
-  updateWelcomeSummary();
-  setWelcomeOverlayVisible(true);
-}
+});
 
 const {
   getTempoBucket,
@@ -2684,59 +2349,82 @@ const {
 }).sessionAnalytics;
 
 
-const progressionEditorState = {
-  get progressions() { return progressions; },
-  set progressions(value) { progressions = value; },
-  get editingProgressionName() { return editingProgressionName; },
-  set editingProgressionName(value) { editingProgressionName = value; },
-  get editingProgressionSnapshot() { return editingProgressionSnapshot; },
-  set editingProgressionSnapshot(value) { editingProgressionSnapshot = value; },
-  get progressionSelectionBeforeEditing() { return progressionSelectionBeforeEditing; },
-  set progressionSelectionBeforeEditing(value) { progressionSelectionBeforeEditing = value; },
-  get isCreatingProgression() { return isCreatingProgression; },
-  set isCreatingProgression(value) { isCreatingProgression = value; },
-  get isManagingProgressions() { return isManagingPresets; },
-  set isManagingProgressions(value) { isManagingPresets = value; },
-  get lastStandaloneCustomName() { return lastStandaloneCustomName; },
-  set lastStandaloneCustomName(value) { lastStandaloneCustomName = value; },
-  get lastStandaloneCustomPattern() { return lastStandaloneCustomPattern; },
-  set lastStandaloneCustomPattern(value) { lastStandaloneCustomPattern = value; },
-  get lastStandaloneCustomMode() { return lastStandaloneCustomMode; },
-  set lastStandaloneCustomMode(value) { lastStandaloneCustomMode = value; },
-  get suppressPatternSelectChange() { return suppressPatternSelectChange; },
-  set suppressPatternSelectChange(value) { suppressPatternSelectChange = value; },
-  get keyPool() { return keyPool; },
-  set keyPool(value) { keyPool = value; }
-};
-
 const {
-  applyPatternModeAvailability,
-  clearProgressionEditingState,
-  closeProgressionManager,
+  applyPatternModeAvailability: progressionApplyPatternModeAvailability,
+  cancelProgressionEdit,
+  clearAllProgressions,
+  clearProgressionEditingState: progressionClearProgressionEditingState,
+  clearProgressionManagerDropMarkers,
+  closeProgressionManager: progressionCloseProgressionManager,
+  deleteProgressionByName,
+  deleteProgressionInline,
+  deleteSelectedProgression,
+  duplicateProgression,
+  editSelectedProgression,
   getCurrentPatternMode,
   getCurrentPatternName,
   getCurrentPatternString,
   getPatternModeLabel,
   getProgressionEntry,
   getProgressionLabel,
-  getSelectedProgressionMode,
-  getSelectedProgressionName,
-  getSelectedProgressionPattern,
+  getProgressionNames,
+  getSelectedProgressionMode: progressionGetSelectedProgressionMode,
+  getSelectedProgressionName: progressionGetSelectedProgressionName,
+  getSelectedProgressionPattern: progressionGetSelectedProgressionPattern,
   hasSelectedProgression,
   hasStandaloneCustomDraft,
   isCustomPatternSelected,
   isEditingProgression: isEditingPreset,
+  markDefaultProgressionsPromptHandled,
+  mergeUpdatedDefaultProgressions,
+  promptForUpdatedDefaultProgressions,
+  refreshProgressionUIAfterChange,
+  renderProgressionManagerList,
+  renderProgressionOptions,
+  replaceProgressionsWithDefaultList,
   rememberStandaloneCustomDraft,
+  restoreDefaultProgressions,
+  saveCurrentProgression,
   resetStandaloneCustomDraft,
-  setEditorPatternMode,
-  setPatternSelectValue,
-  syncCustomPatternUI,
-  syncPatternPreview,
-  syncPatternSelectionFromInput
-} = createProgressionEditor({
+  setEditorPatternMode: progressionSetEditorPatternMode,
+  setPatternSelectValue: progressionSetPatternSelectValue,
+  setProgressionFeedback,
+  setProgressionUpdateModalVisibility,
+  startNewProgression,
+  syncCustomPatternUI: progressionSyncCustomPatternUI,
+  syncPatternPreview: progressionSyncPatternPreview,
+  syncPatternSelectionFromInput: progressionSyncPatternSelectionFromInput,
+  syncProgressionManagerPanel,
+  syncProgressionManagerState: progressionSyncProgressionManagerState,
+  toggleProgressionManager,
+  undoProgressionDeletion
+} = createDrillProgressionRootAppAssembly({
   dom,
-  state: progressionEditorState,
-  constants: {
+  editorState: {
+    getProgressions: () => progressions,
+    setProgressions: (value) => { progressions = value; },
+    getEditingProgressionName: () => editingProgressionName,
+    setEditingProgressionName: (value) => { editingProgressionName = value; },
+    getEditingProgressionSnapshot: () => editingProgressionSnapshot,
+    setEditingProgressionSnapshot: (value) => { editingProgressionSnapshot = value; },
+    getProgressionSelectionBeforeEditing: () => progressionSelectionBeforeEditing,
+    setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
+    getIsCreatingProgression: () => isCreatingProgression,
+    setIsCreatingProgression: (value) => { isCreatingProgression = value; },
+    getIsManagingProgressions: () => isManagingPresets,
+    setIsManagingProgressions: (value) => { isManagingPresets = value; },
+    getLastStandaloneCustomName: () => lastStandaloneCustomName,
+    setLastStandaloneCustomName: (value) => { lastStandaloneCustomName = value; },
+    getLastStandaloneCustomPattern: () => lastStandaloneCustomPattern,
+    setLastStandaloneCustomPattern: (value) => { lastStandaloneCustomPattern = value; },
+    getLastStandaloneCustomMode: () => lastStandaloneCustomMode,
+    setLastStandaloneCustomMode: (value) => { lastStandaloneCustomMode = value; },
+    getSuppressPatternSelectChange: () => suppressPatternSelectChange,
+    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+    getKeyPool: () => keyPool,
+    setKeyPool: (value) => { keyPool = value; }
+  },
+  editorConstants: {
     CUSTOM_PATTERN_OPTION_VALUE,
     PATTERN_MODE_BOTH,
     PATTERN_MODE_MAJOR,
@@ -2744,7 +2432,7 @@ const {
     ONE_CHORD_DEFAULT_QUALITIES,
     ONE_CHORD_DOMINANT_QUALITIES
   },
-  helpers: {
+  editorHelpers: {
     analyzePattern,
     chordSymbol,
     getDisplayTranspositionSemitones,
@@ -2757,169 +2445,104 @@ const {
     parseOneChordSpec,
     refreshDisplayedHarmony,
     updateKeyPickerLabels
-  }
-});
-
-const progressionManagerState = {
-  get progressions() { return progressions; },
-  set progressions(value) { progressions = value; },
-  get isManagingProgressions() { return isManagingPresets; },
-  set isManagingProgressions(value) { isManagingPresets = value; },
-  get suppressListRender() { return suppressListRender; },
-  set suppressListRender(value) { suppressListRender = value; },
-  get draggedProgressionName() { return draggedPresetName; },
-  set draggedProgressionName(value) { draggedPresetName = value; },
-  get pendingProgressionDeletion() { return pendingPresetDeletion; },
-  set pendingProgressionDeletion(value) { pendingPresetDeletion = value; },
-  get editingProgressionName() { return editingProgressionName; },
-  set editingProgressionName(value) { editingProgressionName = value; },
-  get editingProgressionSnapshot() { return editingProgressionSnapshot; },
-  set editingProgressionSnapshot(value) { editingProgressionSnapshot = value; },
-  get progressionSelectionBeforeEditing() { return progressionSelectionBeforeEditing; },
-  set progressionSelectionBeforeEditing(value) { progressionSelectionBeforeEditing = value; },
-  get isCreatingProgression() { return isCreatingProgression; },
-  set isCreatingProgression(value) { isCreatingProgression = value; },
-  get appliedDefaultProgressionsFingerprint() { return appliedDefaultProgressionsFingerprint; },
-  set appliedDefaultProgressionsFingerprint(value) { appliedDefaultProgressionsFingerprint = value; },
-  get acknowledgedDefaultProgressionsVersion() { return acknowledgedDefaultProgressionsVersion; },
-  set acknowledgedDefaultProgressionsVersion(value) { acknowledgedDefaultProgressionsVersion = value; },
-  get shouldPromptForDefaultProgressionsUpdate() { return shouldPromptForDefaultProgressionsUpdate; },
-  set shouldPromptForDefaultProgressionsUpdate(value) { shouldPromptForDefaultProgressionsUpdate = value; },
-  get defaultProgressionsVersion() { return defaultProgressionsVersion; },
-  set defaultProgressionsVersion(value) { defaultProgressionsVersion = value; },
-  get defaultProgressions() { return DEFAULT_PROGRESSIONS; },
-  set defaultProgressions(value) { DEFAULT_PROGRESSIONS = value; },
-  get lastStandaloneCustomName() { return lastStandaloneCustomName; },
-  set lastStandaloneCustomName(value) { lastStandaloneCustomName = value; },
-  get lastStandaloneCustomPattern() { return lastStandaloneCustomPattern; },
-  set lastStandaloneCustomPattern(value) { lastStandaloneCustomPattern = value; },
-  get lastStandaloneCustomMode() { return lastStandaloneCustomMode; },
-  set lastStandaloneCustomMode(value) { lastStandaloneCustomMode = value; },
-  get lastPatternSelectValue() { return lastPatternSelectValue; },
-  set lastPatternSelectValue(value) { lastPatternSelectValue = value; }
-};
-
-const {
-  cancelProgressionEdit,
-  clearAllProgressions,
-  clearProgressionManagerDropMarkers,
-  deleteProgressionByName,
-  deleteProgressionInline,
-  deleteSelectedProgression,
-  duplicateProgression,
-  editSelectedProgression,
-  getProgressionNames,
-  markDefaultProgressionsPromptHandled,
-  mergeUpdatedDefaultProgressions,
-  promptForUpdatedDefaultProgressions,
-  refreshProgressionUIAfterChange,
-  renderProgressionManagerList,
-  renderProgressionOptions,
-  replaceProgressionsWithDefaultList,
-  restoreDefaultProgressions,
-  saveCurrentProgression,
-  setProgressionFeedback,
-  setProgressionUpdateModalVisibility,
-  startNewProgression,
-  syncProgressionManagerPanel,
-  syncProgressionManagerState,
-  toggleProgressionManager,
-  undoProgressionDeletion
-} = createProgressionManager({
-  dom,
-  state: progressionManagerState,
-  constants: {
+  },
+  managerState: {
+    getProgressions: () => progressions,
+    setProgressions: (value) => { progressions = value; },
+    getIsManagingProgressions: () => isManagingPresets,
+    setIsManagingProgressions: (value) => { isManagingPresets = value; },
+    getSuppressListRender: () => suppressListRender,
+    setSuppressListRender: (value) => { suppressListRender = value; },
+    getDraggedProgressionName: () => draggedPresetName,
+    setDraggedProgressionName: (value) => { draggedPresetName = value; },
+    getPendingProgressionDeletion: () => pendingPresetDeletion,
+    setPendingProgressionDeletion: (value) => { pendingPresetDeletion = value; },
+    getEditingProgressionName: () => editingProgressionName,
+    setEditingProgressionName: (value) => { editingProgressionName = value; },
+    getEditingProgressionSnapshot: () => editingProgressionSnapshot,
+    setEditingProgressionSnapshot: (value) => { editingProgressionSnapshot = value; },
+    getProgressionSelectionBeforeEditing: () => progressionSelectionBeforeEditing,
+    setProgressionSelectionBeforeEditing: (value) => { progressionSelectionBeforeEditing = value; },
+    getIsCreatingProgression: () => isCreatingProgression,
+    setIsCreatingProgression: (value) => { isCreatingProgression = value; },
+    getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
+    setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
+    getAcknowledgedDefaultProgressionsVersion: () => acknowledgedDefaultProgressionsVersion,
+    setAcknowledgedDefaultProgressionsVersion: (value) => { acknowledgedDefaultProgressionsVersion = value; },
+    getShouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
+    setShouldPromptForDefaultProgressionsUpdate: (value) => { shouldPromptForDefaultProgressionsUpdate = value; },
+    getDefaultProgressionsVersion: () => defaultProgressionsVersion,
+    setDefaultProgressionsVersion: (value) => { defaultProgressionsVersion = value; },
+    getDefaultProgressions: () => DEFAULT_PROGRESSIONS,
+    setDefaultProgressions: (value) => { DEFAULT_PROGRESSIONS = value; },
+    getLastStandaloneCustomName: () => lastStandaloneCustomName,
+    setLastStandaloneCustomName: (value) => { lastStandaloneCustomName = value; },
+    getLastStandaloneCustomPattern: () => lastStandaloneCustomPattern,
+    setLastStandaloneCustomPattern: (value) => { lastStandaloneCustomPattern = value; },
+    getLastStandaloneCustomMode: () => lastStandaloneCustomMode,
+    setLastStandaloneCustomMode: (value) => { lastStandaloneCustomMode = value; },
+    getLastPatternSelectValue: () => lastPatternSelectValue,
+    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; }
+  },
+  managerConstants: {
     CUSTOM_PATTERN_OPTION_VALUE
   },
-  helpers: {
-    applyPatternModeAvailability,
-    clearProgressionEditingState,
+  managerHelpers: {
     createProgressionEntry,
-    getCurrentPatternMode,
-    getCurrentPatternName,
     getDefaultProgressionsFingerprint,
-    getProgressionEntry,
-    getProgressionLabel,
-    getSelectedProgressionMode,
-    getSelectedProgressionName,
-    getSelectedProgressionPattern,
-    hasSelectedProgression,
-    hasStandaloneCustomDraft,
-    isEditingProgression: isEditingPreset,
     normalizePatternMode,
     normalizePatternString,
     normalizeProgressionEntry,
     normalizeProgressionsMap,
-    resetStandaloneCustomDraft,
     saveSettings,
-    setEditorPatternMode,
-    setPatternSelectValue,
-    syncCustomPatternUI,
-    syncPatternSelectionFromInput,
     trackEvent,
     trackProgressionEvent,
-    validateCustomPattern
-  }
-});
-
-bindProgressionControls({
-  dom,
-  constants: {
+    validateCustomPattern: () => validateCustomPattern()
+  },
+  controlsState: {
+    getSuppressPatternSelectChange: () => suppressPatternSelectChange,
+    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+    getLastPatternSelectValue: () => lastPatternSelectValue,
+    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
+    getKeyPool: () => keyPool,
+    setKeyPool: (value) => { keyPool = value; }
+  },
+  controlsConstants: {
     PATTERN_MODE_BOTH,
     PATTERN_MODE_MAJOR,
     PATTERN_MODE_MINOR
   },
-  state: {
-    get suppressPatternSelectChange() { return suppressPatternSelectChange; },
-    set suppressPatternSelectChange(value) { suppressPatternSelectChange = value; },
-    get lastPatternSelectValue() { return lastPatternSelectValue; },
-    set lastPatternSelectValue(value) { lastPatternSelectValue = value; },
-    get keyPool() { return keyPool; },
-    set keyPool(value) { keyPool = value; }
-  },
-  helpers: {
-    applyPatternModeAvailability,
-    cancelProgressionEdit,
-    clearAllProgressions,
+  controlsHelpers: {
     clearOneChordCycleState,
-    clearProgressionEditingState,
-    closeProgressionManager,
     ensureSessionStarted,
     getProgressionAnalyticsProps,
-    getSelectedProgressionMode,
-    getSelectedProgressionName,
-    getSelectedProgressionPattern,
-    isCustomPatternSelected,
-    isEditingProgression: isEditingPreset,
     isOneChordModeActive,
-    markDefaultProgressionsPromptHandled,
-    mergeUpdatedDefaultProgressions,
     normalizePatternString,
     normalizePresetName,
     normalizePresetNameForInput,
     refreshDisplayedHarmony,
     registerSessionAction,
-    rememberStandaloneCustomDraft,
-    replaceProgressionsWithDefaultList,
-    restoreDefaultProgressions,
-    saveCurrentProgression,
-    setEditorPatternMode,
-    normalizeChordsPerBarForCurrentPattern,
-    setProgressionFeedback,
     stopPlaybackIfRunning,
-    startNewProgression,
-    syncCustomPatternUI,
-    syncPatternPreview,
-    syncPatternSelectionFromInput,
-    syncProgressionManagerState,
-    toggleProgressionManager,
     toAnalyticsToken,
     trackEvent,
     trackProgressionEvent,
     updateKeyPickerLabels,
-    validateCustomPattern
+    validateCustomPattern: () => validateCustomPattern()
   }
 });
+
+applyPatternModeAvailabilityImpl = progressionApplyPatternModeAvailability;
+clearProgressionEditingStateImpl = progressionClearProgressionEditingState;
+closeProgressionManagerImpl = progressionCloseProgressionManager;
+getSelectedProgressionModeImpl = progressionGetSelectedProgressionMode;
+getSelectedProgressionNameImpl = progressionGetSelectedProgressionName;
+getSelectedProgressionPatternImpl = progressionGetSelectedProgressionPattern;
+setEditorPatternModeImpl = progressionSetEditorPatternMode;
+setPatternSelectValueImpl = progressionSetPatternSelectValue;
+syncCustomPatternUIImpl = progressionSyncCustomPatternUI;
+syncPatternPreviewImpl = progressionSyncPatternPreview;
+syncPatternSelectionFromInputImpl = progressionSyncPatternSelectionFromInput;
+syncProgressionManagerStateImpl = progressionSyncProgressionManagerState;
 
 function buildProgression() {
   if (currentRawChords.length > 0) return currentRawChords;
@@ -2939,7 +2562,7 @@ const {
   prepareNextProgressionPlayback,
   scheduleBeatPlayback,
   scheduleDisplayPlayback,
-  start,
+  start: playbackStart,
   stop,
   togglePause
 } = createDrillPlaybackRuntimeHostRootAppAssembly({
@@ -3085,83 +2708,22 @@ const {
   }
 });
 
+startImpl = playbackStart;
+
 // ---- UI Wiring ----
 
 // ---- Key Picker ----
 
-function buildKeyCheckboxes() {
-  buildDrillKeyCheckboxes({
-    keyCheckboxes: dom.keyCheckboxes,
-    enabledKeys,
-    updateKeyCheckboxVisualState,
-    syncSelectedKeysSummary,
-    onKeyChange: ({ index, checked, label, checkbox }) => {
-      enabledKeys[index] = checked;
-      updateKeyCheckboxVisualState(label, checkbox, index);
-      keyPool = [];
-      syncSelectedKeysSummary();
-      saveSettings();
-      trackEvent('key_selection_changed', {
-        enabled_keys: getEnabledKeyCount(),
-        key_index: index,
-        key_state: checked ? 'enabled' : 'disabled'
-      });
-    }
-  });
-}
-
-function setAllKeysEnabled(isEnabled) {
-  setAllDrillKeysEnabled({
-    enabledKeys,
-    applyEnabledKeys,
-    saveSettings,
-    isEnabled
-  });
-}
-
-function invertKeysEnabled() {
-  invertDrillKeysEnabled({
-    enabledKeys,
-    applyEnabledKeys,
-    saveSettings
-  });
-}
-
 function keyLabelForPicker(majorIndex) {
-  return KEY_NAMES_MAJOR[transposeDisplayPitchClass(majorIndex)];
+  return drillDisplayRender.keyLabelForPicker(majorIndex);
 }
 
 function updateKeyPickerLabels() {
-  updateDrillKeyPickerLabels({
-    keyCheckboxes: dom.keyCheckboxes,
-    updateKeyCheckboxVisualState,
-    syncSelectedKeysSummary
-  });
+  return drillDisplayRender.updateKeyPickerLabels();
 }
 
 function refreshDisplayedHarmony() {
-  refreshDrillDisplayedHarmony({
-    isPlaying,
-    isIntro,
-    currentKey,
-    nextKeyValue,
-    currentChordIdx,
-    paddedChords,
-    nextRawChords,
-    getRemainingBeatsUntilNextProgression,
-    shouldShowNextPreview,
-    keyNameHtml,
-    chordSymbolHtml,
-    showNextCol,
-    hideNextCol,
-    keyDisplay: dom.keyDisplay,
-    chordDisplay: dom.chordDisplay,
-    nextKeyDisplay: dom.nextKeyDisplay,
-    nextChordDisplay: dom.nextChordDisplay,
-    applyDisplaySideLayout,
-    applyCurrentHarmonyVisibility,
-    fitHarmonyDisplay
-  });
+  return drillDisplayRender.refreshDisplayedHarmony();
 }
 
 function validateCustomPattern() {
@@ -3189,33 +2751,9 @@ function validateCustomPattern() {
 const APP_BASE_URL = (import.meta?.env?.BASE_URL) || './';
 const PATTERN_HELP_URL = `${APP_BASE_URL}progression-suffixes.txt`;
 const PATTERN_HELP_VERSION = APP_VERSION;
-const DISPLAY_MODE_SHOW_BOTH = 'show-both';
-const DISPLAY_MODE_CHORDS_ONLY = 'chords-only';
-const DISPLAY_MODE_KEY_ONLY = 'key-only';
-const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
-const HARMONY_DISPLAY_MODE_RICH = 'rich';
-
-function normalizeDisplayMode(mode) {
-  return [
-    DISPLAY_MODE_SHOW_BOTH,
-    DISPLAY_MODE_CHORDS_ONLY,
-    DISPLAY_MODE_KEY_ONLY
-  ].includes(mode)
-    ? mode
-    : DISPLAY_MODE_SHOW_BOTH;
-}
-
-function normalizeHarmonyDisplayMode(mode) {
-  return [
-    HARMONY_DISPLAY_MODE_DEFAULT,
-    HARMONY_DISPLAY_MODE_RICH
-  ].includes(mode)
-    ? mode
-    : HARMONY_DISPLAY_MODE_DEFAULT;
-}
 
 const {
-  createDefaultAppSettings,
+  createDefaultAppSettings: settingsCreateDefaultAppSettings,
   buildSettingsSnapshot,
   applyLoadedSettings,
   finalizeLoadedSettings,
@@ -3418,34 +2956,43 @@ const {
   }
 });
 
-function saveSettings() {
-  saveDrillSettings({
-    saveSharedPlaybackSettings,
-    saveStoredProgressionSettings,
-    buildSettingsSnapshot,
-    getCompingStyle,
-    getDrumsMode,
-    isWalkingBassEnabled,
-    dom,
+createDefaultAppSettingsImpl = settingsCreateDefaultAppSettings;
+const drillSettingsPersistence = createDrillSettingsPersistenceRootAppAssembly({
+  dom,
+  constants: {
     defaultMixerVolumes: {
       masterVolume: Number(DEFAULT_MASTER_VOLUME_PERCENT),
       bassVolume: 100,
       stringsVolume: 100,
       drumsVolume: 100
     }
-  });
-}
-
-function loadSettings() {
-  loadDrillSettings({
+  },
+  helpers: {
+    saveSharedPlaybackSettings,
+    saveStoredProgressionSettings,
+    buildSettingsSnapshot,
+    getCompingStyle,
+    getDrumsMode,
+    isWalkingBassEnabled,
     loadStoredProgressionSettings,
     loadStoredKeySelectionPreset,
     applyLoadedSettings,
-    finalizeLoadedSettings,
+    finalizeLoadedSettings
+  },
+  state: {
     setSavedKeySelectionPreset: (value) => {
       savedKeySelectionPreset = value;
     }
-  });
+  }
+});
+
+saveSettingsImpl = (...args) => drillSettingsPersistence.saveSettings(...args);
+loadSettingsImpl = (...args) => drillSettingsPersistence.loadSettings(...args);
+
+let attachMidiInputImpl = () => {};
+
+function attachMidiInput(...args) {
+  return attachMidiInputImpl(...args);
 }
 
 const {
@@ -3722,14 +3269,37 @@ function handleMidiMessage(event) {
   }
 }
 
-function getAvailableMidiInputs() {
-  if (!midiAccess?.inputs) return [];
-  return [...midiAccess.inputs.values()];
-}
+const {
+  attachMidiInput: pianoMidiAttachInput,
+  refreshMidiInputs
+} = createDrillPianoMidiRuntimeRootAppAssembly({
+  dom,
+  runtimeState: {
+    getMidiAccess: () => midiAccess,
+    setMidiAccess: (value) => { midiAccess = value; },
+    getMidiAccessPromise: () => midiAccessPromise,
+    setMidiAccessPromise: (value) => { midiAccessPromise = value; },
+    getCurrentMidiInput: () => currentMidiInput,
+    setCurrentMidiInput: (value) => { currentMidiInput = value; },
+    getPianoMidiSettings: () => pianoMidiSettings
+  },
+  runtimeHelpers: {
+    normalizePianoMidiSettings,
+    setPianoMidiSettings: (value) => { pianoMidiSettings = value; },
+    refreshPianoSettingsJson,
+    setPianoMidiStatus,
+    handleMidiMessage,
+    ensureMidiPianoRangePreload,
+    getAudioContext: () => audioCtx,
+    requestMIDIAccess: (...args) => navigator.requestMIDIAccess?.(...args),
+    createOptionElement: () => document.createElement('option')
+  }
+});
 
-function populateMidiInputs() {
-  if (!dom.pianoMidiInput) return;
-  const inputs = getAvailableMidiInputs();
+attachMidiInputImpl = pianoMidiAttachInput;
+
+function legacyPopulateMidiInputs() {
+  return;
   const currentValue = pianoMidiSettings.inputId;
   dom.pianoMidiInput.innerHTML = '';
 
@@ -3756,20 +3326,19 @@ function populateMidiInputs() {
   refreshPianoSettingsJson();
 }
 
-function detachMidiInput() {
-  if (!currentMidiInput) return;
-  currentMidiInput.onmidimessage = null;
-  currentMidiInput = null;
+function legacyDetachMidiInput() {
+  return;
 }
 
-function attachMidiInput() {
-  detachMidiInput();
+function legacyAttachMidiInput() {
+  return;
+  legacyDetachMidiInput();
   if (!pianoMidiSettings.enabled) {
     setPianoMidiStatus('MIDI inactif');
     return;
   }
 
-  const input = getAvailableMidiInputs().find((candidate) => candidate.id === pianoMidiSettings.inputId) || null;
+  const input = legacyGetAvailableMidiInputs().find((candidate) => candidate.id === pianoMidiSettings.inputId) || null;
   if (!input) {
     setPianoMidiStatus('Aucune entrée MIDI active');
     return;
@@ -3780,7 +3349,8 @@ function attachMidiInput() {
   setPianoMidiStatus(`Entrée: ${input.name || 'MIDI'}`);
 }
 
-async function ensureMidiAccess() {
+async function legacyEnsureMidiAccess() {
+  return null;
   if (!navigator.requestMIDIAccess) {
     setPianoMidiStatus('Web MIDI non supporté par ce navigateur');
     return null;
@@ -3791,8 +3361,8 @@ async function ensureMidiAccess() {
       .then((access) => {
         midiAccess = access;
         midiAccess.onstatechange = () => {
-          populateMidiInputs();
-          attachMidiInput();
+          legacyPopulateMidiInputs();
+          legacyAttachMidiInput();
           refreshPianoSettingsJson();
         };
         return access;
@@ -3806,104 +3376,85 @@ async function ensureMidiAccess() {
   return midiAccessPromise;
 }
 
-async function refreshMidiInputs() {
+async function legacyRefreshMidiInputs() {
+  return;
   try {
-    await ensureMidiAccess();
-    populateMidiInputs();
-    attachMidiInput();
+    await legacyEnsureMidiAccess();
+    legacyPopulateMidiInputs();
+    legacyAttachMidiInput();
     if (pianoMidiSettings.enabled && audioCtx) {
       ensureMidiPianoRangePreload();
     }
   } catch {}
 }
 
-async function loadPatternHelp() {
-  await loadDrillPatternHelp({
+const {
+  loadPatternHelp,
+  loadDefaultProgressions
+} = createDrillStartupDataRootAppAssembly({
+  state: {
+    setDefaultProgressionsVersion: (value) => { defaultProgressionsVersion = value; },
+    setDefaultProgressions: (value) => { DEFAULT_PROGRESSIONS = value; },
+    setProgressions: (value) => { progressions = value; }
+  },
+  patternHelp: {
+    loadDrillPatternHelp,
     dom,
     url: PATTERN_HELP_URL,
     version: PATTERN_HELP_VERSION
-  });
-}
-
-async function loadDefaultProgressions() {
-  try {
-    const versionedUrl = `${DEFAULT_PROGRESSIONS_URL}?v=${encodeURIComponent(APP_VERSION)}`;
-    let response = await fetch(versionedUrl);
-    if (!response.ok) {
-      response = await fetch(DEFAULT_PROGRESSIONS_URL);
-    }
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const parsed = parseDefaultProgressionsText(await response.text());
-    defaultProgressionsVersion = parsed.version || '1';
-    DEFAULT_PROGRESSIONS = parsed.progressions;
-  } catch (err) {
-    defaultProgressionsVersion = '1';
-    DEFAULT_PROGRESSIONS = {};
+  },
+  defaultProgressions: {
+    fetchImpl: (...args) => fetch(...args),
+    url: DEFAULT_PROGRESSIONS_URL,
+    appVersion: APP_VERSION,
+    parseDefaultProgressionsText,
+    normalizeProgressionsMap,
+    getDefaultProgressions: () => DEFAULT_PROGRESSIONS
   }
-  progressions = normalizeProgressionsMap(DEFAULT_PROGRESSIONS);
-}
+});
 
 async function initializeApp() {
-  await initializeDrillScreen({
+  await drillUiBootstrap.initializeScreen();
+}
+
+const drillUiBootstrapScreen = createDrillUiBootstrapScreenRootAppContext({
+  dom,
+  state: {
+    getProgressions: () => progressions,
+    getSavedPatternSelection: () => savedPatternSelection,
+    getShouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
+    getAppliedDefaultProgressionsFingerprint: () => appliedDefaultProgressionsFingerprint,
+    setAppliedDefaultProgressionsFingerprint: (value) => { appliedDefaultProgressionsFingerprint = value; },
+    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; }
+  },
+  constants: {
+    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
+  },
+  helpers: {
     initializeSocialShareLinks,
     loadDefaultProgressions,
     loadPatternHelp,
     loadWelcomeStandards,
     renderProgressionOptions,
-    getInitialProgressionOption: () => Object.keys(progressions)[0] || '',
     loadSettings,
     applySilentDefaultPresetResetMigration,
-    getSavedPatternSelection: () => savedPatternSelection,
     saveSettings,
     buildKeyCheckboxes,
     updateKeyPickerLabels,
     applyDisplayMode,
-    hasCustomPatternValue: () => Boolean(dom.customPattern.value),
-    setCustomPatternValue: (value) => {
-      dom.customPattern.value = value || '';
-    },
     getSelectedProgressionPattern,
     hasSelectedProgression,
-    setPatternNameFromSelectedProgression: () => {
-      dom.patternName.value = getSelectedProgressionName();
-    },
-    setPatternNameNormalized: () => {
-      dom.patternName.value = normalizePresetName(dom.patternName.value);
-    },
-    setEditorPatternModeFromSelectedProgression: () => {
-      setEditorPatternMode(getSelectedProgressionMode());
-    },
-    setEditorPatternModeNormalized: () => {
-      setEditorPatternMode(normalizePatternMode(dom.patternMode.value));
-    },
-    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE,
-    applySavedPatternSelection: (customPatternOptionValue) => {
-      if (savedPatternSelection === customPatternOptionValue) {
-        dom.patternSelect.value = customPatternOptionValue;
-        return true;
-      }
-      if (savedPatternSelection && Object.prototype.hasOwnProperty.call(progressions, savedPatternSelection)) {
-        dom.patternSelect.value = savedPatternSelection;
-        return true;
-      }
-      return false;
-    },
+    getSelectedProgressionName,
+    normalizePresetName,
+    setEditorPatternMode,
+    getSelectedProgressionMode,
+    normalizePatternMode,
     syncPatternSelectionFromInput,
     syncProgressionManagerState,
     syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability,
-    setLastPatternSelectValue: () => {
-      lastPatternSelectValue = dom.patternSelect.value;
-    },
-    shouldPromptForDefaultProgressionsUpdate: () => shouldPromptForDefaultProgressionsUpdate,
     promptForUpdatedDefaultProgressions,
-    hasAppliedDefaultProgressionsFingerprint: () => Boolean(appliedDefaultProgressionsFingerprint),
-    setAppliedDefaultProgressionsFingerprint: (value) => {
-      appliedDefaultProgressionsFingerprint = value;
-    },
     getDefaultProgressionsFingerprint,
     ensurePageSampleWarmup,
     consumePendingDrillSessionIntoUi: ({ afterApply }) => consumePendingDrillSessionIntoUi({
@@ -3913,304 +3464,234 @@ async function initializeApp() {
     }),
     setWelcomeOverlayVisible,
     maybeShowWelcomeOverlay
-  });
-}
-
-document.querySelector('[data-analytics-link="demo"]')?.addEventListener('click', () => {
-  trackEvent('demo_link_clicked', {
-    location: 'header'
-  });
+  }
 });
 
-bindDrillWelcomeControls({
-  updateWelcomePanelVisibility,
-  updateWelcomeSummary,
-  trackEvent,
-  syncWelcomeShowNextTimePreference,
-  saveSettings,
-  applyWelcomeRecommendation,
-  skipWelcomeOverlay,
-  setWelcomeOverlayVisible,
-  welcomeStandardSelect: dom.welcomeStandardSelect,
-  welcomeShowNextTime: dom.welcomeShowNextTime,
-  welcomeApply: dom.welcomeApply,
-  welcomeSkip: dom.welcomeSkip,
-  reopenWelcome: dom.reopenWelcome
-});
-
-// Save on every change
-dom.tempoSlider.addEventListener('change', saveSettings);
-dom.repetitionsPerKey?.addEventListener('change', saveSettings);
-dom.patternSelect.addEventListener('change', saveSettings);
-dom.patternName.addEventListener('change', saveSettings);
-dom.customPattern.addEventListener('change', saveSettings);
-dom.patternMode.addEventListener('change', saveSettings);
-dom.patternModeBoth?.addEventListener('change', saveSettings);
-dom.chordsPerBar?.addEventListener('change', saveSettings);
-dom.doubleTimeToggle?.addEventListener('change', () => {
-  stopPlaybackIfRunning();
-  if (dom.chordsPerBar) {
-    dom.chordsPerBar.value = dom.doubleTimeToggle.checked ? '2' : '1';
-  }
-  saveSettings();
-});
-dom.majorMinor.addEventListener('change', saveSettings);
-dom.compingStyle?.addEventListener('change', saveSettings);
-dom.tempoSlider.addEventListener('change', () => {
-  trackEvent('tempo_changed', {
-    tempo: Number(dom.tempoSlider.value),
-    tempo_bucket: getTempoBucket()
-  });
-});
-dom.repetitionsPerKey?.addEventListener('change', () => {
-  trackEvent('repetitions_changed', {
-    repetitions_per_key: getRepetitionsPerKey()
-  });
-});
-dom.chordsPerBar?.addEventListener('change', () => {
-  const chordsPerBar = getSelectedChordsPerBar();
-  trackEvent('harmonic_density_changed', {
-    chords_per_bar: chordsPerBar,
-    double_time: chordsPerBar > 1 ? 'on' : 'off'
-  });
-});
-dom.compingStyle?.addEventListener('change', () => {
-  if (isPlaying && audioCtx) {
-    stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-    rebuildPreparedCompingPlans(currentKey);
-  }
-  preloadNearTermSamples().catch(() => {});
-  trackEvent('comping_style_changed', {
-    comping_style: getCompingStyle()
-  });
-});
-dom.walkingBass?.addEventListener('change', async () => {
-  if (isWalkingBassEnabled()) {
-    try {
-      await ensureWalkingBassGenerator();
-    } catch {}
-  }
-  if (isPlaying) {
-    buildPreparedBassPlan();
-  }
-  preloadNearTermSamples().catch(() => {});
-  saveSettings();
-});
-dom.stringsVolume.addEventListener('input', () => {
-  applyMixerSettings();
-  if (!isChordsEnabled() && isPlaying && audioCtx) {
-    stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-  }
-});
-dom.drumsSelect.addEventListener('change', saveSettings);
-dom.drumsSelect.addEventListener('change', () => {
-  trackEvent('drums_mode_changed', {
-    drums_mode: dom.drumsSelect.value
-  });
-});
-dom.debugToggle?.addEventListener('change', () => {
-  setAnalyticsDebugEnabled(dom.debugToggle.checked);
-});
-dom.resetSettings?.addEventListener('click', resetPlaybackSettings);
-initializeDrillPianoControls({
+const drillRuntimeControls = createDrillRuntimeControlsRootAppContext({
   dom,
-  readPianoFadeSettingsFromControls,
-  refreshPianoSettingsJson,
-  applyPianoFadeSettings: (nextSettings) => {
-    applyPianoFadeSettings(nextSettings);
+  state: {
+    getIsPlaying: () => isPlaying,
+    getAudioContext: () => audioCtx,
+    getCurrentKey: () => currentKey,
+    getNextPreviewLeadUnit: () => nextPreviewLeadUnit,
+    getNextPreviewInputUnit: () => getNextPreviewInputUnit()
   },
-  refreshMidiInputs,
-  stopAllMidiPianoVoices,
-  applyPianoMidiSettings: (nextSettings, options) => {
-    if (nextSettings?.sustainPedalEnabled === false) {
-      midiSustainPedalDown = false;
-      for (const midi of [...sustainedMidiNotes]) {
-        stopMidiPianoVoice(midi);
-      }
-      sustainedMidiNotes.clear();
-    }
-    applyPianoMidiSettings(nextSettings, options);
+  constants: {
+    noteFadeout: NOTE_FADEOUT,
+    nextPreviewUnitBars: NEXT_PREVIEW_UNIT_BARS,
+    nextPreviewUnitSeconds: NEXT_PREVIEW_UNIT_SECONDS
   },
-  getPianoMidiSettings: () => pianoMidiSettings,
-  ensureMidiPianoRangePreload
-});
-dom.pianoSettingsCopy?.addEventListener('click', async () => {
-  refreshPianoSettingsJson();
-  const presetText = dom.pianoSettingsJson?.value || '';
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(presetText);
-      setPianoMidiStatus('Preset piano copié');
-      return;
-    }
-  } catch {}
-  if (dom.pianoSettingsJson) {
-    dom.pianoSettingsJson.focus();
-    dom.pianoSettingsJson.select();
-  }
-  setPianoMidiStatus('Preset prêt à copier');
-});
-dom.pianoSettingsApply?.addEventListener('click', async () => {
-  try {
-    applyPianoPresetFromJsonText(dom.pianoSettingsJson?.value || '{}');
-    if (pianoMidiSettings.enabled) {
-      await refreshMidiInputs();
-    }
-    setPianoMidiStatus('Preset piano appliqué');
-  } catch (err) {
-    window.alert(`Preset piano invalide: ${err.message}`);
-  }
-});
-dom.pianoSettingsReset?.addEventListener('click', () => {
-  pianoFadeSettings = normalizePianoFadeSettings(DEFAULT_PIANO_FADE_SETTINGS);
-  pianoMidiSettings = normalizePianoMidiSettings(DEFAULT_PIANO_MIDI_SETTINGS);
-  stopAllMidiPianoVoices(true);
-  syncPianoToolsUi();
-  attachMidiInput();
-  saveSettings();
-  setPianoMidiStatus('Réglages piano réinitialisés');
-});
-function applyDisplayMode() {
-  applyDrillDisplayMode({
-    displayElement: document.getElementById('display'),
-    mode: normalizeDisplayMode(dom.displayMode?.value),
-    applyDisplaySideLayout,
+  helpers: {
+    stop,
+    start,
+    togglePause,
+    syncNextPreviewControlDisplay,
+    refreshDisplayedHarmony,
+    stopActiveChordVoices,
+    rebuildPreparedCompingPlans,
+    buildPreparedBassPlan,
+    commitNextPreviewValueFromInput,
+    saveSettings,
+    trackEvent,
+    formatPreviewNumber,
+    getNextPreviewLeadBars,
+    getNextPreviewLeadSeconds,
+    convertNextPreviewValueToUnit,
+    setNextPreviewInputUnit,
+    setAllKeysEnabled,
+    getEnabledKeyCount,
+    invertKeysEnabled,
+    saveCurrentKeySelectionPreset,
+    loadKeySelectionPreset,
+    updateKeyPickerLabels,
+    syncPatternPreview,
+    applyDisplayMode,
+    normalizeDisplayMode,
+    normalizeHarmonyDisplayMode,
+    applyBeatIndicatorVisibility,
     applyCurrentHarmonyVisibility,
-    fitHarmonyDisplay
-  });
-}
-
-initializeDrillRuntimeControls({
-  dom,
-  onStartStopClick: () => {
-    if (isPlaying) stop(); else start();
-  },
-  onPauseClick: togglePause,
-  onTempoInput: () => {
-    dom.tempoValue.textContent = dom.tempoSlider.value;
-    syncNextPreviewControlDisplay();
-    refreshDisplayedHarmony();
-    if (isPlaying && audioCtx) {
-      stopActiveChordVoices(audioCtx.currentTime, NOTE_FADEOUT);
-      rebuildPreparedCompingPlans(currentKey);
-      buildPreparedBassPlan();
-    }
-  },
-  onNextPreviewValueChange: () => {
-    commitNextPreviewValueFromInput();
-    saveSettings();
-    trackEvent('next_preview_changed', {
-      next_preview_unit: getNextPreviewInputUnit(),
-      next_preview_bars: formatPreviewNumber(getNextPreviewLeadBars()),
-      next_preview_seconds: formatPreviewNumber(getNextPreviewLeadSeconds(), 1)
-    });
-  },
-  onNextPreviewUnitToggleChange: () => {
-    convertNextPreviewValueToUnit(
-      dom.nextPreviewUnitToggle.checked ? NEXT_PREVIEW_UNIT_SECONDS : NEXT_PREVIEW_UNIT_BARS
-    );
-    setNextPreviewInputUnit(nextPreviewLeadUnit);
-    syncNextPreviewControlDisplay();
-    refreshDisplayedHarmony();
-    saveSettings();
-    trackEvent('next_preview_unit_changed', {
-      next_preview_unit: getNextPreviewInputUnit()
-    });
-  },
-  onSelectAllKeys: () => {
-    setAllKeysEnabled(true);
-    trackEvent('all_keys_selected', {
-      enabled_keys: getEnabledKeyCount()
-    });
-  },
-  onInvertKeys: () => {
-    invertKeysEnabled();
-    trackEvent('key_selection_inverted', {
-      enabled_keys: getEnabledKeyCount()
-    });
-  },
-  onClearKeys: () => {
-    setAllKeysEnabled(false);
-    trackEvent('all_keys_cleared', {
-      enabled_keys: getEnabledKeyCount()
-    });
-  },
-  onSaveKeyPreset: saveCurrentKeySelectionPreset,
-  onLoadKeyPreset: loadKeySelectionPreset,
-  onTranspositionChange: () => {
-    updateKeyPickerLabels();
-    refreshDisplayedHarmony();
-    saveSettings();
-    syncPatternPreview();
-    trackEvent('display_transposition_changed', {
-      transposition: dom.transpositionSelect.value
-    });
-  },
-  onDisplayModeChange: () => {
-    applyDisplayMode();
-    saveSettings();
-    trackEvent('display_mode_changed', {
-      display_mode: normalizeDisplayMode(dom.displayMode.value)
-    });
-  },
-  onHarmonyDisplayModeChange: () => {
-    refreshDisplayedHarmony();
-    saveSettings();
-    trackEvent('harmony_display_mode_changed', {
-      alternate_display: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode.value)
-    });
-  },
-  onSymbolToggleChange: () => {
-    refreshDisplayedHarmony();
-    saveSettings();
-  },
-  onShowBeatIndicatorChange: () => {
-    applyBeatIndicatorVisibility();
-    saveSettings();
-  },
-  onHideCurrentHarmonyChange: () => {
-    applyCurrentHarmonyVisibility();
-    refreshDisplayedHarmony();
-    fitHarmonyDisplay();
-    saveSettings();
-  },
-  onMasterVolumeInput: applyMixerSettings,
-  onBassVolumeInput: applyMixerSettings,
-  onDrumsVolumeInput: applyMixerSettings,
-  onMasterVolumeChange: () => {
-    saveSettings();
-    trackEvent('master_volume_changed', {
-      volume_percent: Number(dom.masterVolume.value)
-    });
-  },
-  onBassVolumeChange: () => {
-    saveSettings();
-    trackEvent('bass_volume_changed', {
-      volume_percent: Number(dom.bassVolume.value)
-    });
-  },
-  onStringsVolumeChange: () => {
-    saveSettings();
-    trackEvent('strings_volume_changed', {
-      volume_percent: Number(dom.stringsVolume.value)
-    });
-  },
-  onDrumsVolumeChange: () => {
-    saveSettings();
-    trackEvent('drums_volume_changed', {
-      volume_percent: Number(dom.drumsVolume.value)
-    });
+    fitHarmonyDisplay,
+    applyMixerSettings
   }
 });
 
-initializeHarmonyDisplayObservers({
-  fitHarmonyDisplay,
-  chordDisplay: dom.chordDisplay,
-  nextChordDisplay: dom.nextChordDisplay,
-  displayColumns: document.getElementById('display-columns')
+const drillUiBootstrap = createDrillUiBootstrapRootAppAssembly({
+  screen: drillUiBootstrapScreen,
+  pianoControls: {
+    dom,
+    readPianoFadeSettingsFromControls,
+    refreshPianoSettingsJson,
+    applyPianoFadeSettings: (nextSettings) => {
+      applyPianoFadeSettings(nextSettings);
+    },
+    refreshMidiInputs,
+    stopAllMidiPianoVoices,
+    applyPianoMidiSettings: (nextSettings, options) => {
+      if (nextSettings?.sustainPedalEnabled === false) {
+        midiSustainPedalDown = false;
+        for (const midi of [...sustainedMidiNotes]) {
+          stopMidiPianoVoice(midi);
+        }
+        sustainedMidiNotes.clear();
+      }
+      applyPianoMidiSettings(nextSettings, options);
+    },
+    getPianoMidiSettings: () => pianoMidiSettings,
+    ensureMidiPianoRangePreload
+  },
+  runtimeControls: drillRuntimeControls,
+  harmonyDisplayObservers: {
+    fitHarmonyDisplay,
+    chordDisplay: dom.chordDisplay,
+    nextChordDisplay: dom.nextChordDisplay,
+    displayColumns: document.getElementById('display-columns')
+  }
 });
 
-window.addEventListener('pagehide', trackSessionDuration);
+const drillUiEventBindings = createDrillUiEventBindingsRootAppAssembly({
+  welcomeControls: {
+    updateWelcomePanelVisibility,
+    updateWelcomeSummary,
+    trackEvent,
+    syncWelcomeShowNextTimePreference,
+    saveSettings,
+    applyWelcomeRecommendation,
+    skipWelcomeOverlay,
+    setWelcomeOverlayVisible,
+    welcomeStandardSelect: dom.welcomeStandardSelect,
+    welcomeShowNextTime: dom.welcomeShowNextTime,
+    welcomeApply: dom.welcomeApply,
+    welcomeSkip: dom.welcomeSkip,
+    reopenWelcome: dom.reopenWelcome
+  },
+  analyticsLink: {
+    element: document.querySelector('[data-analytics-link="demo"]'),
+    trackEvent
+  },
+  settingsControls: {
+    dom,
+    saveSettings,
+    stopPlaybackIfRunning,
+    trackEvent,
+    getTempoBucket,
+    getRepetitionsPerKey,
+    getSelectedChordsPerBar,
+    isPlaying: () => isPlaying,
+    getAudioContext: () => audioCtx,
+    noteFadeout: NOTE_FADEOUT,
+    stopActiveChordVoices,
+    rebuildPreparedCompingPlans,
+    getCurrentKey: () => currentKey,
+    preloadNearTermSamples: () => preloadNearTermSamples(),
+    getCompingStyle,
+    isWalkingBassEnabled,
+    ensureWalkingBassGenerator,
+    buildPreparedBassPlan,
+    applyMixerSettings,
+    isChordsEnabled,
+    setAnalyticsDebugEnabled,
+    resetPlaybackSettings
+  },
+  pianoPresetControls: {
+    dom,
+    refreshPianoSettingsJson,
+    setPianoMidiStatus,
+    applyPianoPresetFromJsonText,
+    getPianoMidiSettings: () => pianoMidiSettings,
+    refreshMidiInputs,
+    normalizePianoFadeSettings,
+    normalizePianoMidiSettings,
+    defaultPianoFadeSettings: DEFAULT_PIANO_FADE_SETTINGS,
+    defaultPianoMidiSettings: DEFAULT_PIANO_MIDI_SETTINGS,
+    setPianoFadeSettings: (value) => { pianoFadeSettings = value; },
+    setPianoMidiSettings: (value) => { pianoMidiSettings = value; },
+    stopAllMidiPianoVoices,
+    syncPianoToolsUi,
+    attachMidiInput,
+    saveSettings,
+    clipboard: navigator.clipboard,
+    alert: (message) => window.alert(message)
+  },
+  lifecycleTarget: window,
+  trackSessionDuration
+});
+
+drillUiEventBindings.bindAnalyticsLink();
+drillUiEventBindings.bindWelcomeEvents();
+drillUiEventBindings.bindSettingsEvents();
+drillUiBootstrap.initializePianoControls();
+drillUiEventBindings.bindPianoPresetEvents();
+drillUiBootstrap.initializeRuntimeControls();
+
+drillUiBootstrap.initializeHarmonyDisplayObservers();
+
+drillUiEventBindings.bindLifecycleEvents();
+
+const drillSharedPlaybackHost = createDrillSharedPlaybackHostRootAppContext({
+  dom,
+  state: {
+    getLastPatternSelectValue: () => lastPatternSelectValue,
+    setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
+    getIsPlaying: () => isPlaying,
+    getIsPaused: () => isPaused,
+    getIsIntro: () => isIntro,
+    getCurrentBeat: () => currentBeat,
+    getCurrentChordIdx: () => currentChordIdx,
+    getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
+    getCurrentKey: () => currentKey,
+    getAudioContext: () => audioCtx
+  },
+  constants: {
+    customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE
+  },
+  helpers: {
+    setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
+    setPatternSelectValue,
+    setEditorPatternMode,
+    syncPatternSelectionFromInput,
+    startPlayback: () => start(),
+    stopPlayback: () => stop(),
+    togglePausePlayback: () => togglePause()
+  }
+});
+
+const drillSharedPlaybackPatternUi = createDrillSharedPlaybackPatternUiRootAppContext({
+  helpers: {
+    clearProgressionEditingState,
+    closeProgressionManager,
+    syncCustomPatternUI,
+    normalizeChordsPerBarForCurrentPattern,
+    applyPatternModeAvailability,
+    syncPatternPreview,
+    applyDisplayMode,
+    applyBeatIndicatorVisibility,
+    applyCurrentHarmonyVisibility,
+    updateKeyPickerLabels,
+    refreshDisplayedHarmony,
+    fitHarmonyDisplay,
+    validateCustomPattern: () => validateCustomPattern(),
+    getCurrentPatternString,
+    getCurrentPatternMode
+  }
+});
+
+const drillSharedPlaybackDirectRuntime = createDrillSharedPlaybackDirectRuntimeRootAppContext({
+  state: {
+    getAudioContext: () => audioCtx,
+    getCurrentKey: () => currentKey
+  },
+  constants: {
+    noteFadeout: NOTE_FADEOUT
+  },
+  helpers: {
+    ensureWalkingBassGenerator,
+    stopActiveChordVoices,
+    rebuildPreparedCompingPlans,
+    buildPreparedBassPlan,
+    preloadNearTermSamples,
+    validateCustomPattern: () => validateCustomPattern()
+  }
+});
 
 const {
   playbackController: embeddedPlaybackController,
@@ -4219,45 +3700,9 @@ const {
   getEmbeddedPlaybackState
 } = createDrillSharedPlaybackRootAppAssembly({
   dom,
-  host: createDrillSharedPlaybackHostAppContext({
-      customPatternOptionValue: CUSTOM_PATTERN_OPTION_VALUE,
-      setSuppressPatternSelectChange: (value) => { suppressPatternSelectChange = value; },
-      setPatternSelectValue,
-      setEditorPatternMode,
-      syncPatternSelectionFromInput,
-      getLastPatternSelectValue: () => lastPatternSelectValue,
-      setLastPatternSelectValue: (value) => { lastPatternSelectValue = value; },
-      getIsPlaying: () => isPlaying,
-      getIsPaused: () => isPaused,
-      getIsIntro: () => isIntro,
-      getCurrentBeat: () => currentBeat,
-      getCurrentChordIdx: () => currentChordIdx,
-      getPaddedChordCount: () => (Array.isArray(paddedChords) ? paddedChords.length : 0),
-      getTempo: () => Number(dom.tempoSlider?.value || 0),
-      getAudioContext: () => audioCtx,
-      getCurrentKey: () => currentKey,
-      startPlayback: () => start(),
-      stopPlayback: () => stop(),
-      togglePausePlayback: () => togglePause()
-    }),
-  patternUi: createDrillSharedPlaybackPatternUiAppContext({
-      clearProgressionEditingState,
-      closeProgressionManager,
-      syncCustomPatternUI,
-      normalizeChordsPerBarForCurrentPattern,
-      applyPatternModeAvailability,
-      syncPatternPreview,
-      applyDisplayMode,
-      applyBeatIndicatorVisibility,
-      applyCurrentHarmonyVisibility,
-      updateKeyPickerLabels,
-      refreshDisplayedHarmony,
-      fitHarmonyDisplay,
-      validateCustomPattern: () => validateCustomPattern(),
-      getCurrentPatternString,
-      getCurrentPatternMode
-    }),
-  normalization: createDrillSharedPlaybackNormalizationAppContext({
+  host: drillSharedPlaybackHost,
+  patternUi: drillSharedPlaybackPatternUi,
+  normalization: {
       normalizePatternString,
       normalizePresetName,
       normalizePatternMode,
@@ -4265,46 +3710,36 @@ const {
       normalizeRepetitionsPerKey,
       normalizeDisplayMode,
       normalizeHarmonyDisplayMode
-    }),
-  playbackSettings: createDrillSharedPlaybackSettingsAppContext({
+    },
+  playbackSettings: {
       getSwingRatio,
       getCompingStyle,
       getDrumsMode,
       isWalkingBassEnabled,
       getRepetitionsPerKey,
       applyMixerSettings
-    }),
-  embeddedPlaybackState: createDrillSharedPlaybackEmbeddedStateAppContext({
+    },
+  embeddedPlaybackState: {
       isEmbeddedMode: IS_EMBEDDED_DRILL_MODE
-    }),
-  embeddedPlaybackRuntime: createDrillSharedPlaybackEmbeddedRuntimeAppContext({
+    },
+  embeddedPlaybackRuntime: {
       ensureWalkingBassGenerator,
       stopActiveChordVoices,
       noteFadeout: NOTE_FADEOUT,
       rebuildPreparedCompingPlans,
       buildPreparedBassPlan,
       preloadNearTermSamples
-    }),
+    },
   embeddedTransportActions: {},
-  directPlaybackRuntime: createDrillSharedPlaybackDirectRuntimeAppContext({
-      ensureWalkingBassGenerator,
-      getAudioContext: () => audioCtx,
-      noteFadeout: NOTE_FADEOUT,
-      stopActiveChordVoices,
-      rebuildPreparedCompingPlans,
-      buildPreparedBassPlan,
-      getCurrentKey: () => currentKey,
-      preloadNearTermSamples,
-      validateCustomPattern: () => validateCustomPattern()
-    }),
-  directPlaybackState: createDrillSharedPlaybackDirectStateAppContext({
+  directPlaybackRuntime: drillSharedPlaybackDirectRuntime,
+  directPlaybackState: {
       getIsPlaying: () => isPlaying
-    }),
-  directTransportActions: createDrillSharedPlaybackDirectTransportAppContext({
+    },
+  directTransportActions: {
       startPlayback: () => start(),
       stopPlayback: () => stop(),
       togglePausePlayback: () => togglePause()
-    })
+    }
 });
 
 function getPlaybackSessionController() {

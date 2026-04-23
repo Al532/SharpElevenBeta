@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * Groups the app-owned harmony/progression/runtime bindings consumed by the
+ * Groups the app-owned harmony/progression/runtime bindings passed into the
  * drill playback resources assembly.
  *
  * @param {object} [options]

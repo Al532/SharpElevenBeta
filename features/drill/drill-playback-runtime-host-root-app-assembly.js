@@ -11,9 +11,9 @@ import { createDrillPlaybackRuntimeHostPreloadAppContext } from './drill-playbac
 import { createDrillPlaybackRuntimeHostStateAppContext } from './drill-playback-runtime-host-state-app-context.js';
 
 /**
- * Creates the full root-level drill playback runtime host assembly from live
- * app bindings. This keeps the largest remaining playback-host contract out of
- * `app.js` while preserving the existing host/app-context layering.
+ * Creates the drill playback runtime host assembly from live root-app bindings.
+ * This keeps the largest remaining playback-host contract out of `app.js`
+ * while preserving the existing host/app-context layering.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.dom]

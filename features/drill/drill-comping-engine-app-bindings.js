@@ -2,7 +2,7 @@
 
 /**
  * Groups the app-owned constants and helpers passed into the shared comping
- * engine while `app.js` still owns the live runtime state.
+ * engine while `app.js` keeps the live runtime state.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.constants]

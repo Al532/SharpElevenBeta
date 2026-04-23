@@ -6,6 +6,7 @@
     "dev": "vite",
     "dev:chart": "vite --config vite.chart.config.js",
     "test:chart": "node scripts/test-chart-module.mjs",
+    "test:drill-wrappers": "node scripts/test-drill-root-wrappers.mjs",
     "typecheck": "tsc --noEmit",
     "prebuild": "node scripts/sync-public-files.mjs public",
     "build": "vite build",

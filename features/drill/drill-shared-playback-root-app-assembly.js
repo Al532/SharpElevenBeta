@@ -3,6 +3,7 @@
 import { createDrillSharedPlaybackAppAssembly } from './drill-shared-playback-app-assembly.js';
 import { createDrillSharedPlaybackAppBindings } from './drill-shared-playback-app-bindings.js';
 import { createDrillSharedPlaybackAppContextOptions } from './drill-shared-playback-app-context.js';
+import { createDrillSharedPlaybackRootAppContext } from './drill-shared-playback-root-app-context.js';
 import { createDrillSharedPlaybackStateAppContext } from './drill-shared-playback-state-app-context.js';
 
 /**
@@ -38,22 +39,24 @@ export function createDrillSharedPlaybackRootAppAssembly({
   directTransportActions = {},
   publishDirectGlobals
 } = {}) {
+  const rootAppContext = createDrillSharedPlaybackRootAppContext({
+    host,
+    patternUi,
+    normalization,
+    playbackSettings,
+    embeddedPlaybackState,
+    embeddedPlaybackRuntime,
+    embeddedTransportActions,
+    directPlaybackRuntime,
+    directPlaybackState,
+    directTransportActions
+  });
+
   return createDrillSharedPlaybackAppAssembly(
     createDrillSharedPlaybackAppBindings(
       createDrillSharedPlaybackAppContextOptions({
         dom,
-        ...createDrillSharedPlaybackStateAppContext({
-          host,
-          patternUi,
-          normalization,
-          playbackSettings,
-          embeddedPlaybackState,
-          embeddedPlaybackRuntime,
-          embeddedTransportActions,
-          directPlaybackRuntime,
-          directPlaybackState,
-          directTransportActions
-        }),
+        ...createDrillSharedPlaybackStateAppContext(rootAppContext),
         publishDirectGlobals
       })
     )

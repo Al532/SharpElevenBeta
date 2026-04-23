@@ -4,7 +4,7 @@ import { createDrillVoicingRuntimeAppBindings } from './drill-voicing-runtime-ap
 import { createDrillVoicingRuntime } from './drill-voicing-runtime.js';
 
 /**
- * Creates the shared drill voicing runtime from live root-app bindings.
+ * Creates the drill voicing runtime from live root-app bindings.
  * This keeps the remaining voicing runtime contract out of `app.js` while
  * preserving the existing runtime factory and app-binding seam.
  *

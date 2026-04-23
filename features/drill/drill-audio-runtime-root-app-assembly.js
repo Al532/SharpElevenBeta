@@ -5,7 +5,7 @@ import { createDrillAudioRuntimeAppBindings } from './drill-audio-runtime-app-bi
 import { createDrillAudioRuntimeAssemblyAppContext } from './drill-audio-runtime-assembly-app-context.js';
 
 /**
- * Creates the full drill audio runtime assembly from live root-app bindings.
+ * Creates the drill audio runtime assembly from live root-app bindings.
  * This keeps the shared audio stack contract out of `app.js` while preserving
  * the existing runtime/app assembly layering.
  *

@@ -1,8 +1,8 @@
 // @ts-check
 
 /**
- * Groups the live app-level bindings consumed by the shared drill audio stack
- * assembly while the concrete runtime state still lives in `app.js`.
+ * Groups the app-level bindings passed into the shared drill audio stack
+ * assembly while live runtime state remains in `app.js`.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.audioRuntime]

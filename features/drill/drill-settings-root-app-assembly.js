@@ -11,7 +11,7 @@ import { createDrillSettingsSnapshotHelpersAppContext } from './drill-settings-s
 import { createDrillSettingsStateAppContext } from './drill-settings-state-app-context.js';
 
 /**
- * Creates the full root-level drill settings assembly from live app bindings.
+ * Creates the drill settings assembly from live root-app bindings.
  * This keeps the large settings persistence/runtime contract out of `app.js`
  * while preserving the existing settings app-context/bindings layers.
  *

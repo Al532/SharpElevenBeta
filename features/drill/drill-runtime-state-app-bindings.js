@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * Groups the app-level bindings consumed by the runtime-state assembly before
+ * Groups the app-level bindings passed into the runtime-state assembly before
  * the shared runtime-state boundary.
  *
  * @param {object} [options]

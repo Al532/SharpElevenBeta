@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * Groups the app-level bindings consumed by the drill piano-tools facade.
+ * Groups the app-level bindings passed into the drill piano-tools facade.
  *
  * @param {object} [options]
  * @returns {Record<string, any>}

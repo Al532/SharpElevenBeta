@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * Groups the app-level bindings consumed by the runtime-primitives assembly
+ * Groups the app-level bindings passed into the runtime-primitives assembly
  * before the shared runtime-primitives bindings normalization layer.
  *
  * @param {object} [options]

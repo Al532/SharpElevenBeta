@@ -1,8 +1,8 @@
 // @ts-check
 
 /**
- * Groups the app-owned embedded/direct playback bindings before they are
- * passed into the shared drill playback assembly.
+ * Groups the app-owned embedded/direct playback bindings passed into the
+ * shared drill playback assembly.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.embedded]

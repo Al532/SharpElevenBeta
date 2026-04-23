@@ -5,7 +5,7 @@ import { createDrillRuntimeStateAppBindings } from './drill-runtime-state-app-bi
 import { createDrillRuntimeStateAppContextOptions } from './drill-runtime-state-app-context.js';
 
 /**
- * Creates the full root-level runtime-state assembly from live app bindings.
+ * Creates the runtime-state assembly from live root-app bindings.
  * This keeps the key-pool and session-analytics contracts out of `app.js`
  * while preserving the existing app-context/bindings layers.
  *

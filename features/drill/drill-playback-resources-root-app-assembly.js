@@ -12,9 +12,9 @@ import { createDrillPlaybackResourcesSettingsAppContext } from './drill-playback
 import { createDrillPlaybackResourcesStateAppContext } from './drill-playback-resources-state-app-context.js';
 
 /**
- * Creates the root-level drill playback resources assembly from live app
- * bindings. This keeps the playback-preparation/resources contract out of
- * `app.js` while preserving the existing app-context and bindings layers.
+ * Creates the drill playback resources assembly from live root-app bindings.
+ * This keeps the playback-preparation/resources contract out of `app.js`
+ * while preserving the existing app-context and bindings layers.
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.harmony]

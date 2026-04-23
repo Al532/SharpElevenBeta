@@ -6,7 +6,7 @@ import { createDrillRuntimePrimitivesRuntimeAppBindings } from './drill-runtime-
 import { createDrillRuntimePrimitivesAppContextOptions } from './drill-runtime-primitives-app-context.js';
 
 /**
- * Creates the full root-level runtime-primitives assembly from live app
+ * Creates the runtime-primitives assembly from live root-app bindings.
  * bindings. This keeps the pattern-analysis and playback-settings contracts
  * out of `app.js` while preserving the existing app-context/bindings layers.
  *
