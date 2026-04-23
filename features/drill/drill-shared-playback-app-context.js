@@ -1,5 +1,45 @@
 // @ts-check
 
+function cloneOptions(options = {}) {
+  return { ...options };
+}
+
+export function createDrillSharedPlaybackHostAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackPatternUiAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackNormalizationAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackSettingsAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackDirectRuntimeAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackDirectStateAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackDirectTransportAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackEmbeddedRuntimeAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackEmbeddedStateAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
 /**
  * Groups the app-level embedded and direct playback concerns into the
  * shared-playback assembly shape, so `app.js` no longer owns that runtime

@@ -2,12 +2,14 @@
 
 import { createDrillSettingsAppAssembly } from './drill-settings-app-assembly.js';
 import { createDrillSettingsAppBindings } from './drill-settings-app-bindings.js';
-import { createDrillSettingsAppContextOptions } from './drill-settings-app-context.js';
-import { createDrillSettingsConstantsAppContext } from './drill-settings-constants-app-context.js';
-import { createDrillSettingsDefaultsAppContext } from './drill-settings-defaults-app-context.js';
-import { createDrillSettingsLoadApplierHelpersAppContext } from './drill-settings-load-applier-helpers-app-context.js';
+import {
+  createDrillSettingsAppContextOptions,
+  createDrillSettingsConstantsAppContext,
+  createDrillSettingsDefaultsAppContext,
+  createDrillSettingsLoadApplierHelpersAppContext,
+  createDrillSettingsSnapshotHelpersAppContext
+} from './drill-settings-app-context.js';
 import { createDrillSettingsRuntimeAppBindings } from './drill-settings-runtime-app-bindings.js';
-import { createDrillSettingsSnapshotHelpersAppContext } from './drill-settings-snapshot-helpers-app-context.js';
 import { createDrillSettingsStateAppContext } from './drill-settings-state-app-context.js';
 
 /**

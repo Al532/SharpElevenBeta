@@ -1,5 +1,53 @@
 // @ts-check
 
+function cloneOptions(options = {}) {
+  return { ...options };
+}
+
+/**
+ * Groups the live app-owned settings defaults bindings into the settings app
+ * context passed to the settings app assembly.
+ *
+ * @param {Record<string, any>} [options]
+ * @returns {Record<string, any>}
+ */
+export function createDrillSettingsDefaultsAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+/**
+ * Groups the live drill settings constants before they are folded into the
+ * settings assembly input.
+ *
+ * @param {object} [options]
+ * @returns {Record<string, any>}
+ */
+export function createDrillSettingsConstantsAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+/**
+ * Groups the live app-owned settings snapshot-helper bindings into the settings
+ * app context.
+ *
+ * @param {Record<string, any>} [options]
+ * @returns {Record<string, any>}
+ */
+export function createDrillSettingsSnapshotHelpersAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
+/**
+ * Groups the live app-owned settings load-applier-helper bindings into the
+ * settings app context.
+ *
+ * @param {Record<string, any>} [options]
+ * @returns {Record<string, any>}
+ */
+export function createDrillSettingsLoadApplierHelpersAppContext(options = {}) {
+  return cloneOptions(options);
+}
+
 /**
  * Groups the app-level drill settings concerns into the normalized settings
  * assembly input shape, so `app.js` no longer carries that large playback and
