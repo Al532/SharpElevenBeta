@@ -36,7 +36,7 @@
         <activity
             android:name=".IrealBrowserActivity"
             android:exported="true"
-            android:label="@string/ireal_browser_title"
+            android:label="@string/app_name"
             android:theme="@style/AppTheme">
 
             <intent-filter>

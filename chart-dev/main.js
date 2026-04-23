@@ -16,9 +16,12 @@ import {
   createChartDocumentsFromIRealText,
 } from '../chart/index.js';
 import {
+  clearPersistedChartLibrary,
+  loadPersistedChartLibrary,
   loadPersistedChartId as loadPersistedChartIdFromStorage,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
   persistChartId as persistChartIdToStorage,
+  persistChartLibrary,
   persistPlaybackSettings as persistChartPlaybackSettings
 } from '../features/chart/chart-persistence.js';
 import {
@@ -56,12 +59,10 @@ import {
   bindChartImportControls,
   handleChartBackupFileSelection,
   handlePastedChartIRealLinkImport,
-  importDefaultFixtureLibrary as importChartDefaultFixtureLibrary,
   setChartImportStatus
 } from '../features/chart/chart-import-controls.js';
 import {
   createChartBarSelectionBindings,
-  createChartDefaultLibraryBindings,
   createChartDirectPlaybackRuntimeHostBindings,
   createChartFixtureRenderBindings,
   createChartImportedLibraryBindings,
@@ -109,7 +110,6 @@ import voicingConfig from '../core/music/voicing-config.js';
 const DEFAULT_TEMPO = 120;
 const DEFAULT_BAR_GROUP_SIZE = 4;
 const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
-const IREAL_SOURCE_URL = '../parsing-projects/ireal/sources/jazz-1460.txt';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
 const LAST_CHART_STORAGE_KEY = 'jpt-chart-dev-last-chart-id';
@@ -141,6 +141,7 @@ const dom = {
   importIRealBackupButton: document.getElementById('import-ireal-backup-button'),
   openIRealDefaultPlaylistsButton: document.getElementById('open-ireal-default-playlists-button'),
   openIRealForumButton: document.getElementById('open-ireal-forum-button'),
+  clearAllChartsButton: document.getElementById('clear-all-charts-button'),
   irealLinkInput: document.getElementById('ireal-link-input'),
   importIRealLinkButton: document.getElementById('import-ireal-link-button'),
   chartImportStatus: document.getElementById('chart-import-status'),
@@ -477,6 +478,10 @@ async function importDocumentsFromIRealText(rawText, sourceFile = '') {
 }
 
 function applyImportedLibrary({ documents, source, preferredId = null, statusMessage = '' }) {
+  void persistChartLibrary({
+    source,
+    documents
+  });
   applyImportedChartLibrary(/** @type {any} */ (createChartImportedLibraryBindings({
     state,
     chartSearchInput: dom.chartSearchInput,
@@ -487,6 +492,26 @@ function applyImportedLibrary({ documents, source, preferredId = null, statusMes
     source,
     preferredId,
     statusMessage
+  })));
+}
+
+async function restorePersistedChartLibrary() {
+  const persistedLibrary = await loadPersistedChartLibrary();
+  if (!persistedLibrary) {
+    renderChartSelector();
+    return;
+  }
+
+  applyImportedChartLibrary(/** @type {any} */ (createChartImportedLibraryBindings({
+    state,
+    chartSearchInput: dom.chartSearchInput,
+    renderChartSelector,
+    renderFixture,
+    setImportStatus,
+    documents: persistedLibrary.documents,
+    source: persistedLibrary.source,
+    preferredId: loadPersistedChartId(),
+    statusMessage: ''
   })));
 }
 
@@ -838,13 +863,29 @@ function closeOverlay() {
   chartBackNavigation.sync();
 }
 
-async function importDefaultFixtureLibrary() {
-  return importChartDefaultFixtureLibrary(/** @type {any} */ (createChartDefaultLibraryBindings({
-    sourceUrl: IREAL_SOURCE_URL,
-    importDocumentsFromIRealText,
-    applyImportedLibrary,
-    loadPersistedChartId
-  })));
+async function clearAllCharts() {
+  if (!state.fixtureLibrary?.documents?.length) {
+    setImportStatus('No charts to remove.');
+    closeAllPopovers();
+    return;
+  }
+
+  const shouldClear = window.confirm('Remove all imported charts from this device?');
+  if (!shouldClear) return;
+
+  await stopPlayback({ resetPosition: true });
+  state.selectionController.clear();
+  state.fixtureLibrary = null;
+  state.filteredDocuments = [];
+  state.currentLibrarySourceLabel = '';
+  state.currentSearch = '';
+  dom.chartSearchInput.value = '';
+  dom.irealLinkInput.value = '';
+  persistChartId('');
+  await clearPersistedChartLibrary();
+  renderChartSelector();
+  closeAllPopovers();
+  setImportStatus('All charts removed from this device.');
 }
 
 async function handleBackupFileSelection(event) {
@@ -883,6 +924,9 @@ function bindImportControls() {
       title: 'iReal forum tracks'
     })
   }));
+  dom.clearAllChartsButton?.addEventListener('click', () => {
+    void clearAllCharts();
+  });
 }
 
 async function loadFixtures() {
@@ -890,7 +934,7 @@ async function loadFixtures() {
     applyPersistedPlaybackSettings,
     bindImportControls,
     bindChartNavigationControls,
-    importDefaultFixtureLibrary,
+    importDefaultFixtureLibrary: restorePersistedChartLibrary,
     bindRuntimeControls: () => {
       bindChartRuntimeControls(createChartRuntimeControlsBindings(createChartRuntimeControlsAppBindings({
         chartSearchInput: dom.chartSearchInput,

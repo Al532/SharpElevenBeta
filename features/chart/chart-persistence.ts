@@ -1,4 +1,4 @@
-import type { PlaybackSettings } from '../../core/types/contracts';
+import type { ChartDocument, PlaybackSettings } from '../../core/types/contracts';
 
 import {
   loadChartUiSettings,
@@ -6,6 +6,59 @@ import {
   saveChartUiSettings,
   saveSharedPlaybackSettings
 } from '../../core/storage/app-state-storage.js';
+
+const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
+const CHART_LIBRARY_STORE_NAME = 'libraries';
+const IMPORTED_CHART_LIBRARY_KEY = 'imported-chart-library';
+
+function getIndexedDbFactory(): IDBFactory | null {
+  return typeof window !== 'undefined' && window.indexedDB ? window.indexedDB : null;
+}
+
+function waitForRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
+  });
+}
+
+async function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
+  const indexedDbFactory = getIndexedDbFactory();
+  if (!indexedDbFactory) return null;
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(CHART_LIBRARY_STORE_NAME)) {
+        database.createObjectStore(CHART_LIBRARY_STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Failed to open chart library database.'));
+  });
+}
+
+function normalizePersistedChartLibrary(
+  value: unknown
+): { source: string; documents: ChartDocument[] } | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const sourceValue = (value as { source?: unknown }).source;
+  const source = typeof sourceValue === 'string' && sourceValue.trim()
+    ? sourceValue.trim()
+    : 'imported library';
+  const documentsValue = (value as { documents?: unknown }).documents;
+  const documents = Array.isArray(documentsValue)
+    ? documentsValue as ChartDocument[]
+    : [];
+  if (documents.length === 0) return null;
+
+  return {
+    source,
+    documents
+  };
+}
 
 export function loadPersistedChartId({
   legacyStorageKey = ''
@@ -31,7 +84,10 @@ export function persistChartId(
   saveChartUiSettings({ lastChartId: chartId || '' });
   if (!legacyStorageKey) return;
   try {
-    if (!chartId) return;
+    if (!chartId) {
+      window.localStorage.removeItem(legacyStorageKey);
+      return;
+    }
     window.localStorage.setItem(legacyStorageKey, chartId);
   } catch {
     // Ignore storage failures so chart-dev still works in restricted contexts.
@@ -105,5 +161,92 @@ export function persistPlaybackSettings({
     }));
   } catch {
     // Ignore storage failures so chart-dev still works in restricted contexts.
+  }
+}
+
+export async function loadPersistedChartLibrary(): Promise<{ source: string; documents: ChartDocument[] } | null> {
+  try {
+    const database = await openChartLibraryDatabase();
+    if (database) {
+      try {
+        const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
+        const persistedValue = await waitForRequest(store.get(IMPORTED_CHART_LIBRARY_KEY));
+        return normalizePersistedChartLibrary(persistedValue);
+      } finally {
+        database.close();
+      }
+    }
+  } catch {
+    // Fall back to localStorage-backed app state below.
+  }
+
+  const chartUiSettings = loadChartUiSettings();
+  return normalizePersistedChartLibrary(chartUiSettings?.importedChartLibrary);
+}
+
+export async function persistChartLibrary({
+  source = 'imported library',
+  documents = []
+}: {
+  source?: string;
+  documents?: ChartDocument[];
+} = {}): Promise<void> {
+  const normalizedLibrary = normalizePersistedChartLibrary({
+    source,
+    documents
+  });
+
+  if (!normalizedLibrary) {
+    await clearPersistedChartLibrary();
+    return;
+  }
+
+  try {
+    const database = await openChartLibraryDatabase();
+    if (!database) {
+      saveChartUiSettings({
+        importedChartLibrary: normalizedLibrary,
+        importedChartLibrarySource: normalizedLibrary.source
+      });
+      return;
+    }
+    try {
+      const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
+      await waitForRequest(store.put(normalizedLibrary, IMPORTED_CHART_LIBRARY_KEY));
+      saveChartUiSettings({
+        importedChartLibrary: null,
+        importedChartLibrarySource: normalizedLibrary.source
+      });
+    } finally {
+      database.close();
+    }
+  } catch {
+    saveChartUiSettings({
+      importedChartLibrary: normalizedLibrary,
+      importedChartLibrarySource: normalizedLibrary.source
+    });
+  }
+}
+
+export async function clearPersistedChartLibrary(): Promise<void> {
+  saveChartUiSettings({
+    importedChartLibrary: null,
+    importedChartLibrarySource: ''
+  });
+
+  try {
+    const database = await openChartLibraryDatabase();
+    if (!database) return;
+    try {
+      const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
+      await waitForRequest(store.delete(IMPORTED_CHART_LIBRARY_KEY));
+    } finally {
+      database.close();
+    }
+  } catch {
+    // Ignore storage failures so the UI can still clear the in-memory library.
   }
 }
