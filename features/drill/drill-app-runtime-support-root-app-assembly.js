@@ -2,6 +2,10 @@
 
 import { validateDrillCustomPattern } from './drill-pattern-validation.js';
 
+export function createStateRef(get, set = undefined) {
+  return { get, set };
+}
+
 /**
  * Creates small app-level support helpers that are still consumed from
  * `app.js` while keeping their logic out of the entry file.
@@ -72,10 +76,6 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
       analyzePattern,
       patternErrorElement: dom.patternError
     });
-  }
-
-  function createStateRef(get, set = undefined) {
-    return { get, set };
   }
 
   function setKeyPickerOpen(isOpen) {

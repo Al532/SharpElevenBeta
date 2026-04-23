@@ -74,14 +74,14 @@ export function renderChartSelectionUi({
   getTempo,
   selectionSummaryElement,
   clearSelectionButton,
-  sendSelectionToDrillButton,
+  sendSelectionToPracticeButton,
   updateSelectionHighlights
 }: {
   state?: Pick<ChartScreenState, 'selectionController' | 'currentChartDocument' | 'currentSelectionPracticeSession' | 'currentPracticeSession'>;
   getTempo?: () => number;
   selectionSummaryElement?: HTMLElement | null;
   clearSelectionButton?: HTMLButtonElement | null;
-  sendSelectionToDrillButton?: HTMLButtonElement | null;
+  sendSelectionToPracticeButton?: HTMLButtonElement | null;
   updateSelectionHighlights?: () => void;
 } = {}): void {
   if (!state) return;
@@ -93,7 +93,7 @@ export function renderChartSelectionUi({
   renderChartSelectionState({
     selectionSummaryElement,
     clearSelectionButton,
-    sendSelectionToDrillButton,
+    sendSelectionToPracticeButton,
     selectedBarIds: selection.barIds,
     hasSession: Boolean(getSelectedPracticeSession(state)),
     updateSelectionHighlights

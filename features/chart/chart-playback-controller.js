@@ -11,7 +11,7 @@
 /** @typedef {import('../../core/types/contracts').ChartPlaybackControllerOptions} ChartPlaybackControllerOptions */
 /** @typedef {import('../../core/types/contracts').TransportPlaybackStatus} TransportPlaybackStatus */
 
-import { storePendingDrillSession } from '../../core/storage/app-state-storage.js';
+import { storePendingPracticeSession } from '../../core/storage/app-state-storage.js';
 import { createChartPlaybackBridgeProvider as createFeatureChartPlaybackBridgeProvider } from './chart-playback-bridge.js';
 
 /**
@@ -180,11 +180,11 @@ export function createChartPlaybackController({
   }
 
   /** @returns {boolean} */
-  function navigateToDrillWithSelection() {
+  function navigateToPracticeWithSelection() {
     const practiceSession = getSelectedPracticeSession?.();
     if (!practiceSession) return false;
     onPersistPlaybackSettings?.();
-    storePendingDrillSession(practiceSession);
+    storePendingPracticeSession(practiceSession);
     window.location.href = '../index.html?source=chart-session';
     return true;
   }
@@ -202,7 +202,7 @@ export function createChartPlaybackController({
     startPlayback,
     syncPlaybackSettings,
     pauseToggle,
-    navigateToDrillWithSelection,
+    navigateToPracticeWithSelection,
     getTotalBars
   };
 }

@@ -10,7 +10,10 @@ export {
 } from './chart-types.js';
 export { createChartDocumentFromIReal, createChartDocumentsFromIRealText } from './chart-import-ireal.js';
 export { createChartPlaybackPlanFromDocument } from './chart-interpreter.js';
-export { createDrillExportFromPlaybackPlan } from './chart-export-drill.js';
+export {
+  createDrillExportFromPlaybackPlan,
+  createPracticeSessionExportFromPlaybackPlan
+} from './chart-export-practice-session.js';
 export { createChartViewModel } from './chart-view.js';
 export {
   createPracticeSessionFromChartDocumentWithPlaybackPlan,

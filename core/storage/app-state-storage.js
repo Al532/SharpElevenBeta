@@ -170,31 +170,42 @@ export function saveCurrentAppMode(mode) {
 }
 
 /**
+ * @param {AppStateShape} appState
+ * @returns {PracticeSessionSpec | null}
+ */
+function readPendingPracticeSession(appState) {
+  const pendingPracticeSession = appState.pendingPracticeSession || appState.pendingDrillSession;
+  return pendingPracticeSession ? deepClone(pendingPracticeSession) : null;
+}
+
+/**
  * @param {PracticeSessionSpec} session
  * @returns {void}
  */
-export function storePendingDrillSession(session) {
+export function storePendingPracticeSession(session) {
   updateAppState((previousState) => ({
     ...previousState,
-    pendingDrillSession: deepClone(session) || null
-  }));
-}
-
-/** @returns {PracticeSessionSpec | null} */
-export function peekPendingDrillSession() {
-  const appState = loadAppState();
-  return appState.pendingDrillSession ? deepClone(appState.pendingDrillSession) : null;
-}
-
-/** @returns {PracticeSessionSpec | null} */
-export function consumePendingDrillSession() {
-  const appState = loadAppState();
-  const pendingDrillSession = appState.pendingDrillSession ? deepClone(appState.pendingDrillSession) : null;
-  if (!pendingDrillSession) return null;
-
-  updateAppState((previousState) => ({
-    ...previousState,
+    pendingPracticeSession: deepClone(session) || null,
     pendingDrillSession: null
   }));
-  return pendingDrillSession;
+}
+
+/** @returns {PracticeSessionSpec | null} */
+export function peekPendingPracticeSession() {
+  const appState = loadAppState();
+  return readPendingPracticeSession(appState);
+}
+
+/** @returns {PracticeSessionSpec | null} */
+export function consumePendingPracticeSession() {
+  const appState = loadAppState();
+  const pendingPracticeSession = readPendingPracticeSession(appState);
+  if (!pendingPracticeSession) return null;
+
+  updateAppState((previousState) => ({
+    ...previousState,
+    pendingPracticeSession: null,
+    pendingDrillSession: null
+  }));
+  return pendingPracticeSession;
 }

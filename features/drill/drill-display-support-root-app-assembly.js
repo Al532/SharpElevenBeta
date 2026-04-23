@@ -44,6 +44,20 @@ export function createDrillDisplaySupportRootAppAssembly({
   }
 
   function normalizeDisplayedRootName(rootName) {
+    const normalizedEnharmonicMap = {
+      'F\u266D': 'E',
+      'E\u266F': 'F',
+      'C\u266D': 'B',
+      'B\u266F': 'C',
+      Fb: 'E',
+      'E#': 'F',
+      Cb: 'B',
+      'B#': 'C'
+    };
+    if (Object.hasOwn(normalizedEnharmonicMap, rootName)) {
+      return normalizedEnharmonicMap[rootName];
+    }
+
     const enharmonicMap = {
       'F♭': 'E',
       'E♯': 'F',

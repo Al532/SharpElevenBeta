@@ -9,7 +9,7 @@ import type {
   TransportPlaybackStatus
 } from '../../core/types/contracts';
 
-import { storePendingDrillSession } from '../../core/storage/app-state-storage.js';
+import { storePendingPracticeSession } from '../../core/storage/app-state-storage.js';
 import { createChartPlaybackBridgeProvider as createFeatureChartPlaybackBridgeProvider } from './chart-playback-bridge.js';
 
 export function createChartPlaybackController({
@@ -163,11 +163,11 @@ export function createChartPlaybackController({
     return syncPlaybackState();
   }
 
-  function navigateToDrillWithSelection(): boolean {
+  function navigateToPracticeWithSelection(): boolean {
     const practiceSession = getSelectedPracticeSession?.();
     if (!practiceSession) return false;
     onPersistPlaybackSettings?.();
-    storePendingDrillSession(practiceSession);
+    storePendingPracticeSession(practiceSession);
     window.location.href = '../index.html?source=chart-session';
     return true;
   }
@@ -184,7 +184,7 @@ export function createChartPlaybackController({
     startPlayback,
     syncPlaybackSettings,
     pauseToggle,
-    navigateToDrillWithSelection,
+    navigateToPracticeWithSelection,
     getTotalBars
   };
 }

@@ -25,16 +25,10 @@ import {
   filterChartDocuments,
   importDocumentsFromIRealText as importChartDocumentsFromIRealText
 } from '../features/chart/chart-library.js';
-import { createChartLibraryImportBindings } from '../features/chart/chart-library-import-bindings.js';
 import {
   applyImportedLibrary as applyImportedChartLibrary,
   renderSelectedFixture
 } from '../features/chart/chart-fixture-controller.js';
-import { createChartFixtureRenderBindings } from '../features/chart/chart-fixture-render-bindings.js';
-import { createChartImportedLibraryBindings } from '../features/chart/chart-imported-library-bindings.js';
-import { createChartDirectPlaybackRuntimeHostBindings } from '../features/chart/chart-direct-playback-runtime-host-bindings.js';
-import { createChartNavigationBindings } from '../features/chart/chart-navigation-bindings.js';
-import { createChartNavigationStateBindings } from '../features/chart/chart-navigation-state-bindings.js';
 import {
   createChartNavigationController,
   updateChartNavigationState as updateChartNavigationStateUi
@@ -53,12 +47,8 @@ import {
   renderChartSelector as renderChartSelectorUi,
   renderChartTransport
 } from '../features/chart/chart-renderer.js';
-import { createChartMetaBindings } from '../features/chart/chart-meta-bindings.js';
-import { createChartTransportBindings } from '../features/chart/chart-transport-bindings.js';
 import { createAppShellBindings } from '../features/app/app-shell-bindings.js';
 import { initializeAppShell } from '../features/app/app-shell.js';
-import { createChartSheetRendererAppBindings } from '../features/chart/chart-sheet-renderer-app-bindings.js';
-import { createChartSheetRendererBindings } from '../features/chart/chart-sheet-renderer-bindings.js';
 import { createChartSheetRenderer } from '../features/chart/chart-sheet-renderer.js';
 import {
   bindChartImportControls,
@@ -67,21 +57,33 @@ import {
   importDefaultFixtureLibrary as importChartDefaultFixtureLibrary,
   setChartImportStatus
 } from '../features/chart/chart-import-controls.js';
-import { createChartImportStatusBindings } from '../features/chart/chart-import-status-bindings.js';
-import { createChartImportControlsBindings } from '../features/chart/chart-import-controls-bindings.js';
-import { createChartDefaultLibraryBindings } from '../features/chart/chart-default-library-bindings.js';
-import { createChartScreenAppBindings } from '../features/chart/chart-screen-app-bindings.js';
-import { createChartScreenBindings } from '../features/chart/chart-screen-bindings.js';
-import { createChartSelectorBindings } from '../features/chart/chart-selector-bindings.js';
-import { createChartRuntimeControlsAppBindings } from '../features/chart/chart-runtime-controls-app-bindings.js';
-import { createChartRuntimeControlsBindings } from '../features/chart/chart-runtime-controls-bindings.js';
-import { createChartOverlayControlsBindings } from '../features/chart/chart-overlay-controls-bindings.js';
-import { createChartLayoutObserversBindings } from '../features/chart/chart-layout-observers-bindings.js';
-import { createChartSelectionRenderBindings } from '../features/chart/chart-selection-render-bindings.js';
-import { createChartMixerBindings } from '../features/chart/chart-mixer-bindings.js';
-import { createChartOverlayShellBindings } from '../features/chart/chart-overlay-shell-bindings.js';
-import { createChartBarSelectionBindings } from '../features/chart/chart-bar-selection-bindings.js';
-import { createChartPopoverBindings } from '../features/chart/chart-popover-bindings.js';
+import {
+  createChartBarSelectionBindings,
+  createChartDefaultLibraryBindings,
+  createChartDirectPlaybackRuntimeHostBindings,
+  createChartFixtureRenderBindings,
+  createChartImportedLibraryBindings,
+  createChartImportControlsBindings,
+  createChartImportStatusBindings,
+  createChartLayoutObserversBindings,
+  createChartLibraryImportBindings,
+  createChartMetaBindings,
+  createChartMixerBindings,
+  createChartNavigationBindings,
+  createChartNavigationStateBindings,
+  createChartOverlayControlsBindings,
+  createChartOverlayShellBindings,
+  createChartPopoverBindings,
+  createChartRuntimeControlsAppBindings,
+  createChartRuntimeControlsBindings,
+  createChartScreenAppBindings,
+  createChartScreenBindings,
+  createChartSelectionRenderBindings,
+  createChartSelectorBindings,
+  createChartSheetRendererAppBindings,
+  createChartSheetRendererBindings,
+  createChartTransportBindings
+} from '../features/chart/chart-app-bindings.js';
 import {
   bindChartLayoutObservers,
   closeAllChartPopovers,
@@ -175,7 +177,7 @@ const dom = {
   playbackBridgeFrame: document.getElementById('drill-bridge-frame'),
   selectionSummary: document.getElementById('selection-summary'),
   clearSelectionButton: document.getElementById('clear-selection-button'),
-  sendSelectionToDrillButton: document.getElementById('send-selection-to-drill-button'),
+  sendSelectionToPracticeButton: document.getElementById('send-selection-to-drill-button'),
   mobileMenuToggle: document.getElementById('mobile-menu-toggle'),
   mobileBackdrop: document.getElementById('chart-mobile-backdrop'),
   manageChartsButton: document.getElementById('manage-charts-button'),
@@ -504,7 +506,7 @@ function renderSelectionState() {
     getTempo,
     selectionSummaryElement: dom.selectionSummary,
     clearSelectionButton: dom.clearSelectionButton,
-    sendSelectionToDrillButton: dom.sendSelectionToDrillButton,
+    sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
     updateSelectionHighlights
   }));
 }
@@ -559,8 +561,8 @@ async function syncPlaybackSettings() {
   }
 }
 
-function navigateToDrillWithSelection() {
-  getChartPlaybackController().navigateToDrillWithSelection();
+function navigateToPracticeWithSelection() {
+  getChartPlaybackController().navigateToPracticeWithSelection();
 }
 
 /** @returns {PlaybackBridgeProvider} */
@@ -826,7 +828,7 @@ async function loadFixtures() {
         playButton: dom.playButton,
         stopButton: dom.stopButton,
         clearSelectionButton: dom.clearSelectionButton,
-        sendSelectionToDrillButton: dom.sendSelectionToDrillButton,
+    sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
         onSearch: applySearchFilter,
         onFixtureChange: renderFixture,
         onTransposeChange: renderFixture,
@@ -870,7 +872,7 @@ async function loadFixtures() {
           state.selectionController.clear();
           renderSelectionState();
         },
-        onSendSelectionToDrill: navigateToDrillWithSelection,
+    onSendSelectionToPractice: navigateToPracticeWithSelection,
         onBeforeUnload: () => {
           stopPlayback({ resetPosition: true });
         }

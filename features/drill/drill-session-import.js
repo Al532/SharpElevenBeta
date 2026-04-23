@@ -5,7 +5,7 @@
 /** @typedef {import('../../core/types/contracts').PlaybackOperationResult} PlaybackOperationResult */
 /** @typedef {import('../../core/types/contracts').PracticeSessionSpec} PracticeSessionSpec */
 
-import { consumePendingDrillSession } from '../../core/storage/app-state-storage.js';
+import { consumePendingPracticeSession } from '../../core/storage/app-state-storage.js';
 import { applyPracticeSessionToDrillUi } from './drill-session-builder.js';
 
 /**
@@ -16,22 +16,22 @@ import { applyPracticeSessionToDrillUi } from './drill-session-builder.js';
  * }} [options]
  * @returns {boolean}
  */
-export function consumePendingDrillSessionIntoUi({
+export function consumePendingPracticeSessionIntoUi({
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings,
   afterApply
 } = {}) {
-  const pendingDrillSession = consumePendingDrillSession();
-  if (!pendingDrillSession) return false;
+  const pendingPracticeSession = consumePendingPracticeSession();
+  if (!pendingPracticeSession) return false;
 
   applyPracticeSessionToDrillUi({
-    session: pendingDrillSession,
+    session: pendingPracticeSession,
     applyEmbeddedPattern,
     applyEmbeddedPlaybackSettings
   });
 
   if (typeof afterApply === 'function') {
-    afterApply(pendingDrillSession);
+    afterApply(pendingPracticeSession);
   }
 
   return true;

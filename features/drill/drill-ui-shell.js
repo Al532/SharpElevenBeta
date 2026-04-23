@@ -34,7 +34,7 @@ export async function initializeDrillScreen({
   setAppliedDefaultProgressionsFingerprint,
   getDefaultProgressionsFingerprint,
   ensurePageSampleWarmup,
-  consumePendingDrillSessionIntoUi,
+  consumePendingPracticeSessionIntoUi,
   setWelcomeOverlayVisible,
   maybeShowWelcomeOverlay
 } = {}) {
@@ -84,7 +84,7 @@ export async function initializeDrillScreen({
   ensurePageSampleWarmup?.();
   normalizeChordsPerBarForCurrentPattern?.();
 
-  const importedPendingSession = consumePendingDrillSessionIntoUi?.({
+  const importedPendingSession = consumePendingPracticeSessionIntoUi?.({
     afterApply: () => {
       saveSettings?.();
       setWelcomeOverlayVisible?.(false);

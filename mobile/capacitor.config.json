@@ -1,6 +1,6 @@
 {
-  "appId": "io.github.al532.jazzprogressiontrainer",
-  "appName": "Jazz Progression Trainer",
+  "appId": "io.github.al532.sharpelevenapp",
+  "appName": "Sharp Eleven App",
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {

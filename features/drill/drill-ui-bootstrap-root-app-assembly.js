@@ -49,7 +49,7 @@ function createScreenContext({
     promptForUpdatedDefaultProgressions = () => {},
     getDefaultProgressionsFingerprint = () => '',
     ensurePageSampleWarmup = () => {},
-    consumePendingDrillSessionIntoUi = () => false,
+    consumePendingPracticeSessionIntoUi = () => false,
     setWelcomeOverlayVisible = () => {},
     maybeShowWelcomeOverlay = () => {}
   } = helpers;
@@ -126,7 +126,7 @@ function createScreenContext({
     setAppliedDefaultProgressionsFingerprint,
     getDefaultProgressionsFingerprint,
     ensurePageSampleWarmup,
-    consumePendingDrillSessionIntoUi: ({ afterApply } = {}) => consumePendingDrillSessionIntoUi({
+    consumePendingPracticeSessionIntoUi: ({ afterApply } = {}) => consumePendingPracticeSessionIntoUi({
       afterApply
     }),
     setWelcomeOverlayVisible,

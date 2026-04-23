@@ -1,6 +1,36 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import {
+  AUDIO_MIXER_CONFIG,
+  AUDIO_LEVELS,
+  AUDIO_SCHEDULING,
+  AUDIO_TIMING,
+  COMPING_STYLES,
+  DISPLAY_MODES,
+  DRUM_MODES,
+  HARMONY_DISPLAY_MODES,
+  INSTRUMENT_RANGES,
+  NEXT_PREVIEW_UNITS,
+  ONE_TIME_MIGRATIONS,
+  PATTERN_MODES,
+  PIANO_COMPING_CONFIG,
+  PIANO_SAMPLE_RANGE,
+  PIANO_SETTINGS_CONFIG,
+  REVIEW_STANDARD_CONVERSIONS_URL,
+  SAMPLE_LIBRARY_CONFIG,
+  TRAINER_APP_CONFIG,
+  TRAINER_AUDIO_CONFIG,
+  TRAINER_DEFAULTS,
+  TRAINER_MODE_CONFIG,
+  TRAINER_PRESET_CONFIG,
+  TRAINER_RESOURCE_PATHS,
+  VOICING_RANDOMIZATION_CONFIG,
+  WELCOME_CONFIG,
+  WELCOME_ONE_CHORDS,
+  WELCOME_PROGRESSIONS,
+  WELCOME_STANDARDS_FALLBACK
+} from '../config/trainer-config.js';
 import { createCompingEngine } from '../features/drill/drill-comping-engine.js';
 import {
   createProgressionEntry as createProgressionEntryBase,
@@ -962,7 +992,7 @@ async function testUiBootstrapRootAssemblyPreservesBootstrapCalls() {
       setAppliedDefaultProgressionsFingerprint: () => calls.push('screen:setDefaultProgressionsFingerprint'),
       getDefaultProgressionsFingerprint: () => 'fingerprint',
       ensurePageSampleWarmup: () => calls.push('screen:ensurePageSampleWarmup'),
-      consumePendingDrillSessionIntoUi: () => false,
+      consumePendingPracticeSessionIntoUi: () => false,
       setWelcomeOverlayVisible: () => calls.push('screen:setWelcomeOverlayVisible'),
       maybeShowWelcomeOverlay: () => calls.push('screen:maybeShowWelcomeOverlay')
     },
@@ -1322,7 +1352,7 @@ function testProgressionRootAssemblyPreservesProgressionSurface() {
   );
 }
 
-function testUiEventBindingsRootAssemblyPreservesEventWiring() {
+async function testUiEventBindingsRootAssemblyPreservesEventWiring() {
   const calls = [];
   const originalDocument = globalThis.document;
   const analyticsLink = createEventTarget();
@@ -1331,10 +1361,13 @@ function testUiEventBindingsRootAssemblyPreservesEventWiring() {
   const welcomeOneChord = createEventTarget({ value: 'maj7' });
   const welcomeInstrument = createEventTarget({ value: '0' });
   const lifecycleTarget = createEventTarget();
+  const visibilityTarget = createEventTarget({ hidden: false });
+  const userGestureTarget = createEventTarget();
   let focusCalls = 0;
   let selectCalls = 0;
   let pianoFadeSettings = { timeConstantLow: 0.2, timeConstantHigh: 0.1 };
   let pianoMidiSettings = { enabled: true, inputId: 'midi-a', sustainPedalEnabled: false };
+  let audioContext = { state: 'suspended' };
   let refreshMidiCalls = 0;
   let stopVoicesCalls = 0;
   let syncUiCalls = 0;
@@ -1376,6 +1409,10 @@ function testUiEventBindingsRootAssemblyPreservesEventWiring() {
   let settingsSaved = 0;
   let walkingBassEnsured = 0;
   let lifecycleCalls = 0;
+  let lifecycleToggleCalls = 0;
+  let lifecycleResumeCalls = 0;
+  let lifecycleIsPlaying = true;
+  let lifecycleIsPaused = false;
   let analyticsDebugEnabled = false;
 
   globalThis.document = {
@@ -1464,6 +1501,21 @@ function testUiEventBindingsRootAssemblyPreservesEventWiring() {
         clipboard: { writeText: async (value) => { clipboardText = value; } },
         alert: (message) => { alertMessage = message; }
       },
+      lifecycleControls: {
+        visibilityTarget,
+        userGestureTarget,
+        getIsPlaying: () => lifecycleIsPlaying,
+        getIsPaused: () => lifecycleIsPaused,
+        getAudioContext: () => audioContext,
+        resumeAudioContext: () => {
+          lifecycleResumeCalls += 1;
+          audioContext.state = 'running';
+        },
+        togglePausePlayback: () => {
+          lifecycleToggleCalls += 1;
+          lifecycleIsPaused = !lifecycleIsPaused;
+        }
+      },
       lifecycleTarget,
       trackSessionDuration: () => { lifecycleCalls += 1; }
     });
@@ -1483,9 +1535,22 @@ function testUiEventBindingsRootAssemblyPreservesEventWiring() {
     dom.debugToggle.dispatch('change');
     dom.resetSettings.dispatch('click');
     dom.pianoSettingsCopy.dispatch('click');
+    await Promise.resolve();
     dom.pianoSettingsApply.dispatch('click');
+    await Promise.resolve();
     dom.pianoSettingsReset.dispatch('click');
+    await Promise.resolve();
+    userGestureTarget.dispatch('pointerdown');
+    visibilityTarget.hidden = true;
+    visibilityTarget.dispatch('visibilitychange');
+    await Promise.resolve();
+    visibilityTarget.hidden = false;
+    visibilityTarget.dispatch('visibilitychange');
+    await Promise.resolve();
     lifecycleTarget.dispatch('pagehide');
+    await Promise.resolve();
+    lifecycleTarget.dispatch('pageshow');
+    await Promise.resolve();
 
     assert.equal(
       calls.includes('analytics:demo_link_clicked'),
@@ -1526,6 +1591,16 @@ function testUiEventBindingsRootAssemblyPreservesEventWiring() {
       lifecycleCalls,
       1,
       'UI event-bindings root assembly preserves lifecycle session tracking wiring.'
+    );
+    assert.equal(
+      lifecycleToggleCalls,
+      4,
+      'UI event-bindings root assembly preserves lifecycle pause/resume wiring.'
+    );
+    assert.equal(
+      lifecycleResumeCalls >= 1,
+      true,
+      'UI event-bindings root assembly preserves user-gesture audio resume wiring.'
     );
     assert.equal(
       clipboardText,
@@ -1642,7 +1717,7 @@ function testUiBootstrapScreenRootAppContextPreservesScreenGlue() {
       applyPatternModeAvailability: () => {},
       getDefaultProgressionsFingerprint: () => 'fp-1',
       ensurePageSampleWarmup: () => {},
-      consumePendingDrillSessionIntoUi: ({ afterApply }) => {
+      consumePendingPracticeSessionIntoUi: ({ afterApply }) => {
         afterApply();
         afterApplyTriggered += 1;
         return true;
@@ -2462,6 +2537,24 @@ function testAppHoistingContractsRemainInPlace() {
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
+      label: 'showNextCol',
+      wrapper: 'function showNextCol(...args)',
+      assignment: 'showNextColImpl = displayShowNextCol;',
+      consumer: 'const drillDisplay = createDrillDisplayRootAppFacade({'
+    },
+    {
+      label: 'hideNextCol',
+      wrapper: 'function hideNextCol(...args)',
+      assignment: 'hideNextColImpl = displayHideNextCol;',
+      consumer: 'const drillDisplay = createDrillDisplayRootAppFacade({'
+    },
+    {
+      label: 'applyCurrentHarmonyVisibility',
+      wrapper: 'function applyCurrentHarmonyVisibility(...args)',
+      assignment: 'applyCurrentHarmonyVisibilityImpl = displayApplyCurrentHarmonyVisibility;',
+      consumer: 'const drillDisplay = createDrillDisplayRootAppFacade({'
+    },
+    {
       label: 'start',
       wrapper: 'function start(...args)',
       assignment: 'startImpl = playbackStart;',
@@ -2499,6 +2592,187 @@ function testAppHoistingContractsRemainInPlace() {
     assert.ok(
       consumerIndex < assignmentIndex,
       `${label} implementation assignment must stay after the consumer wiring it protects.`
+    );
+  });
+}
+
+function testTrainerConfigExportsExpectedDefaults() {
+  assert.deepEqual(
+    PIANO_SAMPLE_RANGE,
+    { low: 45, high: 89 },
+    'Trainer config preserves the shared piano sample range.'
+  );
+  assert.equal(
+    PIANO_SETTINGS_CONFIG.defaultMidiSettings.sustainPedalEnabled,
+    true,
+    'Trainer config preserves default sustain-pedal enablement.'
+  );
+  assert.equal(
+    PATTERN_MODES.both,
+    'both',
+    'Trainer config preserves pattern mode tokens.'
+  );
+  assert.equal(
+    NEXT_PREVIEW_UNITS.seconds,
+    'seconds',
+    'Trainer config preserves next-preview units.'
+  );
+  assert.equal(
+    DISPLAY_MODES.showBoth,
+    'show-both',
+    'Trainer config preserves display mode tokens.'
+  );
+  assert.equal(
+    HARMONY_DISPLAY_MODES.rich,
+    'rich',
+    'Trainer config preserves harmony display mode tokens.'
+  );
+  assert.deepEqual(
+    TRAINER_DEFAULTS.supportedChordsPerBar,
+    [1, 2, 4],
+    'Trainer config preserves supported chords-per-bar defaults.'
+  );
+  assert.equal(
+    TRAINER_RESOURCE_PATHS.patternHelp,
+    'progression-suffixes.txt',
+    'Trainer config preserves resource path defaults.'
+  );
+  assert.equal(
+    REVIEW_STANDARD_CONVERSIONS_URL,
+    './parsing-projects/review-standard-conversions.txt',
+    'Trainer config preserves the welcome standards review source URL.'
+  );
+  assert.equal(
+    WELCOME_CONFIG.storageKeys.onboardingCompleted,
+    'welcomeCompleted',
+    'Trainer config preserves welcome storage keys.'
+  );
+  assert.equal(
+    WELCOME_PROGRESSIONS['ii-v-i-major'].compingStyle,
+    COMPING_STYLES.piano,
+    'Trainer config preserves welcome progression presets.'
+  );
+  assert.equal(
+    WELCOME_ONE_CHORDS.maj7.patternMode,
+    PATTERN_MODES.both,
+    'Trainer config preserves welcome one-chord presets.'
+  );
+  assert.equal(
+    WELCOME_STANDARDS_FALLBACK['autumn-leaves'].patternMode,
+    PATTERN_MODES.minor,
+    'Trainer config preserves welcome standards fallback presets.'
+  );
+  assert.deepEqual(
+    INSTRUMENT_RANGES.guideTone,
+    { low: 49, high: 60 },
+    'Trainer config preserves guide-tone range defaults.'
+  );
+  assert.equal(
+    AUDIO_SCHEDULING.scheduleIntervalMs,
+    25,
+    'Trainer config preserves scheduler cadence defaults.'
+  );
+  assert.equal(
+    AUDIO_TIMING.noteFadeOutSeconds,
+    0.26,
+    'Trainer config preserves shared audio timing defaults.'
+  );
+  assert.equal(
+    AUDIO_LEVELS.chordVolumeMultiplier,
+    1.35,
+    'Trainer config preserves shared audio level defaults.'
+  );
+  assert.equal(
+    DRUM_MODES.fullSwing,
+    'full_swing',
+    'Trainer config preserves drum mode tokens.'
+  );
+  assert.equal(
+    AUDIO_MIXER_CONFIG.defaultMasterVolumePercent,
+    '50',
+    'Trainer config preserves mixer/master defaults.'
+  );
+  assert.equal(
+    SAMPLE_LIBRARY_CONFIG.drumRideSampleUrls.length,
+    13,
+    'Trainer config preserves ride sample library defaults.'
+  );
+  assert.equal(
+    PIANO_COMPING_CONFIG.durationRatio,
+    0.4,
+    'Trainer config preserves piano comping defaults.'
+  );
+  assert.equal(
+    VOICING_RANDOMIZATION_CONFIG.sumSlack,
+    10,
+    'Trainer config preserves voicing randomization defaults.'
+  );
+  assert.equal(
+    TRAINER_MODE_CONFIG.displayModes,
+    DISPLAY_MODES,
+    'Trainer config preserves grouped mode bindings.'
+  );
+  assert.equal(
+    TRAINER_APP_CONFIG.defaults,
+    TRAINER_DEFAULTS,
+    'Trainer config preserves grouped app bindings.'
+  );
+  assert.equal(
+    TRAINER_AUDIO_CONFIG.audioTiming,
+    AUDIO_TIMING,
+    'Trainer config preserves grouped audio bindings.'
+  );
+  assert.equal(
+    TRAINER_PRESET_CONFIG.welcomeProgressions,
+    WELCOME_PROGRESSIONS,
+    'Trainer config preserves grouped preset bindings.'
+  );
+  assert.equal(
+    ONE_TIME_MIGRATIONS.masterVolumeDefault50,
+    '2026-04-master-volume-default-50',
+    'Trainer config preserves one-time migration ids.'
+  );
+}
+
+function testAppConfigBindingsRemainCentralized() {
+  const source = readFileSync(
+    new URL('../app.js', import.meta.url),
+    'utf8'
+  );
+
+  const expectedBindings = [
+    "const {\n  defaults: TRAINER_DEFAULTS,",
+    "const {\n  patternModes: PATTERN_MODES,",
+    "const {\n  oneTimeMigrations: ONE_TIME_MIGRATIONS,",
+    "const DEFAULT_PROGRESSIONS_URL = TRAINER_DEFAULTS.progressionsUrl;",
+    "const DRUM_MODE_OFF = DRUM_MODES.off;",
+    "const DRUM_HIHAT_SAMPLE_URL = SAMPLE_LIBRARY_CONFIG.drumHiHatSampleUrl;",
+    "const CHORD_ANTICIPATION = PIANO_COMPING_CONFIG.chordAnticipationSeconds;",
+    "const VOICING_RANDOMIZATION_CHANCE = VOICING_RANDOMIZATION_CONFIG.randomizationChance;",
+    "const PATTERN_HELP_URL = `${APP_BASE_URL}${TRAINER_RESOURCE_PATHS.patternHelp}`;"
+  ];
+
+  expectedBindings.forEach((needle) => {
+    assert.notEqual(
+      source.indexOf(needle),
+      -1,
+      `Expected app.js to keep centralized config binding: ${needle}`
+    );
+  });
+
+  const forbiddenInlineDefinitions = [
+    "const DRUM_MODE_OFF = 'off';",
+    "const DRUM_HIHAT_SAMPLE_URL = 'assets/13_heavy_hi-hat_chick.mp3';",
+    "const PIANO_COMP_DURATION_RATIO = 0.4;",
+    "const VOICING_RANDOMIZATION_CHANCE = 0.3;",
+    "const PATTERN_HELP_URL = `${APP_BASE_URL}progression-suffixes.txt`;"
+  ];
+
+  forbiddenInlineDefinitions.forEach((needle) => {
+    assert.equal(
+      source.includes(needle),
+      false,
+      `Expected app.js not to reintroduce inline config literal: ${needle}`
     );
   });
 }
@@ -3132,6 +3406,8 @@ testDisplayControlsRootFacadePreservesDisplayHelpers();
 testDisplayShellRootFacadePreservesUiShellHelpers();
 testNormalizationRootAppContextPreservesNormalizers();
 testAppHoistingContractsRemainInPlace();
+testTrainerConfigExportsExpectedDefaults();
+testAppConfigBindingsRemainCentralized();
 await testUiBootstrapScreenRootAppContextPreservesScreenGlue();
 testRuntimeControlsRootAppContextPreservesRuntimeGlue();
 await testStartupDataRootAssemblyPreservesLoaderBehavior();
@@ -3142,5 +3418,5 @@ testKeySelectionRootFacadePreservesKeySelectionWorkflow();
 testKeyPickerRootAssemblyPreservesPickerControls();
 testWelcomeRootFacadePreservesWelcomeWorkflow();
 testProgressionRootAssemblyPreservesProgressionSurface();
-testUiEventBindingsRootAssemblyPreservesEventWiring();
+await testUiEventBindingsRootAssemblyPreservesEventWiring();
 await testUiBootstrapRootAssemblyPreservesBootstrapCalls();

@@ -175,8 +175,8 @@ export function createDrillAudioPlaybackRuntime({
     }
 
     if (mode === drumModeFullSwing) {
-      const rideMainGain = [0.34, 0.28, 0.31, 0.25][beatIndex] || 0.28;
-      const rideSkipGain = [0, 0.22, 0, 0.2][beatIndex] || 0;
+      const rideMainGain = [0.23, 0.34, 0.2, 0.31][beatIndex] || 0.28;
+      const rideSkipGain = [0, 0.15, 0, 0.18][beatIndex] || 0;
       const swingOffsetSeconds = spb * getSwingRatio();
 
       playRide(time, rideMainGain, beatIndex === 0 ? 1.01 : 1);

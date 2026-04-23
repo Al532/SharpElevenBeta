@@ -18,7 +18,7 @@ type BindChartRuntimeControlsOptions = {
   playButton?: HTMLButtonElement | null,
   stopButton?: HTMLButtonElement | null,
   clearSelectionButton?: HTMLButtonElement | null,
-  sendSelectionToDrillButton?: HTMLButtonElement | null,
+  sendSelectionToPracticeButton?: HTMLButtonElement | null,
   onSearch?: EventListener | null,
   onFixtureChange?: EventListener | null,
   onTransposeChange?: EventListener | null,
@@ -31,7 +31,7 @@ type BindChartRuntimeControlsOptions = {
   onPlayClick?: EventListener | null,
   onStopClick?: EventListener | null,
   onClearSelection?: EventListener | null,
-  onSendSelectionToDrill?: EventListener | null,
+  onSendSelectionToPractice?: EventListener | null,
   onBeforeUnload?: EventListener | null
 };
 
@@ -59,7 +59,7 @@ export function bindChartRuntimeControls({
   playButton,
   stopButton,
   clearSelectionButton,
-  sendSelectionToDrillButton,
+  sendSelectionToPracticeButton,
   onSearch,
   onFixtureChange,
   onTransposeChange,
@@ -72,7 +72,7 @@ export function bindChartRuntimeControls({
   onPlayClick,
   onStopClick,
   onClearSelection,
-  onSendSelectionToDrill,
+  onSendSelectionToPractice,
   onBeforeUnload
 }: BindChartRuntimeControlsOptions = {}) {
   chartSearchInput?.addEventListener('input', onSearch);
@@ -101,7 +101,7 @@ export function bindChartRuntimeControls({
   playButton?.addEventListener('click', onPlayClick);
   stopButton?.addEventListener('click', onStopClick);
   clearSelectionButton?.addEventListener('click', onClearSelection);
-  sendSelectionToDrillButton?.addEventListener('click', onSendSelectionToDrill);
+  sendSelectionToPracticeButton?.addEventListener('click', onSendSelectionToPractice);
 
   window.addEventListener('beforeunload', onBeforeUnload);
 }

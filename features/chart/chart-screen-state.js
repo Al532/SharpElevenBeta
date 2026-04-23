@@ -88,7 +88,7 @@ export function syncChartSelectionSession({
  *   getTempo?: () => number,
  *   selectionSummaryElement?: HTMLElement | null,
  *   clearSelectionButton?: HTMLButtonElement | null,
- *   sendSelectionToDrillButton?: HTMLButtonElement | null,
+ *   sendSelectionToPracticeButton?: HTMLButtonElement | null,
  *   updateSelectionHighlights?: () => void
  * }} [options]
  * @returns {void}
@@ -98,7 +98,7 @@ export function renderChartSelectionUi({
   getTempo,
   selectionSummaryElement,
   clearSelectionButton,
-  sendSelectionToDrillButton,
+  sendSelectionToPracticeButton,
   updateSelectionHighlights
 } = {}) {
   syncChartSelectionSession({
@@ -109,7 +109,7 @@ export function renderChartSelectionUi({
   renderChartSelectionState(/** @type {any} */ ({
     selectionSummaryElement,
     clearSelectionButton,
-    sendSelectionToDrillButton,
+    sendSelectionToPracticeButton,
     selectedBarIds: selection.barIds,
     hasSession: Boolean(getSelectedPracticeSession(state)),
     updateSelectionHighlights

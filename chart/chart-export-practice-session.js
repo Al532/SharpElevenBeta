@@ -1,8 +1,8 @@
-import type {
-  ChartDocument,
-  ChartPlaybackPlan,
-  DrillExport
-} from '../core/types/contracts';
+// @ts-check
+
+/** @typedef {import('../core/types/contracts').ChartDocument} ChartDocument */
+/** @typedef {import('../core/types/contracts').ChartPlaybackPlan} ChartPlaybackPlan */
+/** @typedef {import('../core/types/contracts').PracticeSessionExport} PracticeSessionExport */
 
 import {
   buildLegacyEnginePatternStringFromPracticeBars,
@@ -13,9 +13,9 @@ import {
 /**
  * @param {ChartPlaybackPlan | null | undefined} playbackPlan
  * @param {ChartDocument | null | undefined} chartDocument
- * @returns {DrillExport}
+ * @returns {PracticeSessionExport}
  */
-export function createDrillExportFromPlaybackPlan(playbackPlan, chartDocument) {
+export function createPracticeSessionExportFromPlaybackPlan(playbackPlan, chartDocument) {
   const practiceBars = createPracticePlaybackBarsFromChartEntries(playbackPlan?.entries || []);
   const bars = practiceBars.map((bar) => bar.symbols.join(' ')).filter(Boolean);
   const engineBars = practiceBars.map((bar) => bar.beatSlots.join(' ')).filter(Boolean);
@@ -32,3 +32,5 @@ export function createDrillExportFromPlaybackPlan(playbackPlan, chartDocument) {
     engineBars
   };
 }
+
+export const createDrillExportFromPlaybackPlan = createPracticeSessionExportFromPlaybackPlan;

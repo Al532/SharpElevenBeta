@@ -154,7 +154,7 @@ export function renderChartSelector({
  * @param {{
  *   selectionSummaryElement?: HTMLElement | null,
  *   clearSelectionButton?: HTMLButtonElement | null,
- *   sendSelectionToDrillButton?: HTMLButtonElement | null,
+ *   sendSelectionToPracticeButton?: HTMLButtonElement | null,
  *   selectedBarIds?: string[],
  *   hasSession?: boolean,
  *   updateSelectionHighlights?: () => void
@@ -164,7 +164,7 @@ export function renderChartSelector({
 export function renderChartSelectionState({
   selectionSummaryElement,
   clearSelectionButton,
-  sendSelectionToDrillButton,
+  sendSelectionToPracticeButton,
   selectedBarIds = [],
   hasSession = false,
   updateSelectionHighlights
@@ -178,8 +178,8 @@ export function renderChartSelectionState({
   if (clearSelectionButton) {
     clearSelectionButton.disabled = count === 0;
   }
-  if (sendSelectionToDrillButton) {
-    sendSelectionToDrillButton.disabled = !hasSession;
+  if (sendSelectionToPracticeButton) {
+    sendSelectionToPracticeButton.disabled = !hasSession;
   }
   if (typeof updateSelectionHighlights === 'function') {
     updateSelectionHighlights();

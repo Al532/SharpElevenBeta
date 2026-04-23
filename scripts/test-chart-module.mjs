@@ -9,7 +9,7 @@ import {
   createChartDocumentsFromIRealSource,
   createChartPlaybackPlanFromDocument,
   createChartViewModel,
-  createDrillExportFromPlaybackPlan,
+  createPracticeSessionExportFromPlaybackPlan,
   createPracticeSessionFromChartDocument,
   createPracticeSessionFromChartDocumentWithPlaybackPlan,
   createPracticeSessionFromChartSelection,
@@ -62,33 +62,35 @@ import {
 import { createChartDirectPlaybackControllerOptions } from '../features/chart/chart-direct-playback-options.js';
 import { createChartDirectPlaybackHostResolver } from '../features/chart/chart-direct-playback-host.js';
 import { createChartDirectPlaybackFrameHost } from '../features/chart/chart-direct-playback-frame.js';
-import { createChartNavigationBindings } from '../features/chart/chart-navigation-bindings.js';
-import { createChartNavigationStateBindings } from '../features/chart/chart-navigation-state-bindings.js';
 import { createChartDirectPlaybackWindowHost } from '../features/chart/chart-direct-playback-window-host.js';
-import { createChartLibraryImportBindings } from '../features/chart/chart-library-import-bindings.js';
-import { createChartFixtureRenderBindings } from '../features/chart/chart-fixture-render-bindings.js';
-import { createChartDirectPlaybackRuntimeHostBindings } from '../features/chart/chart-direct-playback-runtime-host-bindings.js';
-import { createChartImportedLibraryBindings } from '../features/chart/chart-imported-library-bindings.js';
 import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
-import { createChartImportControlsBindings } from '../features/chart/chart-import-controls-bindings.js';
-import { createChartDefaultLibraryBindings } from '../features/chart/chart-default-library-bindings.js';
-import { createChartRuntimeControlsAppBindings } from '../features/chart/chart-runtime-controls-app-bindings.js';
-import { createChartOverlayControlsBindings } from '../features/chart/chart-overlay-controls-bindings.js';
-import { createChartLayoutObserversBindings } from '../features/chart/chart-layout-observers-bindings.js';
-import { createChartSelectionRenderBindings } from '../features/chart/chart-selection-render-bindings.js';
-import { createChartMixerBindings } from '../features/chart/chart-mixer-bindings.js';
-import { createChartOverlayShellBindings } from '../features/chart/chart-overlay-shell-bindings.js';
-import { createChartBarSelectionBindings } from '../features/chart/chart-bar-selection-bindings.js';
-import { createChartPopoverBindings } from '../features/chart/chart-popover-bindings.js';
-import { createChartMetaBindings } from '../features/chart/chart-meta-bindings.js';
-import { createChartImportStatusBindings } from '../features/chart/chart-import-status-bindings.js';
-import { createChartScreenAppBindings } from '../features/chart/chart-screen-app-bindings.js';
-import { createChartRuntimeControlsBindings } from '../features/chart/chart-runtime-controls-bindings.js';
-import { createChartTransportBindings } from '../features/chart/chart-transport-bindings.js';
-import { createChartScreenBindings } from '../features/chart/chart-screen-bindings.js';
-import { createChartSelectorBindings } from '../features/chart/chart-selector-bindings.js';
-import { createChartSheetRendererBindings } from '../features/chart/chart-sheet-renderer-bindings.js';
-import { createChartSheetRendererAppBindings } from '../features/chart/chart-sheet-renderer-app-bindings.js';
+import {
+  createChartBarSelectionBindings,
+  createChartDefaultLibraryBindings,
+  createChartDirectPlaybackRuntimeHostBindings,
+  createChartFixtureRenderBindings,
+  createChartImportedLibraryBindings,
+  createChartImportControlsBindings,
+  createChartImportStatusBindings,
+  createChartLayoutObserversBindings,
+  createChartLibraryImportBindings,
+  createChartMetaBindings,
+  createChartMixerBindings,
+  createChartNavigationBindings,
+  createChartNavigationStateBindings,
+  createChartOverlayControlsBindings,
+  createChartOverlayShellBindings,
+  createChartPopoverBindings,
+  createChartRuntimeControlsAppBindings,
+  createChartRuntimeControlsBindings,
+  createChartScreenAppBindings,
+  createChartScreenBindings,
+  createChartSelectionRenderBindings,
+  createChartSelectorBindings,
+  createChartSheetRendererAppBindings,
+  createChartSheetRendererBindings,
+  createChartTransportBindings
+} from '../features/chart/chart-app-bindings.js';
 import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
 import { bindChartLifecycleEvents } from '../features/chart/chart-lifecycle.js';
@@ -2547,7 +2549,7 @@ assert.ok(
   'A Ballad no longer leaves 7b13 as a raw imported playback quality.'
 );
 const aBalladPlan = createChartPlaybackPlanFromDocument(aBallad);
-const aBalladExport = createDrillExportFromPlaybackPlan(aBalladPlan, aBallad);
+const aBalladExport = createPracticeSessionExportFromPlaybackPlan(aBalladPlan, aBallad);
 assert.equal(
   aBalladExport.engineBars[45],
   'A7alt A7alt Ab7alt Ab7alt',
@@ -2633,14 +2635,14 @@ const fiveHundredMilesHigh = byTitle.get('500 Miles High');
 assert.ok(fiveHundredMilesHigh, '500 Miles High is present in the raw source import.');
 assert.ok(fiveHundredMilesHigh.bars.some(bar => bar.annotationMisc.includes('Q')), '500 Miles High preserves raw annotation misc tokens.');
 
-const drillExport = createDrillExportFromPlaybackPlan(satinPlan, satinDoll);
-assert.ok(drillExport.patternString.includes('|'), 'Drill export produces a bar-delimited pattern string.');
-assert.ok(!drillExport.patternString.includes('%'), 'Drill export resolves repeated bars into concrete harmony.');
+const practiceSessionExport = createPracticeSessionExportFromPlaybackPlan(satinPlan, satinDoll);
+assert.ok(practiceSessionExport.patternString.includes('|'), 'Practice-session export produces a bar-delimited pattern string.');
+assert.ok(!practiceSessionExport.patternString.includes('%'), 'Practice-session export resolves repeated bars into concrete harmony.');
 
 const cryMeARiver = byTitle.get('Cry Me A River');
 assert.ok(cryMeARiver, 'Cry Me A River is present in the raw source import.');
 const cryMeARiverPlan = createChartPlaybackPlanFromDocument(cryMeARiver);
-const cryMeARiverExport = createDrillExportFromPlaybackPlan(cryMeARiverPlan, cryMeARiver);
+const cryMeARiverExport = createPracticeSessionExportFromPlaybackPlan(cryMeARiverPlan, cryMeARiver);
 assert.equal(cryMeARiver.bars[8].playback.cellSlots.length, 4, 'Cry Me A River keeps the four source iReal cell slots for the second ending bar.');
 assert.deepEqual(
   cryMeARiverExport.engineBars[15].split(' '),

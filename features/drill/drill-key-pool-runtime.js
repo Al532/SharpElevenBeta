@@ -1,5 +1,14 @@
 // @ts-check
 
+export function shuffleArray(arr) {
+  const copy = arr.slice();
+  for (let index = copy.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
 /**
  * @param {object} [options]
  * @param {() => boolean[]} [options.getEnabledKeys]
@@ -11,14 +20,6 @@ export function createDrillKeyPoolRuntime({
   getKeyPool = () => [],
   setKeyPool = () => {}
 } = {}) {
-  function shuffleArray(arr) {
-    const copy = arr.slice();
-    for (let index = copy.length - 1; index > 0; index--) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
-    }
-    return copy;
-  }
 
   function getEffectiveKeyPool() {
     const enabledKeys = getEnabledKeys();

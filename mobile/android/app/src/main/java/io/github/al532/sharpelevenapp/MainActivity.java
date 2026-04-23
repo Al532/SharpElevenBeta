@@ -1,4 +1,4 @@
-package io.github.al532.jazzprogressiontrainer;
+package io.github.al532.sharpelevenapp;
 
 import com.getcapacitor.BridgeActivity;
 

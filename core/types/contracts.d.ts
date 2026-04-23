@@ -279,6 +279,7 @@ export interface AppStateShape {
   chartUiSettings?: Record<string, unknown>;
   drillUiSettings?: Record<string, unknown>;
   currentMode?: AppMode;
+  pendingPracticeSession?: PracticeSessionSpec | null;
   pendingDrillSession?: PracticeSessionSpec | null;
   [key: string]: unknown;
 }
@@ -387,8 +388,9 @@ export interface PlaybackBridgeProvider {
 
 export interface RuntimePlaybackBridgeProvider extends PlaybackBridgeProvider {}
 
-export interface DrillPlaybackBridgeProvider extends RuntimePlaybackBridgeProvider {}
-export interface DirectPlaybackBridgeProvider extends DrillPlaybackBridgeProvider {}
+export interface PracticePlaybackBridgeProvider extends RuntimePlaybackBridgeProvider {}
+export interface DrillPlaybackBridgeProvider extends PracticePlaybackBridgeProvider {}
+export interface DirectPlaybackBridgeProvider extends PracticePlaybackBridgeProvider {}
 
 export interface EmbeddedPlaybackBridge extends PlaybackRuntimeBindings {
   apiClient: EmbeddedPlaybackApiClient;
@@ -403,10 +405,11 @@ export interface EmbeddedPlaybackRuntimeProvider extends PlaybackRuntimeProvider
   getRuntime(): EmbeddedPlaybackRuntime;
 }
 
-export interface DrillPlaybackRuntimeProvider extends PlaybackRuntimeProvider {}
-export interface DirectPlaybackRuntimeProvider extends DrillPlaybackRuntimeProvider {}
+export interface PracticePlaybackRuntimeProvider extends PlaybackRuntimeProvider {}
+export interface DrillPlaybackRuntimeProvider extends PracticePlaybackRuntimeProvider {}
+export interface DirectPlaybackRuntimeProvider extends PracticePlaybackRuntimeProvider {}
 
-export interface DrillPlaybackControllerOptions {
+export interface PracticePlaybackControllerOptions {
   ensureWalkingBassGenerator?: () => Promise<unknown>;
   isPlaying?: () => boolean;
   getAudioContext?: () => BaseAudioContext | null;
@@ -422,7 +425,9 @@ export interface DrillPlaybackControllerOptions {
   togglePausePlayback?: () => void;
 }
 
-export interface DirectPlaybackControllerOptions extends DrillPlaybackControllerOptions {
+export interface DrillPlaybackControllerOptions extends PracticePlaybackControllerOptions {}
+
+export interface DirectPlaybackControllerOptions extends PracticePlaybackControllerOptions {
   loadDirectSession?: (sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) => Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   updateDirectPlaybackSettings?: (playbackSettings: PlaybackSettings, sessionSpec: PracticeSessionSpec | null) => Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   getDirectPlaybackState?: () => Partial<PlaybackRuntimeState> | null | undefined;
@@ -454,15 +459,19 @@ export interface ChartDirectPlaybackRuntimeHost {
   getDirectPlaybackOptions(): DirectPlaybackControllerOptions;
 }
 
-export interface DrillPlaybackAssembly extends PlaybackRuntimeBindings {
+export interface PracticePlaybackAssembly extends PlaybackRuntimeBindings {
   playbackRuntime: PlaybackRuntime;
 }
-export interface DirectPlaybackAssembly extends DrillPlaybackAssembly {}
+export interface DrillPlaybackAssembly extends PracticePlaybackAssembly {}
+export interface DirectPlaybackAssembly extends PracticePlaybackAssembly {}
 
-export interface DrillPlaybackAssemblyProvider extends PlaybackAssemblyProvider {
+export interface PracticePlaybackAssemblyProvider extends PlaybackAssemblyProvider {
+  getAssembly(): PracticePlaybackAssembly;
+}
+export interface DrillPlaybackAssemblyProvider extends PracticePlaybackAssemblyProvider {
   getAssembly(): DrillPlaybackAssembly;
 }
-export interface DirectPlaybackAssemblyProvider extends DrillPlaybackAssemblyProvider {
+export interface DirectPlaybackAssemblyProvider extends PracticePlaybackAssemblyProvider {
   getAssembly(): DirectPlaybackAssembly;
 }
 
@@ -562,12 +571,14 @@ export interface EmbeddedPlaybackSettingsAdapterOptions {
   normalizeEmbeddedVolume?: (value: unknown) => string | null;
 }
 
-export interface EmbeddedDrillRuntimeOptions {
+export interface EmbeddedPracticeRuntimeOptions {
   patternAdapterOptions?: EmbeddedPatternAdapterOptions;
   playbackSettingsAdapterOptions?: EmbeddedPlaybackSettingsAdapterOptions;
   playbackStateOptions?: EmbeddedPlaybackStateOptions;
-  playbackControllerOptions?: DrillPlaybackControllerOptions;
+  playbackControllerOptions?: PracticePlaybackControllerOptions;
 }
+
+export interface EmbeddedDrillRuntimeOptions extends EmbeddedPracticeRuntimeOptions {}
 
 export interface EmbeddedRuntimeBindings extends PlaybackRuntimeBindings {
   playbackRuntime: PlaybackRuntime;
@@ -606,7 +617,7 @@ export interface ChartPlaybackController {
   startPlayback(): Promise<{ ok: boolean } | TransportPlaybackStatus>;
   syncPlaybackSettings(): Promise<PlaybackOperationResult>;
   pauseToggle(): Promise<TransportPlaybackStatus>;
-  navigateToDrillWithSelection(): boolean;
+  navigateToPracticeWithSelection(): boolean;
   getTotalBars(): number;
 }
 
@@ -617,7 +628,7 @@ export interface ChartSheetRenderer {
   renderDiagnostics(playbackPlan: ChartPlaybackPlan | null): void;
 }
 
-export interface DrillExport {
+export interface PracticeSessionExport {
   title: string;
   sourceKey: string;
   timeSignature: string;
@@ -626,6 +637,8 @@ export interface DrillExport {
   bars: string[];
   engineBars: string[];
 }
+
+export interface DrillExport extends PracticeSessionExport {}
 
 declare global {
   interface Window {
