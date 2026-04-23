@@ -1,7 +1,7 @@
 {
   "name": "sharp-eleven-app",
   "private": true,
-  "version": "1.1.37",
+  "version": "1.1.38",
   "scripts": {
     "dev": "vite",
     "dev:chart": "vite --config vite.chart.config.js",
@@ -11,7 +11,10 @@
     "prebuild": "node scripts/sync-public-files.mjs public",
     "build": "vite build",
     "prebuild:mobile": "node scripts/sync-public-files.mjs public",
-    "build:mobile": "vite build --config vite.mobile.config.js",
+    "build:mobile:app": "vite build --config vite.mobile.config.js",
+    "build:mobile:assets": "node scripts/sync-mobile-shell-assets.mjs",
+    "build:mobile:chart": "vite build --config vite.mobile.chart.config.js",
+    "build:mobile": "npm run build:mobile:app && npm run build:mobile:assets && npm run build:mobile:chart",
     "mobile:install": "npm --prefix mobile install",
     "mobile:copy": "npm --prefix mobile run copy",
     "mobile:sync": "npm --prefix mobile run sync",

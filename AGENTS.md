@@ -18,6 +18,46 @@
 - After a requested build, commit the current repository locally without pushing it online.
 - When a build is requested for the local app, use the application version number in the local repository commit message.
 
+#### Android Build Procedure
+
+- For an Android build request, increment the app version first in both root and `mobile/` package manifests, and keep both lockfiles aligned.
+- Also align the Android native version in `mobile/android/app/build.gradle`:
+  - `versionName` must match the app version
+  - `versionCode` should track the numeric release iteration
+- Keep Android identifiers aligned when needed:
+  - `mobile/capacitor.config.json`
+  - `mobile/android/app/src/main/res/values/strings.xml`
+- Build and sync in this order from the repository root:
+  1. `npm run build:mobile`
+  2. `npm run mobile:sync`
+- `npm run build:mobile` now has to produce the full mobile web shell, not only the drill entrypoint:
+  - main app bundle in `mobile/www`
+  - runtime sample assets under `mobile/www/assets`
+  - chart bundle under `mobile/www/chart-dev`
+- Then build the native Android app from `mobile/android` with Gradle.
+- On this machine, Android Studio is installed and the working Java and SDK locations are:
+  - `JAVA_HOME=C:\Program Files\Android\Android Studio\jbr`
+  - `ANDROID_HOME=C:\Users\Alcibiade\AppData\Local\Android\Sdk`
+  - `ANDROID_SDK_ROOT=C:\Users\Alcibiade\AppData\Local\Android\Sdk`
+- If `JAVA_HOME` or `ANDROID_HOME` is missing, prefer setting them for the current shell session before running Gradle rather than editing project files.
+- Working local command for this machine:
+  - PowerShell:
+    `$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'; $env:ANDROID_HOME='C:\Users\Alcibiade\AppData\Local\Android\Sdk'; $env:ANDROID_SDK_ROOT='C:\Users\Alcibiade\AppData\Local\Android\Sdk'; $env:Path=\"$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path\"; .\gradlew.bat assembleDebug`
+- The debug APK output path is:
+  - `mobile/android/app/build/outputs/apk/debug/app-debug.apk`
+- After a successful Android build, also try to push/install the debug APK onto a connected Android phone with ADB.
+- On this machine, prefer the local SDK ADB binary:
+  - `C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe`
+- Device detection command:
+  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' devices -l`
+- Install command:
+  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' install -r 'C:\Users\Alcibiade\Documents\GitHub\SharpElevenApp\mobile\android\app\build\outputs\apk\debug\app-debug.apk'`
+- Post-install verification commands:
+  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell pm list packages io.github.al532.sharpelevenapp`
+  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell dumpsys package io.github.al532.sharpelevenapp | Select-String 'versionName|versionCode'`
+- If no device is listed, report that clearly and stop at the built APK without blocking the local build/commit workflow.
+- After the requested Android build completes, commit the repository locally with the application version as the commit message.
+
 ### External Demo Repository
 
 - Do not update, commit, or push the external demo repository at `..\JazzProgressionTrainerDemo` unless the user explicitly asks for that repository to be updated.

@@ -29,6 +29,7 @@
 
 html {
   background: #1b1d34;
+  overflow-x: clip;
 }
 
 body {
@@ -48,6 +49,7 @@ body {
     max(0px, env(safe-area-inset-bottom))
     max(0px, env(safe-area-inset-left));
   overscroll-behavior-y: contain;
+  overflow-x: clip;
 }
 
 #app {
@@ -55,6 +57,7 @@ body {
   max-width: 860px;
   padding: 2rem 1.5rem;
   text-align: center;
+  overflow-x: clip;
 }
 
 button,
@@ -2251,6 +2254,24 @@ body.welcome-open {
     align-items: flex-start;
   }
 
+  .app-mode-shell {
+    width: 100%;
+  }
+
+  .app-mode-nav {
+    width: 100%;
+    max-width: 18rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-mode-link {
+    min-width: 0;
+    width: 100%;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+
   .social-share-link span {
     display: none;
   }
@@ -2302,6 +2323,38 @@ body.welcome-open {
 
   .control-panel-compact {
     grid-column: auto;
+  }
+
+  .inline-select-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .inline-select-row label {
+    white-space: normal;
+  }
+
+  .inline-select-row select {
+    width: 100%;
+  }
+
+  .toggle-row {
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .toggle-select-label {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .toggle-select-label select,
+  .mode-toggle-track {
+    width: 100%;
+    max-width: none;
   }
 
   .progression-manager-grid {
@@ -2361,5 +2414,23 @@ body.welcome-open {
 
   .welcome-apply-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  #app {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .control-panel,
+  .surface-block {
+    padding: 0.85rem;
+  }
+
+  .progression-manager-grid button,
+  .toggle-select-label select,
+  .inline-select-row select {
+    min-width: 0;
   }
 }

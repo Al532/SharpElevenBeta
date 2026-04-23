@@ -49,8 +49,8 @@ select {
 
 .chart-mode-shell {
   position: fixed;
-  top: 14px;
-  left: 14px;
+  top: max(14px, calc(env(safe-area-inset-top) + 10px));
+  left: max(14px, calc(env(safe-area-inset-left) + 10px));
   z-index: 170;
   display: inline-flex;
   align-items: center;
@@ -117,8 +117,8 @@ select {
   align-items: center;
   justify-content: center;
   position: fixed;
-  top: 14px;
-  right: 14px;
+  top: max(14px, calc(env(safe-area-inset-top) + 10px));
+  right: max(14px, calc(env(safe-area-inset-right) + 10px));
   z-index: 150;
   width: 54px;
   height: 54px;
@@ -185,7 +185,11 @@ select {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
-  padding: 16px 18px 14px;
+  padding:
+    max(16px, calc(env(safe-area-inset-top) + 10px))
+    max(18px, calc(env(safe-area-inset-right) + 12px))
+    14px
+    max(18px, calc(env(safe-area-inset-left) + 12px));
 }
 
 .chart-top-actions {

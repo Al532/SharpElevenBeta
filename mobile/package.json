@@ -1,7 +1,7 @@
 {
   "name": "sharp-eleven-app-mobile",
   "private": true,
-  "version": "1.1.37",
+  "version": "1.1.38",
   "scripts": {
     "copy": "npx cap copy",
     "sync": "npx cap sync",

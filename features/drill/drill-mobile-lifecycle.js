@@ -28,8 +28,6 @@ export function createDrillMobileLifecycle({
   togglePausePlayback = async () => {},
   trackSessionDuration = () => {}
 } = {}) {
-  let autoPausedForLifecycle = false;
-  let lifecyclePauseInFlight = false;
   let audioResumeInFlight = false;
 
   async function tryResumeAudioContext() {
@@ -46,46 +44,18 @@ export function createDrillMobileLifecycle({
     return getAudioContext?.() || audioContext;
   }
 
-  async function pauseForLifecycle() {
-    if (lifecyclePauseInFlight || !getIsPlaying?.() || getIsPaused?.()) {
-      return;
-    }
-
-    lifecyclePauseInFlight = true;
-    try {
-      await togglePausePlayback?.();
-      autoPausedForLifecycle = Boolean(getIsPlaying?.() && getIsPaused?.());
-    } finally {
-      lifecyclePauseInFlight = false;
-    }
-  }
-
-  async function resumeFromLifecycle() {
-    if (!autoPausedForLifecycle) return;
-    if (!getIsPlaying?.() || !getIsPaused?.()) {
-      autoPausedForLifecycle = false;
-      return;
-    }
-    await togglePausePlayback?.();
-    autoPausedForLifecycle = false;
-  }
-
   function handleVisibilityChange() {
     if (visibilityTarget?.hidden) {
-      void pauseForLifecycle();
       return;
     }
-    void resumeFromLifecycle();
     void tryResumeAudioContext();
   }
 
   function handlePageHide() {
     trackSessionDuration?.();
-    void pauseForLifecycle();
   }
 
   function handlePageShow() {
-    void resumeFromLifecycle();
     void tryResumeAudioContext();
   }
 
