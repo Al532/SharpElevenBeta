@@ -41,7 +41,8 @@ export function createChartNavigationController({
   renderFixture,
   previousChartButton,
   nextChartButton,
-  sheetGrid
+  sheetGrid,
+  enableSwipeGestures = true
 }: {
   getDocuments?: () => ChartDocument[];
   getSelectedId?: () => string;
@@ -50,17 +51,20 @@ export function createChartNavigationController({
   previousChartButton?: HTMLButtonElement | null;
   nextChartButton?: HTMLButtonElement | null;
   sheetGrid?: HTMLElement | null;
+  enableSwipeGestures?: boolean;
 } = {}) {
   const swipeGesture: {
     pointerId: number | null;
     startX: number;
     startY: number;
     active: boolean;
+    horizontalLock: boolean;
   } = {
     pointerId: null,
     startX: 0,
     startY: 0,
-    active: false
+    active: false,
+    horizontalLock: false
   };
 
   function resetSwipeGesture() {
@@ -68,6 +72,7 @@ export function createChartNavigationController({
     swipeGesture.startX = 0;
     swipeGesture.startY = 0;
     swipeGesture.active = false;
+    swipeGesture.horizontalLock = false;
   }
 
   function goToAdjacentChart(direction: number): boolean {
@@ -104,29 +109,55 @@ export function createChartNavigationController({
       }
     });
 
-    sheetGrid?.addEventListener('pointerdown', (event) => {
-      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-      swipeGesture.pointerId = event.pointerId;
-      swipeGesture.startX = event.clientX;
-      swipeGesture.startY = event.clientY;
-      swipeGesture.active = true;
-    });
+    if (enableSwipeGestures) {
+      sheetGrid?.addEventListener('pointerdown', (event) => {
+        if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+        if (isEditableTarget(event.target)) return;
+        swipeGesture.pointerId = event.pointerId;
+        swipeGesture.startX = event.clientX;
+        swipeGesture.startY = event.clientY;
+        swipeGesture.active = true;
+        swipeGesture.horizontalLock = false;
+        sheetGrid.setPointerCapture?.(event.pointerId);
+      });
 
-    sheetGrid?.addEventListener('pointerup', (event) => {
-      if (!swipeGesture.active || swipeGesture.pointerId !== event.pointerId) return;
+      sheetGrid?.addEventListener('pointermove', (event) => {
+        if (!swipeGesture.active || swipeGesture.pointerId !== event.pointerId) return;
 
-      const deltaX = event.clientX - swipeGesture.startX;
-      const deltaY = event.clientY - swipeGesture.startY;
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(deltaY);
+        const deltaX = event.clientX - swipeGesture.startX;
+        const deltaY = event.clientY - swipeGesture.startY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
 
-      if (absX >= 56 && absX > absY * 1.35) {
-        goToAdjacentChart(deltaX < 0 ? 1 : -1);
-      }
-      resetSwipeGesture();
-    });
+        if (!swipeGesture.horizontalLock && absX >= 18 && absX > absY * 1.15) {
+          swipeGesture.horizontalLock = true;
+        }
 
-    sheetGrid?.addEventListener('pointercancel', resetSwipeGesture);
+        if (swipeGesture.horizontalLock) {
+          event.preventDefault();
+        }
+      });
+
+      sheetGrid?.addEventListener('pointerup', (event) => {
+        if (!swipeGesture.active || swipeGesture.pointerId !== event.pointerId) return;
+
+        const deltaX = event.clientX - swipeGesture.startX;
+        const deltaY = event.clientY - swipeGesture.startY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
+
+        if (absX >= 42 && absX > absY * 1.15) {
+          goToAdjacentChart(deltaX < 0 ? 1 : -1);
+        }
+        sheetGrid.releasePointerCapture?.(event.pointerId);
+        resetSwipeGesture();
+      });
+
+      sheetGrid?.addEventListener('pointercancel', (event) => {
+        sheetGrid.releasePointerCapture?.(event.pointerId);
+        resetSwipeGesture();
+      });
+    }
   }
 
   return {

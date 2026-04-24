@@ -279,11 +279,7 @@ export function createDrillWelcomeRootAppFacade({
   }
 
   function maybeShowWelcomeOverlay() {
-    if (IS_EMBEDDED_DRILL_MODE) return;
-    if (!getShouldShowWelcomeNextTime() || !dom.welcomeOverlay) return;
-    updateWelcomePanelVisibility();
-    updateWelcomeSummary();
-    setWelcomeOverlayVisible(true);
+    return;
   }
 
   return {

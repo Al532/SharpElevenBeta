@@ -78,7 +78,6 @@ export function bindChartRuntimeControls({
   chartSearchInput?.addEventListener('input', onSearch);
   fixtureSelect?.addEventListener('change', onFixtureChange);
   transposeSelect?.addEventListener('change', onTransposeChange);
-  sheetGrid?.addEventListener('click', onBarClick);
   harmonyDisplayMode?.addEventListener('change', onHarmonyDisplayModeChange);
 
   [

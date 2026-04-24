@@ -7,7 +7,6 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
-import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -15,9 +14,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -31,6 +30,7 @@ public class IrealBrowserActivity extends AppCompatActivity {
     public static final String EXTRA_URL = "browserUrl";
 
     private ProgressBar progressBar;
+    private TextView bannerTitleView;
     private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -40,7 +40,9 @@ public class IrealBrowserActivity extends AppCompatActivity {
         setContentView(R.layout.activity_ireal_browser);
 
         progressBar = findViewById(R.id.ireal_browser_progress);
+        bannerTitleView = findViewById(R.id.ireal_browser_banner_title);
         webView = findViewById(R.id.ireal_browser_webview);
+        findViewById(R.id.ireal_browser_close_button).setOnClickListener(view -> finish());
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -120,28 +122,21 @@ public class IrealBrowserActivity extends AppCompatActivity {
     }
 
     private boolean loadInitialContent(Intent intent) {
-        ActionBar actionBar = getSupportActionBar();
         String explicitTitle = intent.getStringExtra(EXTRA_TITLE);
         String resolvedTitle = explicitTitle == null || explicitTitle.isBlank()
             ? getString(R.string.ireal_browser_title)
             : explicitTitle;
+        bannerTitleView.setText(resolvedTitle);
 
         if (Intent.ACTION_SEND.equals(intent.getAction())) {
             Uri sharedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
             if (sharedUri != null) {
-                if (actionBar != null) {
-                    actionBar.setDisplayHomeAsUpEnabled(true);
-                    actionBar.setTitle(resolveSharedDocumentTitle(sharedUri, resolvedTitle));
-                }
+                bannerTitleView.setText(resolveSharedDocumentTitle(sharedUri, resolvedTitle));
                 return loadSharedHtml(sharedUri);
             }
 
             CharSequence sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
             if (sharedText != null && !sharedText.toString().isBlank()) {
-                if (actionBar != null) {
-                    actionBar.setDisplayHomeAsUpEnabled(true);
-                    actionBar.setTitle(resolvedTitle);
-                }
                 webView.loadDataWithBaseURL(
                     "https://localhost/shared-import/",
                     sharedText.toString(),
@@ -156,10 +151,6 @@ public class IrealBrowserActivity extends AppCompatActivity {
         String initialUrl = intent.getStringExtra(EXTRA_URL);
         if (initialUrl == null || initialUrl.isBlank()) {
             return false;
-        }
-        if (actionBar != null) {
-            actionBar.setDisplayHomeAsUpEnabled(true);
-            actionBar.setTitle(resolvedTitle);
         }
         webView.loadUrl(initialUrl);
         return true;
@@ -219,15 +210,6 @@ public class IrealBrowserActivity extends AppCompatActivity {
             }
         }
         return builder.toString();
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     @Override

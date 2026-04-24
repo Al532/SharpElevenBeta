@@ -688,7 +688,7 @@ let savedPatternSelection = null;
 let lastPatternSelectValue = '';
 let pendingPresetDeletion = null;
 let hasCompletedWelcomeOnboarding = false;
-let shouldShowWelcomeNextTime = true;
+let shouldShowWelcomeNextTime = false;
 let playbackSessionController = null;
 
 let welcomeStandards = { ...WELCOME_STANDARDS_FALLBACK };

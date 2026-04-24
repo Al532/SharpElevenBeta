@@ -10,20 +10,6 @@
 </head>
 <body>
   <div class="chart-app">
-    <div class="chart-mode-shell" aria-label="App modes">
-      <span id="app-mode-badge" class="chart-mode-badge">Chart Mode</span>
-      <nav class="chart-mode-nav">
-        <a id="app-mode-drill-link" class="chart-mode-link" href="../index.html">Drill</a>
-        <a id="app-mode-chart-link" class="chart-mode-link" href="./index.html">Chart</a>
-      </nav>
-    </div>
-    <button class="chart-mobile-fab" id="mobile-menu-toggle" type="button" aria-label="Open controls">
-      <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/>
-        <rect y="6.75" width="22" height="2.5" rx="1.25" fill="currentColor"/>
-        <rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/>
-      </svg>
-    </button>
     <div class="chart-mobile-backdrop" id="chart-mobile-backdrop"></div>
 
     <!-- Top overlay: chart selection & navigation -->
@@ -44,7 +30,6 @@
             <div class="chart-popover" id="manage-charts-popover" hidden>
               <div class="chart-import-actions">
                 <button id="import-ireal-backup-button" type="button" class="chart-action-button">Import iReal backup</button>
-                <button id="open-ireal-default-playlists-button" type="button" class="chart-action-button chart-action-button-secondary">iReal default playlists</button>
                 <button id="open-ireal-forum-button" type="button" class="chart-action-button chart-action-button-secondary">iReal forum tracks</button>
                 <button id="clear-all-charts-button" type="button" class="chart-action-button chart-action-button-secondary">Remove all charts</button>
               </div>
@@ -177,7 +162,6 @@
           </div>
           <div class="chart-transport-buttons">
             <button id="clear-selection-button" type="button" class="chart-transport-button">Clear selection</button>
-            <button id="send-selection-to-drill-button" type="button" class="chart-transport-button">Send to Drill</button>
             <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
             <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
           </div>
@@ -189,21 +173,7 @@
     <main class="chart-workspace">
       <div class="chart-sheet-header">
         <div class="chart-sheet-title-row">
-          <button
-            id="previous-chart-button"
-            class="chart-sheet-nav-button"
-            type="button"
-            aria-label="Previous chart">
-            &#8249;
-          </button>
           <h2 id="sheet-title" class="chart-sheet-title"></h2>
-          <button
-            id="next-chart-button"
-            class="chart-sheet-nav-button"
-            type="button"
-            aria-label="Next chart">
-            &#8250;
-          </button>
         </div>
         <div class="chart-sheet-header-row">
           <div class="chart-sheet-style" id="sheet-style"></div>
@@ -214,6 +184,13 @@
       </div>
       <div id="sheet-grid" class="chart-sheet-grid"></div>
     </main>
+    <div class="chart-selection-menu" id="chart-selection-menu" hidden aria-hidden="true">
+      <div class="chart-selection-menu-card">
+        <span class="chart-selection-menu-prompt">Selection</span>
+        <button id="selection-loop-button" type="button" class="chart-selection-menu-button">Loop</button>
+        <button id="selection-create-drill-button" type="button" class="chart-selection-menu-button chart-selection-menu-button-secondary">Create a drill</button>
+      </div>
+    </div>
   </div>
 
   <input id="ireal-backup-input" type="file" accept=".html,.htm,.txt" hidden>

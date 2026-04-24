@@ -1,11 +1,18 @@
 const SHEET_GAP_MIN = 12;
 const SHEET_GAP_MAX = 80;
+const CHART_FIT_HEADROOM = 0.8;
+const CHART_ROW_HEADROOM = 0.78;
+const CHART_COLLISION_HEADROOM = 0.94;
+const CHART_MIN_GLOBAL_SCALE = 0.42;
+const CHART_MIN_ROW_SCALE = 0.36;
+const CHART_MIN_COLLISION_SCALE = 0.34;
 
 type CreateChartSheetRendererOptions = {
   sheetGrid?: HTMLElement | null,
   diagnosticsList?: HTMLElement | null,
   getDisplayedBarGroupSize?: () => number,
   getHarmonyDisplayMode?: () => string,
+  getTextScaleCompensation?: () => number,
   getFallbackTimeSignature?: () => string,
   renderChordMarkup?: (token: any, harmonyDisplayMode: string) => string,
   isBarActive?: (bar: any) => boolean,
@@ -450,6 +457,42 @@ function measureTokenGeometry(slotEl) {
 }
 
 /**
+ * @param {HTMLElement} barBodyEl
+ * @returns {number}
+ */
+function getBarBodyCollisionScale(barBodyEl) {
+  const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
+  if (slots.length === 0) return 1;
+
+  const barRect = barBodyEl.getBoundingClientRect();
+  const availableWidth = Math.max(1, barRect.width - 4);
+  const geometries = slots.map((slot) => measureTokenGeometry(slot));
+  const symbolLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
+  const symbolRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
+
+  const occupiedLeft = Math.min(...symbolLefts);
+  const occupiedRight = Math.max(...symbolRights);
+  const occupiedWidth = Math.max(0, occupiedRight - occupiedLeft);
+  const spanScale = occupiedWidth > availableWidth * CHART_COLLISION_HEADROOM
+    ? (availableWidth * CHART_COLLISION_HEADROOM) / occupiedWidth
+    : 1;
+
+  let maxOverlap = 0;
+  for (let index = 0; index < symbolLefts.length - 1; index += 1) {
+    maxOverlap = Math.max(maxOverlap, symbolRights[index] - symbolLefts[index + 1]);
+  }
+
+  const overlapScale = maxOverlap > 0
+    ? Math.max(CHART_MIN_COLLISION_SCALE, 1 - (((maxOverlap + 2) / availableWidth) * 1.45))
+    : 1;
+
+  return Math.max(
+    CHART_MIN_COLLISION_SCALE,
+    Math.min(1, spanScale, overlapScale)
+  );
+}
+
+/**
  * @param {number[]} rawLefts
  * @param {number[]} rawRights
  * @param {number[]} offsets
@@ -574,6 +617,7 @@ export function createChartSheetRenderer({
   diagnosticsList,
   getDisplayedBarGroupSize,
   getHarmonyDisplayMode,
+  getTextScaleCompensation,
   getFallbackTimeSignature,
   renderChordMarkup,
   isBarActive,
@@ -639,6 +683,13 @@ export function createChartSheetRenderer({
       `;
     });
 
+    const rowCount = rows.length;
+    sheetGrid.dataset.rowCount = String(rowCount);
+    if (rowCount > 0 && rowCount <= 4) {
+      sheetGrid.dataset.fillHeight = 'true';
+    } else {
+      delete sheetGrid.dataset.fillHeight;
+    }
     sheetGrid.innerHTML = rows.join('');
   }
 
@@ -646,8 +697,15 @@ export function createChartSheetRenderer({
     if (!sheetGrid) return;
     const rowElements = sheetGrid.querySelectorAll<HTMLElement>('.chart-row');
     const rowCount = rowElements.length;
+    const shouldStretchRows = rowCount > 0 && rowCount <= 4;
+    sheetGrid.dataset.rowCount = String(rowCount);
+    if (shouldStretchRows) {
+      sheetGrid.dataset.fillHeight = 'true';
+    } else {
+      delete sheetGrid.dataset.fillHeight;
+    }
     if (rowCount < 2) {
-      sheetGrid.style.rowGap = `${SHEET_GAP_MIN}px`;
+      sheetGrid.style.rowGap = shouldStretchRows ? '10px' : `${SHEET_GAP_MIN}px`;
       return;
     }
 
@@ -662,11 +720,13 @@ export function createChartSheetRenderer({
     });
     const availableForGaps = availableForGrid - totalRowHeight;
     const idealGap = Math.floor(availableForGaps / (rowCount - 1));
-    const clampedGap = Math.max(SHEET_GAP_MIN, Math.min(SHEET_GAP_MAX, idealGap));
+    const maxGap = shouldStretchRows ? 24 : SHEET_GAP_MAX;
+    const clampedGap = Math.max(SHEET_GAP_MIN, Math.min(maxGap, idealGap));
     sheetGrid.style.rowGap = `${clampedGap}px`;
   }
 
   function applyOpticalPlacements() {
+    const textScaleCompensation = Math.max(0.4, Math.min(1, Number(getTextScaleCompensation?.() || 1)));
     Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
       rowEl.style.removeProperty('grid-template-columns');
     });
@@ -677,36 +737,6 @@ export function createChartSheetRenderer({
         tokenEl.style.removeProperty('--chart-token-scale');
       });
     });
-    void document.documentElement.offsetHeight;
-
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
-      const barCells = Array.from(rowEl.querySelectorAll(':scope > .chart-bar-cell'));
-      if (barCells.length < 2) return;
-
-      const demands = barCells.map((cell) => {
-        const body = cell.querySelector('.chart-bar-body');
-        if (!body) return 1;
-        let total = 0;
-        body.querySelectorAll('.chart-token-slot').forEach((slot) => {
-          const geometry = measureTokenGeometry(slot);
-          const width = geometry.symbolRect
-            ? Math.max(0, geometry.symbolRect.right - geometry.symbolRect.left)
-            : Math.max(0, geometry.slotRect.width);
-          total += width;
-        });
-        return Math.max(1, total);
-      });
-
-      const count = demands.length;
-      const average = demands.reduce((left, right) => left + right, 0) / count;
-      const clamped = demands.map((demand) => Math.max(average * 0.80, Math.min(average * 1.20, demand)));
-      const clampedAverage = clamped.reduce((left, right) => left + right, 0) / count;
-      const maxDeviation = Math.max(...clamped.map((value) => Math.abs(value - clampedAverage) / clampedAverage));
-      if (maxDeviation < 0.04) return;
-
-      rowEl.style.gridTemplateColumns = clamped.map((value) => `${value.toFixed(1)}fr`).join(' ');
-    });
-
     void document.documentElement.offsetHeight;
 
     let globalMaxFitRatio = 0;
@@ -733,15 +763,14 @@ export function createChartSheetRenderer({
       return { barBodies, rowMaxFitRatio };
     });
 
-    const headroom = 0.88;
-    const globalScale = globalMaxFitRatio > headroom
-      ? Math.max(0.5, Math.sqrt(headroom / globalMaxFitRatio))
+    const globalScale = globalMaxFitRatio > CHART_FIT_HEADROOM
+      ? Math.max(CHART_MIN_GLOBAL_SCALE, (CHART_FIT_HEADROOM / globalMaxFitRatio) * 0.98)
       : 1;
 
     rowData.forEach(({ barBodies, rowMaxFitRatio }) => {
       const effectiveFitRatio = rowMaxFitRatio * globalScale;
-      const rowExtraScale = effectiveFitRatio > headroom
-        ? Math.max(0.38 / globalScale, headroom / effectiveFitRatio)
+      const rowExtraScale = effectiveFitRatio > CHART_ROW_HEADROOM
+        ? Math.max(CHART_MIN_ROW_SCALE / globalScale, (CHART_ROW_HEADROOM / effectiveFitRatio) * 0.98)
         : 1;
       const finalScale = globalScale * rowExtraScale;
       if (finalScale >= 0.999) return;
@@ -749,7 +778,7 @@ export function createChartSheetRenderer({
         const htmlBarBodyEl = /** @type {HTMLElement} */ (barBodyEl);
         const currentFontPx = parseFloat(getComputedStyle(htmlBarBodyEl).fontSize);
         if (!currentFontPx) return;
-        htmlBarBodyEl.style.fontSize = `${(currentFontPx * finalScale).toFixed(2)}px`;
+        htmlBarBodyEl.style.fontSize = `${(currentFontPx * finalScale * textScaleCompensation).toFixed(2)}px`;
       });
     });
 
@@ -791,6 +820,56 @@ export function createChartSheetRenderer({
       const symLefts = rawLefts.map((left, index) => left + offsets[index]);
       const symRights = rawRights.map((right, index) => right + offsets[index]);
 
+      resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect);
+
+      geometries.forEach((geometry, index) => {
+        if (!geometry.tokenEl) return;
+        const tokenElement = /** @type {HTMLElement} */ (geometry.tokenEl);
+        const fontSizePx = parseFloat(getComputedStyle(tokenElement).fontSize);
+        if (!fontSizePx) return;
+        tokenElement.style.setProperty('--chart-token-offset-x', `${(offsets[index] / fontSizePx).toFixed(3)}em`);
+      });
+    });
+
+    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
+      const collisionScale = getBarBodyCollisionScale(barBodyEl);
+      if (collisionScale >= 0.995) return;
+      const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
+      if (!currentFontPx) return;
+      barBodyEl.style.fontSize = `${(currentFontPx * collisionScale * textScaleCompensation).toFixed(2)}px`;
+    });
+
+    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
+      applySingleChordAnchor(barBodyEl);
+    });
+
+    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body.chart-bar-body-subdivided, .chart-bar-body.chart-bar-body-halves')).forEach((barBodyEl) => {
+      const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
+      if (slots.length < 2) return;
+
+      slots.forEach((slotEl) => {
+        const tokenEl = slotEl.querySelector('.chart-token') as HTMLElement | null;
+        if (!tokenEl) return;
+        tokenEl.style.removeProperty('--chart-token-offset-x');
+      });
+
+      const barRect = barBodyEl.getBoundingClientRect();
+      const geometries = slots.map((slot) => measureTokenGeometry(slot));
+      const rawLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
+      const rawRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
+      const offsets = geometries.map((geometry) => geometry.beatTargetX - geometry.anchorX);
+
+      for (let index = 0; index < geometries.length; index += 1) {
+        const { slotRect } = geometries[index];
+        if (offsets[index] > 0) {
+          offsets[index] = Math.min(offsets[index], Math.max(0, slotRect.right - rawRights[index]));
+        } else if (offsets[index] < 0) {
+          offsets[index] = Math.max(offsets[index], -Math.max(0, rawLefts[index] - slotRect.left));
+        }
+      }
+
+      const symLefts = rawLefts.map((left, index) => left + offsets[index]);
+      const symRights = rawRights.map((right, index) => right + offsets[index]);
       resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect);
 
       geometries.forEach((geometry, index) => {

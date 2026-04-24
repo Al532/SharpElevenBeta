@@ -119,15 +119,10 @@ export async function handlePastedChartIRealLinkImport({
  * @param {{
  *   importIRealBackupButton?: HTMLButtonElement | null,
  *   irealBackupInput?: HTMLInputElement | null,
- *   openIRealDefaultPlaylistsButton?: HTMLButtonElement | null,
  *   openIRealForumButton?: HTMLButtonElement | null,
- *   importIRealLinkButton?: HTMLButtonElement | null,
- *   irealLinkInput?: HTMLInputElement | null,
- *   defaultPlaylistsUrl?: string,
  *   forumTracksUrl?: string,
  *   setImportStatus?: (message: string, isError?: boolean) => void,
  *   onBackupFileSelection?: EventListener,
- *   onPastedLinkImport?: () => void,
  *   onOpenForumTracks?: () => Promise<boolean> | boolean
  * }} [options]
  * @returns {void}
@@ -135,38 +130,23 @@ export async function handlePastedChartIRealLinkImport({
 export function bindChartImportControls({
   importIRealBackupButton,
   irealBackupInput,
-  openIRealDefaultPlaylistsButton,
   openIRealForumButton,
-  importIRealLinkButton,
-  irealLinkInput,
-  defaultPlaylistsUrl,
   forumTracksUrl,
   setImportStatus,
   onBackupFileSelection,
-  onPastedLinkImport,
   onOpenForumTracks
 } = {}) {
   importIRealBackupButton?.addEventListener('click', () => {
     irealBackupInput?.click();
   });
   irealBackupInput?.addEventListener('change', onBackupFileSelection);
-  openIRealDefaultPlaylistsButton?.addEventListener('click', () => {
-    window.open(defaultPlaylistsUrl, '_blank', 'noopener,noreferrer');
-    setImportStatus?.('Default playlists opened in a new tab. Paste an irealb:// link here when ready.');
-  });
   openIRealForumButton?.addEventListener('click', async () => {
     const openedInternally = await onOpenForumTracks?.();
     if (openedInternally) {
-      setImportStatus?.('Forum tracks opened in the in-app browser. Tap an irealb:// link there to import it here.');
+      setImportStatus?.('Forum tracks opened in the in-app browser. Click on a link to import.');
       return;
     }
     window.open(forumTracksUrl, '_blank', 'noopener,noreferrer');
-    setImportStatus?.('Forum tracks opened in a new tab. Paste an irealb:// link here when ready.');
-  });
-  importIRealLinkButton?.addEventListener('click', onPastedLinkImport);
-  irealLinkInput?.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    onPastedLinkImport?.();
+    setImportStatus?.('Forum tracks opened in a new tab. Click on a link to import.');
   });
 }

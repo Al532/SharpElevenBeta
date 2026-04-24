@@ -24,18 +24,24 @@
   <script>
     window.JAZZ_TRAINER_GOATCOUNTER_ENDPOINT = 'https://aminel.goatcounter.com/count';
   </script>
+  <script>
+    (function redirectDefaultEntryToChart() {
+      var params = new URLSearchParams(window.location.search);
+      var shouldStayInDrill =
+        params.get('source') === 'chart-session'
+        || params.get('embedded') === '1';
+      if (shouldStayInDrill) return;
+      var nextUrl = new URL('./chart-dev/index.html', window.location.href);
+      nextUrl.search = window.location.search;
+      nextUrl.hash = window.location.hash;
+      window.location.replace(nextUrl.toString());
+    })();
+  </script>
   <script type="module" src="./app.js"></script>
 </head>
 <body>
   <div id="app">
     <header class="app-header">
-      <div class="app-mode-shell" aria-label="App modes">
-        <span id="app-mode-badge" class="app-mode-badge">Drill Mode</span>
-        <nav class="app-mode-nav">
-          <a id="app-mode-drill-link" class="app-mode-link" href="./index.html">Drill</a>
-          <a id="app-mode-chart-link" class="app-mode-link" href="./chart-dev/index.html">Chart</a>
-        </nav>
-      </div>
       <div class="app-header-links" aria-label="Project links">
         <a class="app-header-link" href="./demo.html" data-analytics-link="demo">Demo</a>
         <a class="app-header-link" href="mailto:alcibiade.minel@gmail.com">Share your feedback!</a>
@@ -517,7 +523,7 @@
         <div class="welcome-footer-meta">
           <button type="button" id="welcome-skip" class="welcome-skip-button">Skip</button>
           <label class="welcome-show-next-time">
-            <input type="checkbox" id="welcome-show-next-time" checked>
+            <input type="checkbox" id="welcome-show-next-time">
             <span>Show next time</span>
           </label>
         </div>

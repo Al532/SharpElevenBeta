@@ -36,6 +36,7 @@ import {
   createChartNavigationController,
   updateChartNavigationState as updateChartNavigationStateUi
 } from '../features/chart/chart-navigation.js';
+import { createChartGestureController } from '../features/chart/chart-gesture-controller.js';
 import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
 import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
 import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
@@ -62,7 +63,6 @@ import {
   setChartImportStatus
 } from '../features/chart/chart-import-controls.js';
 import {
-  createChartBarSelectionBindings,
   createChartDirectPlaybackRuntimeHostBindings,
   createChartFixtureRenderBindings,
   createChartImportedLibraryBindings,
@@ -100,7 +100,6 @@ import { bindChartRuntimeControls } from '../features/chart/chart-runtime-contro
 import { createContiguousBarSelectionController } from '../features/chart/chart-selection-controller.js';
 import {
   getSelectedPracticeSession as getSelectedPracticeSessionFromState,
-  handleChartBarSelection,
   renderChartSelectionUi,
   updateChartMixerOutputs
 } from '../features/chart/chart-screen-state.js';
@@ -117,6 +116,7 @@ const PLAYBACK_SETTINGS_STORAGE_KEY = 'jpt-chart-dev-playback-settings';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
+const CHART_TEXT_SCALE_COMPENSATION_CSS_VAR = '--chart-text-scale-compensation';
 
 const {
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
@@ -139,7 +139,6 @@ const dom = {
   chartSearchInput: document.getElementById('chart-search-input'),
   chartLibraryCount: document.getElementById('chart-library-count'),
   importIRealBackupButton: document.getElementById('import-ireal-backup-button'),
-  openIRealDefaultPlaylistsButton: document.getElementById('open-ireal-default-playlists-button'),
   openIRealForumButton: document.getElementById('open-ireal-forum-button'),
   clearAllChartsButton: document.getElementById('clear-all-charts-button'),
   irealLinkInput: document.getElementById('ireal-link-input'),
@@ -182,6 +181,9 @@ const dom = {
   selectionSummary: document.getElementById('selection-summary'),
   clearSelectionButton: document.getElementById('clear-selection-button'),
   sendSelectionToPracticeButton: document.getElementById('send-selection-to-drill-button'),
+  selectionMenu: document.getElementById('chart-selection-menu'),
+  selectionLoopButton: document.getElementById('selection-loop-button'),
+  selectionCreateDrillButton: document.getElementById('selection-create-drill-button'),
   mobileMenuToggle: document.getElementById('mobile-menu-toggle'),
   mobileBackdrop: document.getElementById('chart-mobile-backdrop'),
   manageChartsButton: document.getElementById('manage-charts-button'),
@@ -233,8 +235,39 @@ const state = {
     startX: 0,
     startY: 0,
     active: false
-  }
+  },
+  selectionLoopActive: false,
+  selectionLoopRestartPending: false
 };
+
+let chartTextScaleCompensation = 1;
+
+function measureChartTextScaleCompensation() {
+  const probe = document.createElement('div');
+  probe.textContent = 'Chart';
+  probe.style.position = 'fixed';
+  probe.style.left = '-9999px';
+  probe.style.top = '0';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.fontSize = '100px';
+  probe.style.lineHeight = '1';
+  probe.style.whiteSpace = 'nowrap';
+  document.body.appendChild(probe);
+  const computedFontPx = parseFloat(getComputedStyle(probe).fontSize);
+  probe.remove();
+
+  if (!computedFontPx || !Number.isFinite(computedFontPx)) {
+    chartTextScaleCompensation = 1;
+  } else {
+    chartTextScaleCompensation = Math.max(0.4, Math.min(1, 100 / computedFontPx));
+  }
+
+  document.documentElement.style.setProperty(
+    CHART_TEXT_SCALE_COMPENSATION_CSS_VAR,
+    chartTextScaleCompensation.toFixed(4)
+  );
+}
 
 function isPopoverOpen(popover) {
   return Boolean(popover && !popover.hidden);
@@ -266,6 +299,8 @@ const chartBackNavigation = createMobileBackNavigationController({
   ),
   handleBack: handleChartDismissibleBack
 });
+
+let chartNavigationController = null;
 
 const chartDirectPlaybackRuntimeHost = createChartDirectPlaybackRuntimeHost(createChartDirectPlaybackRuntimeHostBindings({
   getExistingFrame: () => dom.playbackBridgeFrame,
@@ -403,7 +438,7 @@ function updateChartNavigationState() {
 }
 
 function bindChartNavigationControls() {
-  createChartNavigationController(createChartNavigationBindings({
+  chartNavigationController = createChartNavigationController(createChartNavigationBindings({
     getDocuments: getAvailableDocuments,
     getSelectedId: () => dom.fixtureSelect?.value || state.currentChartDocument?.metadata?.id || '',
     setSelectedId: (id) => {
@@ -414,8 +449,10 @@ function bindChartNavigationControls() {
     renderFixture,
     previousChartButton: dom.previousChartButton,
     nextChartButton: dom.nextChartButton,
-    sheetGrid: dom.sheetGrid
-  })).bind();
+    sheetGrid: dom.sheetGrid,
+    enableSwipeGestures: false
+  }));
+  chartNavigationController.bind();
 }
 
 function setImportStatus(message, isError = false) {
@@ -532,6 +569,17 @@ function getSelectedPracticeSession() {
   return getSelectedPracticeSessionFromState(state);
 }
 
+function hasActiveSelection() {
+  return state.selectionController.getSelection().barIds.length > 0;
+}
+
+function setSelectionLoopActive(active) {
+  state.selectionLoopActive = Boolean(active);
+  if (!state.selectionLoopActive) {
+    state.selectionLoopRestartPending = false;
+  }
+}
+
 function updateMixerOutputs() {
   updateChartMixerOutputs(createChartMixerBindings({
     masterVolume: dom.masterVolume,
@@ -610,34 +658,107 @@ function renderSelectionState() {
     sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
     updateSelectionHighlights
   }));
+  renderSelectionMenu();
+}
+
+function renderSelectionMenu() {
+  const selectionCount = state.selectionController.getSelection().barIds.length;
+  const hasSession = Boolean(state.currentSelectionPracticeSession);
+  if (selectionCount === 0) {
+    if (state.selectionLoopActive) {
+      setSelectionLoopActive(false);
+    }
+    if (dom.selectionMenu) {
+      dom.selectionMenu.hidden = true;
+      dom.selectionMenu.setAttribute('aria-hidden', 'true');
+    }
+    return;
+  }
+
+  if (dom.selectionMenu) {
+    dom.selectionMenu.hidden = false;
+    dom.selectionMenu.setAttribute('aria-hidden', 'false');
+  }
+  if (dom.selectionLoopButton) {
+    dom.selectionLoopButton.disabled = !hasSession;
+    dom.selectionLoopButton.textContent = state.selectionLoopActive ? 'Looping...' : 'Loop';
+    dom.selectionLoopButton.classList.toggle('is-active', state.selectionLoopActive);
+  }
+  if (dom.selectionCreateDrillButton) {
+    dom.selectionCreateDrillButton.disabled = !hasSession;
+  }
+}
+
+function maybeRestartSelectionLoop(previousState, nextState) {
+  if (!state.selectionLoopActive || state.selectionLoopRestartPending) return;
+  if (!previousState.isPlaying || previousState.isPaused) return;
+  if (nextState?.isPlaying || nextState?.isPaused) return;
+  if (!hasActiveSelection() || !state.currentSelectionPracticeSession?.playback?.enginePatternString) {
+    setSelectionLoopActive(false);
+    renderSelectionState();
+    return;
+  }
+
+  state.selectionLoopRestartPending = true;
+  window.setTimeout(async () => {
+    try {
+      if (!state.selectionLoopActive) return;
+      await startPlayback({
+        cancelSelectionLoop: false
+      });
+    } catch (error) {
+      setSelectionLoopActive(false);
+      renderSelectionState();
+      if (dom.transportStatus) dom.transportStatus.textContent = `Playback error: ${getErrorMessage(error)}`;
+    } finally {
+      state.selectionLoopRestartPending = false;
+      renderSelectionState();
+    }
+  }, 0);
+}
+
+function applyChartPlaybackState(nextState, { allowSelectionLoopRestart = true } = {}) {
+  const previousState = {
+    isPlaying: Boolean(state.isPlaying),
+    isPaused: Boolean(state.isPaused)
+  };
+  applyPlaybackTransportState({
+    state,
+    nextState
+  });
+  if (allowSelectionLoopRestart) {
+    maybeRestartSelectionLoop(previousState, nextState);
+  }
+  renderSelectionState();
 }
 
 function syncPlaybackState() {
   const nextState = getChartPlaybackController().syncPlaybackState();
-  applyPlaybackTransportState({
-    state,
-    nextState
-  });
+  applyChartPlaybackState(nextState);
 }
 
-async function stopPlayback({ resetPosition = true } = {}) {
+async function stopPlayback({ resetPosition = true, cancelSelectionLoop = true } = {}) {
+  if (cancelSelectionLoop) {
+    setSelectionLoopActive(false);
+  }
   stopPlaybackPolling({
     state
   });
   const nextState = await getChartPlaybackController().stopPlayback({ resetPosition });
-  applyPlaybackTransportState({
-    state,
-    nextState
+  applyChartPlaybackState(nextState, {
+    allowSelectionLoopRestart: false
   });
 }
 
-async function startPlayback() {
+async function startPlayback({ cancelSelectionLoop = true } = {}) {
+  if (cancelSelectionLoop) {
+    setSelectionLoopActive(false);
+  }
   const nextState = await getChartPlaybackController().startPlayback();
-  applyPlaybackTransportState({
-    state,
-    nextState: 'isPlaying' in nextState
-      ? nextState
-      : { isPlaying: false, isPaused: false }
+  applyChartPlaybackState('isPlaying' in nextState
+    ? nextState
+    : { isPlaying: false, isPaused: false }, {
+    allowSelectionLoopRestart: false
   });
   startPlaybackPolling({
     state,
@@ -663,7 +784,43 @@ async function syncPlaybackSettings() {
 }
 
 function navigateToPracticeWithSelection() {
+  setSelectionLoopActive(false);
   getChartPlaybackController().navigateToPracticeWithSelection();
+}
+
+function clearChartSelection() {
+  const shouldStopLoopPlayback = state.selectionLoopActive && (state.isPlaying || state.isPaused);
+  setSelectionLoopActive(false);
+  state.selectionController.clear();
+  renderSelectionState();
+  if (shouldStopLoopPlayback) {
+    void stopPlayback({
+      resetPosition: true,
+      cancelSelectionLoop: false
+    });
+  }
+}
+
+async function startSelectionLoop() {
+  if (!hasActiveSelection() || !state.currentSelectionPracticeSession?.playback?.enginePatternString) return;
+  setSelectionLoopActive(true);
+  renderSelectionState();
+  try {
+    if (state.isPlaying || state.isPaused || state.activePlaybackEntryIndex >= 0) {
+      await stopPlayback({
+        resetPosition: true,
+        cancelSelectionLoop: false
+      });
+    }
+    await startPlayback({
+      cancelSelectionLoop: false
+    });
+    closeOverlay();
+  } catch (error) {
+    setSelectionLoopActive(false);
+    renderSelectionState();
+    if (dom.transportStatus) dom.transportStatus.textContent = `Playback error: ${getErrorMessage(error)}`;
+  }
 }
 
 /** @returns {PlaybackBridgeProvider} */
@@ -683,6 +840,7 @@ function getChartSheetRenderer() {
     diagnosticsList: dom.diagnosticsList,
     getDisplayedBarGroupSize,
     getHarmonyDisplayMode: () => normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+    getTextScaleCompensation: () => chartTextScaleCompensation,
     getFallbackTimeSignature: () => state.currentViewModel?.metadata?.primaryTimeSignature || '',
     renderChordMarkup,
     isBarActive: (bar) => bar?.id === state.activeBarId,
@@ -819,14 +977,6 @@ function renderFixture() {
   }));
 }
 
-function handleBarSelection(event) {
-  handleChartBarSelection(createChartBarSelectionBindings({
-    event,
-    selectionController: state.selectionController,
-    renderSelectionState
-  }));
-}
-
 function closeAllPopovers() {
   const bindings = createChartPopoverBindings({
     popovers: [dom.manageChartsPopover, dom.settingsPopover]
@@ -910,7 +1060,6 @@ function bindImportControls() {
   bindChartImportControls(createChartImportControlsBindings({
     importIRealBackupButton: dom.importIRealBackupButton,
     irealBackupInput: dom.irealBackupInput,
-    openIRealDefaultPlaylistsButton: dom.openIRealDefaultPlaylistsButton,
     openIRealForumButton: dom.openIRealForumButton,
     importIRealLinkButton: dom.importIRealLinkButton,
     irealLinkInput: dom.irealLinkInput,
@@ -921,7 +1070,7 @@ function bindImportControls() {
     onPastedLinkImport: handlePastedIRealLinkImport,
     onOpenForumTracks: () => openIrealBrowser({
       url: IREAL_FORUM_TRACKS_URL,
-      title: 'iReal forum tracks'
+      title: 'Click on a link to import'
     })
   }));
   dom.clearAllChartsButton?.addEventListener('click', () => {
@@ -960,7 +1109,6 @@ async function loadFixtures() {
         onSearch: applySearchFilter,
         onFixtureChange: renderFixture,
         onTransposeChange: renderFixture,
-        onBarClick: handleBarSelection,
         onHarmonyDisplayModeChange: () => {
           persistPlaybackSettings();
           renderFixture();
@@ -997,14 +1145,26 @@ async function loadFixtures() {
           stopPlayback({ resetPosition: true });
         },
         onClearSelection: () => {
-          state.selectionController.clear();
-          renderSelectionState();
+          clearChartSelection();
         },
-    onSendSelectionToPractice: navigateToPracticeWithSelection,
+        onSendSelectionToPractice: navigateToPracticeWithSelection,
         onBeforeUnload: () => {
           stopPlayback({ resetPosition: true });
         }
       })));
+      dom.selectionLoopButton?.addEventListener('click', () => {
+        void startSelectionLoop();
+      });
+      dom.selectionCreateDrillButton?.addEventListener('click', navigateToPracticeWithSelection);
+      createChartGestureController({
+        sheetGrid: dom.sheetGrid,
+        selectionController: state.selectionController,
+        renderSelectionState,
+        hasActiveSelection,
+        clearSelection: clearChartSelection,
+        openOverlay,
+        goToAdjacentChart: (direction) => chartNavigationController?.goToAdjacentChart(direction) ?? false
+      }).bind();
     },
     bindOverlayControls: () => {
       const bindings = createChartOverlayControlsBindings({
@@ -1042,6 +1202,8 @@ async function loadFixtures() {
   })));
   await consumePendingMobileImport();
 }
+
+measureChartTextScaleCompensation();
 
 loadFixtures().catch((error) => {
   dom.transportStatus.textContent = `Failed to load charts: ${getErrorMessage(error)}`;
