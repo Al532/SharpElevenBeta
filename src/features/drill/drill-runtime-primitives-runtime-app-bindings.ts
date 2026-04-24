@@ -5,7 +5,7 @@
  * before the shared runtime-primitives bindings normalization layer.
  *
  * @param {object} [options]
- * @returns {Record<string, any>}
+ * @returns {Record<string, unknown>}
  */
 export function createDrillRuntimePrimitivesRuntimeAppBindings(options = {}) {
   return { ...options };

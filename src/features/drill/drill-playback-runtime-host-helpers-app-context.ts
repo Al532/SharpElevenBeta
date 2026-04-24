@@ -6,7 +6,7 @@
  * runtime-helper contract inline.
  *
  * @param {object} [options]
- * @returns {Record<string, any>}
+ * @returns {Record<string, unknown>}
  */
 export function createDrillPlaybackRuntimeHostHelpersAppContext(options = {}) {
   return { ...options };

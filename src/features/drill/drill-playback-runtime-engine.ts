@@ -179,14 +179,14 @@ export function createDrillPlaybackTransportState(bindings) {
 
 /**
  * @param {{
- *   dom: Record<string, any>,
+ *   dom: Record<string, unknown>,
  *   schedulerState: ReturnType<typeof createDrillPlaybackSchedulerState>,
  *   transportState: ReturnType<typeof createDrillPlaybackTransportState>,
  *   noteFadeout: number,
  *   scheduleInterval: number,
  *   scheduleAhead: number,
- *   schedulerHelpers: Record<string, any>,
- *   transportHelpers: Record<string, any>
+ *   schedulerHelpers: Record<string, unknown>,
+ *   transportHelpers: Record<string, unknown>
  * }} options
  */
 export function initializeDrillPlaybackRuntimeEngine({

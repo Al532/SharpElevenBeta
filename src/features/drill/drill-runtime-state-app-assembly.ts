@@ -29,10 +29,10 @@ type CreateDrillRuntimeStateAppAssemblyOptions = {
  *     setKeyPool?: (value: number[]) => void
  *   },
  *   sessionAnalytics?: {
- *     dom?: Record<string, any>,
- *     state?: Record<string, any>,
- *     helpers?: Record<string, any>,
- *     constants?: Record<string, any>,
+ *     dom?: Record<string, unknown>,
+ *     state?: Record<string, unknown>,
+ *     helpers?: Record<string, unknown>,
+ *     constants?: Record<string, unknown>,
  *     now?: () => number
  *   }
  * }} [options]

@@ -12,9 +12,9 @@ import {
  * contracts out of `app.js` while preserving the same helper surfaces.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.harmonyDisplay]
- * @param {Record<string, any>} [options.previewTiming]
- * @param {Record<string, any>} [options.harmonyLayout]
+ * @param {Record<string, unknown>} [options.harmonyDisplay]
+ * @param {Record<string, unknown>} [options.previewTiming]
+ * @param {Record<string, unknown>} [options.harmonyLayout]
  * @returns {{
  *   harmonyDisplayHelpers: ReturnType<typeof createDrillHarmonyDisplayHelpers>,
  *   previewTimingHelpers: ReturnType<typeof createDrillPreviewTimingHelpers>,

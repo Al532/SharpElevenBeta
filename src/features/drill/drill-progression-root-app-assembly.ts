@@ -11,6 +11,8 @@ type DrillProgressionEntry = {
   pattern?: string;
 };
 
+type ProgressionManagerOptions = Parameters<typeof createProgressionManager>[0];
+
 type DrillProgressionRootAppAssemblyOptions = {
   dom?: Record<string, unknown>;
   editorState?: LiveStateBindings;
@@ -176,7 +178,7 @@ export function createDrillProgressionRootAppAssembly({
   });
   const progressionManager = createProgressionManager({
     dom,
-    state: createLiveStateProxy(managerState) as any,
+    state: createLiveStateProxy(managerState) as ProgressionManagerOptions['state'],
     constants: managerConstants,
     helpers: {
       ...progressionEditor,

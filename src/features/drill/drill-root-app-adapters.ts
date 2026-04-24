@@ -22,7 +22,13 @@ type StateRef<T = unknown> = {
 };
 
 type StateRefs = Record<string, StateRef>;
-type AdapterOptions = Record<string, any>;
+type AdapterOptions = Record<string, unknown>;
+type RuntimeStateRootAppAssemblyOptions = Parameters<typeof createDrillRuntimeStateRootAppAssembly>[0];
+type SharedPlaybackRootAppContextOptions = Parameters<typeof createDrillSharedPlaybackRootAppContext>[0];
+type SharedPlaybackRootAppAssemblyOptions = Parameters<typeof createDrillSharedPlaybackRootAppAssembly>[0];
+type UiBootstrapRootAppAssemblyOptions = Parameters<typeof createDrillUiBootstrapRootAppAssembly>[0];
+type UiEventBindingsRootAppAssemblyOptions = Parameters<typeof createDrillUiEventBindingsRootAppAssembly>[0];
+type WelcomeRootAppFacadeOptions = Parameters<typeof createDrillWelcomeRootAppFacade>[0];
 
 function createGetterName(name: string) {
   return `get${name.charAt(0).toUpperCase()}${name.slice(1)}`;
@@ -44,6 +50,18 @@ function createBindingsFromRefs(refs: StateRefs = {}) {
   return bindings;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asStateRefs(value: unknown): StateRefs {
+  return value && typeof value === 'object'
+    ? (value as StateRefs)
+    : {};
+}
+
 function createGetter<T>(ref: StateRef<T>) {
   return typeof ref?.get === 'function' ? () => ref.get() : undefined;
 }
@@ -60,13 +78,13 @@ export function createDrillDisplayDrillRootAppFacade({
   helpers = {}
 }: AdapterOptions = {}) {
   return createDrillDisplayRootAppFacade({
-    dom,
+    dom: asRecord(dom),
     state: {
-      ...createBindingsFromRefs(stateRefs),
-      ...state
+      ...createBindingsFromRefs(asStateRefs(stateRefs)),
+      ...asRecord(state)
     },
-    constants,
-    helpers
+    constants: asRecord(constants),
+    helpers: asRecord(helpers)
   });
 }
 
@@ -78,13 +96,13 @@ export function createDrillKeysDrillRootAppAssembly({
   helpers = {}
 }: AdapterOptions = {}) {
   return createDrillKeysRootAppAssembly({
-    dom,
+    dom: asRecord(dom),
     state: {
-      ...createBindingsFromRefs(stateRefs),
-      ...state
+      ...createBindingsFromRefs(asStateRefs(stateRefs)),
+      ...asRecord(state)
     },
-    constants,
-    helpers
+    constants: asRecord(constants),
+    helpers: asRecord(helpers)
   });
 }
 
@@ -96,13 +114,13 @@ export function createDrillNextPreviewDrillRootAppFacade({
   helpers = {}
 }: AdapterOptions = {}) {
   return createDrillNextPreviewRootAppFacade({
-    dom,
+    dom: asRecord(dom),
     state: {
-      ...createBindingsFromRefs(stateRefs),
-      ...state
+      ...createBindingsFromRefs(asStateRefs(stateRefs)),
+      ...asRecord(state)
     },
-    constants,
-    helpers
+    constants: asRecord(constants),
+    helpers: asRecord(helpers)
   });
 }
 
@@ -113,12 +131,12 @@ export function createDrillPianoMidiRuntimeDrillRootAppAssembly({
   runtimeHelpers = {}
 }: AdapterOptions = {}) {
   return createDrillPianoMidiRuntimeRootAppAssembly({
-    dom,
+    dom: asRecord(dom),
     runtimeState: {
-      ...createBindingsFromRefs(runtimeStateRefs),
-      ...runtimeState
+      ...createBindingsFromRefs(asStateRefs(runtimeStateRefs)),
+      ...asRecord(runtimeState)
     },
-    runtimeHelpers
+    runtimeHelpers: asRecord(runtimeHelpers)
   });
 }
 
@@ -126,12 +144,14 @@ export function createDrillPianoToolsDrillRootAppFacade({
   stateRefs = {},
   ...options
 }: AdapterOptions = {}) {
+  const typedStateRefs = asStateRefs(stateRefs);
+  const typedOptions = asRecord(options);
   return createDrillPianoToolsRootAppFacade({
-    ...options,
-    getPianoFadeSettings: createGetter(stateRefs.pianoFadeSettings) || options.getPianoFadeSettings,
-    setPianoFadeSettings: createSetter(stateRefs.pianoFadeSettings) || options.setPianoFadeSettings,
-    getPianoMidiSettings: createGetter(stateRefs.pianoMidiSettings) || options.getPianoMidiSettings,
-    setPianoMidiSettings: createSetter(stateRefs.pianoMidiSettings) || options.setPianoMidiSettings
+    ...typedOptions,
+    getPianoFadeSettings: createGetter(typedStateRefs.pianoFadeSettings) || typedOptions.getPianoFadeSettings,
+    setPianoFadeSettings: createSetter(typedStateRefs.pianoFadeSettings) || typedOptions.setPianoFadeSettings,
+    getPianoMidiSettings: createGetter(typedStateRefs.pianoMidiSettings) || typedOptions.getPianoMidiSettings,
+    setPianoMidiSettings: createSetter(typedStateRefs.pianoMidiSettings) || typedOptions.setPianoMidiSettings
   });
 }
 
@@ -146,18 +166,18 @@ export function createDrillPlaybackRuntimeHostDrillRootAppAssembly({
   runtimeHelpers = {}
 }: AdapterOptions = {}) {
   return createDrillPlaybackRuntimeHostRootAppAssembly({
-    dom,
+    dom: asRecord(dom),
     runtimeState: {
-      ...createBindingsFromRefs(runtimeStateRefs),
-      ...runtimeState
+      ...createBindingsFromRefs(asStateRefs(runtimeStateRefs)),
+      ...asRecord(runtimeState)
     },
     audioState: {
-      ...createBindingsFromRefs(audioStateRefs),
-      ...audioState
+      ...createBindingsFromRefs(asStateRefs(audioStateRefs)),
+      ...asRecord(audioState)
     },
-    preloadState,
-    playbackConstants,
-    runtimeHelpers
+    preloadState: asRecord(preloadState),
+    playbackConstants: asRecord(playbackConstants),
+    runtimeHelpers: asRecord(runtimeHelpers)
   });
 }
 
@@ -180,28 +200,28 @@ export function createDrillProgressionDrillRootAppAssembly({
   domainHelpers = {}
 }: AdapterOptions = {}) {
   return createDrillProgressionRootAppAssembly({
-    dom,
+    dom: asRecord(dom),
     editorState: {
-      ...createBindingsFromRefs(editorStateRefs),
-      ...editorState
+      ...createBindingsFromRefs(asStateRefs(editorStateRefs)),
+      ...asRecord(editorState)
     },
-    editorConstants,
-    editorHelpers,
+    editorConstants: asRecord(editorConstants),
+    editorHelpers: asRecord(editorHelpers),
     managerState: {
-      ...createBindingsFromRefs(managerStateRefs),
-      ...managerState
+      ...createBindingsFromRefs(asStateRefs(managerStateRefs)),
+      ...asRecord(managerState)
     },
-    managerConstants,
-    managerHelpers,
+    managerConstants: asRecord(managerConstants),
+    managerHelpers: asRecord(managerHelpers),
     controlsState: {
-      ...createBindingsFromRefs(controlsStateRefs),
-      ...controlsState
+      ...createBindingsFromRefs(asStateRefs(controlsStateRefs)),
+      ...asRecord(controlsState)
     },
-    controlsConstants,
-    controlsHelpers,
-    domainState,
-    domainConstants,
-    domainHelpers
+    controlsConstants: asRecord(controlsConstants),
+    controlsHelpers: asRecord(controlsHelpers),
+    domainState: asRecord(domainState),
+    domainConstants: asRecord(domainConstants),
+    domainHelpers: asRecord(domainHelpers)
   });
 }
 
@@ -215,20 +235,23 @@ export function createDrillRuntimeStateDrillRootAppAssembly({
   sessionAnalyticsConstants = {},
   sessionAnalyticsNow
 }: AdapterOptions = {}) {
-  return createDrillRuntimeStateRootAppAssembly({
+  const options: RuntimeStateRootAppAssemblyOptions = {
     keyPoolState: {
-      ...createBindingsFromRefs(keyPoolStateRefs),
-      ...keyPoolState
+      ...createBindingsFromRefs(asStateRefs(keyPoolStateRefs)),
+      ...asRecord(keyPoolState)
     },
-    sessionAnalyticsDom,
+    sessionAnalyticsDom: asRecord(sessionAnalyticsDom),
     sessionAnalyticsState: {
-      ...createBindingsFromRefs(sessionAnalyticsStateRefs),
-      ...sessionAnalyticsState
+      ...createBindingsFromRefs(asStateRefs(sessionAnalyticsStateRefs)),
+      ...asRecord(sessionAnalyticsState)
     },
-    sessionAnalyticsHelpers,
-    sessionAnalyticsConstants,
-    sessionAnalyticsNow
-  } as any);
+    sessionAnalyticsHelpers: asRecord(sessionAnalyticsHelpers),
+    sessionAnalyticsConstants: asRecord(sessionAnalyticsConstants),
+    sessionAnalyticsNow: typeof sessionAnalyticsNow === 'function'
+      ? (() => Number(sessionAnalyticsNow()))
+      : undefined
+  };
+  return createDrillRuntimeStateRootAppAssembly(options);
 }
 
 export function createDrillSettingsDrillRootAppAssembly({
@@ -251,31 +274,31 @@ export function createDrillSettingsDrillRootAppAssembly({
   resetterHelpers = {}
 }: AdapterOptions = {}) {
   return createDrillSettingsRootAppAssembly({
-    defaults,
-    dom,
-    snapshotConstants,
+    defaults: asRecord(defaults),
+    dom: asRecord(dom),
+    snapshotConstants: asRecord(snapshotConstants),
     snapshotState: {
-      ...createBindingsFromRefs(snapshotStateRefs),
-      ...snapshotState
+      ...createBindingsFromRefs(asStateRefs(snapshotStateRefs)),
+      ...asRecord(snapshotState)
     },
-    snapshotHelpers,
-    loadApplierConstants,
+    snapshotHelpers: asRecord(snapshotHelpers),
+    loadApplierConstants: asRecord(loadApplierConstants),
     loadApplierState: {
-      ...createBindingsFromRefs(loadApplierStateRefs),
-      ...loadApplierState
+      ...createBindingsFromRefs(asStateRefs(loadApplierStateRefs)),
+      ...asRecord(loadApplierState)
     },
-    loadApplierHelpers,
-    loadFinalizerConstants,
+    loadApplierHelpers: asRecord(loadApplierHelpers),
+    loadFinalizerConstants: asRecord(loadFinalizerConstants),
     loadFinalizerState: {
-      ...createBindingsFromRefs(loadFinalizerStateRefs),
-      ...loadFinalizerState
+      ...createBindingsFromRefs(asStateRefs(loadFinalizerStateRefs)),
+      ...asRecord(loadFinalizerState)
     },
-    loadFinalizerHelpers,
+    loadFinalizerHelpers: asRecord(loadFinalizerHelpers),
     resetterState: {
-      ...createBindingsFromRefs(resetterStateRefs),
-      ...resetterState
+      ...createBindingsFromRefs(asStateRefs(resetterStateRefs)),
+      ...asRecord(resetterState)
     },
-    resetterHelpers
+    resetterHelpers: asRecord(resetterHelpers)
   });
 }
 
@@ -287,12 +310,12 @@ export function createDrillSettingsPersistenceDrillRootAppAssembly({
   state = {}
 }: AdapterOptions = {}) {
   return createDrillSettingsPersistenceRootAppAssembly({
-    dom,
-    constants,
-    helpers,
+    dom: asRecord(dom),
+    constants: asRecord(constants),
+    helpers: asRecord(helpers),
     state: {
-      ...createBindingsFromRefs(stateRefs),
-      ...state
+      ...createBindingsFromRefs(asStateRefs(stateRefs)),
+      ...asRecord(state)
     }
   });
 }
@@ -307,31 +330,31 @@ export function createDrillSharedPlaybackDrillRootAppAssembly({
   const rootAppContext = createDrillSharedPlaybackRootAppContext({
     ...rootBindings,
     host: {
-      ...(rootBindings.host || {}),
+      ...asRecord(rootBindings.host),
       state: {
-        ...createBindingsFromRefs(hostStateRefs),
-        ...(rootBindings.host?.state || {})
+        ...createBindingsFromRefs(asStateRefs(hostStateRefs)),
+        ...asRecord(asRecord(rootBindings.host).state)
       }
     },
     directPlaybackRuntime: {
-      ...(rootBindings.directPlaybackRuntime || {}),
+      ...asRecord(rootBindings.directPlaybackRuntime),
       state: {
-        ...createBindingsFromRefs(directPlaybackRuntimeStateRefs),
-        ...(rootBindings.directPlaybackRuntime?.state || {})
+        ...createBindingsFromRefs(asStateRefs(directPlaybackRuntimeStateRefs)),
+        ...asRecord(asRecord(rootBindings.directPlaybackRuntime).state)
       }
     },
     directPlaybackState: {
-      ...createBindingsFromRefs(directPlaybackStateRefs),
-      ...(rootBindings.directPlaybackState || {})
+      ...createBindingsFromRefs(asStateRefs(directPlaybackStateRefs)),
+      ...asRecord(rootBindings.directPlaybackState)
     }
-  } as any);
+  } as SharedPlaybackRootAppContextOptions);
 
   return {
     rootAppContext,
     ...createDrillSharedPlaybackRootAppAssembly({
       dom,
       ...rootAppContext
-    } as any)
+    } as SharedPlaybackRootAppAssemblyOptions)
   };
 }
 
@@ -344,12 +367,12 @@ export function createDrillStartupDataDrillRootAppAssembly({
 }: AdapterOptions = {}) {
   return createDrillStartupDataRootAppAssembly({
     state: {
-      ...createBindingsFromRefs(stateRefs),
-      ...state
+      ...createBindingsFromRefs(asStateRefs(stateRefs)),
+      ...asRecord(state)
     },
-    welcomeStandards,
-    patternHelp,
-    defaultProgressions
+    welcomeStandards: asRecord(welcomeStandards),
+    patternHelp: asRecord(patternHelp),
+    defaultProgressions: asRecord(defaultProgressions)
   });
 }
 
@@ -370,25 +393,25 @@ export function createDrillUiBootstrapDrillRootAppAssembly({
   runtimeControlsHelpers = {}
 }: AdapterOptions = {}) {
   return createDrillUiBootstrapRootAppAssembly({
-    screen,
-    screenDom,
+    screen: asRecord(screen),
+    screenDom: asRecord(screenDom),
     screenState: {
-      ...createBindingsFromRefs(screenStateRefs),
-      ...screenState
+      ...createBindingsFromRefs(asStateRefs(screenStateRefs)),
+      ...asRecord(screenState)
     },
-    screenConstants,
-    screenHelpers,
-    harmonyDisplayObservers,
-    pianoControls,
-    runtimeControls,
-    runtimeControlsDom,
+    screenConstants: asRecord(screenConstants),
+    screenHelpers: asRecord(screenHelpers),
+    harmonyDisplayObservers: asRecord(harmonyDisplayObservers),
+    pianoControls: asRecord(pianoControls),
+    runtimeControls: asRecord(runtimeControls),
+    runtimeControlsDom: asRecord(runtimeControlsDom),
     runtimeControlsState: {
-      ...createBindingsFromRefs(runtimeControlsStateRefs),
-      ...runtimeControlsState
+      ...createBindingsFromRefs(asStateRefs(runtimeControlsStateRefs)),
+      ...asRecord(runtimeControlsState)
     },
-    runtimeControlsConstants,
-    runtimeControlsHelpers
-  } as any);
+    runtimeControlsConstants: asRecord(runtimeControlsConstants),
+    runtimeControlsHelpers: asRecord(runtimeControlsHelpers)
+  } as UiBootstrapRootAppAssemblyOptions);
 }
 
 export function createDrillUiEventBindingsDrillRootAppAssembly({
@@ -403,30 +426,36 @@ export function createDrillUiEventBindingsDrillRootAppAssembly({
   lifecycleTarget = globalThis.window,
   trackSessionDuration
 }: AdapterOptions = {}) {
+  const typedSettingsControls = asRecord(settingsControls);
+  const typedSettingsStateRefs = asStateRefs(settingsStateRefs);
+  const typedPianoPresetControls = asRecord(pianoPresetControls);
+  const typedPianoPresetStateRefs = asStateRefs(pianoPresetStateRefs);
+  const typedLifecycleControls = asRecord(lifecycleControls);
+  const typedLifecycleStateRefs = asStateRefs(lifecycleStateRefs);
   return createDrillUiEventBindingsRootAppAssembly({
-    welcomeControls,
-    analyticsLink,
+    welcomeControls: asRecord(welcomeControls),
+    analyticsLink: asRecord(analyticsLink),
     settingsControls: {
-      ...settingsControls,
-      isPlaying: createGetter(settingsStateRefs.isPlaying) || settingsControls.isPlaying,
-      getAudioContext: createGetter(settingsStateRefs.audioContext) || settingsControls.getAudioContext,
-      getCurrentKey: createGetter(settingsStateRefs.currentKey) || settingsControls.getCurrentKey
+      ...typedSettingsControls,
+      isPlaying: createGetter(typedSettingsStateRefs.isPlaying) || typedSettingsControls.isPlaying,
+      getAudioContext: createGetter(typedSettingsStateRefs.audioContext) || typedSettingsControls.getAudioContext,
+      getCurrentKey: createGetter(typedSettingsStateRefs.currentKey) || typedSettingsControls.getCurrentKey
     },
     pianoPresetControls: {
-      ...pianoPresetControls,
-      getPianoMidiSettings: createGetter(pianoPresetStateRefs.pianoMidiSettings) || pianoPresetControls.getPianoMidiSettings,
-      setPianoFadeSettings: createSetter(pianoPresetStateRefs.pianoFadeSettings) || pianoPresetControls.setPianoFadeSettings,
-      setPianoMidiSettings: createSetter(pianoPresetStateRefs.pianoMidiSettings) || pianoPresetControls.setPianoMidiSettings
+      ...typedPianoPresetControls,
+      getPianoMidiSettings: createGetter(typedPianoPresetStateRefs.pianoMidiSettings) || typedPianoPresetControls.getPianoMidiSettings,
+      setPianoFadeSettings: createSetter(typedPianoPresetStateRefs.pianoFadeSettings) || typedPianoPresetControls.setPianoFadeSettings,
+      setPianoMidiSettings: createSetter(typedPianoPresetStateRefs.pianoMidiSettings) || typedPianoPresetControls.setPianoMidiSettings
     },
     lifecycleControls: {
-      ...lifecycleControls,
-      getIsPlaying: createGetter(lifecycleStateRefs.isPlaying) || lifecycleControls.getIsPlaying,
-      getIsPaused: createGetter(lifecycleStateRefs.isPaused) || lifecycleControls.getIsPaused,
-      getAudioContext: createGetter(lifecycleStateRefs.audioContext) || lifecycleControls.getAudioContext
+      ...typedLifecycleControls,
+      getIsPlaying: createGetter(typedLifecycleStateRefs.isPlaying) || typedLifecycleControls.getIsPlaying,
+      getIsPaused: createGetter(typedLifecycleStateRefs.isPaused) || typedLifecycleControls.getIsPaused,
+      getAudioContext: createGetter(typedLifecycleStateRefs.audioContext) || typedLifecycleControls.getAudioContext
     },
     lifecycleTarget,
     trackSessionDuration
-  } as any);
+  } as UiEventBindingsRootAppAssemblyOptions);
 }
 
 export function createDrillWelcomeDrillRootAppFacade({
@@ -437,14 +466,14 @@ export function createDrillWelcomeDrillRootAppFacade({
   helpers = {}
 }: AdapterOptions = {}) {
   return createDrillWelcomeRootAppFacade({
-    dom,
+    dom: asRecord(dom),
     state: {
-      ...createBindingsFromRefs(stateRefs),
-      ...state
+      ...createBindingsFromRefs(asStateRefs(stateRefs)),
+      ...asRecord(state)
     },
-    constants,
-    helpers
-  } as any);
+    constants: asRecord(constants),
+    helpers: asRecord(helpers)
+  } as WelcomeRootAppFacadeOptions);
 }
 
 

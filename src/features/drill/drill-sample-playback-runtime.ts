@@ -67,7 +67,7 @@ function stopAudioSourceSafely(source: AudioScheduledSourceNode, stopTime: numbe
 /**
  * @param {object} [options]
  * @param {() => BaseAudioContext | null} [options.getAudioContext]
- * @param {Record<string, Record<string, any>>} [options.sampleBuffers]
+ * @param {DrillLoadedSampleBuffers} [options.sampleBuffers]
  * @param {(channel: string) => AudioNode | null} [options.getMixerDestination]
  * @param {(source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown} [options.trackScheduledSource]
  * @param {(category: string, folder: string, midi: number) => Promise<any>} [options.loadSample]

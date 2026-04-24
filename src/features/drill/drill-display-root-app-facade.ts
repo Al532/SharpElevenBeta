@@ -77,10 +77,10 @@ type CreateDrillDisplayRootAppFacadeOptions = {
  * `app.js` while preserving the same display behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, Function>} [options.state]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.helpers]
+ * @param {DrillDisplayDom} [options.dom]
+ * @param {DrillDisplayState} [options.state]
+ * @param {DrillDisplayConstants} [options.constants]
+ * @param {DrillDisplayHelpers} [options.helpers]
  */
 export function createDrillDisplayRootAppFacade({
   dom = {},

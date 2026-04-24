@@ -7,9 +7,9 @@
  *
  * @param {object} [options]
  * @param {Record<string, Function>} [options.state]
- * @param {Record<string, any>} [options.welcomeStandards]
- * @param {Record<string, any>} [options.patternHelp]
- * @param {Record<string, any>} [options.defaultProgressions]
+ * @param {object} [options.welcomeStandards]
+ * @param {object} [options.patternHelp]
+ * @param {object} [options.defaultProgressions]
  */
 type WelcomeStandardEntry = {
   patternName?: string,

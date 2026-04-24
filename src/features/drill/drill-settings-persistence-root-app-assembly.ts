@@ -37,10 +37,10 @@ type CreateDrillSettingsPersistenceRootAppAssemblyOptions = {
  * same persistence behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.helpers]
- * @param {Record<string, Function>} [options.state]
+ * @param {DrillSettingsPersistenceDom} [options.dom]
+ * @param {DrillSettingsPersistenceConstants} [options.constants]
+ * @param {DrillSettingsPersistenceHelpers} [options.helpers]
+ * @param {DrillSettingsPersistenceState} [options.state]
  */
 export function createDrillSettingsPersistenceRootAppAssembly({
   dom = {},

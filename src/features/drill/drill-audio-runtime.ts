@@ -1,6 +1,18 @@
 
 type DrillSampleBufferStore = Record<string, Record<string | number, AudioBuffer | null | undefined>>;
 type DrillSampleLoadPromiseStore = Record<string, Map<string | number, Promise<any>>>;
+type DrillMixerSliderLike = { value: string | number };
+type DrillMixerLabelLike = { value?: string; textContent?: string | null };
+type DrillMixerDom = {
+  masterVolume?: DrillMixerSliderLike | null;
+  masterVolumeValue?: DrillMixerLabelLike | null;
+  bassVolume?: DrillMixerSliderLike | null;
+  bassVolumeValue?: DrillMixerLabelLike | null;
+  stringsVolume?: DrillMixerSliderLike | null;
+  stringsVolumeValue?: DrillMixerLabelLike | null;
+  drumsVolume?: DrillMixerSliderLike | null;
+  drumsVolumeValue?: DrillMixerLabelLike | null;
+};
 
 type DrillAudioRuntimeOptions = {
   sampleBuffers?: DrillSampleBufferStore;
@@ -14,7 +26,7 @@ type DrillAudioRuntimeOptions = {
 
 /**
  * @param {{
- *   sampleBuffers?: Record<string, Record<string, any>>,
+ *   sampleBuffers?: Record<string, Record<string | number, AudioBuffer | null | undefined>>,
  *   sampleLoadPromises?: Record<string, Map<string | number, Promise<any>>>,
  *   sampleFileBuffers?: Map<string, ArrayBuffer>,
  *   sampleFileFetchPromises?: Map<string, Promise<ArrayBuffer>>,
@@ -50,7 +62,7 @@ export function createDrillAudioRuntime({
     sliderValueToGain,
     mixerChannelCalibration
   }: {
-    dom?: Record<string, any>;
+    dom?: DrillMixerDom;
     mixerNodes?: Record<string, GainNode> | null;
     audioCtx?: AudioContext | null;
     sliderValueToGain: (slider?: any) => number;

@@ -38,10 +38,10 @@ type CreateDrillNextPreviewRootAppFacadeOptions = {
  * `app.js` while preserving the same controls/runtime behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, Function>} [options.state]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.helpers]
+ * @param {DrillNextPreviewDom} [options.dom]
+ * @param {DrillNextPreviewState} [options.state]
+ * @param {DrillNextPreviewConstants} [options.constants]
+ * @param {DrillNextPreviewHelpers} [options.helpers]
  */
 export function createDrillNextPreviewRootAppFacade({
   dom = {},

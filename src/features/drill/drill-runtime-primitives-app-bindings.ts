@@ -5,11 +5,11 @@
  * assembly.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.patternAnalysis]
- * @param {Record<string, any>} [options.playbackSettings]
+ * @param {Record<string, unknown>} [options.patternAnalysis]
+ * @param {Record<string, unknown>} [options.playbackSettings]
  * @returns {{
- *   patternAnalysis: Record<string, any>,
- *   playbackSettings: Record<string, any>
+ *   patternAnalysis: Record<string, unknown>,
+ *   playbackSettings: Record<string, unknown>
  * }}
  */
 export function createDrillRuntimePrimitivesAppBindings({

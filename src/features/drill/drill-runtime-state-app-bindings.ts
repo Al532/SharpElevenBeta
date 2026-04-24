@@ -5,7 +5,7 @@
  * the shared runtime-state boundary.
  *
  * @param {object} [options]
- * @returns {Record<string, any>}
+ * @returns {Record<string, unknown>}
  */
 export function createDrillRuntimeStateAppBindings(options = {}) {
   return { ...options };

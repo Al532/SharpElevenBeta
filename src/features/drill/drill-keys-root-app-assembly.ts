@@ -52,10 +52,10 @@ type KeysAssemblyOptions = {
  * surface while preserving the same key-selection behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, Function>} [options.state]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.helpers]
+ * @param {KeysAssemblyDom} [options.dom]
+ * @param {KeysAssemblyState} [options.state]
+ * @param {KeysAssemblyConstants} [options.constants]
+ * @param {KeysAssemblyHelpers} [options.helpers]
  */
 export function createDrillKeysRootAppAssembly({
   dom = {},

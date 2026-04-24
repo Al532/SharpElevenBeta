@@ -9,7 +9,7 @@ import { createDrillWalkingBassAppBindings } from './drill-walking-bass-app-bind
  * preserving the existing app-owned binding seam.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.constants]
+ * @param {Record<string, unknown>} [options.constants]
  */
 export function createDrillWalkingBassRootAppAssembly({
   constants = {}

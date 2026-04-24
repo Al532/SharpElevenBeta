@@ -146,6 +146,69 @@
   --mixer-slider-row-gap: 0.75rem;
   --mixer-output-min-width: 3.5rem;
   --mixer-output-font-size: 0.84rem;
+  --mixer-label-font-size: 0.88rem;
+  --type-title-size: 1.5rem;
+  --type-title-letter-spacing: 0.06em;
+  --type-subtitle-size: 0.98rem;
+  --type-subtitle-line-height: 1.55;
+  --type-compact-label-size: 0.85rem;
+  --type-kicker-size: 0.72rem;
+  --type-small-link-size: 0.82rem;
+  --type-summary-size: 0.88rem;
+  --type-toggle-label-size: 0.9rem;
+  --type-mode-option-size: 0.82rem;
+  --app-header-margin-bottom: 1.25rem;
+  --app-subtitle-margin-top: 0.7rem;
+  --header-links-gap: 0.85rem;
+  --header-links-margin-bottom: 0.65rem;
+  --social-share-gap: 0.65rem;
+  --social-share-margin-bottom: 0.95rem;
+  --section-heading-margin-bottom: 0.85rem;
+  --selected-keys-summary-margin-bottom: 0.55rem;
+  --form-row-gap: 1rem;
+  --form-label-margin-bottom: 0.3rem;
+  --form-inline-select-min-width: 4.5rem;
+  --custom-panel-margin-top: 0.75rem;
+  --next-preview-gap: 0.65rem;
+  --toggles-gap: 0.6rem;
+  --toggle-label-gap: 0.4rem;
+  --mode-row-gap: 0.35rem;
+  --mode-row-margin-top: 0.75rem;
+  --mode-option-padding-y: 0.4rem;
+  --mode-option-padding-x: 0.65rem;
+  --welcome-title-size: 1.4rem;
+  --welcome-section-margin-top: 1.35rem;
+  --welcome-section-heading-margin-bottom: 0.75rem;
+  --welcome-section-heading-size: 1rem;
+  --welcome-choice-gap: 0.85rem;
+  --welcome-choice-padding: 1rem;
+  --welcome-choice-title-size: 1rem;
+  --welcome-choice-copy-margin-top: 0.45rem;
+  --welcome-choice-copy-size: 0.92rem;
+  --welcome-choice-copy-line-height: 1.5;
+  --welcome-pill-row-gap: 0.75rem;
+  --welcome-pill-padding-y: 0.75rem;
+  --welcome-pill-padding-x: 1rem;
+  --welcome-footer-gap: 1rem;
+  --welcome-footer-margin-top: 1.5rem;
+  --manager-header-gap: 0.75rem;
+  --manager-header-margin-bottom: 0.7rem;
+  --manager-heading-gap: 0.2rem;
+  --manager-title-size: 0.82rem;
+  --manager-hint-size: 0.8rem;
+  --manager-list-gap: 0.45rem;
+  --manager-item-gap: 0.7rem;
+  --manager-item-padding-y: 0.65rem;
+  --manager-item-padding-x: 0.75rem;
+  --manager-item-name-size: 0.88rem;
+  --manager-actions-gap: 0.6rem;
+  --manager-actions-margin-top: 0.85rem;
+  --manager-undo-message-size: 0.84rem;
+  --pattern-help-static-margin-top: 0.75rem;
+  --pattern-help-paragraph-gap: 0.6rem;
+  --pattern-help-list-margin-top: 0.5rem;
+  --pattern-help-list-padding-left: 1.1rem;
+  --pattern-help-list-item-gap: 0.3rem;
 }
 
 @media (min-width: 721px) {
@@ -213,6 +276,9 @@
     --secondary-panel-padding: 0.9rem;
     --transport-gap: 0.85rem;
     --transport-button-padding-x: 2.15rem;
+    --form-row-gap: 1.05rem;
+    --welcome-choice-gap: 0.9rem;
+    --manager-actions-gap: 0.65rem;
   }
 }
 
@@ -257,7 +323,7 @@ summary {
 }
 
 .app-header {
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--app-header-margin-bottom);
 }
 
 .app-mode-shell {
@@ -329,13 +395,13 @@ summary {
 .app-header-links {
   display: flex;
   justify-content: center;
-  gap: 0.85rem;
-  margin-bottom: 0.65rem;
+  gap: var(--header-links-gap);
+  margin-bottom: var(--header-links-margin-bottom);
   flex-wrap: wrap;
 }
 
 .app-header-link {
-  font-size: 0.82rem;
+  font-size: var(--type-small-link-size);
   font-weight: 600;
   color: var(--accent-cool);
   text-decoration: none;
@@ -358,8 +424,8 @@ summary {
 .social-share-links {
   display: flex;
   justify-content: center;
-  gap: 0.65rem;
-  margin-bottom: 0.95rem;
+  gap: var(--social-share-gap);
+  margin-bottom: var(--social-share-margin-bottom);
   flex-wrap: wrap;
 }
 
@@ -418,18 +484,18 @@ summary {
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: var(--type-title-size);
   font-weight: 400;
   color: var(--text);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-title-letter-spacing);
   text-transform: uppercase;
 }
 
 .app-subtitle {
   max-width: 42rem;
-  margin: 0.7rem auto 0;
-  font-size: 0.98rem;
-  line-height: 1.55;
+  margin: var(--app-subtitle-margin-top) auto 0;
+  font-size: var(--type-subtitle-size);
+  line-height: var(--type-subtitle-line-height);
   color: var(--text-muted);
 }
 
@@ -523,12 +589,12 @@ h1 {
 .section-heading {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: 0.85rem;
+  margin-bottom: var(--section-heading-margin-bottom);
   text-align: left;
 }
 
 .section-kicker {
-  font-size: 0.72rem;
+  font-size: var(--type-kicker-size);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-cool);
@@ -536,11 +602,11 @@ h1 {
 
 .selected-keys-summary {
   display: inline;
-  margin: -0.2rem 0 0.55rem;
+  margin: -0.2rem 0 var(--selected-keys-summary-margin-bottom);
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 0.88rem;
+  font-size: var(--type-summary-size);
   color: var(--text-faint);
   text-align: left;
   line-height: 1.35;
@@ -939,7 +1005,7 @@ body.key-picker-open {
 #controls {
   display: grid;
   grid-template-columns: var(--controls-columns);
-  gap: 1rem;
+  gap: var(--form-row-gap);
   align-items: start;
 }
 
@@ -954,7 +1020,7 @@ body.key-picker-open {
 .control-panel .control-row + .control-row,
 .control-panel details + details,
 .control-panel .toggles {
-  margin-top: 1rem;
+  margin-top: var(--form-row-gap);
 }
 
 .control-row {
@@ -963,9 +1029,9 @@ body.key-picker-open {
 
 .control-row label {
   display: block;
-  font-size: 0.85rem;
+  font-size: var(--type-compact-label-size);
   color: var(--text-muted);
-  margin-bottom: 0.3rem;
+  margin-bottom: var(--form-label-margin-bottom);
 }
 
 .inline-select-row {
@@ -982,7 +1048,7 @@ body.key-picker-open {
 
 .inline-select-row select {
   width: auto;
-  min-width: 4.5rem;
+  min-width: var(--form-inline-select-min-width);
   padding-right: 2rem;
 }
 
@@ -1002,7 +1068,7 @@ body.key-picker-open {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  gap: var(--next-preview-gap);
 }
 
 .next-preview-controls input[type="number"] {
@@ -1019,9 +1085,9 @@ body.key-picker-open {
 
 .control-row legend {
   display: block;
-  font-size: 0.85rem;
+  font-size: var(--type-compact-label-size);
   color: var(--text-muted);
-  margin-bottom: 0.3rem;
+  margin-bottom: var(--form-label-margin-bottom);
 }
 
 select,
@@ -1334,9 +1400,9 @@ body.welcome-open {
 
 .welcome-title {
   margin: 0 0 0.25rem;
-  font-size: 1.4rem;
+  font-size: var(--welcome-title-size);
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .welcome-kicker,
@@ -1345,7 +1411,7 @@ body.welcome-open {
 }
 
 .welcome-section {
-  margin-top: 1.35rem;
+  margin-top: var(--welcome-section-margin-top);
 }
 
 .welcome-section.hidden {
@@ -1353,14 +1419,14 @@ body.welcome-open {
 }
 
 .welcome-section h3 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
+  margin: 0 0 var(--welcome-section-heading-margin-bottom);
+  font-size: var(--welcome-section-heading-size);
 }
 
 .welcome-choice-grid {
   display: grid;
   grid-template-columns: var(--welcome-choice-columns);
-  gap: 0.85rem;
+  gap: var(--welcome-choice-gap);
 }
 
 .welcome-choice-card,
@@ -1390,7 +1456,7 @@ body.welcome-open {
 
 .welcome-choice-card {
   min-height: 100%;
-  padding: 1rem;
+  padding: var(--welcome-choice-padding);
 }
 
 .welcome-choice-title,
@@ -1402,21 +1468,21 @@ body.welcome-open {
 }
 
 .welcome-choice-title {
-  font-size: 1rem;
+  font-size: var(--welcome-choice-title-size);
   font-weight: 700;
 }
 
 .welcome-choice-copy {
-  margin-top: 0.45rem;
+  margin-top: var(--welcome-choice-copy-margin-top);
   color: var(--text-faint);
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: var(--welcome-choice-copy-size);
+  line-height: var(--welcome-choice-copy-line-height);
 }
 
 .welcome-pill-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--welcome-pill-row-gap);
 }
 
 .welcome-standard-select {
@@ -1453,7 +1519,7 @@ body.welcome-open {
 }
 
 .welcome-pill span {
-  padding: 0.75rem 1rem;
+  padding: var(--welcome-pill-padding-y) var(--welcome-pill-padding-x);
   border-radius: 999px;
   color: var(--text);
   font-weight: 600;
@@ -1491,8 +1557,8 @@ body.welcome-open {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: var(--welcome-footer-gap);
+  margin-top: var(--welcome-footer-margin-top);
 }
 
 .welcome-footer-meta {
@@ -1500,7 +1566,7 @@ body.welcome-open {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: var(--welcome-footer-gap);
 }
 
 .welcome-summary {
@@ -1548,7 +1614,7 @@ body.welcome-open {
 }
 
 .custom-pattern-panel {
-  margin-top: 0.75rem;
+  margin-top: var(--custom-panel-margin-top);
 }
 
 .pattern-help.hidden {
@@ -1731,20 +1797,20 @@ body.welcome-open {
   display: flex;
   align-items: var(--progression-manager-header-align);
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--manager-header-gap);
   flex-wrap: var(--progression-manager-header-wrap);
-  margin-bottom: 0.7rem;
+  margin-bottom: var(--manager-header-margin-bottom);
 }
 
 .progression-manager-panel-heading {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: var(--manager-heading-gap);
 }
 
 .progression-manager-panel-title {
-  font-size: 0.82rem;
+  font-size: var(--manager-title-size);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1752,7 +1818,7 @@ body.welcome-open {
 }
 
 .progression-manager-panel-hint {
-  font-size: 0.8rem;
+  font-size: var(--manager-hint-size);
   color: var(--accent-cool);
 }
 
@@ -1774,15 +1840,15 @@ body.welcome-open {
 
 .progression-manager-list {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--manager-list-gap);
 }
 
 .progression-manager-item {
   display: grid;
   grid-template-columns: var(--progression-manager-item-columns);
-  gap: 0.7rem;
+  gap: var(--manager-item-gap);
   align-items: var(--progression-manager-item-align);
-  padding: 0.65rem 0.75rem;
+  padding: var(--manager-item-padding-y) var(--manager-item-padding-x);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: #182543;
@@ -1814,7 +1880,7 @@ body.welcome-open {
 
 .progression-manager-item-name {
   min-width: 0;
-  font-size: 0.88rem;
+  font-size: var(--manager-item-name-size);
   color: #dfe8f2;
 }
 
@@ -1876,7 +1942,7 @@ body.welcome-open {
 }
 
 .progression-manager-undo-message {
-  font-size: 0.84rem;
+  font-size: var(--manager-undo-message-size);
   color: var(--text-soft);
   font-style: italic;
 }
@@ -1901,8 +1967,8 @@ body.welcome-open {
   display: var(--progression-manager-actions-display);
   grid-template-columns: var(--progression-manager-actions-columns);
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.85rem;
+  gap: var(--manager-actions-gap);
+  margin-top: var(--manager-actions-margin-top);
 }
 
 .pattern-help,
@@ -1915,7 +1981,7 @@ body.welcome-open {
 }
 
 .pattern-help-static {
-  margin-top: 0.75rem;
+  margin-top: var(--pattern-help-static-margin-top);
 }
 
 .pattern-help-title {
@@ -1962,16 +2028,16 @@ body.welcome-open {
 
 .pattern-help-body p + p,
 .pattern-help-body ul + p {
-  margin-top: 0.6rem;
+  margin-top: var(--pattern-help-paragraph-gap);
 }
 
 .pattern-help-body ul {
-  margin: 0.5rem 0 0;
-  padding-left: 1.1rem;
+  margin: var(--pattern-help-list-margin-top) 0 0;
+  padding-left: var(--pattern-help-list-padding-left);
 }
 
 .pattern-help-body li + li {
-  margin-top: 0.3rem;
+  margin-top: var(--pattern-help-list-item-gap);
 }
 
 .pattern-help-body code {
@@ -1996,7 +2062,7 @@ body.welcome-open {
 .toggles {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--toggles-gap);
 }
 
 .toggle-row {
@@ -2009,8 +2075,8 @@ body.welcome-open {
 .toggle-label {
   display: flex !important;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.9rem !important;
+  gap: var(--toggle-label-gap);
+  font-size: var(--type-toggle-label-size) !important;
   color: var(--text) !important;
   cursor: pointer;
 }
@@ -2022,12 +2088,12 @@ body.welcome-open {
 
 .mode-row {
   display: grid;
-  gap: 0.35rem;
-  margin-top: 0.75rem;
+  gap: var(--mode-row-gap);
+  margin-top: var(--mode-row-margin-top);
 }
 
 .mode-row + .custom-pattern-panel {
-  margin-top: 0.75rem;
+  margin-top: var(--mode-row-margin-top);
 }
 
 .mode-toggle {
@@ -2093,8 +2159,8 @@ body.welcome-open {
   position: relative;
   z-index: 1;
   text-align: center;
-  padding: 0.4rem 0.65rem;
-  font-size: 0.82rem;
+  padding: var(--mode-option-padding-y) var(--mode-option-padding-x);
+  font-size: var(--type-mode-option-size);
   font-weight: 700;
   color: var(--text-faint);
   transition: color 0.18s ease;
@@ -2436,7 +2502,7 @@ body.welcome-open {
 }
 
 .mixer-slider > span {
-  font-size: 0.88rem;
+  font-size: var(--mixer-label-font-size);
   color: var(--text);
 }
 

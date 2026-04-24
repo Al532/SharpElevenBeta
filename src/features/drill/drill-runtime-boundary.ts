@@ -116,6 +116,28 @@ export function createEmbeddedDrillRuntimeOptions(
   };
 }
 
+type EmbeddedDrillRuntimeAppDom = Record<string, unknown> & {
+  tempoSlider?: { value?: string | number };
+  tempoValue?: { textContent?: string | null };
+  transpositionSelect?: { value?: string | null };
+  compingStyle?: { value?: string | null };
+  drumsSelect?: { value?: string | null };
+  walkingBass?: { checked?: boolean };
+  repetitionsPerKey?: { value?: string | null };
+  displayMode?: { value?: string | null };
+  harmonyDisplayMode?: { value?: string | null };
+  showBeatIndicator?: { checked?: boolean };
+  hideCurrentHarmony?: { checked?: boolean };
+  masterVolume?: { value?: string | number };
+  bassVolume?: { value?: string | number };
+  stringsVolume?: { value?: string | number };
+  drumsVolume?: { value?: string | number };
+  patternError?: {
+    textContent?: string | null;
+    classList?: { contains: (token: string) => boolean };
+  };
+};
+
 export function createEmbeddedDrillRuntimeAppOptions({
   dom,
   stopIfPlaying,
@@ -174,7 +196,7 @@ export function createEmbeddedDrillRuntimeAppOptions({
   togglePausePlayback,
   applyMixerSettings
 }: {
-  dom: Record<string, any>;
+  dom: EmbeddedDrillRuntimeAppDom;
   stopIfPlaying: () => void;
   clearProgressionEditingState: () => void;
   closeProgressionManager: () => void;

@@ -66,7 +66,7 @@ type DrillEmbeddedRuntimeHostBindingsOptions = {
  * `app.js`, while preserving the current runtime behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
+ * @param {DrillEmbeddedRuntimeHostDom} [options.dom]
  * @param {string} [options.customPatternOptionValue]
  * @param {(value: boolean) => void} [options.setSuppressPatternSelectChange]
  * @param {(value: string) => void} [options.setPatternSelectValue]

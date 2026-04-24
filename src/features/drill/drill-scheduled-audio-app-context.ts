@@ -1,10 +1,15 @@
 
 import { createDrillScheduledAudioRuntime } from './drill-scheduled-audio-runtime.js';
 
+type DrillScheduledAudioRuntimeOptions = Parameters<typeof createDrillScheduledAudioRuntime>[0];
+type ScheduledAudioState = Pick<NonNullable<DrillScheduledAudioRuntimeOptions>, 'getAudioContext'>;
+type ScheduledAudioHelpers = Pick<NonNullable<DrillScheduledAudioRuntimeOptions>, 'stopActiveComping'>;
+type ScheduledAudioConstants = Pick<NonNullable<DrillScheduledAudioRuntimeOptions>, 'getDefaultFadeDuration'>;
+
 type DrillScheduledAudioAppContextOptions = {
-  audioState?: Record<string, any>;
-  audioHelpers?: Record<string, any>;
-  constants?: Record<string, any>;
+  audioState?: ScheduledAudioState;
+  audioHelpers?: ScheduledAudioHelpers;
+  constants?: ScheduledAudioConstants;
 };
 
 /**
@@ -21,11 +26,12 @@ export function createDrillScheduledAudioAppContext({
   audioHelpers = {},
   constants = {}
 }: DrillScheduledAudioAppContextOptions = {}) {
-  return createDrillScheduledAudioRuntime({
+  const options: DrillScheduledAudioRuntimeOptions = {
     getAudioContext: audioState.getAudioContext,
     stopActiveComping: audioHelpers.stopActiveComping,
     getDefaultFadeDuration: constants.getDefaultFadeDuration
-  } as any);
+  };
+  return createDrillScheduledAudioRuntime(options);
 }
 
 

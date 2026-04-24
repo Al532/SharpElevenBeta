@@ -1,11 +1,26 @@
 
 import { createDrillSamplePreloadRuntime } from './drill-sample-preload-runtime.js';
 
+type DrillSamplePreloadRuntimeOptions = Parameters<typeof createDrillSamplePreloadRuntime>[0];
+type SamplePreloadPlaybackSettings = Pick<NonNullable<DrillSamplePreloadRuntimeOptions>, 'getBassPreloadRange' | 'getBassMidi' | 'getBeatsPerChord' | 'getChordsPerBar' | 'getCompingStyle' | 'getDrumsMode'>;
+type SamplePreloadProgressionState = {
+  getCurrentChords?: () => unknown[];
+  getCurrentKey?: () => number | null;
+  getCurrentVoicingPlan?: () => unknown[];
+  getCurrentBassPlan?: () => unknown[];
+  getNextChords?: () => unknown[];
+  getNextKey?: () => number | null;
+  getNextVoicingPlan?: () => unknown[];
+  getNextBassPlan?: () => unknown[];
+};
+type SamplePreloadLoading = Pick<NonNullable<DrillSamplePreloadRuntimeOptions>, 'collectCompingSampleNotes' | 'loadSample' | 'loadPianoSampleList' | 'loadFileSample' | 'fetchArrayBufferFromUrl'>;
+type SamplePreloadConstants = Pick<NonNullable<DrillSamplePreloadRuntimeOptions>, 'drumHihatSampleUrl' | 'drumRideSampleUrls' | 'drumModeHihats24' | 'drumModeFullSwing' | 'safePreloadMeasures'>;
+
 type DrillSamplePreloadAppContextOptions = {
-  playbackSettings?: Record<string, any>;
-  progressionState?: Record<string, any>;
-  sampleLoading?: Record<string, any>;
-  constants?: Record<string, any>;
+  playbackSettings?: SamplePreloadPlaybackSettings;
+  progressionState?: SamplePreloadProgressionState;
+  sampleLoading?: SamplePreloadLoading;
+  constants?: SamplePreloadConstants;
 };
 
 /**
@@ -24,7 +39,7 @@ export function createDrillSamplePreloadAppContext({
   sampleLoading = {},
   constants = {}
 }: DrillSamplePreloadAppContextOptions = {}) {
-  return createDrillSamplePreloadRuntime({
+  const options: DrillSamplePreloadRuntimeOptions = {
     getBassPreloadRange: playbackSettings.getBassPreloadRange,
     getBassMidi: playbackSettings.getBassMidi,
     getBeatsPerChord: playbackSettings.getBeatsPerChord,
@@ -53,7 +68,8 @@ export function createDrillSamplePreloadAppContext({
     drumModeHihats24: constants.drumModeHihats24,
     drumModeFullSwing: constants.drumModeFullSwing,
     safePreloadMeasures: constants.safePreloadMeasures
-  } as any);
+  };
+  return createDrillSamplePreloadRuntime(options);
 }
 
 

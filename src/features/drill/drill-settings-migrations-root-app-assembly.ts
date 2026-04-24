@@ -42,9 +42,9 @@ type CreateDrillSettingsMigrationsRootAppAssemblyOptions = {
  * `app.js` while preserving the same persistence behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, any>} [options.state]
- * @param {Record<string, any>} [options.helpers]
+ * @param {object} [options.constants]
+ * @param {object} [options.state]
+ * @param {object} [options.helpers]
  */
 export function createDrillSettingsMigrationsRootAppAssembly({
   constants = {},

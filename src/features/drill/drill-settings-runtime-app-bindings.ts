@@ -5,7 +5,7 @@
  * shared settings bindings normalization layer.
  *
  * @param {object} [options]
- * @returns {Record<string, any>}
+ * @returns {Record<string, unknown>}
  */
 export function createDrillSettingsRuntimeAppBindings(options = {}) {
   return { ...options };

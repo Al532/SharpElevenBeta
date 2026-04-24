@@ -9,8 +9,8 @@ import { createDrillCompingEngineAppBindings } from './drill-comping-engine-app-
  * the current app-owned state and helper closures.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, any>} [options.helpers]
+ * @param {Record<string, unknown>} [options.constants]
+ * @param {Record<string, unknown>} [options.helpers]
  */
 export function createDrillCompingEngineRootAppAssembly({
   constants = {},

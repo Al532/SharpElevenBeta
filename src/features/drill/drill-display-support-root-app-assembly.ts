@@ -34,9 +34,9 @@ type CreateDrillDisplaySupportRootAppAssemblyOptions = {
  * preserving the same harmony-display behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, any>} [options.runtimeHelpers]
+ * @param {object} [options.dom]
+ * @param {object} [options.constants]
+ * @param {object} [options.runtimeHelpers]
  */
 export function createDrillDisplaySupportRootAppAssembly({
   dom = {},

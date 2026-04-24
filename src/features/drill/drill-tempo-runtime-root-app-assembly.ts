@@ -14,8 +14,8 @@ type CreateDrillTempoRuntimeRootAppAssemblyOptions = {
  * existing playback timing behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.constants]
+ * @param {CreateDrillTempoRuntimeRootAppAssemblyOptions['dom']} [options.dom]
+ * @param {CreateDrillTempoRuntimeRootAppAssemblyOptions['constants']} [options.constants]
  */
 export function createDrillTempoRuntimeRootAppAssembly({
   dom = {},

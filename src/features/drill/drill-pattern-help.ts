@@ -14,7 +14,7 @@ type LoadDrillPatternHelpOptions = {
  * Loads and renders the progression syntax help panel for the drill UI.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
+ * @param {DrillPatternHelpDom} [options.dom]
  * @param {string} [options.url]
  * @param {string} [options.version]
  * @param {(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>} [options.fetchImpl]

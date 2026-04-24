@@ -30,7 +30,7 @@ type DrillAudioPlaybackRuntimeOptions = {
  * @param {(value: Record<string, GainNode> | null) => void} [options.setMixerNodes]
  * @param {() => BaseAudioContext} [options.createAudioContext]
  * @param {() => void} [options.applyMixerSettings]
- * @param {Record<string, Record<string, any>>} [options.sampleBuffers]
+ * @param {Record<string, Record<string, AudioBuffer | undefined>>} [options.sampleBuffers]
  * @param {(source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown} [options.trackScheduledSource]
  * @param {number} [options.metronomeGainMultiplier]
  * @param {number} [options.drumsGainMultiplier]

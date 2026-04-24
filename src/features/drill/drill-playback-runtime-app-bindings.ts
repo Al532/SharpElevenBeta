@@ -5,7 +5,7 @@
  * assembly before the shared host-binding normalization layer.
  *
  * @param {object} [options]
- * @returns {Record<string, any>}
+ * @returns {Record<string, unknown>}
  */
 export function createDrillPlaybackRuntimeAppBindings(options = {}) {
   return { ...options };

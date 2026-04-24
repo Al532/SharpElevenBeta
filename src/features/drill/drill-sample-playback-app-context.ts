@@ -1,11 +1,17 @@
 
 import { createDrillSamplePlaybackRuntime } from './drill-sample-playback-runtime.js';
 
+type DrillSamplePlaybackRuntimeOptions = Parameters<typeof createDrillSamplePlaybackRuntime>[0];
+type SamplePlaybackAudioState = Pick<NonNullable<DrillSamplePlaybackRuntimeOptions>, 'getAudioContext' | 'sampleBuffers'>;
+type SamplePlaybackAudioHelpers = Pick<NonNullable<DrillSamplePlaybackRuntimeOptions>, 'getMixerDestination' | 'trackScheduledSource' | 'loadSample' | 'getPianoFadeProfile'>;
+type SamplePlaybackState = Pick<NonNullable<DrillSamplePlaybackRuntimeOptions>, 'getActiveNoteGain' | 'setActiveNoteGain' | 'setActiveNoteFadeOut'>;
+type SamplePlaybackConstants = Pick<NonNullable<DrillSamplePlaybackRuntimeOptions>, 'noteFadeout' | 'bassNoteAttack' | 'bassNoteOverlap' | 'bassNoteRelease' | 'bassGainReleaseTimeConstant' | 'chordFadeBefore' | 'chordFadeDuration' | 'bassGain' | 'stringLoopStart' | 'stringLoopEnd' | 'stringLoopCrossfade'>;
+
 type DrillSamplePlaybackAppContextOptions = {
-  audioState?: Record<string, any>;
-  audioHelpers?: Record<string, any>;
-  playbackState?: Record<string, any>;
-  constants?: Record<string, any>;
+  audioState?: SamplePlaybackAudioState;
+  audioHelpers?: SamplePlaybackAudioHelpers;
+  playbackState?: SamplePlaybackState;
+  constants?: SamplePlaybackConstants;
 };
 
 /**
@@ -24,7 +30,7 @@ export function createDrillSamplePlaybackAppContext({
   playbackState = {},
   constants = {}
 }: DrillSamplePlaybackAppContextOptions = {}) {
-  return createDrillSamplePlaybackRuntime({
+  const options: DrillSamplePlaybackRuntimeOptions = {
     getAudioContext: audioState.getAudioContext,
     sampleBuffers: audioState.sampleBuffers,
     getMixerDestination: audioHelpers.getMixerDestination,
@@ -45,7 +51,8 @@ export function createDrillSamplePlaybackAppContext({
     stringLoopStart: constants.stringLoopStart,
     stringLoopEnd: constants.stringLoopEnd,
     stringLoopCrossfade: constants.stringLoopCrossfade
-  } as any);
+  };
+  return createDrillSamplePlaybackRuntime(options);
 }
 
 
