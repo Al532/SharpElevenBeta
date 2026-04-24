@@ -98,6 +98,13 @@ function getSourceIndexOrThrow(source, needle, label = needle) {
   return index;
 }
 
+function readAppSource() {
+  return readFileSync(
+    new URL('../src/app.ts', import.meta.url),
+    'utf8'
+  ).replace(/\r\n/g, '\n');
+}
+
 function createCompingOptions() {
   return {
     constants: {
@@ -2454,129 +2461,126 @@ function testSettingsPersistenceRootAssemblyPreservesSaveLoadGlue() {
 }
 
 function testAppHoistingContractsRemainInPlace() {
-  const source = readFileSync(
-    new URL('../src/app.ts', import.meta.url),
-    'utf8'
-  );
+  const source = readAppSource();
 
   const seamContracts = [
     {
       label: 'createDefaultAppSettings',
-      wrapper: 'function createDefaultAppSettings(...args)',
+      wrapper: 'function createDefaultAppSettings(',
       assignment: 'createDefaultAppSettingsImpl = settingsCreateDefaultAppSettings;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'clearProgressionEditingState',
-      wrapper: 'function clearProgressionEditingState(...args)',
+      wrapper: 'function clearProgressionEditingState(',
       assignment: 'clearProgressionEditingStateImpl = progressionClearProgressionEditingState;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'closeProgressionManager',
-      wrapper: 'function closeProgressionManager(...args)',
+      wrapper: 'function closeProgressionManager(',
       assignment: 'closeProgressionManagerImpl = progressionCloseProgressionManager;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'setPatternSelectValue',
-      wrapper: 'function setPatternSelectValue(...args)',
+      wrapper: 'function setPatternSelectValue(',
       assignment: 'setPatternSelectValueImpl = progressionSetPatternSelectValue;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'getSelectedProgressionName',
-      wrapper: 'function getSelectedProgressionName(...args)',
+      wrapper: 'function getSelectedProgressionName(',
       assignment: 'getSelectedProgressionNameImpl = progressionGetSelectedProgressionName;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'getSelectedProgressionPattern',
-      wrapper: 'function getSelectedProgressionPattern(...args)',
+      wrapper: 'function getSelectedProgressionPattern(',
       assignment: 'getSelectedProgressionPatternImpl = progressionGetSelectedProgressionPattern;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'setEditorPatternMode',
-      wrapper: 'function setEditorPatternMode(...args)',
+      wrapper: 'function setEditorPatternMode(',
       assignment: 'setEditorPatternModeImpl = progressionSetEditorPatternMode;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'getSelectedProgressionMode',
-      wrapper: 'function getSelectedProgressionMode(...args)',
+      wrapper: 'function getSelectedProgressionMode(',
       assignment: 'getSelectedProgressionModeImpl = progressionGetSelectedProgressionMode;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'syncPatternSelectionFromInput',
-      wrapper: 'function syncPatternSelectionFromInput(...args)',
+      wrapper: 'function syncPatternSelectionFromInput(',
       assignment: 'syncPatternSelectionFromInputImpl = progressionSyncPatternSelectionFromInput;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'syncCustomPatternUI',
-      wrapper: 'function syncCustomPatternUI(...args)',
+      wrapper: 'function syncCustomPatternUI(',
       assignment: 'syncCustomPatternUIImpl = progressionSyncCustomPatternUI;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'syncProgressionManagerState',
-      wrapper: 'function syncProgressionManagerState(...args)',
+      wrapper: 'function syncProgressionManagerState(',
       assignment: 'syncProgressionManagerStateImpl = progressionSyncProgressionManagerState;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'applyPatternModeAvailability',
-      wrapper: 'function applyPatternModeAvailability(...args)',
+      wrapper: 'function applyPatternModeAvailability(',
       assignment: 'applyPatternModeAvailabilityImpl = progressionApplyPatternModeAvailability;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'syncPatternPreview',
-      wrapper: 'function syncPatternPreview(...args)',
+      wrapper: 'function syncPatternPreview(',
       assignment: 'syncPatternPreviewImpl = progressionSyncPatternPreview;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'showNextCol',
-      wrapper: 'function showNextCol(...args)',
+      wrapper: 'function showNextCol(',
       assignment: 'showNextColImpl = displayShowNextCol;',
       consumer: 'const drillDisplay = createDrillDisplayRootAppFacade({'
     },
     {
       label: 'hideNextCol',
-      wrapper: 'function hideNextCol(...args)',
+      wrapper: 'function hideNextCol(',
       assignment: 'hideNextColImpl = displayHideNextCol;',
       consumer: 'const drillDisplay = createDrillDisplayRootAppFacade({'
     },
     {
       label: 'applyCurrentHarmonyVisibility',
-      wrapper: 'function applyCurrentHarmonyVisibility(...args)',
+      wrapper: 'function applyCurrentHarmonyVisibility(',
       assignment: 'applyCurrentHarmonyVisibilityImpl = displayApplyCurrentHarmonyVisibility;',
       consumer: 'const drillDisplay = createDrillDisplayRootAppFacade({'
     },
     {
       label: 'start',
-      wrapper: 'function start(...args)',
+      wrapper: 'function start(',
       assignment: 'startImpl = playbackStart;',
       consumer: '} = createDrillWelcomeRootAppFacade({'
     },
     {
       label: 'saveSettings',
-      wrapper: 'function saveSettings(...args)',
-      assignment: 'saveSettingsImpl = (...args) => drillSettingsPersistence.saveSettings(...args);',
+      wrapper: 'function saveSettings(',
+      assignment: 'saveSettingsImpl = () => drillSettingsPersistence.saveSettings();',
       consumer: '} = createDrillKeysRootAppAssembly({'
     },
     {
       label: 'getNextPreviewLeadSeconds',
-      wrapper: 'function getNextPreviewLeadSeconds(...args)',
+      wrapper: 'function getNextPreviewLeadSeconds(',
       assignment: 'getNextPreviewLeadSecondsImpl = nextPreviewGetNextPreviewLeadSeconds;',
       consumer: '} = createDrillDisplayRuntimeRootAppAssembly({'
     },
     {
       label: 'attachMidiInput',
-      wrapper: 'function attachMidiInput(...args)',
+      wrapper: 'function attachMidiInput(',
       assignment: 'attachMidiInputImpl = pianoMidiAttachInput;',
       consumer: '} = createDrillPianoToolsRootAppFacade({'
     }
@@ -2737,10 +2741,7 @@ function testTrainerConfigExportsExpectedDefaults() {
 }
 
 function testAppConfigBindingsRemainCentralized() {
-  const source = readFileSync(
-    new URL('../src/app.ts', import.meta.url),
-    'utf8'
-  );
+  const source = readAppSource();
 
   const expectedBindings = [
     "const {\n  defaults: TRAINER_DEFAULTS,",

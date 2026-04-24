@@ -23,6 +23,12 @@ import {
   TRAINER_PRESET_CONFIG
 } from './config/trainer-config.js';
 import {
+  readEmbeddedDrillMode,
+  resolveAppBaseUrl,
+  resolveAppVersion
+} from './features/app/app-environment.js';
+import { createDrillDomRefs } from './features/app/app-dom-refs.js';
+import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
 } from './core/music/harmony-context.js';
@@ -86,8 +92,6 @@ type MidiMessageHandler = (event: unknown) => void;
 type MidiVoiceStopper = (midi: number) => void;
 type MidiAllVoicesStopper = (force?: boolean) => void;
 
-declare const __APP_VERSION__: string | undefined;
-
 declare global {
   interface Window {
     Capacitor?: {
@@ -100,12 +104,6 @@ declare global {
     },
     webkitAudioContext?: typeof AudioContext
   }
-}
-
-interface ImportMeta {
-  readonly env: {
-    BASE_URL?: string
-  };
 }
 
 /* ============================================================
@@ -188,9 +186,8 @@ const {
   welcomeStandardsFallback: WELCOME_STANDARDS_FALLBACK
 } = TRAINER_PRESET_CONFIG;
 
-const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
-const APP_URL_PARAMS = new URLSearchParams(window.location.search);
-const IS_EMBEDDED_DRILL_MODE = APP_URL_PARAMS.get('embedded') === '1';
+const APP_VERSION = resolveAppVersion();
+const IS_EMBEDDED_DRILL_MODE = readEmbeddedDrillMode();
 const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 const PIANO_SAMPLE_LOW = PIANO_SAMPLE_RANGE.low;
 const PIANO_SAMPLE_HIGH = PIANO_SAMPLE_RANGE.high;
@@ -257,113 +254,7 @@ const SCHEDULE_INTERVAL = AUDIO_SCHEDULING.scheduleIntervalMs; // ms
 
 // ---- DOM refs ----
 
-const dom = {
-  appVersion:      document.getElementById('app-version'),
-  display:         document.getElementById('display'),
-  selectedKeysSummary: document.getElementById('selected-keys-summary'),
-  displayPlaceholder: document.getElementById('display-placeholder'),
-  displayPlaceholderMessage: document.getElementById('display-placeholder-message'),
-  keyDisplay:      document.getElementById('key-display'),
-  chordDisplay:    document.getElementById('chord-display'),
-  nextHeader:      document.getElementById('next-header'),
-  nextKeyDisplay:  document.getElementById('next-key-display'),
-  nextChordDisplay:document.getElementById('next-chord-display'),
-  compingStyle:    document.getElementById('comping-style'),
-  drumsSelect:     document.getElementById('drums-select'),
-  patternHelp:     document.getElementById('pattern-help'),
-  patternPicker:   document.getElementById('pattern-picker'),
-  patternSelect:   document.getElementById('pattern-select') as HTMLSelectElement | null,
-  patternPickerCustom: document.getElementById('pattern-picker-custom'),
-  patternPreview:  document.getElementById('pattern-preview'),
-  patternPreviewRow: document.querySelector('.pattern-preview-row'),
-  patternPreviewDefaultAnchor: document.getElementById('pattern-preview-default-anchor'),
-  patternPreviewEditAnchor: document.getElementById('pattern-preview-edit-anchor'),
-  customPatternPanel: document.getElementById('custom-pattern-panel'),
-  customPattern:   document.getElementById('custom-pattern') as HTMLTextAreaElement | HTMLInputElement | null,
-  patternName:     document.getElementById('pattern-name') as HTMLInputElement | null,
-  patternMode:     document.getElementById('pattern-mode') as HTMLSelectElement | null,
-  patternModeBoth: document.getElementById('pattern-mode-both') as HTMLInputElement | null,
-  patternError:    document.getElementById('pattern-error'),
-  saveProgression:      document.getElementById('save-progression'),
-  cancelProgressionEdit: document.getElementById('cancel-progression-edit'),
-  newProgression:       document.getElementById('new-progression'),
-  editProgression:      document.getElementById('edit-progression'),
-  deleteProgression:    document.getElementById('delete-progression'),
-  manageProgressions:   document.getElementById('manage-progressions'),
-  progressionManagerPanel: document.getElementById('progression-manager-panel'),
-  progressionManagerList: document.getElementById('progression-manager-list'),
-  closeProgressionManager: document.getElementById('close-progression-manager'),
-  restoreDefaultProgressions: document.getElementById('restore-default-progressions'),
-  clearAllProgressions: document.getElementById('clear-all-progressions'),
-  progressionFeedback:  document.getElementById('progression-feedback'),
-  progressionUpdateModal: document.getElementById('progression-update-modal'),
-  progressionUpdateMessage: document.getElementById('progression-update-message'),
-  progressionUpdateReplace: document.getElementById('progression-update-replace'),
-  progressionUpdateMerge: document.getElementById('progression-update-merge'),
-  progressionUpdateKeep: document.getElementById('progression-update-keep'),
-  tempoSlider:     document.getElementById('tempo-slider') as HTMLInputElement | null,
-  tempoValue:      document.getElementById('tempo-value'),
-  repetitionsPerKey: document.getElementById('repetitions-per-key') as HTMLInputElement | HTMLSelectElement | null,
-  transpositionSelect: document.getElementById('transposition-select') as HTMLSelectElement | null,
-  nextPreviewValue: document.getElementById('next-preview-value') as HTMLInputElement | null,
-  nextPreviewUnitToggle: document.getElementById('next-preview-unit-toggle') as HTMLInputElement | null,
-  nextPreviewHint: document.getElementById('next-preview-hint'),
-  chordsPerBar:    document.getElementById('chords-per-bar') as HTMLSelectElement | null,
-  doubleTimeRow:   document.getElementById('double-time-row'),
-  doubleTimeToggle: document.getElementById('double-time') as HTMLInputElement | null,
-  majorMinor:      document.getElementById('major-minor') as HTMLInputElement | null,
-  displayMode:     document.getElementById('display-mode') as HTMLSelectElement | null,
-  harmonyDisplayMode: document.getElementById('harmony-display-mode') as HTMLSelectElement | null,
-  useMajorTriangleSymbol: document.getElementById('use-major-triangle-symbol') as HTMLInputElement | null,
-  useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol') as HTMLInputElement | null,
-  useDiminishedSymbol: document.getElementById('use-diminished-symbol') as HTMLInputElement | null,
-  debugToggle:     document.getElementById('debug-toggle') as HTMLInputElement | null,
-  keyPicker:       document.getElementById('key-picker') as HTMLDetailsElement | null,
-  keyPickerBackdrop: document.getElementById('key-picker-backdrop'),
-  closeKeyPicker:  document.getElementById('close-key-picker'),
-  startStop:       document.getElementById('start-stop'),
-  pause:           document.getElementById('pause'),
-  beatIndicator:   document.getElementById('beat-indicator'),
-  beatDots:        document.querySelectorAll('.beat-dot'),
-  selectAllKeys:   document.getElementById('select-all-keys'),
-  invertKeys:      document.getElementById('invert-keys'),
-  clearAllKeys:    document.getElementById('clear-all-keys'),
-  saveKeyPreset:   document.getElementById('save-key-preset'),
-  loadKeyPreset:   document.getElementById('load-key-preset'),
-  keyCheckboxes:   document.getElementById('key-checkboxes'),
-  masterVolume:    document.getElementById('master-volume'),
-  masterVolumeValue: document.getElementById('master-volume-value'),
-  bassVolume:      document.getElementById('bass-volume'),
-  bassVolumeValue: document.getElementById('bass-volume-value'),
-  stringsVolume:   document.getElementById('strings-volume'),
-  stringsVolumeValue: document.getElementById('strings-volume-value'),
-  drumsVolume:     document.getElementById('drums-volume'),
-  drumsVolumeValue: document.getElementById('drums-volume-value'),
-  walkingBass:     document.getElementById('walking-bass-toggle') as HTMLInputElement | null,
-  showBeatIndicator: document.getElementById('show-beat-indicator') as HTMLInputElement | null,
-  hideCurrentHarmony: document.getElementById('hide-current-harmony') as HTMLInputElement | null,
-  welcomeOverlay: document.getElementById('welcome-overlay'),
-  welcomeSkip: document.getElementById('welcome-skip'),
-  welcomeApply: document.getElementById('welcome-apply'),
-  welcomeSummary: document.getElementById('welcome-summary'),
-  welcomeGoalPanels: document.querySelectorAll('[data-welcome-panel]'),
-  reopenWelcome: document.getElementById('reopen-welcome'),
-  welcomeStandardSelect: document.getElementById('welcome-standard-select'),
-  welcomeShowNextTime: document.getElementById('welcome-show-next-time'),
-  resetSettings: document.getElementById('reset-settings'),
-  pianoToolsPanel: document.getElementById('piano-tools-panel'),
-  pianoMidiEnabled: document.getElementById('piano-midi-enabled'),
-  pianoMidiStatus: document.getElementById('piano-midi-status'),
-  pianoMidiInput: document.getElementById('piano-midi-input'),
-  pianoMidiRefresh: document.getElementById('piano-midi-refresh'),
-  pianoMidiSustain: document.getElementById('piano-midi-sustain'),
-  pianoTimeConstantLow: document.getElementById('piano-time-constant-low'),
-  pianoTimeConstantHigh: document.getElementById('piano-time-constant-high'),
-  pianoSettingsJson: document.getElementById('piano-settings-json'),
-  pianoSettingsCopy: document.getElementById('piano-settings-copy'),
-  pianoSettingsApply: document.getElementById('piano-settings-apply'),
-  pianoSettingsReset: document.getElementById('piano-settings-reset')
-};
+const dom = createDrillDomRefs(document);
 
 if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
@@ -2233,7 +2124,7 @@ startImpl = playbackStart;
 
 // ---- Persistence (localStorage) ----
 
-const APP_BASE_URL = (((import.meta as unknown) as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL) || './';
+const APP_BASE_URL = resolveAppBaseUrl();
 const PATTERN_HELP_URL = `${APP_BASE_URL}${TRAINER_RESOURCE_PATHS.patternHelp}`;
 const PATTERN_HELP_VERSION = APP_VERSION;
 

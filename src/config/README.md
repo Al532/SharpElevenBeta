@@ -1,7 +1,7 @@
 # Config Map
 
 The main entry point for configurable trainer constants is
-[trainer-config.js](/C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/src/config/trainer-config.js).
+[trainer-config.ts](/C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/src/config/trainer-config.ts).
 
 Quick guide:
 
@@ -20,7 +20,7 @@ Quick guide:
   `chordSizing.desktop.maxRem`, `withinBar.compressionTriggerFillRatio`,
   and `compressionHomogenization.rowTargetFillRatio`.
 - `TRAINER_RESOURCE_PATHS`
-  Relative resource paths that `app.js` turns into runtime URLs.
+  Relative resource paths that `src/app.ts` turns into runtime URLs.
 - `PATTERN_MODES`, `DISPLAY_MODES`, `HARMONY_DISPLAY_MODES`,
   `COMPING_STYLES`, `DRUM_MODES`
   Mode tokens and select values.
@@ -50,6 +50,6 @@ Intentionally kept out of this file:
 Practical rule:
 
 - if a value changes adjustable app behavior, start in
-  `src/config/trainer-config.js`
+  `src/config/trainer-config.ts`
 - if a value describes internal music logic or runtime structure, it probably
   belongs elsewhere

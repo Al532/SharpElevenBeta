@@ -1,6 +1,7 @@
 {
   "name": "sharp-eleven-app",
   "private": true,
+  "type": "module",
   "version": "1.1.45",
   "dependencies": {
     "@capacitor/app": "^8.0.0"
@@ -13,8 +14,8 @@
     "dev:android:web": "vite --config config/vite/vite.web.config.js --host 0.0.0.0 --port 5173 --strictPort",
     "dev:typecheck": "tsc --noEmit --watch",
     "dev:chart": "vite --config config/vite/vite.chart.config.js",
-    "test:chart": "node scripts/test-chart-module.mjs",
-    "test:drill-wrappers": "node scripts/test-drill-root-wrappers.mjs",
+    "test:chart": "node --import ./scripts/register-ts-source-loader.mjs scripts/test-chart-module.mjs",
+    "test:drill-wrappers": "node --import ./scripts/register-ts-source-loader.mjs scripts/test-drill-root-wrappers.mjs",
     "typecheck": "tsc --noEmit",
     "prebuild": "node scripts/sync-public-files.mjs root",
     "build": "vite build --config config/vite/vite.web.config.js && node scripts/sync-public-files.mjs build",
