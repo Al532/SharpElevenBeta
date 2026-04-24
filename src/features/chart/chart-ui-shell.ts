@@ -89,13 +89,16 @@ export function bindChartLayoutObservers({
   applyOpticalPlacements
 }: BindChartLayoutObserversOptions = {}) {
   let lastInnerWidth = window.innerWidth;
-  window.addEventListener('resize', () => {
-    updateSheetGridGap?.();
+  const refreshChartLayout = () => {
     if (window.innerWidth !== lastInnerWidth) {
       lastInnerWidth = window.innerWidth;
       applyOpticalPlacements?.();
     }
-  });
+    updateSheetGridGap?.();
+  };
+
+  window.addEventListener('resize', refreshChartLayout);
+  window.addEventListener('orientationchange', refreshChartLayout);
 
   if (typeof ResizeObserver !== 'undefined' && sheetGrid) {
     const sheetObserver = new ResizeObserver(() => { updateSheetGridGap?.(); });
@@ -105,6 +108,7 @@ export function bindChartLayoutObservers({
   if (document.fonts?.ready) {
     document.fonts.ready.then(() => {
       applyOpticalPlacements?.();
+      updateSheetGridGap?.();
     }).catch(() => {});
   }
 }

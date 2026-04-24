@@ -9,52 +9,24 @@
   --chart-text-scale-compensation: 1;
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
-  --chart-config-row-gap-min: 40px;
-  --chart-config-mobile-sheet-header-padding-top-portrait: 2px;
-  --chart-config-mobile-sheet-header-padding-top-landscape: 2px;
-  --chart-config-mobile-cutout-side-padding: 16px;
-  --chart-config-mobile-sheet-title-offset-x: 0px;
+  --chart-config-row-gap-min: 60px;
+  --chart-config-sheet-header-padding-top-portrait: 0px;
+  --chart-config-sheet-header-padding-top-landscape: 10px;
+  --chart-config-cutout-side-padding: 0px;
+  --chart-config-sheet-title-offset-x: 0px;
   --chart-runtime-cutout-padding-top: 0px;
   --chart-runtime-cutout-padding-right: 0px;
   --chart-runtime-cutout-padding-bottom: 0px;
   --chart-runtime-cutout-padding-left: 0px;
-  --chart-config-bar-cell-padding-top: 10px;
-  --chart-config-bar-cell-padding-x: 16px;
-  --chart-config-bar-cell-padding-bottom: 10px;
-  --chart-config-bar-line-top: 8px;
-  --chart-config-bar-line-bottom: 16px;
-  --chart-config-bar-body-margin-top: 14px;
-  --chart-config-bar-base-min-height: 138px;
-  --chart-config-bar-row-1-min-height-min: 220px;
-  --chart-config-bar-row-1-min-height-preferred: 40dvh;
-  --chart-config-bar-row-1-min-height-max: 340px;
-  --chart-config-bar-row-2-min-height-min: 180px;
-  --chart-config-bar-row-2-min-height-preferred: 28dvh;
-  --chart-config-bar-row-2-min-height-max: 260px;
-  --chart-config-bar-row-3-min-height-min: 156px;
-  --chart-config-bar-row-3-min-height-preferred: 22dvh;
-  --chart-config-bar-row-3-min-height-max: 210px;
-  --chart-config-bar-body-size-min-rem: 4;
-  --chart-config-bar-body-size-preferred-vw: 4.2;
-  --chart-config-bar-body-size-max-rem: 4.75;
-  --chart-config-mobile-bar-padding-top: 0px;
-  --chart-config-mobile-bar-padding-x: 2px;
-  --chart-config-mobile-bar-padding-bottom: 0px;
-  --chart-config-mobile-bar-line-top: 6px;
-  --chart-config-mobile-bar-line-height: 32px;
-  --chart-config-mobile-bar-line-height-small: 30px;
-  --chart-config-mobile-bar-body-margin-top: 3px;
-  --chart-config-mobile-bar-row-1-min-height-min: 86px;
-  --chart-config-mobile-bar-row-1-min-height-preferred: 22dvh;
-  --chart-config-mobile-bar-row-1-min-height-max: 132px;
-  --chart-config-mobile-bar-row-2-min-height-min: 62px;
-  --chart-config-mobile-bar-row-2-min-height-preferred: 14dvh;
-  --chart-config-mobile-bar-row-2-min-height-max: 92px;
-  --chart-config-mobile-bar-row-3-min-height-min: 48px;
-  --chart-config-mobile-bar-row-3-min-height-preferred: 10dvh;
-  --chart-config-mobile-bar-row-3-min-height-max: 66px;
-  --chart-config-mobile-bar-body-size: 2.22rem;
-  --chart-config-mobile-bar-body-size-small: 2rem;
+  --chart-config-bar-cell-min-height: 0px;
+  --chart-config-bar-cell-padding-top: 0px;
+  --chart-config-bar-cell-padding-x: 2px;
+  --chart-config-bar-cell-padding-bottom: 0px;
+  --chart-config-bar-line-top: 6px;
+  --chart-config-bar-line-height: 32px;
+  --chart-config-bar-body-margin-top: 3px;
+  --chart-config-bar-body-size: 2.22rem;
+  --chart-runtime-row-min-height: max(var(--chart-config-bar-cell-min-height), calc(var(--chart-config-bar-line-height) + var(--chart-config-bar-body-margin-top) + 16px));
 }
 
 * {
@@ -574,26 +546,6 @@ select {
   -webkit-touch-callout: none;
 }
 
-.chart-sheet-grid[data-fill-height="true"] {
-  grid-auto-rows: minmax(max-content, 1fr);
-  align-content: stretch;
-}
-
-.chart-sheet-grid[data-row-count="1"] .chart-bar-cell,
-.chart-sheet-grid[data-row-count="1"] .chart-bar-cell.is-empty {
-  min-height: clamp(var(--chart-config-bar-row-1-min-height-min), var(--chart-config-bar-row-1-min-height-preferred), var(--chart-config-bar-row-1-min-height-max));
-}
-
-.chart-sheet-grid[data-row-count="2"] .chart-bar-cell,
-.chart-sheet-grid[data-row-count="2"] .chart-bar-cell.is-empty {
-  min-height: clamp(var(--chart-config-bar-row-2-min-height-min), var(--chart-config-bar-row-2-min-height-preferred), var(--chart-config-bar-row-2-min-height-max));
-}
-
-.chart-sheet-grid[data-row-count="3"] .chart-bar-cell,
-.chart-sheet-grid[data-row-count="3"] .chart-bar-cell.is-empty {
-  min-height: clamp(var(--chart-config-bar-row-3-min-height-min), var(--chart-config-bar-row-3-min-height-preferred), var(--chart-config-bar-row-3-min-height-max));
-}
-
 .chart-sheet-grid * {
   user-select: none;
   -webkit-user-select: none;
@@ -606,7 +558,7 @@ select {
   display: grid;
   grid-template-columns: repeat(var(--chart-row-columns, 4), minmax(0, 1fr));
   align-items: stretch;
-  min-height: 0;
+  min-height: var(--chart-runtime-row-min-height);
 }
 
 .chart-row + .chart-row {
@@ -615,7 +567,7 @@ select {
 
 .chart-section-marker {
   position: absolute;
-  top: 0;
+  top: var(--chart-row-annotation-y, 0);
   left: 0;
   width: auto;
   display: flex;
@@ -630,8 +582,10 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  min-width: 40px;
+  width: auto;
   height: 40px;
+  padding: 0 8px;
   border-radius: 6px;
   background: #111;
   color: white;
@@ -646,11 +600,10 @@ select {
 
 .chart-bar-cell {
   --chart-bar-line-top: var(--chart-config-bar-line-top);
-  --chart-bar-line-bottom: var(--chart-config-bar-line-bottom);
-  --chart-bar-line-height: auto;
+  --chart-bar-line-bottom: auto;
+  --chart-bar-line-height: var(--chart-config-bar-line-height);
   position: relative;
-  height: 100%;
-  min-height: var(--chart-config-bar-base-min-height);
+  min-height: var(--chart-runtime-row-min-height);
   padding: var(--chart-config-bar-cell-padding-top) var(--chart-config-bar-cell-padding-x) var(--chart-config-bar-cell-padding-bottom);
   background: transparent;
   transition: background-color 120ms ease;
@@ -687,8 +640,7 @@ select {
 }
 
 .chart-bar-cell.is-empty {
-  height: 100%;
-  min-height: var(--chart-config-bar-base-min-height);
+  min-height: var(--chart-runtime-row-min-height);
   padding: 0;
 }
 
@@ -717,8 +669,8 @@ select {
 
 .chart-row-time-sig {
   position: absolute;
-  top: -0.1rem;
-  left: 2px;
+  top: var(--chart-row-annotation-y, -0.1rem);
+  left: calc(2px + var(--chart-row-annotation-x, 0px));
   display: inline-block;
   white-space: nowrap;
   font-size: 1rem;
@@ -731,7 +683,7 @@ select {
 }
 
 .chart-row.has-section-marker .chart-row-time-sig {
-  left: 34px;
+  left: calc(34px + var(--chart-row-annotation-x, 0px));
 }
 
 .chart-bar-cell.is-repeat-end::after {
@@ -853,7 +805,7 @@ select {
   column-gap: 12px;
   row-gap: 6px;
   align-items: end;
-  font-size: calc(clamp(calc(var(--chart-config-bar-body-size-min-rem) * 1rem), calc(var(--chart-config-bar-body-size-preferred-vw) * 1vw), calc(var(--chart-config-bar-body-size-max-rem) * 1rem)) * var(--chart-text-scale-compensation));
+  font-size: calc(var(--chart-config-bar-body-size) * var(--chart-text-scale-compensation));
   line-height: 0.92;
   letter-spacing: -0.06em;
   color: #111;
@@ -1057,18 +1009,9 @@ select {
 
 @media (max-width: 1200px) {
   :root {
-    --chart-mobile-row-gap: var(--chart-config-row-gap-min);
-    --chart-mobile-section-offset: clamp(8px, 1.7dvh, 12px);
-    --chart-mobile-section-badge-height: clamp(11px, 1.8dvh, 13px);
-    --chart-mobile-section-badge-font-size: clamp(0.66rem, 1.15dvh, 0.76rem);
-    --chart-mobile-bar-min-height: clamp(34px, 5.6dvh, 46px);
-    --chart-mobile-bar-line-height: var(--chart-config-mobile-bar-line-height);
-    --chart-mobile-bar-body-size: var(--chart-config-mobile-bar-body-size);
-    --chart-mobile-bar-body-subdivided-size: calc(var(--chart-mobile-bar-body-size) * 0.79);
-    --chart-mobile-bar-body-dense-size: calc(var(--chart-mobile-bar-body-size) * 0.89);
-    --chart-mobile-bar-body-dense-subdivided-size: calc(var(--chart-mobile-bar-body-size) * 0.71);
-    --chart-mobile-bar-body-very-dense-size: calc(var(--chart-mobile-bar-body-size) * 0.8);
-    --chart-mobile-bar-body-very-dense-subdivided-size: calc(var(--chart-mobile-bar-body-size) * 0.65);
+    --chart-mobile-section-offset: 0px;
+    --chart-mobile-section-badge-height: 13px;
+    --chart-mobile-section-badge-font-size: 0.76rem;
   }
 
   .chart-top-overlay {
@@ -1231,7 +1174,7 @@ select {
 
   .chart-sheet-header {
     padding:
-      var(--chart-config-mobile-sheet-header-padding-top-portrait)
+      var(--chart-config-sheet-header-padding-top-portrait)
       6px
       8px;
     margin-bottom: 8px;
@@ -1243,14 +1186,14 @@ select {
     }
 
     .chart-sheet-header {
-      padding-top: var(--chart-config-mobile-sheet-header-padding-top-landscape);
+      padding-top: var(--chart-config-sheet-header-padding-top-landscape);
     }
   }
 
   .chart-sheet-title {
     font-size: calc(clamp(1.7rem, 5.5vw, 2.6rem) * var(--chart-text-scale-compensation));
     line-height: 0.98;
-    transform: translateX(var(--chart-config-mobile-sheet-title-offset-x));
+    transform: translateX(var(--chart-config-sheet-title-offset-x));
   }
 
   .chart-sheet-style,
@@ -1263,7 +1206,7 @@ select {
     position: relative;
     grid-template-columns: repeat(var(--chart-row-columns, 4), minmax(0, 1fr));
     align-items: start;
-    min-height: 0;
+    min-height: var(--chart-runtime-row-min-height);
   }
 
   .chart-row.has-section-marker {
@@ -1276,7 +1219,7 @@ select {
 
   .chart-section-marker {
     position: absolute;
-    top: 0;
+    top: var(--chart-row-annotation-y, 0);
     left: 0;
     width: auto;
     padding-top: 0;
@@ -1299,12 +1242,11 @@ select {
   }
 
   .chart-bar-cell {
-    min-height: 0;
-    height: 100%;
-    padding: var(--chart-config-mobile-bar-padding-top) var(--chart-config-mobile-bar-padding-x) var(--chart-config-mobile-bar-padding-bottom);
-    --chart-bar-line-top: var(--chart-config-mobile-bar-line-top);
+    min-height: var(--chart-runtime-row-min-height);
+    padding: var(--chart-config-bar-cell-padding-top) var(--chart-config-bar-cell-padding-x) var(--chart-config-bar-cell-padding-bottom);
+    --chart-bar-line-top: var(--chart-config-bar-line-top);
     --chart-bar-line-bottom: auto;
-    --chart-bar-line-height: var(--chart-mobile-bar-line-height);
+    --chart-bar-line-height: var(--chart-config-bar-line-height);
   }
 
   .chart-bar-cell::before {
@@ -1329,10 +1271,10 @@ select {
   }
 
   .chart-bar-body {
-    margin-top: var(--chart-config-mobile-bar-body-margin-top);
-    min-height: var(--chart-mobile-bar-line-height);
+    margin-top: var(--chart-config-bar-body-margin-top);
+    min-height: var(--chart-config-bar-line-height);
     align-items: center;
-    font-size: calc(var(--chart-mobile-bar-body-size) * var(--chart-text-scale-compensation));
+    font-size: calc(var(--chart-config-bar-body-size) * var(--chart-text-scale-compensation));
     line-height: 0.88;
     letter-spacing: -0.05em;
   }
@@ -1340,13 +1282,13 @@ select {
   /* Density classes removed: Phase 1 JS sets font-size per-bar based on actual content. */
 
   .chart-row-time-sig {
-    top: 0;
-    left: 1px;
+    top: var(--chart-row-annotation-y, 0);
+    left: calc(1px + var(--chart-row-annotation-x, 0px));
     font-size: 0.8rem;
   }
 
   .chart-row.has-section-marker .chart-row-time-sig {
-    left: 24px;
+    left: calc(24px + var(--chart-row-annotation-x, 0px));
   }
 
   .chart-bar-index,
@@ -1365,47 +1307,12 @@ select {
     font-size: 1.05rem;
   }
 
-  .chart-sheet-grid {
-    flex: 1 1 auto;
-    width: 100%;
-    min-height: 0;
-    display: grid;
-    grid-auto-rows: auto;
-    row-gap: var(--chart-mobile-row-gap);
-    align-content: start;
-  }
-
-  .chart-sheet-grid[data-fill-height="true"] {
-    grid-auto-rows: minmax(max-content, 1fr);
-    align-content: stretch;
-  }
-
-  .chart-sheet-grid[data-row-count="1"] .chart-bar-cell,
-  .chart-sheet-grid[data-row-count="1"] .chart-bar-cell.is-empty {
-    min-height: clamp(var(--chart-config-mobile-bar-row-1-min-height-min), var(--chart-config-mobile-bar-row-1-min-height-preferred), var(--chart-config-mobile-bar-row-1-min-height-max));
-  }
-
-  .chart-sheet-grid[data-row-count="2"] .chart-bar-cell,
-  .chart-sheet-grid[data-row-count="2"] .chart-bar-cell.is-empty {
-    min-height: clamp(var(--chart-config-mobile-bar-row-2-min-height-min), var(--chart-config-mobile-bar-row-2-min-height-preferred), var(--chart-config-mobile-bar-row-2-min-height-max));
-  }
-
-  .chart-sheet-grid[data-row-count="3"] .chart-bar-cell,
-  .chart-sheet-grid[data-row-count="3"] .chart-bar-cell.is-empty {
-    min-height: clamp(var(--chart-config-mobile-bar-row-3-min-height-min), var(--chart-config-mobile-bar-row-3-min-height-preferred), var(--chart-config-mobile-bar-row-3-min-height-max));
-  }
-
   .chart-bar-body {
-    font-size: calc(var(--chart-mobile-bar-body-size) * var(--chart-text-scale-compensation));
+    font-size: calc(var(--chart-config-bar-body-size) * var(--chart-text-scale-compensation));
   }
 }
 
 @media (max-width: 560px) {
-  :root {
-    --chart-mobile-bar-line-height: var(--chart-config-mobile-bar-line-height-small);
-    --chart-mobile-bar-body-size: var(--chart-config-mobile-bar-body-size-small);
-  }
-
   .chart-top-actions,
   .chart-transport-controls,
   .chart-transport-buttons {

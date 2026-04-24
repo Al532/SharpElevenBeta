@@ -1,7 +1,7 @@
 {
   "name": "sharp-eleven-app-mobile",
   "private": true,
-  "version": "1.1.45",
+  "version": "1.1.46",
   "scripts": {
     "android:live": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:JAVA_HOME='C:\\Program Files\\Android\\Android Studio\\jbr'; $env:ANDROID_HOME='C:\\Users\\Alcibiade\\AppData\\Local\\Android\\Sdk'; $env:ANDROID_SDK_ROOT='C:\\Users\\Alcibiade\\AppData\\Local\\Android\\Sdk'; $env:Path=\\\"$env:JAVA_HOME\\bin;$env:ANDROID_HOME\\platform-tools;$env:Path\\\"; npx cap run android -l --host localhost --port 5173 --forwardPorts 5173:5173\"",
     "copy": "npx cap copy",

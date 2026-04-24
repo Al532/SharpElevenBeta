@@ -67,112 +67,53 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
   }),
   // Reglages a effet direct sur le titre et les informations au-dessus de la grille.
   sheetHeader: Object.freeze({
-    mobile: Object.freeze({
-      // Marge de confort au-dessus du titre en portrait, hors safe area systeme.
-      portraitTopPaddingPx: 0,
-      // Marge de confort au-dessus du titre en paysage. La safe area du haut est rognee en interne.
-      landscapeTopPaddingPx: 2,
-      // Marge ajoutee du cote expose aux safe areas quand l'objectif / encoche tombe sur un bord.
-      cutoutSidePaddingPx: 16,
-      // Decale horizontalement le titre mobile si un appareil masque le centre exact.
-      titleOffsetXPx: 0
-    })
+    // Marge de confort au-dessus du titre en portrait, hors safe area systeme.
+    portraitTopPaddingPx: 0,
+    // Marge de confort au-dessus du titre en paysage. La safe area du haut est rognee en interne.
+    landscapeTopPaddingPx: 10,
+    // Marge ajoutee du cote expose aux safe areas quand l'objectif / encoche tombe sur un bord.
+    cutoutSidePaddingPx: 0,
+    // Decale horizontalement le titre si un appareil masque le centre exact.
+    titleOffsetXPx: 0
   }),
   // Reglages a effet direct sur l'air entre les lignes.
   rowSpacing: Object.freeze({
     // Ecart vertical minimum autorise entre deux lignes du chart.
-    minPx: 60,
+    minPx: 20,
     // Ecart vertical maximum autorise entre deux lignes du chart dans le layout normal.
     maxPx: 60
   }),
+  // Reglages de placement optique des reperes au-dessus des lignes.
+  rowAnnotations: Object.freeze({
+    // Distance minimale entre l'en-tete du morceau et les premiers reperes de ligne.
+    headerGapPx: 4,
+    // Distance minimale entre les reperes de section / metrique et les accords.
+    chordGapPx: 4,
+    // Distance minimale entre deux reperes affiches sur la meme ligne.
+    horizontalGapPx: 4
+  }),
   // Reglages a effet direct sur la hauteur des mesures et les marges verticales internes.
   barGeometry: Object.freeze({
-    desktop: Object.freeze({
-      // Hauteur minimale de base d'une mesure quand aucun profil par nombre de lignes ne s'applique.
-      baseMinHeightPx: 138,
-      // Profils de hauteur utilises quand la page contient peu de lignes.
-      rowHeights: Object.freeze({
-        one: Object.freeze({
-          minPx: 220,
-          preferredVh: 40,
-          maxPx: 340
-        }),
-        two: Object.freeze({
-          minPx: 180,
-          preferredVh: 28,
-          maxPx: 260
-        }),
-        three: Object.freeze({
-          minPx: 156,
-          preferredVh: 22,
-          maxPx: 210
-        })
-      }),
-      // Padding interne de la mesure. `bottomPx` est le levier le plus direct pour la marge inferieure.
-      cellPadding: Object.freeze({
-        topPx: 10,
-        horizontalPx: 16,
-        bottomPx: 10
-      }),
-      // Insets utilises pour la barre verticale de mesure.
-      barLine: Object.freeze({
-        topPx: 8,
-        bottomPx: 16
-      }),
-      // Marge entre l'en-tete de mesure et la ligne d'accords.
-      bodyMarginTopPx: 14
+    // Hauteur minimale d'une mesure. `0` laisse le contenu definir la hauteur; `rowSpacing` pilote l'air entre lignes.
+    cellMinHeightPx: 0,
+    // Padding interne de la mesure. `bottomPx` est le levier le plus direct pour la marge inferieure.
+    cellPadding: Object.freeze({
+      topPx: 0,
+      horizontalPx: 2,
+      bottomPx: 20
     }),
-    mobile: Object.freeze({
-      // Profils de hauteur utilises en mobile / paysage compact.
-      rowHeights: Object.freeze({
-        one: Object.freeze({
-          minPx: 86,
-          preferredVh: 22,
-          maxPx: 132
-        }),
-        two: Object.freeze({
-          minPx: 62,
-          preferredVh: 14,
-          maxPx: 92
-        }),
-        three: Object.freeze({
-          minPx: 48,
-          preferredVh: 10,
-          maxPx: 66
-        })
-      }),
-      // Padding interne de la mesure en mode mobile.
-      cellPadding: Object.freeze({
-        topPx: 0,
-        horizontalPx: 2,
-        bottomPx: 0
-      }),
-      // Geometrie des barres de mesure en mobile.
-      barLine: Object.freeze({
-        topPx: 6,
-        heightPx: 32,
-        heightSmallScreenPx: 30
-      }),
-      // Marge entre l'en-tete et la ligne d'accords en mobile.
-      bodyMarginTopPx: 3
-    })
+    // Geometrie des barres verticales de mesure.
+    barLine: Object.freeze({
+      topPx: 6,
+      heightPx: 32
+    }),
+    // Marge entre l'en-tete de mesure et la ligne d'accords.
+    bodyMarginTopPx: 3
   }),
   // Reglages a effet direct sur la taille nominale des accords avant compression.
   chordSizing: Object.freeze({
-    desktop: Object.freeze({
-      // Taille minimale du clamp desktop.
-      minRem: 4,
-      // Pente responsive du clamp desktop.
-      preferredVw: 4.2,
-      // Taille maximale des accords hors contrainte de compression.
-      maxRem: 4.75
-    }),
-    mobile: Object.freeze({
-      // Taille nominale des accords en mobile.
-      baseRem: 2.22,
-      // Taille nominale des accords sur tres petit ecran mobile.
-      smallScreenRem: 2
-    })
+    // Taille nominale des accords avant compression.
+    baseRem: 2
   }),
   // La compensation d'echelle du texte normalise la taille percue selon le contexte de rendu des polices.
   textScaleCompensation: Object.freeze({
@@ -187,40 +128,40 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
     // Valeur maximale de compensation autorisee, pour que la sonde ne grossisse jamais au-dela de la base.
     maxCompensation: 1
   }),
-  // Reglages a effet direct a l'interieur d'une mesure: collision, compression locale, et arbitrage.
-  withinBar: Object.freeze({
-    // Ecart minimum preserve entre symboles voisins apres resolution des collisions.
+  // Transformation: deplacement optique horizontal.
+  displacement: Object.freeze({
+    // Accords contigus: ecart minimum preserve entre symboles voisins apres resolution des collisions.
     antiCollisionGapPx: 1,
-    // Marge supplementaire ajoutee quand la gestion des chevauchements a encore besoin d'un peu plus d'air.
-    antiCollisionPaddingPx: 2,
-    // Seuil local d'occupation a partir duquel on commence a compresser les accords dans une mesure.
-    compressionTriggerFillRatio: 0.94,
-    // Valeur plancher pour la compression locale des accords dans une mesure.
-    minCompressionScale: 0.34,
-    // Arbitrage entre deplacement anti-collision et reduction de taille. Plus haut = compression plus volontariste.
-    compressionBalance: 1.45
-  }),
-  // Reglages qui homogenisent le taux de compression entre les mesures d'une meme ligne et d'une meme page.
-  compressionHomogenization: Object.freeze({
-    // Seuil global d'occupation. Au-dela, toute la page commence a reduire.
-    pageTargetFillRatio: 1.2,
-    // Seuil d'occupation par ligne applique apres le passage global pour aligner les lignes entre elles.
-    rowTargetFillRatio: 0.78,
-    // Valeur plancher pour l'echelle globale de la page.
-    pageMinScale: 0.42,
-    // Valeur plancher pour l'echelle supplementaire appliquee a une ligne.
-    rowMinScale: 0.36,
-    // Adoucit le ratio de compression calcule pour eviter les variations trop brusques.
-    easingFactor: 0.98
-  }),
-  // L'alignement affine le placement horizontal une fois que le renderer connait la geometrie reelle du DOM.
-  alignment: Object.freeze({
-    // Marge horizontale retiree de la largeur utile de la mesure pendant les calculs d'occupation.
+    // Accords contigus: deplacement maximum autorise depuis la position d'origine avant de chercher une autre solution.
+    maxOffsetPx: 18,
+    // Mesure: marge horizontale retiree de la largeur utile pendant les calculs d'occupation.
     barBodyHorizontalInsetPx: 4,
-    // Marge de securite conservee sur les deux bords de la mesure pour que les symboles ne touchent pas visuellement les limites.
+    // Mesure: marge de securite conservee sur les deux bords pour que les symboles ne touchent pas visuellement les limites.
     symbolBoundaryInsetPx: 1,
-    // Point d'ancrage prefere vers la gauche pour un accord seul dans une mesure, exprime en fraction de la largeur.
+    // Mesure: point d'ancrage prefere vers la gauche pour un accord seul, exprime en fraction de la largeur.
     singleChordLeftBias: 0.2
+  }),
+  // Transformation: redimensionnement horizontal des mesures au sein d'une ligne.
+  barResizing: Object.freeze({
+    // Mesure: ecart minimum a la largeur d'origine requis pour appliquer cette transformation.
+    minDeltaRatio: 0.08,
+    // Mesure: ecart maximum autorise par rapport a la largeur d'origine.
+    maxDeltaRatio: 0.3
+  }),
+  // Transformation: compression des accords.
+  compression: Object.freeze({
+    // Accords contigus: marge supplementaire ajoutee quand les chevauchements demandent encore un peu plus d'air.
+    antiCollisionPaddingPx: 2,
+    // Accords contigus: arbitrage entre deplacement anti-collision et reduction de taille. Plus haut = compression plus volontariste.
+    balance: 1.45,
+    // Mesure: seuil d'occupation a partir duquel on commence a compresser les accords dans une mesure.
+    triggerFillRatio: 0.94,
+    // Mesure: valeur plancher pour la compression locale des accords dans une mesure.
+    minScale: 0.34,
+    // Ligne: part de la compression locale la plus forte d'une ligne repercutee aux autres mesures de cette ligne. 0 = aucune, 1 = alignement complet.
+    rowPropagationRatio: 0.4,
+    // Page: part de la compression locale la plus forte de la page repercutee a toutes les mesures. 0 = aucune, 1 = alignement complet.
+    pagePropagationRatio: 0.2
   }),
   // Seuils de densite qui pilotent les changements de comportement dans les mesures chargees.
   density: Object.freeze({

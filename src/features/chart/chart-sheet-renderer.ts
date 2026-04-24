@@ -3,13 +3,17 @@ import { CHART_DISPLAY_CONFIG } from '../../config/trainer-config.js';
 const {
   layout: CHART_LAYOUT_CONFIG,
   rowSpacing: CHART_ROW_SPACING_CONFIG,
-  withinBar: CHART_WITHIN_BAR_CONFIG,
-  compressionHomogenization: CHART_COMPRESSION_HOMOGENIZATION_CONFIG,
-  alignment: CHART_ALIGNMENT_CONFIG,
+  rowAnnotations: CHART_ROW_ANNOTATIONS_CONFIG,
+  displacement: CHART_DISPLACEMENT_CONFIG,
+  barResizing: CHART_BAR_RESIZING_CONFIG,
+  compression: CHART_COMPRESSION_CONFIG,
   density: CHART_DENSITY_CONFIG,
   tokenMetrics: CHART_TOKEN_METRICS_CONFIG,
   subdividedTokenScale: CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG
 } = CHART_DISPLAY_CONFIG;
+
+const OPTICAL_PIPELINE_MAX_PASSES = 3;
+const OPTICAL_PIPELINE_RESIZE_EPSILON = 0.005;
 
 type CreateChartSheetRendererOptions = {
   sheetGrid?: HTMLElement | null,
@@ -469,7 +473,7 @@ function getBarBodyCollisionScale(barBodyEl) {
   if (slots.length === 0) return 1;
 
   const barRect = barBodyEl.getBoundingClientRect();
-  const availableWidth = Math.max(1, barRect.width - CHART_ALIGNMENT_CONFIG.barBodyHorizontalInsetPx);
+  const availableWidth = Math.max(1, barRect.width - CHART_DISPLACEMENT_CONFIG.barBodyHorizontalInsetPx);
   const geometries = slots.map((slot) => measureTokenGeometry(slot));
   const symbolLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
   const symbolRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
@@ -477,8 +481,8 @@ function getBarBodyCollisionScale(barBodyEl) {
   const occupiedLeft = Math.min(...symbolLefts);
   const occupiedRight = Math.max(...symbolRights);
   const occupiedWidth = Math.max(0, occupiedRight - occupiedLeft);
-  const spanScale = occupiedWidth > availableWidth * CHART_WITHIN_BAR_CONFIG.compressionTriggerFillRatio
-    ? (availableWidth * CHART_WITHIN_BAR_CONFIG.compressionTriggerFillRatio) / occupiedWidth
+  const spanScale = occupiedWidth > availableWidth * CHART_COMPRESSION_CONFIG.triggerFillRatio
+    ? (availableWidth * CHART_COMPRESSION_CONFIG.triggerFillRatio) / occupiedWidth
     : 1;
 
   let maxOverlap = 0;
@@ -488,16 +492,52 @@ function getBarBodyCollisionScale(barBodyEl) {
 
   const overlapScale = maxOverlap > 0
       ? Math.max(
-        CHART_WITHIN_BAR_CONFIG.minCompressionScale,
-        1 - (((maxOverlap + CHART_WITHIN_BAR_CONFIG.antiCollisionPaddingPx) / availableWidth)
-          * CHART_WITHIN_BAR_CONFIG.compressionBalance)
+        CHART_COMPRESSION_CONFIG.minScale,
+        1 - (((maxOverlap + CHART_COMPRESSION_CONFIG.antiCollisionPaddingPx) / availableWidth)
+          * CHART_COMPRESSION_CONFIG.balance)
       )
     : 1;
 
   return Math.max(
-    CHART_WITHIN_BAR_CONFIG.minCompressionScale,
+    CHART_COMPRESSION_CONFIG.minScale,
     Math.min(1, spanScale, overlapScale)
   );
+}
+
+/**
+ * @param {number} sourceScale
+ * @param {number} propagationRatio
+ * @returns {number}
+ */
+function getPropagatedCompressionScale(sourceScale, propagationRatio) {
+  const clampedScale = Math.max(0, Math.min(1, sourceScale));
+  const clampedRatio = Math.max(0, Math.min(1, propagationRatio));
+  return 1 - ((1 - clampedScale) * clampedRatio);
+}
+
+/**
+ * @param {number} value
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * @param {number} rawLeft
+ * @param {number} rawRight
+ * @param {number} offset
+ * @param {number} leftBound
+ * @param {number} rightBound
+ * @param {number} maxOffsetPx
+ * @returns {number}
+ */
+function clampTokenOffset(rawLeft, rawRight, offset, leftBound, rightBound, maxOffsetPx) {
+  const minOffset = Math.max(-maxOffsetPx, leftBound - rawLeft);
+  const maxOffset = Math.min(maxOffsetPx, rightBound - rawRight);
+  return clampNumber(offset, minOffset, maxOffset);
 }
 
 /**
@@ -507,57 +547,60 @@ function getBarBodyCollisionScale(barBodyEl) {
  * @param {number[]} symLefts
  * @param {number[]} symRights
  * @param {DOMRect} barRect
+ * @param {number} maxOffsetPx
  * @returns {void}
  */
-function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect) {
-  const minGap = CHART_WITHIN_BAR_CONFIG.antiCollisionGapPx;
+function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect, maxOffsetPx) {
+  const minGap = CHART_DISPLACEMENT_CONFIG.antiCollisionGapPx;
   const count = rawLefts.length;
+  const leftBound = barRect.left + CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
 
-  for (let index = count - 2; index >= 0; index -= 1) {
-    const overlap = symRights[index] - symLefts[index + 1] + minGap;
-    if (overlap <= 0) continue;
-    const rightBound = index + 2 < count ? symLefts[index + 2] - minGap : barRect.right;
-    const push = Math.min(overlap, Math.max(0, rightBound - symRights[index + 1]));
-    offsets[index + 1] += push;
-    symLefts[index + 1] += push;
-    symRights[index + 1] += push;
+  const syncSymbol = (index) => {
+    offsets[index] = clampTokenOffset(rawLefts[index], rawRights[index], offsets[index], leftBound, rightBound, maxOffsetPx);
+    symLefts[index] = rawLefts[index] + offsets[index];
+    symRights[index] = rawRights[index] + offsets[index];
+  };
+
+  for (let index = 0; index < count; index += 1) {
+    syncSymbol(index);
   }
 
-  for (let index = 0; index < count - 1; index += 1) {
-    const overlap = symRights[index] - symLefts[index + 1] + minGap;
-    if (overlap <= 0) continue;
-    const leftBound = index > 0 ? symRights[index - 1] + minGap : barRect.left;
-    const pull = Math.min(overlap, Math.max(0, symLefts[index] - leftBound));
-    offsets[index] -= pull;
-    symLefts[index] -= pull;
-    symRights[index] -= pull;
+  for (let pass = 0; pass < count; pass += 1) {
+    for (let index = 0; index < count - 1; index += 1) {
+      let overlap = symRights[index] - symLefts[index + 1] + minGap;
+      if (overlap <= 0) continue;
+
+      const rightCapacity = Math.min(
+        rightBound - symRights[index + 1],
+        maxOffsetPx - offsets[index + 1]
+      );
+      const push = Math.min(overlap, Math.max(0, rightCapacity));
+      offsets[index + 1] += push;
+      syncSymbol(index + 1);
+      overlap -= push;
+      if (overlap <= 0) continue;
+
+      const leftCapacity = Math.min(
+        symLefts[index] - leftBound,
+        offsets[index] + maxOffsetPx
+      );
+      const pull = Math.min(overlap, Math.max(0, leftCapacity));
+      offsets[index] -= pull;
+      syncSymbol(index);
+    }
   }
+}
 
-  if (count === 2) {
-    const rawWidth0 = rawRights[0] - rawLefts[0];
-    const rawWidth1 = rawRights[1] - rawLefts[1];
-    const slotWidth = Math.max(0, barRect.right - barRect.left) / 2;
-    const slot0Center = barRect.left + (slotWidth / 2);
-    const slot1Center = barRect.left + (slotWidth * 1.5);
-
-    const center0 = Math.min(
-      barRect.left + slotWidth - (rawWidth0 / 2),
-      Math.max(barRect.left + (rawWidth0 / 2), slot0Center)
-    );
-    const center1 = Math.min(
-      barRect.right - (rawWidth1 / 2),
-      Math.max(barRect.left + slotWidth, slot1Center)
-    );
-
-    offsets[0] = center0 - ((rawLefts[0] + rawRights[0]) / 2);
-    offsets[1] = center1 - ((rawLefts[1] + rawRights[1]) / 2);
-    return;
-  }
-
-  const projectedRight = rawRights[count - 1] + offsets[count - 1];
-  if (projectedRight > barRect.right - CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx) {
-    offsets[count - 1] -= projectedRight - (barRect.right - CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx);
-  }
+/**
+ * @param {HTMLElement} tokenEl
+ * @param {number} offsetPx
+ * @returns {void}
+ */
+function setTokenOffset(tokenEl, offsetPx) {
+  const fontSizePx = parseFloat(getComputedStyle(tokenEl).fontSize);
+  if (!fontSizePx) return;
+  tokenEl.style.setProperty('--chart-token-offset-x', `${(offsetPx / fontSizePx).toFixed(3)}em`);
 }
 
 /**
@@ -578,10 +621,10 @@ function applySingleChordAnchor(barBodyEl) {
   const fontSizePx = parseFloat(getComputedStyle(tokenEl).fontSize);
   if (!fontSizePx || rawWidth <= 0) return;
 
-  const leftBound = barRect.left + CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx;
-  const rightBound = barRect.right - CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx;
+  const leftBound = barRect.left + CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
   const availableWidth = Math.max(0, rightBound - leftBound);
-  const anchoredLeft = barRect.left + (barRect.width * CHART_ALIGNMENT_CONFIG.singleChordLeftBias);
+  const anchoredLeft = barRect.left + (barRect.width * CHART_DISPLACEMENT_CONFIG.singleChordLeftBias);
   const centeredLeft = leftBound + Math.max(0, (availableWidth - rawWidth) / 2);
 
   let offsetPx = anchoredLeft - rawLeft;
@@ -608,7 +651,314 @@ function applySingleChordAnchor(barBodyEl) {
     offsetPx -= scaledRight - rightBound;
   }
 
-  tokenEl.style.setProperty('--chart-token-offset-x', `${(offsetPx / fontSizePx).toFixed(3)}em`);
+  offsetPx = clampTokenOffset(
+    rawLeft,
+    rawRight,
+    offsetPx,
+    leftBound,
+    rightBound,
+    CHART_DISPLACEMENT_CONFIG.maxOffsetPx
+  );
+  setTokenOffset(tokenEl, offsetPx);
+}
+
+/**
+ * @param {HTMLElement} rowEl
+ * @returns {{ top: number, bottom: number }}
+ */
+function getRowChordVisualBounds(rowEl) {
+  const tokenElements: HTMLElement[] = Array.from(rowEl.querySelectorAll('.chart-bar-body .chart-token')) as HTMLElement[];
+  const tokenRects = tokenElements
+    .map((element) => element.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.height > 0);
+
+  if (tokenRects.length === 0) {
+    const rowRect = rowEl.getBoundingClientRect();
+    return { top: rowRect.top, bottom: rowRect.bottom };
+  }
+
+  return tokenRects.reduce((bounds, rect) => ({
+    top: Math.min(bounds.top, rect.top),
+    bottom: Math.max(bounds.bottom, rect.bottom)
+  }), {
+    top: tokenRects[0].top,
+    bottom: tokenRects[0].bottom
+  });
+}
+
+/**
+ * @param {HTMLElement} rowEl
+ * @returns {HTMLElement[]}
+ */
+function getRowAnnotationElements(rowEl) {
+  return Array.from(rowEl.querySelectorAll('.chart-section-badge, .chart-row-time-sig')) as HTMLElement[];
+}
+
+/**
+ * @param {HTMLElement} annotationEl
+ * @returns {HTMLElement}
+ */
+function getRowAnnotationPlacementElement(annotationEl) {
+  return annotationEl.classList.contains('chart-section-badge') && annotationEl.parentElement
+    ? annotationEl.parentElement
+    : annotationEl;
+}
+
+/**
+ * @param {HTMLElement[]} rowElements
+ * @param {{ top: number, bottom: number }[]} rowChordBounds
+ * @returns {void}
+ */
+function applyRowAnnotationPlacements(rowElements, rowChordBounds) {
+  rowElements.forEach((rowEl) => {
+    getRowAnnotationElements(rowEl).forEach((element) => {
+      getRowAnnotationPlacementElement(element).style.removeProperty('--chart-row-annotation-y');
+      element.style.removeProperty('--chart-row-annotation-x');
+    });
+  });
+
+  rowElements.forEach((rowEl, index) => {
+    const annotations = getRowAnnotationElements(rowEl);
+    if (annotations.length === 0) return;
+
+    const rowRect = rowEl.getBoundingClientRect();
+    const currentChordTop = rowChordBounds[index].top;
+    const previousChordBottom = index > 0 ? rowChordBounds[index - 1].bottom : -Infinity;
+    let localExtraTop = 0;
+
+    annotations.forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      const targetBottom = currentChordTop - CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx;
+      const nextTop = targetBottom - rect.height;
+      const collisionOverflow = Number.isFinite(previousChordBottom)
+        ? previousChordBottom + CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx - nextTop
+        : 0;
+      localExtraTop = Math.max(localExtraTop, collisionOverflow);
+      getRowAnnotationPlacementElement(element).style.setProperty('--chart-row-annotation-y', `${(nextTop - rowRect.top).toFixed(2)}px`);
+    });
+
+    if (localExtraTop > 0 && index > 0) {
+      const previousMargin = parseFloat(getComputedStyle(rowEl).marginTop) || 0;
+      rowEl.style.marginTop = `${Math.ceil(previousMargin + localExtraTop)}px`;
+      const updatedRowRect = rowEl.getBoundingClientRect();
+      const updatedChordBounds = getRowChordVisualBounds(rowEl);
+      rowChordBounds[index] = updatedChordBounds;
+      annotations.forEach((element) => {
+        const rect = element.getBoundingClientRect();
+        const targetBottom = updatedChordBounds.top - CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx;
+        const nextTop = targetBottom - rect.height;
+        getRowAnnotationPlacementElement(element).style.setProperty('--chart-row-annotation-y', `${(nextTop - updatedRowRect.top).toFixed(2)}px`);
+      });
+    }
+
+    const sectionBadge = /** @type {HTMLElement | null} */ (rowEl.querySelector('.chart-section-badge'));
+    const timeSig = /** @type {HTMLElement | null} */ (rowEl.querySelector('.chart-row-time-sig'));
+    if (!sectionBadge || !timeSig) return;
+
+    const badgeRect = sectionBadge.getBoundingClientRect();
+    const timeSigRect = timeSig.getBoundingClientRect();
+    const overlap = badgeRect.right + CHART_ROW_ANNOTATIONS_CONFIG.horizontalGapPx - timeSigRect.left;
+    if (overlap > 0) {
+      const previousOffset = parseFloat(getComputedStyle(timeSig).getPropertyValue('--chart-row-annotation-x')) || 0;
+      timeSig.style.setProperty('--chart-row-annotation-x', `${Math.ceil(previousOffset + overlap)}px`);
+    }
+  });
+}
+
+/**
+ * @param {HTMLElement} firstRow
+ * @param {{ top: number }} firstChordBounds
+ * @returns {number}
+ */
+function getFirstRowHeaderCollisionShift(firstRow, firstChordBounds) {
+  const header = /** @type {HTMLElement | null} */ (document.querySelector('.chart-sheet-header'));
+  if (!header) return 0;
+
+  const annotationReserve = getRowAnnotationElements(firstRow).reduce((reserve, element) => {
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return reserve;
+    return Math.max(reserve, rect.height + CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx);
+  }, 0);
+  if (annotationReserve <= 0) return 0;
+
+  const requiredChordTop = header.getBoundingClientRect().bottom
+    + CHART_ROW_ANNOTATIONS_CONFIG.headerGapPx
+    + annotationReserve;
+  return Math.max(0, requiredChordTop - firstChordBounds.top);
+}
+
+/**
+ * @param {HTMLElement} barBodyEl
+ * @returns {void}
+ */
+function applyBarBodyDisplacement(barBodyEl) {
+  const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
+
+  if (slots.length === 1) {
+    applySingleChordAnchor(barBodyEl);
+    return;
+  }
+  if (slots.length < 2) return;
+
+  slots.forEach((slotEl) => {
+    const tokenEl = slotEl.querySelector('.chart-token') as HTMLElement | null;
+    if (!tokenEl) return;
+    tokenEl.style.removeProperty('--chart-token-offset-x');
+  });
+
+  const barRect = barBodyEl.getBoundingClientRect();
+  const leftBound = barRect.left + CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const geometries = slots.map((slot) => measureTokenGeometry(slot));
+  const rawLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
+  const rawRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
+  const offsets = geometries.map((geometry, index) => clampTokenOffset(
+    rawLefts[index],
+    rawRights[index],
+    geometry.beatTargetX - geometry.anchorX,
+    leftBound,
+    rightBound,
+    CHART_DISPLACEMENT_CONFIG.maxOffsetPx
+  ));
+  const symLefts = rawLefts.map((left, index) => left + offsets[index]);
+  const symRights = rawRights.map((right, index) => right + offsets[index]);
+
+  resolveCollisions(
+    rawLefts,
+    rawRights,
+    offsets,
+    symLefts,
+    symRights,
+    barRect,
+    CHART_DISPLACEMENT_CONFIG.maxOffsetPx
+  );
+
+  geometries.forEach((geometry, index) => {
+    if (!geometry.tokenEl) return;
+    setTokenOffset(/** @type {HTMLElement} */ (geometry.tokenEl), offsets[index]);
+  });
+}
+
+/**
+ * @returns {void}
+ */
+function applyBarBodyDisplacements() {
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
+    applyBarBodyDisplacement(barBodyEl);
+  });
+}
+
+/**
+ * @param {HTMLElement} rowEl
+ * @returns {HTMLElement[]}
+ */
+function getRowBarCells(rowEl) {
+  return (Array.from(rowEl.children) as HTMLElement[]).filter((element) =>
+    element.classList.contains('chart-bar-cell')
+  );
+}
+
+/**
+ * @param {number} scale
+ * @returns {number}
+ */
+function getWidthDeltaFromCompressionScale(scale) {
+  return scale > 0 && scale < 1 ? (1 / scale) - 1 : 0;
+}
+
+/**
+ * @returns {number}
+ */
+function applyRowBarResizing() {
+  const minDeltaRatio = Math.max(0, CHART_BAR_RESIZING_CONFIG.minDeltaRatio);
+  const maxDeltaRatio = Math.max(0, CHART_BAR_RESIZING_CONFIG.maxDeltaRatio);
+  if (maxDeltaRatio <= 0) return 0;
+
+  let maxWeightChange = 0;
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
+    const weights = getRowBarCells(rowEl).map((cellEl) => {
+      const barBodyEl = cellEl.querySelector<HTMLElement>('.chart-bar-body');
+      if (!barBodyEl) return 1;
+
+      const deltaRatio = getWidthDeltaFromCompressionScale(getBarBodyCollisionScale(barBodyEl));
+      if (deltaRatio < minDeltaRatio) return 1;
+
+      return 1 + Math.min(maxDeltaRatio, deltaRatio);
+    });
+
+    if (weights.length > 0 && weights.some((weight) => weight > 1)) {
+      const previousWeights = rowEl.style.gridTemplateColumns.match(/([0-9.]+)fr/g)
+        ?.map((part) => Number.parseFloat(part)) || [];
+      weights.forEach((weight, index) => {
+        maxWeightChange = Math.max(maxWeightChange, Math.abs(weight - (previousWeights[index] || 1)));
+      });
+      rowEl.style.gridTemplateColumns = weights
+        .map((weight) => `minmax(0, ${weight.toFixed(3)}fr)`)
+        .join(' ');
+    } else if (rowEl.style.gridTemplateColumns) {
+      maxWeightChange = Math.max(maxWeightChange, 1);
+      rowEl.style.removeProperty('grid-template-columns');
+    }
+  });
+
+  return maxWeightChange;
+}
+
+/**
+ * @param {number} textScaleCompensation
+ * @returns {void}
+ */
+function applyBarBodyCompression(textScaleCompensation) {
+  const rowCompressionData = Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).map((rowEl) => {
+    const barCompressionData = Array.from(rowEl.querySelectorAll<HTMLElement>('.chart-bar-body')).map((barBodyEl) => ({
+      barBodyEl,
+      localScale: getBarBodyCollisionScale(barBodyEl)
+    }));
+    const rowScale = barCompressionData.reduce(
+      (scale, barData) => Math.min(scale, barData.localScale),
+      1
+    );
+    return { barCompressionData, rowScale };
+  });
+  const pageScale = rowCompressionData.reduce(
+    (scale, rowData) => Math.min(scale, rowData.rowScale),
+    1
+  );
+  const propagatedPageScale = getPropagatedCompressionScale(
+    pageScale,
+    CHART_COMPRESSION_CONFIG.pagePropagationRatio
+  );
+
+  rowCompressionData.forEach(({ barCompressionData, rowScale }) => {
+    const propagatedRowScale = getPropagatedCompressionScale(
+      rowScale,
+      CHART_COMPRESSION_CONFIG.rowPropagationRatio
+    );
+    barCompressionData.forEach(({ barBodyEl, localScale }) => {
+      const finalScale = Math.min(localScale, propagatedRowScale, propagatedPageScale);
+      const combinedScale = finalScale * textScaleCompensation;
+      if (combinedScale >= 0.999) return;
+      const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
+      if (!currentFontPx) return;
+      barBodyEl.style.fontSize = `${(currentFontPx * combinedScale).toFixed(2)}px`;
+    });
+  });
+}
+
+/**
+ * @returns {void}
+ */
+function resetOpticalPlacementStyles() {
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
+    rowEl.style.removeProperty('grid-template-columns');
+  });
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
+    barBodyEl.style.removeProperty('font-size');
+    barBodyEl.querySelectorAll<HTMLElement>('.chart-token').forEach((tokenEl) => {
+      tokenEl.style.removeProperty('--chart-token-offset-x');
+      tokenEl.style.removeProperty('--chart-token-scale');
+    });
+  });
 }
 
 /**
@@ -695,9 +1045,6 @@ export function createChartSheetRenderer({
       `;
     });
 
-    const rowCount = rows.length;
-    sheetGrid.dataset.rowCount = String(rowCount);
-    delete sheetGrid.dataset.fillHeight;
     sheetGrid.innerHTML = rows.join('');
   }
 
@@ -705,29 +1052,53 @@ export function createChartSheetRenderer({
     if (!sheetGrid) return;
     const rowElements = sheetGrid.querySelectorAll<HTMLElement>('.chart-row');
     const rowCount = rowElements.length;
-    sheetGrid.dataset.rowCount = String(rowCount);
-    delete sheetGrid.dataset.fillHeight;
+    rowElements.forEach((element) => {
+      element.style.marginTop = '';
+    });
     if (rowCount < 2) {
       sheetGrid.style.rowGap = '0px';
       return;
     }
 
-    sheetGrid.style.rowGap = `${CHART_ROW_SPACING_CONFIG.minPx}px`;
+    sheetGrid.style.rowGap = '0px';
+    void sheetGrid.offsetHeight;
     const workspace = sheetGrid.closest('.chart-workspace');
-    const gridTop = sheetGrid.getBoundingClientRect().top;
     const bottomBound = workspace ? workspace.getBoundingClientRect().bottom : window.innerHeight;
-    const availableForGrid = bottomBound - gridTop;
-    let totalRowHeight = 0;
-    rowElements.forEach((element) => {
-      totalRowHeight += (/** @type {HTMLElement} */ (element)).offsetHeight;
-    });
-    const availableForGaps = availableForGrid - totalRowHeight;
+
+    const firstRow = rowElements[0];
+    if (firstRow) {
+      const firstRowShift = getFirstRowHeaderCollisionShift(firstRow, getRowChordVisualBounds(firstRow));
+      if (firstRowShift > 0) {
+        firstRow.style.marginTop = `${Math.ceil(firstRowShift)}px`;
+        void sheetGrid.offsetHeight;
+      }
+    }
+
+    const initialVisualBounds = Array.from(rowElements).map((element) => getRowChordVisualBounds(element));
+    const firstVisualTop = initialVisualBounds[0].top;
+    const availableForGrid = bottomBound - firstVisualTop;
+    const totalVisualHeight = initialVisualBounds.reduce((sum, bounds) => sum + Math.max(0, bounds.bottom - bounds.top), 0);
+    const availableForGaps = availableForGrid - totalVisualHeight;
     const idealGap = Math.floor(availableForGaps / (rowCount - 1));
     const clampedGap = Math.max(
       CHART_ROW_SPACING_CONFIG.minPx,
       Math.min(CHART_ROW_SPACING_CONFIG.maxPx, idealGap)
     );
-    sheetGrid.style.rowGap = `${clampedGap}px`;
+
+    for (let index = 1; index < rowElements.length; index += 1) {
+      const previousBounds = getRowChordVisualBounds(rowElements[index - 1]);
+      const currentBounds = getRowChordVisualBounds(rowElements[index]);
+      const currentVisualGap = currentBounds.top - previousBounds.bottom;
+      const marginAdjustment = clampedGap - currentVisualGap;
+      if (Math.abs(marginAdjustment) >= 0.5) {
+        const roundedMargin = marginAdjustment > 0 ? Math.ceil(marginAdjustment) : Math.floor(marginAdjustment);
+        rowElements[index].style.marginTop = `${roundedMargin}px`;
+      }
+    }
+
+    const rowElementList = Array.from(rowElements);
+    const rowChordBounds = rowElementList.map((element) => getRowChordVisualBounds(element));
+    applyRowAnnotationPlacements(rowElementList, rowChordBounds);
   }
 
   function applyOpticalPlacements() {
@@ -735,165 +1106,21 @@ export function createChartSheetRenderer({
       CHART_DISPLAY_CONFIG.textScaleCompensation.minCompensation,
       Math.min(CHART_DISPLAY_CONFIG.textScaleCompensation.maxCompensation, Number(getTextScaleCompensation?.() || 1))
     );
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
-      rowEl.style.removeProperty('grid-template-columns');
-    });
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
-      barBodyEl.style.removeProperty('font-size');
-      barBodyEl.querySelectorAll<HTMLElement>('.chart-token').forEach((tokenEl) => {
-        tokenEl.style.removeProperty('--chart-token-offset-x');
-        tokenEl.style.removeProperty('--chart-token-scale');
-      });
-    });
+
+    resetOpticalPlacementStyles();
     void document.documentElement.offsetHeight;
 
-    let globalMaxFitRatio = 0;
-    const rowData = Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).map((rowEl) => {
-      const barBodies = Array.from(rowEl.querySelectorAll<HTMLElement>('.chart-bar-body'));
-      let rowMaxFitRatio = 0;
-      barBodies.forEach((barBodyEl) => {
-        const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
-        if (slots.length === 0) return;
-        const barRect = barBodyEl.getBoundingClientRect();
-        const availableWidth = Math.max(1, barRect.width - CHART_ALIGNMENT_CONFIG.barBodyHorizontalInsetPx);
-        let totalSymbolWidth = 0;
-        slots.forEach((slot) => {
-          const geometry = measureTokenGeometry(slot);
-          const symbolWidth = geometry.symbolRect
-            ? Math.max(0, geometry.symbolRect.right - geometry.symbolRect.left)
-            : Math.max(0, geometry.slotRect.width);
-          totalSymbolWidth += symbolWidth;
-        });
-        const fitRatio = totalSymbolWidth / availableWidth;
-        if (fitRatio > rowMaxFitRatio) rowMaxFitRatio = fitRatio;
-      });
-      if (rowMaxFitRatio > globalMaxFitRatio) globalMaxFitRatio = rowMaxFitRatio;
-      return { barBodies, rowMaxFitRatio };
-    });
+    for (let pass = 0; pass < OPTICAL_PIPELINE_MAX_PASSES; pass += 1) {
+      applyBarBodyDisplacements();
+      const resizeChange = applyRowBarResizing();
+      if (resizeChange <= OPTICAL_PIPELINE_RESIZE_EPSILON) break;
+      void document.documentElement.offsetHeight;
+    }
 
-    const globalScale = globalMaxFitRatio > CHART_COMPRESSION_HOMOGENIZATION_CONFIG.pageTargetFillRatio
-      ? Math.max(
-          CHART_COMPRESSION_HOMOGENIZATION_CONFIG.pageMinScale,
-          (CHART_COMPRESSION_HOMOGENIZATION_CONFIG.pageTargetFillRatio / globalMaxFitRatio) * CHART_COMPRESSION_HOMOGENIZATION_CONFIG.easingFactor
-        )
-      : 1;
-
-    rowData.forEach(({ barBodies, rowMaxFitRatio }) => {
-      const effectiveFitRatio = rowMaxFitRatio * globalScale;
-      const rowExtraScale = effectiveFitRatio > CHART_COMPRESSION_HOMOGENIZATION_CONFIG.rowTargetFillRatio
-        ? Math.max(
-            CHART_COMPRESSION_HOMOGENIZATION_CONFIG.rowMinScale / globalScale,
-            (CHART_COMPRESSION_HOMOGENIZATION_CONFIG.rowTargetFillRatio / effectiveFitRatio) * CHART_COMPRESSION_HOMOGENIZATION_CONFIG.easingFactor
-          )
-        : 1;
-      const finalScale = globalScale * rowExtraScale;
-      if (finalScale >= 0.999) return;
-      barBodies.forEach((barBodyEl) => {
-        const htmlBarBodyEl = /** @type {HTMLElement} */ (barBodyEl);
-        const currentFontPx = parseFloat(getComputedStyle(htmlBarBodyEl).fontSize);
-        if (!currentFontPx) return;
-        htmlBarBodyEl.style.fontSize = `${(currentFontPx * finalScale * textScaleCompensation).toFixed(2)}px`;
-      });
-    });
-
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
-      applySingleChordAnchor(barBodyEl);
-    });
-
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body.chart-bar-body-subdivided, .chart-bar-body.chart-bar-body-halves')).forEach((barBodyEl) => {
-      const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
-
-      if (slots.length === 1) {
-        applySingleChordAnchor(barBodyEl);
-        return;
-      }
-      if (slots.length < 2) return;
-
-      slots.forEach((slotEl) => {
-        const tokenEl = slotEl.querySelector('.chart-token') as HTMLElement | null;
-        if (!tokenEl) return;
-        tokenEl.style.removeProperty('--chart-token-offset-x');
-        tokenEl.style.removeProperty('--chart-token-scale');
-      });
-
-      const barRect = barBodyEl.getBoundingClientRect();
-      const geometries = slots.map((slot) => measureTokenGeometry(slot));
-      const rawLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
-      const rawRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
-      const offsets = geometries.map((geometry) => geometry.beatTargetX - geometry.anchorX);
-
-      for (let index = 0; index < geometries.length; index += 1) {
-        const { slotRect } = geometries[index];
-        if (offsets[index] > 0) {
-          offsets[index] = Math.min(offsets[index], Math.max(0, slotRect.right - rawRights[index]));
-        } else if (offsets[index] < 0) {
-          offsets[index] = Math.max(offsets[index], -Math.max(0, rawLefts[index] - slotRect.left));
-        }
-      }
-
-      const symLefts = rawLefts.map((left, index) => left + offsets[index]);
-      const symRights = rawRights.map((right, index) => right + offsets[index]);
-
-      resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect);
-
-      geometries.forEach((geometry, index) => {
-        if (!geometry.tokenEl) return;
-        const tokenElement = /** @type {HTMLElement} */ (geometry.tokenEl);
-        const fontSizePx = parseFloat(getComputedStyle(tokenElement).fontSize);
-        if (!fontSizePx) return;
-        tokenElement.style.setProperty('--chart-token-offset-x', `${(offsets[index] / fontSizePx).toFixed(3)}em`);
-      });
-    });
-
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
-      const collisionScale = getBarBodyCollisionScale(barBodyEl);
-      if (collisionScale >= 0.995) return;
-      const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
-      if (!currentFontPx) return;
-      barBodyEl.style.fontSize = `${(currentFontPx * collisionScale * textScaleCompensation).toFixed(2)}px`;
-    });
-
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
-      applySingleChordAnchor(barBodyEl);
-    });
-
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body.chart-bar-body-subdivided, .chart-bar-body.chart-bar-body-halves')).forEach((barBodyEl) => {
-      const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
-      if (slots.length < 2) return;
-
-      slots.forEach((slotEl) => {
-        const tokenEl = slotEl.querySelector('.chart-token') as HTMLElement | null;
-        if (!tokenEl) return;
-        tokenEl.style.removeProperty('--chart-token-offset-x');
-      });
-
-      const barRect = barBodyEl.getBoundingClientRect();
-      const geometries = slots.map((slot) => measureTokenGeometry(slot));
-      const rawLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
-      const rawRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
-      const offsets = geometries.map((geometry) => geometry.beatTargetX - geometry.anchorX);
-
-      for (let index = 0; index < geometries.length; index += 1) {
-        const { slotRect } = geometries[index];
-        if (offsets[index] > 0) {
-          offsets[index] = Math.min(offsets[index], Math.max(0, slotRect.right - rawRights[index]));
-        } else if (offsets[index] < 0) {
-          offsets[index] = Math.max(offsets[index], -Math.max(0, rawLefts[index] - slotRect.left));
-        }
-      }
-
-      const symLefts = rawLefts.map((left, index) => left + offsets[index]);
-      const symRights = rawRights.map((right, index) => right + offsets[index]);
-      resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect);
-
-      geometries.forEach((geometry, index) => {
-        if (!geometry.tokenEl) return;
-        const tokenElement = /** @type {HTMLElement} */ (geometry.tokenEl);
-        const fontSizePx = parseFloat(getComputedStyle(tokenElement).fontSize);
-        if (!fontSizePx) return;
-        tokenElement.style.setProperty('--chart-token-offset-x', `${(offsets[index] / fontSizePx).toFixed(3)}em`);
-      });
-    });
+    applyBarBodyDisplacements();
+    applyBarBodyCompression(textScaleCompensation);
+    void document.documentElement.offsetHeight;
+    applyBarBodyDisplacements();
   }
 
   function renderDiagnostics(playbackPlan) {

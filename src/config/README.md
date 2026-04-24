@@ -14,13 +14,15 @@ Quick guide:
 - `CHART_DISPLAY_CONFIG`
   Chart sheet display tuning.
   The most directly useful sections are:
-  `sheetHeader`, `rowSpacing`, `barGeometry`, `chordSizing`, `withinBar`,
-  `compressionHomogenization`, and `alignment`.
-  Start with `sheetHeader.mobile.portraitTopPaddingPx`,
-  `sheetHeader.mobile.landscapeTopPaddingPx`, `rowSpacing.minPx`,
-  `barGeometry.mobile.rowHeights`,
-  `chordSizing.desktop.maxRem`, `withinBar.compressionTriggerFillRatio`,
-  and `compressionHomogenization.rowTargetFillRatio`.
+  `sheetHeader`, `rowSpacing`, `barGeometry`, `chordSizing`,
+  `displacement`, `barResizing`, and `compression`.
+  Start with `sheetHeader.portraitTopPaddingPx`,
+  `sheetHeader.landscapeTopPaddingPx`, `rowSpacing.minPx`,
+  `barGeometry.barLine.heightPx`,
+  `chordSizing.baseRem`, `displacement.singleChordLeftBias`,
+  `displacement.maxOffsetPx`, `barResizing.minDeltaRatio`,
+  `barResizing.maxDeltaRatio`, `compression.triggerFillRatio`,
+  `compression.rowPropagationRatio`, and `compression.pagePropagationRatio`.
 - `TRAINER_RESOURCE_PATHS`
   Relative resource paths that `src/app.ts` turns into runtime URLs.
 - `PATTERN_MODES`, `DISPLAY_MODES`, `HARMONY_DISPLAY_MODES`,
