@@ -1,11 +1,12 @@
-const SHEET_GAP_MIN = 12;
-const SHEET_GAP_MAX = 80;
-const CHART_FIT_HEADROOM = 0.8;
-const CHART_ROW_HEADROOM = 0.78;
-const CHART_COLLISION_HEADROOM = 0.94;
-const CHART_MIN_GLOBAL_SCALE = 0.42;
-const CHART_MIN_ROW_SCALE = 0.36;
-const CHART_MIN_COLLISION_SCALE = 0.34;
+import { CHART_DISPLAY_CONFIG } from '../../config/trainer-config.js';
+
+const {
+  layout: CHART_LAYOUT_CONFIG,
+  compression: CHART_COMPRESSION_CONFIG,
+  alignment: CHART_ALIGNMENT_CONFIG,
+  tokenMetrics: CHART_TOKEN_METRICS_CONFIG,
+  subdividedTokenScale: CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG
+} = CHART_DISPLAY_CONFIG;
 
 type CreateChartSheetRendererOptions = {
   sheetGrid?: HTMLElement | null,
@@ -96,7 +97,7 @@ function getTokenVisualMetrics(token) {
   }
 
   const symbol = String(token.symbol || '').replace(/\s+/g, '');
-  const prefixWeight = token.displayPrefix ? 0.35 : 0;
+  const prefixWeight = token.displayPrefix ? CHART_TOKEN_METRICS_CONFIG.displayPrefixWeight : 0;
   const accidentalCount = (symbol.match(/[b#]/g) || []).length;
   const slashCount = (symbol.match(/\//g) || []).length;
   const parentheticalCount = (symbol.match(/[()]/g) || []).length;
@@ -105,11 +106,11 @@ function getTokenVisualMetrics(token) {
 
   const visualWeight = symbol.length
     + prefixWeight
-    + (accidentalCount * 0.18)
-    + (slashCount * 1.1)
-    + (parentheticalCount * 0.45)
-    + (extensionCount * 0.25)
-    + (longQualityCount * 0.55);
+    + (accidentalCount * CHART_TOKEN_METRICS_CONFIG.accidentalWeight)
+    + (slashCount * CHART_TOKEN_METRICS_CONFIG.slashWeight)
+    + (parentheticalCount * CHART_TOKEN_METRICS_CONFIG.parentheticalWeight)
+    + (extensionCount * CHART_TOKEN_METRICS_CONFIG.extensionWeight)
+    + (longQualityCount * CHART_TOKEN_METRICS_CONFIG.longQualityWeight);
 
   return {
     visualWeight,
@@ -123,11 +124,11 @@ function getTokenVisualMetrics(token) {
  * @returns {number}
  */
 function getTokenScaleForSubdividedLayout(tokenMetrics) {
-  if (!tokenMetrics || tokenMetrics.symbolLength <= 3) return 1;
-  if (tokenMetrics.visualWeight >= 11) return 0.82;
-  if (tokenMetrics.visualWeight >= 9.5) return 0.88;
-  if (tokenMetrics.visualWeight >= 7.5) return 0.94;
-  return 0.97;
+  if (!tokenMetrics || tokenMetrics.symbolLength <= CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.shortSymbolMaxLength) return 1;
+  if (tokenMetrics.visualWeight >= CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.heavyWeightThreshold) return CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.heavyScale;
+  if (tokenMetrics.visualWeight >= CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.mediumWeightThreshold) return CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.mediumScale;
+  if (tokenMetrics.visualWeight >= CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.lightWeightThreshold) return CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.lightScale;
+  return CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG.defaultLongScale;
 }
 
 /**
@@ -342,8 +343,8 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   const tokenMetrics = tokens.map(getTokenVisualMetrics);
   const weight = tokenMetrics.reduce((total, tokenMetric) => total + tokenMetric.visualWeight, 0);
   const maxTokenWeight = tokenMetrics.reduce((max, tokenMetric) => Math.max(max, tokenMetric.visualWeight), 0);
-  const hasVeryLongSymbol = maxTokenWeight >= 12;
-  const hasExtremelyLongSymbol = maxTokenWeight >= 15;
+  const hasVeryLongSymbol = maxTokenWeight >= CHART_COMPRESSION_CONFIG.denseChordThreshold;
+  const hasExtremelyLongSymbol = maxTokenWeight >= CHART_COMPRESSION_CONFIG.veryDenseChordThreshold;
 
   const classes = ['chart-bar-body'];
   if (useHalfLayout) {
@@ -357,8 +358,8 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
     || (!useHalfLayout && hasVeryLongSymbol);
   const shouldReduceAggressively =
     tokenCount > logicalSlots
-    || (tokenCount >= logicalSlots && weight >= 28)
-    || (!useHalfLayout && hasExtremelyLongSymbol && weight >= 32);
+    || (tokenCount >= logicalSlots && weight >= CHART_COMPRESSION_CONFIG.aggressiveDensityThreshold)
+    || (!useHalfLayout && hasExtremelyLongSymbol && weight >= CHART_COMPRESSION_CONFIG.aggressiveExtremeDensityThreshold);
 
   if (shouldReduceForDensity) {
     classes.push('is-dense');
@@ -465,7 +466,7 @@ function getBarBodyCollisionScale(barBodyEl) {
   if (slots.length === 0) return 1;
 
   const barRect = barBodyEl.getBoundingClientRect();
-  const availableWidth = Math.max(1, barRect.width - 4);
+  const availableWidth = Math.max(1, barRect.width - CHART_ALIGNMENT_CONFIG.barBodyHorizontalInsetPx);
   const geometries = slots.map((slot) => measureTokenGeometry(slot));
   const symbolLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
   const symbolRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
@@ -473,8 +474,8 @@ function getBarBodyCollisionScale(barBodyEl) {
   const occupiedLeft = Math.min(...symbolLefts);
   const occupiedRight = Math.max(...symbolRights);
   const occupiedWidth = Math.max(0, occupiedRight - occupiedLeft);
-  const spanScale = occupiedWidth > availableWidth * CHART_COLLISION_HEADROOM
-    ? (availableWidth * CHART_COLLISION_HEADROOM) / occupiedWidth
+  const spanScale = occupiedWidth > availableWidth * CHART_COMPRESSION_CONFIG.collisionTargetFillRatio
+    ? (availableWidth * CHART_COMPRESSION_CONFIG.collisionTargetFillRatio) / occupiedWidth
     : 1;
 
   let maxOverlap = 0;
@@ -483,11 +484,15 @@ function getBarBodyCollisionScale(barBodyEl) {
   }
 
   const overlapScale = maxOverlap > 0
-    ? Math.max(CHART_MIN_COLLISION_SCALE, 1 - (((maxOverlap + 2) / availableWidth) * 1.45))
+      ? Math.max(
+        CHART_COMPRESSION_CONFIG.minCollisionScale,
+        1 - (((maxOverlap + CHART_ALIGNMENT_CONFIG.collisionOverlapPaddingPx) / availableWidth)
+          * CHART_COMPRESSION_CONFIG.overlapPenaltyMultiplier)
+      )
     : 1;
 
   return Math.max(
-    CHART_MIN_COLLISION_SCALE,
+    CHART_COMPRESSION_CONFIG.minCollisionScale,
     Math.min(1, spanScale, overlapScale)
   );
 }
@@ -502,7 +507,7 @@ function getBarBodyCollisionScale(barBodyEl) {
  * @returns {void}
  */
 function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect) {
-  const minGap = 1;
+  const minGap = CHART_ALIGNMENT_CONFIG.collisionMinGapPx;
   const count = rawLefts.length;
 
   for (let index = count - 2; index >= 0; index -= 1) {
@@ -547,8 +552,8 @@ function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, ba
   }
 
   const projectedRight = rawRights[count - 1] + offsets[count - 1];
-  if (projectedRight > barRect.right - 1) {
-    offsets[count - 1] -= projectedRight - (barRect.right - 1);
+  if (projectedRight > barRect.right - CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx) {
+    offsets[count - 1] -= projectedRight - (barRect.right - CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx);
   }
 }
 
@@ -570,10 +575,10 @@ function applySingleChordAnchor(barBodyEl) {
   const fontSizePx = parseFloat(getComputedStyle(tokenEl).fontSize);
   if (!fontSizePx || rawWidth <= 0) return;
 
-  const leftBound = barRect.left + 1;
-  const rightBound = barRect.right - 1;
+  const leftBound = barRect.left + CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_ALIGNMENT_CONFIG.symbolBoundaryInsetPx;
   const availableWidth = Math.max(0, rightBound - leftBound);
-  const anchoredLeft = barRect.left + (barRect.width * 0.2);
+  const anchoredLeft = barRect.left + (barRect.width * CHART_ALIGNMENT_CONFIG.singleChordLeftBias);
   const centeredLeft = leftBound + Math.max(0, (availableWidth - rawWidth) / 2);
 
   let offsetPx = anchoredLeft - rawLeft;
@@ -665,7 +670,11 @@ export function createChartSheetRenderer({
       return show ? effectiveTimeSig : null;
     });
 
-    const rows = buildRenderedRows(viewModel, barTimeSigDisplay, getDisplayedBarGroupSize?.() || 4).map((row) => {
+    const rows = buildRenderedRows(
+      viewModel,
+      barTimeSigDisplay,
+      getDisplayedBarGroupSize?.() || CHART_LAYOUT_CONFIG.barsPerRow
+    ).map((row) => {
       const sectionChanged = !row.previousBar || row.previousBar.sectionId !== row.firstBar.sectionId;
       const cells = [
         ...Array.from({ length: row.leadingEmptyBars }, () => renderEmptyBarCell()),
@@ -685,7 +694,7 @@ export function createChartSheetRenderer({
 
     const rowCount = rows.length;
     sheetGrid.dataset.rowCount = String(rowCount);
-    if (rowCount > 0 && rowCount <= 4) {
+    if (rowCount > 0 && rowCount <= CHART_LAYOUT_CONFIG.fillHeightMaxRowCount) {
       sheetGrid.dataset.fillHeight = 'true';
     } else {
       delete sheetGrid.dataset.fillHeight;
@@ -697,7 +706,7 @@ export function createChartSheetRenderer({
     if (!sheetGrid) return;
     const rowElements = sheetGrid.querySelectorAll<HTMLElement>('.chart-row');
     const rowCount = rowElements.length;
-    const shouldStretchRows = rowCount > 0 && rowCount <= 4;
+    const shouldStretchRows = rowCount > 0 && rowCount <= CHART_LAYOUT_CONFIG.fillHeightMaxRowCount;
     sheetGrid.dataset.rowCount = String(rowCount);
     if (shouldStretchRows) {
       sheetGrid.dataset.fillHeight = 'true';
@@ -705,11 +714,13 @@ export function createChartSheetRenderer({
       delete sheetGrid.dataset.fillHeight;
     }
     if (rowCount < 2) {
-      sheetGrid.style.rowGap = shouldStretchRows ? '10px' : `${SHEET_GAP_MIN}px`;
+      sheetGrid.style.rowGap = shouldStretchRows
+        ? `${CHART_LAYOUT_CONFIG.stretchSingleRowGapPx}px`
+        : `${CHART_LAYOUT_CONFIG.rowGapMinPx}px`;
       return;
     }
 
-    sheetGrid.style.rowGap = `${SHEET_GAP_MIN}px`;
+    sheetGrid.style.rowGap = `${CHART_LAYOUT_CONFIG.rowGapMinPx}px`;
     const workspace = sheetGrid.closest('.chart-workspace');
     const gridTop = sheetGrid.getBoundingClientRect().top;
     const bottomBound = workspace ? workspace.getBoundingClientRect().bottom : window.innerHeight;
@@ -720,13 +731,18 @@ export function createChartSheetRenderer({
     });
     const availableForGaps = availableForGrid - totalRowHeight;
     const idealGap = Math.floor(availableForGaps / (rowCount - 1));
-    const maxGap = shouldStretchRows ? 24 : SHEET_GAP_MAX;
-    const clampedGap = Math.max(SHEET_GAP_MIN, Math.min(maxGap, idealGap));
+    const maxGap = shouldStretchRows
+      ? CHART_LAYOUT_CONFIG.stretchRowGapMaxPx
+      : CHART_LAYOUT_CONFIG.rowGapMaxPx;
+    const clampedGap = Math.max(CHART_LAYOUT_CONFIG.rowGapMinPx, Math.min(maxGap, idealGap));
     sheetGrid.style.rowGap = `${clampedGap}px`;
   }
 
   function applyOpticalPlacements() {
-    const textScaleCompensation = Math.max(0.4, Math.min(1, Number(getTextScaleCompensation?.() || 1)));
+    const textScaleCompensation = Math.max(
+      CHART_DISPLAY_CONFIG.textScaleCompensation.minCompensation,
+      Math.min(CHART_DISPLAY_CONFIG.textScaleCompensation.maxCompensation, Number(getTextScaleCompensation?.() || 1))
+    );
     Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
       rowEl.style.removeProperty('grid-template-columns');
     });
@@ -747,7 +763,7 @@ export function createChartSheetRenderer({
         const slots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot'));
         if (slots.length === 0) return;
         const barRect = barBodyEl.getBoundingClientRect();
-        const availableWidth = Math.max(1, barRect.width - 4);
+        const availableWidth = Math.max(1, barRect.width - CHART_ALIGNMENT_CONFIG.barBodyHorizontalInsetPx);
         let totalSymbolWidth = 0;
         slots.forEach((slot) => {
           const geometry = measureTokenGeometry(slot);
@@ -763,14 +779,20 @@ export function createChartSheetRenderer({
       return { barBodies, rowMaxFitRatio };
     });
 
-    const globalScale = globalMaxFitRatio > CHART_FIT_HEADROOM
-      ? Math.max(CHART_MIN_GLOBAL_SCALE, (CHART_FIT_HEADROOM / globalMaxFitRatio) * 0.98)
+    const globalScale = globalMaxFitRatio > CHART_COMPRESSION_CONFIG.targetFillRatio
+      ? Math.max(
+          CHART_COMPRESSION_CONFIG.minGlobalScale,
+          (CHART_COMPRESSION_CONFIG.targetFillRatio / globalMaxFitRatio) * CHART_COMPRESSION_CONFIG.easingFactor
+        )
       : 1;
 
     rowData.forEach(({ barBodies, rowMaxFitRatio }) => {
       const effectiveFitRatio = rowMaxFitRatio * globalScale;
-      const rowExtraScale = effectiveFitRatio > CHART_ROW_HEADROOM
-        ? Math.max(CHART_MIN_ROW_SCALE / globalScale, (CHART_ROW_HEADROOM / effectiveFitRatio) * 0.98)
+      const rowExtraScale = effectiveFitRatio > CHART_COMPRESSION_CONFIG.rowTargetFillRatio
+        ? Math.max(
+            CHART_COMPRESSION_CONFIG.minRowScale / globalScale,
+            (CHART_COMPRESSION_CONFIG.rowTargetFillRatio / effectiveFitRatio) * CHART_COMPRESSION_CONFIG.easingFactor
+          )
         : 1;
       const finalScale = globalScale * rowExtraScale;
       if (finalScale >= 0.999) return;

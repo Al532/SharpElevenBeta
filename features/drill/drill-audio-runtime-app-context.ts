@@ -1,3 +1,4 @@
+﻿// @ts-nocheck
 import { createDrillAudioRuntime } from './drill-audio-runtime.js';
 
 type DrillAudioRuntimeAppContextOptions = {
@@ -23,3 +24,4 @@ export function createDrillAudioRuntimeAppContext({
     fetchImpl
   });
 }
+

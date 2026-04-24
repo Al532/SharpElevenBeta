@@ -11,6 +11,11 @@ Quick guide:
 - `TRAINER_DEFAULTS`
   UI and session defaults: default progressions, repetitions, next preview,
   chords per bar.
+- `CHART_DISPLAY_CONFIG`
+  Chart sheet display tuning: base group size, row gaps, text compensation,
+  compression thresholds, collision handling, and optical alignment knobs.
+  Start with `layout.barsPerRow`, `compression.targetFillRatio`, and
+  `alignment.singleChordLeftBias` for the most visible chart rendering tweaks.
 - `TRAINER_RESOURCE_PATHS`
   Relative resource paths that `app.js` turns into runtime URLs.
 - `PATTERN_MODES`, `DISPLAY_MODES`, `HARMONY_DISPLAY_MODES`,

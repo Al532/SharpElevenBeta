@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
@@ -30,32 +30,32 @@ import {
   WELCOME_ONE_CHORDS,
   WELCOME_PROGRESSIONS,
   WELCOME_STANDARDS_FALLBACK
-} from '../config/trainer-config.js';
-import { createCompingEngine } from '../features/drill/drill-comping-engine.js';
+} from '../config/trainer-config.ts';
+import { createCompingEngine } from '../features/drill/drill-comping-engine.ts';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
   normalizeProgressionEntry as normalizeProgressionEntryBase,
   normalizeProgressionsMap as normalizeProgressionsMapBase,
   parseDefaultProgressionsText as parseDefaultProgressionsTextBase
-} from '../features/progression/progression-library.js';
-import { createDrillCompingEngineAppBindings } from '../features/drill/drill-comping-engine-app-bindings.js';
-import { createDrillCompingEngineRootAppAssembly } from '../features/drill/drill-comping-engine-root-app-assembly.js';
-import { createDrillDisplayRootAppFacade } from '../features/drill/drill-display-root-app-facade.js';
-import { createDrillKeysRootAppAssembly } from '../features/drill/drill-keys-root-app-assembly.js';
-import { createDrillPianoMidiRuntimeRootAppAssembly } from '../features/drill/drill-piano-midi-runtime-root-app-assembly.js';
-import { createDrillNormalizationRootAppContext } from '../features/drill/drill-normalization-root-app-context.js';
-import { createDrillPianoToolsAppBindings } from '../features/drill/drill-piano-tools-app-bindings.js';
-import { createDrillPianoToolsAppFacade } from '../features/drill/drill-piano-tools.js';
-import { createDrillPianoToolsRootAppFacade } from '../features/drill/drill-piano-tools-root-app-facade.js';
-import { createDrillDisplayRuntimeRootAppAssembly } from '../features/drill/drill-display-runtime-root-app-assembly.js';
-import { createDrillNextPreviewRootAppFacade } from '../features/drill/drill-next-preview-root-app-facade.js';
-import { createDrillProgressionRootAppAssembly } from '../features/drill/drill-progression-root-app-assembly.js';
-import { createDrillSettingsPersistenceRootAppAssembly } from '../features/drill/drill-settings-persistence-root-app-assembly.js';
-import { createDrillStartupDataRootAppAssembly } from '../features/drill/drill-startup-data-root-app-assembly.js';
-import { createDrillPlaybackRuntimeHostAppBindings } from '../features/drill/drill-playback-runtime-host-app-bindings.js';
-import { createDrillUiEventBindingsRootAppAssembly } from '../features/drill/drill-ui-event-bindings-root-app-assembly.js';
-import { createDrillWelcomeRootAppFacade } from '../features/drill/drill-welcome-root-app-facade.js';
+} from '../features/progression/progression-library.ts';
+import { createDrillCompingEngineAppBindings } from '../features/drill/drill-comping-engine-app-bindings.ts';
+import { createDrillCompingEngineRootAppAssembly } from '../features/drill/drill-comping-engine-root-app-assembly.ts';
+import { createDrillDisplayRootAppFacade } from '../features/drill/drill-display-root-app-facade.ts';
+import { createDrillKeysRootAppAssembly } from '../features/drill/drill-keys-root-app-assembly.ts';
+import { createDrillPianoMidiRuntimeRootAppAssembly } from '../features/drill/drill-piano-midi-runtime-root-app-assembly.ts';
+import { createDrillNormalizationRootAppContext } from '../features/drill/drill-normalization-root-app-context.ts';
+import { createDrillPianoToolsAppBindings } from '../features/drill/drill-piano-tools-app-bindings.ts';
+import { createDrillPianoToolsAppFacade } from '../features/drill/drill-piano-tools.ts';
+import { createDrillPianoToolsRootAppFacade } from '../features/drill/drill-piano-tools-root-app-facade.ts';
+import { createDrillDisplayRuntimeRootAppAssembly } from '../features/drill/drill-display-runtime-root-app-assembly.ts';
+import { createDrillNextPreviewRootAppFacade } from '../features/drill/drill-next-preview-root-app-facade.ts';
+import { createDrillProgressionRootAppAssembly } from '../features/drill/drill-progression-root-app-assembly.ts';
+import { createDrillSettingsPersistenceRootAppAssembly } from '../features/drill/drill-settings-persistence-root-app-assembly.ts';
+import { createDrillStartupDataRootAppAssembly } from '../features/drill/drill-startup-data-root-app-assembly.ts';
+import { createDrillPlaybackRuntimeHostAppBindings } from '../features/drill/drill-playback-runtime-host-app-bindings.ts';
+import { createDrillUiEventBindingsRootAppAssembly } from '../features/drill/drill-ui-event-bindings-root-app-assembly.ts';
+import { createDrillWelcomeRootAppFacade } from '../features/drill/drill-welcome-root-app-facade.ts';
 import {
   createDrillSharedPlaybackDirectRuntimeAppContext,
   createDrillSharedPlaybackDirectStateAppContext,
@@ -66,15 +66,15 @@ import {
   createDrillSharedPlaybackNormalizationAppContext,
   createDrillSharedPlaybackPatternUiAppContext,
   createDrillSharedPlaybackSettingsAppContext
-} from '../features/drill/drill-shared-playback-app-context.js';
-import { createDrillSharedPlaybackRootAppContext } from '../features/drill/drill-shared-playback-root-app-context.js';
-import { createDrillUiBootstrapRootAppAssembly } from '../features/drill/drill-ui-bootstrap-root-app-assembly.js';
-import { createDrillVoicingRuntimeAppBindings } from '../features/drill/drill-voicing-runtime-app-bindings.js';
-import { createDrillVoicingRuntimeRootAppAssembly } from '../features/drill/drill-voicing-runtime-root-app-assembly.js';
-import { createDrillVoicingRuntime } from '../features/drill/drill-voicing-runtime.js';
-import { createDrillWalkingBassAppBindings } from '../features/drill/drill-walking-bass-app-bindings.js';
-import { createDrillWalkingBassRootAppAssembly } from '../features/drill/drill-walking-bass-root-app-assembly.js';
-import { createWalkingBassGenerator } from '../features/drill/drill-walking-bass.js';
+} from '../features/drill/drill-shared-playback-app-context.ts';
+import { createDrillSharedPlaybackRootAppContext } from '../features/drill/drill-shared-playback-root-app-context.ts';
+import { createDrillUiBootstrapRootAppAssembly } from '../features/drill/drill-ui-bootstrap-root-app-assembly.ts';
+import { createDrillVoicingRuntimeAppBindings } from '../features/drill/drill-voicing-runtime-app-bindings.ts';
+import { createDrillVoicingRuntimeRootAppAssembly } from '../features/drill/drill-voicing-runtime-root-app-assembly.ts';
+import { createDrillVoicingRuntime } from '../features/drill/drill-voicing-runtime.ts';
+import { createDrillWalkingBassAppBindings } from '../features/drill/drill-walking-bass-app-bindings.ts';
+import { createDrillWalkingBassRootAppAssembly } from '../features/drill/drill-walking-bass-root-app-assembly.ts';
+import { createWalkingBassGenerator } from '../features/drill/drill-walking-bass.ts';
 
 function withMockedRandom(sequence, callback) {
   const originalRandom = Math.random;
@@ -94,7 +94,7 @@ function withMockedRandom(sequence, callback) {
 
 function getSourceIndexOrThrow(source, needle, label = needle) {
   const index = source.indexOf(needle);
-  assert.notEqual(index, -1, `Expected to find ${label} in app.js.`);
+  assert.notEqual(index, -1, `Expected to find ${label} in app.ts.`);
   return index;
 }
 
@@ -1596,8 +1596,8 @@ async function testUiEventBindingsRootAssemblyPreservesEventWiring() {
     );
     assert.equal(
       lifecycleToggleCalls,
-      4,
-      'UI event-bindings root assembly preserves lifecycle pause/resume wiring.'
+      0,
+      'UI event-bindings root assembly preserves lifecycle wiring without forcing transport pause/resume toggles.'
     );
     assert.equal(
       lifecycleResumeCalls >= 1,
@@ -2455,7 +2455,7 @@ function testSettingsPersistenceRootAssemblyPreservesSaveLoadGlue() {
 
 function testAppHoistingContractsRemainInPlace() {
   const source = readFileSync(
-    new URL('../app.js', import.meta.url),
+    new URL('../app.ts', import.meta.url),
     'utf8'
   );
 
@@ -2589,7 +2589,7 @@ function testAppHoistingContractsRemainInPlace() {
 
     assert.ok(
       wrapperIndex >= 0,
-      `${label} wrapper must stay implemented as a hoisted function in app.js.`
+      `${label} wrapper must stay implemented as a hoisted function in app.ts.`
     );
     assert.ok(
       consumerIndex < assignmentIndex,
@@ -2738,7 +2738,7 @@ function testTrainerConfigExportsExpectedDefaults() {
 
 function testAppConfigBindingsRemainCentralized() {
   const source = readFileSync(
-    new URL('../app.js', import.meta.url),
+    new URL('../app.ts', import.meta.url),
     'utf8'
   );
 
@@ -2758,7 +2758,7 @@ function testAppConfigBindingsRemainCentralized() {
     assert.notEqual(
       source.indexOf(needle),
       -1,
-      `Expected app.js to keep centralized config binding: ${needle}`
+      `Expected app.ts to keep centralized config binding: ${needle}`
     );
   });
 
@@ -2774,7 +2774,7 @@ function testAppConfigBindingsRemainCentralized() {
     assert.equal(
       source.includes(needle),
       false,
-      `Expected app.js not to reintroduce inline config literal: ${needle}`
+      `Expected app.ts not to reintroduce inline config literal: ${needle}`
     );
   });
 }
@@ -3422,3 +3422,4 @@ testWelcomeRootFacadePreservesWelcomeWorkflow();
 testProgressionRootAssemblyPreservesProgressionSurface();
 await testUiEventBindingsRootAssemblyPreservesEventWiring();
 await testUiBootstrapRootAssemblyPreservesBootstrapCalls();
+

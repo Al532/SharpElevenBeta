@@ -1,0 +1,63 @@
+﻿// @ts-nocheck
+
+/** @typedef {import('../types/contracts').EmbeddedPlaybackApi} EmbeddedPlaybackApi */
+/** @typedef {import('../types/contracts').EmbeddedPlaybackRuntimeState} EmbeddedPlaybackRuntimeState */
+/** @typedef {import('../types/contracts').PlaybackRuntime} PlaybackRuntime */
+/** @typedef {import('../types/contracts').PlaybackOperationResult} PlaybackOperationResult */
+/** @typedef {import('../types/contracts').PlaybackSessionController} PlaybackSessionController */
+/** @typedef {import('../types/contracts').PublishedEmbeddedPlaybackAssemblyProvider} PublishedEmbeddedPlaybackAssemblyProvider */
+
+import { createPublishedEmbeddedPlaybackAssemblyProvider } from './published-embedded-playback-assembly-provider.js';
+
+/**
+ * Publishes the embedded playback API surface from either an existing runtime,
+ * an existing controller, or a caller-supplied published assembly provider.
+ * This keeps the legacy global publication pipeline in `core/playback`.
+ *
+ * @param {{
+ *   playbackRuntime?: PlaybackRuntime,
+ *   playbackController?: PlaybackSessionController,
+ *   applyEmbeddedPattern?: (payload: import('../types/contracts').EmbeddedPatternPayload) => PlaybackOperationResult | Promise<PlaybackOperationResult>,
+ *   getPlaybackState?: () => EmbeddedPlaybackRuntimeState,
+ *   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null
+ * }} [options]
+ * @returns {EmbeddedPlaybackApi}
+ */
+export function bootstrapEmbeddedPlaybackApi({
+  playbackRuntime,
+  playbackController,
+  applyEmbeddedPattern,
+  getPlaybackState,
+  publishedPlaybackAssemblyProvider
+} = {}) {
+  if (publishedPlaybackAssemblyProvider) {
+    return publishedPlaybackAssemblyProvider.getAssembly().embeddedApi;
+  }
+
+  const resolvedPlaybackRuntime = playbackRuntime || (playbackController
+    ? {
+        ensureReady: async () => undefined,
+        ensurePlaybackController: () => playbackController,
+        getRuntimeState: () => playbackController.getState().runtime
+      }
+    : null);
+
+  if (!resolvedPlaybackRuntime) {
+    throw new Error('A playback runtime or controller is required.');
+  }
+
+  return (publishedPlaybackAssemblyProvider
+    || createPublishedEmbeddedPlaybackAssemblyProvider({
+      createPlaybackAssembly() {
+        return {
+          playbackRuntime: resolvedPlaybackRuntime,
+          playbackController: resolvedPlaybackRuntime.ensurePlaybackController(),
+          applyEmbeddedPattern,
+          getPlaybackState
+        };
+      }
+    })
+  ).getAssembly().embeddedApi;
+}
+
+

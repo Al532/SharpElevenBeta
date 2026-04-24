@@ -6,6 +6,7 @@
     "@capacitor/app": "^8.0.0"
   },
   "scripts": {
+    "serve": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/serve-live-reload.ps1",
     "dev": "vite",
     "dev:android:web": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "dev:typecheck": "tsc --noEmit --watch",

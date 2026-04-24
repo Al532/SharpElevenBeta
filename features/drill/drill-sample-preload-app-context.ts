@@ -1,0 +1,53 @@
+﻿// @ts-nocheck
+
+import { createDrillSamplePreloadRuntime } from './drill-sample-preload-runtime.js';
+
+/**
+ * Creates the sample-preload runtime from grouped app concerns so `app.js`
+ * does not need to assemble progression snapshots inline.
+ *
+ * @param {object} [options]
+ * @param {object} [options.playbackSettings]
+ * @param {object} [options.progressionState]
+ * @param {object} [options.sampleLoading]
+ * @param {object} [options.constants]
+ */
+export function createDrillSamplePreloadAppContext({
+  playbackSettings = {},
+  progressionState = {},
+  sampleLoading = {},
+  constants = {}
+} = {}) {
+  return createDrillSamplePreloadRuntime({
+    getBassPreloadRange: playbackSettings.getBassPreloadRange,
+    getBassMidi: playbackSettings.getBassMidi,
+    getBeatsPerChord: playbackSettings.getBeatsPerChord,
+    getChordsPerBar: playbackSettings.getChordsPerBar,
+    getCompingStyle: playbackSettings.getCompingStyle,
+    getDrumsMode: playbackSettings.getDrumsMode,
+    getCurrentProgression: () => ({
+      chords: progressionState.getCurrentChords?.(),
+      key: progressionState.getCurrentKey?.(),
+      voicingPlan: progressionState.getCurrentVoicingPlan?.(),
+      bassPlan: progressionState.getCurrentBassPlan?.()
+    }),
+    getNextProgression: () => ({
+      chords: progressionState.getNextChords?.(),
+      key: progressionState.getNextKey?.(),
+      voicingPlan: progressionState.getNextVoicingPlan?.(),
+      bassPlan: progressionState.getNextBassPlan?.()
+    }),
+    collectCompingSampleNotes: sampleLoading.collectCompingSampleNotes,
+    loadSample: sampleLoading.loadSample,
+    loadPianoSampleList: sampleLoading.loadPianoSampleList,
+    loadFileSample: sampleLoading.loadFileSample,
+    fetchArrayBufferFromUrl: sampleLoading.fetchArrayBufferFromUrl,
+    drumHihatSampleUrl: constants.drumHihatSampleUrl,
+    drumRideSampleUrls: constants.drumRideSampleUrls,
+    drumModeHihats24: constants.drumModeHihats24,
+    drumModeFullSwing: constants.drumModeFullSwing,
+    safePreloadMeasures: constants.safePreloadMeasures
+  });
+}
+
+
