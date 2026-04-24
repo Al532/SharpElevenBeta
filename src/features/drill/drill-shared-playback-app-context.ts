@@ -1,4 +1,5 @@
 import type {
+  DrillSharedPlaybackAppBindings,
   DrillSharedPlaybackDirectBindings,
   DrillSharedPlaybackHostBindings,
   DrillSharedPlaybackNormalizationBindings,
@@ -78,6 +79,28 @@ export function createDrillSharedPlaybackEmbeddedRuntimeAppContext(
 
 export function createDrillSharedPlaybackEmbeddedStateAppContext(
   options: DrillSharedPlaybackStateBindings = {}
+) {
+  return cloneOptions(options);
+}
+
+export function createDrillSharedPlaybackAppBindings({
+  embedded = {},
+  direct = {},
+  publishDirectGlobals
+}: {
+  embedded?: DrillSharedPlaybackAppBindings['embedded'];
+  direct?: DrillSharedPlaybackAppBindings['direct'];
+  publishDirectGlobals?: boolean;
+} = {}): DrillSharedPlaybackAppBindings {
+  return {
+    embedded,
+    direct,
+    publishDirectGlobals
+  };
+}
+
+export function createDrillSharedPlaybackRuntimeAppBindings<T extends Record<string, unknown>>(
+  options: T
 ) {
   return cloneOptions(options);
 }

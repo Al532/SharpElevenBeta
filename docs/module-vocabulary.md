@@ -1,5 +1,7 @@
 # Module Vocabulary
 
+For the broader ownership map, see `docs/module-catalog.md`.
+
 This repository now follows a simple naming rule:
 
 - `chart` means the lead-sheet domain: import, interpretation, rendering, selection, and chart-side playback controls.

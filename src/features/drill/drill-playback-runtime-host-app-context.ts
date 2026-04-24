@@ -35,6 +35,22 @@ export function createDrillPlaybackRuntimeHostPreloadAppContext(
   return cloneOptions(options);
 }
 
+export function createDrillPlaybackRuntimeHostStateAppContext({
+  runtimeState = {},
+  audioState = {},
+  preloadState = {},
+  playbackConstants = {},
+  runtimeHelpers = {}
+}: Omit<DrillPlaybackRuntimeHostAppContextOptions, 'dom'> = {}) {
+  return {
+    runtimeState,
+    audioState,
+    preloadState,
+    playbackConstants,
+    runtimeHelpers
+  };
+}
+
 export function createDrillPlaybackRuntimeHostAppContext({
   dom = {},
   runtimeState = {},

@@ -153,8 +153,10 @@ import { createDrillEmbeddedRuntimeAppAssembly } from '../src/features/drill/dri
 import { createDrillEmbeddedRuntimeHostBindings } from '../src/features/drill/drill-embedded-runtime-host.ts';
 import { createDrillPianoToolsAppBindings } from '../src/features/drill/drill-piano-tools-app-bindings.ts';
 import { createDrillPianoToolsAppFacade } from '../src/features/drill/drill-piano-tools.ts';
-import { createDrillPlaybackResourcesAppBindings } from '../src/features/drill/drill-playback-resources-app-bindings.ts';
-import { createDrillPlaybackResourcesRuntimeAppBindings } from '../src/features/drill/drill-playback-resources-runtime-app-bindings.ts';
+import {
+  createDrillPlaybackResourcesAppBindings,
+  createDrillPlaybackResourcesRuntimeAppBindings
+} from '../src/features/drill/drill-playback-resources-app-context.ts';
 import { createDrillSamplePlaybackRuntime } from '../src/features/drill/drill-sample-playback-runtime.ts';
 import { createDrillSamplePlaybackAppContext } from '../src/features/drill/drill-sample-playback-app-context.ts';
 import { createDrillSamplePreloadAppContext } from '../src/features/drill/drill-sample-preload-app-context.ts';
@@ -173,8 +175,10 @@ import {
   createDrillPlaybackSchedulerState,
   createDrillPlaybackTransportState
 } from '../src/features/drill/drill-playback-runtime-engine.ts';
-import { createDrillSharedPlaybackAppBindings } from '../src/features/drill/drill-shared-playback-app-bindings.ts';
-import { createDrillSharedPlaybackRuntimeAppBindings } from '../src/features/drill/drill-shared-playback-runtime-app-bindings.ts';
+import {
+  createDrillSharedPlaybackAppBindings,
+  createDrillSharedPlaybackRuntimeAppBindings
+} from '../src/features/drill/drill-shared-playback-app-context.ts';
 import { createDrillPlaybackRuntimeAppBindings } from '../src/features/drill/drill-playback-runtime-app-bindings.ts';
 import { createDrillVoicingRuntimeAppBindings } from '../src/features/drill/drill-voicing-runtime-app-bindings.ts';
 import { createDrillWalkingBassAppBindings } from '../src/features/drill/drill-walking-bass-app-bindings.ts';

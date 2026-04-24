@@ -1,9 +1,10 @@
 
 import { createDrillSharedPlaybackAppAssembly } from './drill-shared-playback-app-assembly.js';
-import { createDrillSharedPlaybackAppBindings } from './drill-shared-playback-app-bindings.js';
-import { createDrillSharedPlaybackAppContextOptions } from './drill-shared-playback-app-context.js';
+import {
+  createDrillSharedPlaybackAppBindings,
+  createDrillSharedPlaybackAppContextOptions
+} from './drill-shared-playback-app-context.js';
 import { createDrillSharedPlaybackRootAppContext } from './drill-shared-playback-root-app-context.js';
-import { createDrillSharedPlaybackStateAppContext } from './drill-shared-playback-state-app-context.js';
 import type { DrillSharedPlaybackAppAssembly, DrillSharedPlaybackHostBindings, DrillSharedPlaybackNormalizationBindings, DrillSharedPlaybackPatternUiBindings, DrillSharedPlaybackRuntimeBindings, DrillSharedPlaybackSettingsBindings, DrillSharedPlaybackStateBindings, DrillSharedPlaybackTransportBindings } from './drill-shared-playback-types.js';
 
 type CreateDrillSharedPlaybackRootAppAssemblyOptions = {
@@ -71,7 +72,7 @@ export function createDrillSharedPlaybackRootAppAssembly({
     createDrillSharedPlaybackAppBindings(
       createDrillSharedPlaybackAppContextOptions({
         dom,
-        ...createDrillSharedPlaybackStateAppContext(rootAppContext),
+        ...rootAppContext,
         publishDirectGlobals
       })
     )

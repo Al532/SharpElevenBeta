@@ -37,6 +37,18 @@ export function createDrillPlaybackResourcesSettingsAppContext(
   return cloneOptions(options);
 }
 
+export function createDrillPlaybackResourcesAppBindings(
+  options: DrillPlaybackResourcesAppContextOptions = {}
+): DrillPlaybackResourcesAppContextShape {
+  return createDrillPlaybackResourcesAppContext(options);
+}
+
+export function createDrillPlaybackResourcesRuntimeAppBindings(
+  options: DrillPlaybackResourcesAppContextOptions = {}
+): DrillPlaybackResourcesAppContextShape {
+  return createDrillPlaybackResourcesAppContext(options);
+}
+
 export function createDrillPlaybackResourcesAppContext({
   harmony = {},
   progressionState = {},
@@ -45,10 +57,10 @@ export function createDrillPlaybackResourcesAppContext({
   audioFacade = {}
 }: DrillPlaybackResourcesAppContextOptions = {}): DrillPlaybackResourcesAppContextShape {
   return {
-    harmony: harmony as DrillPlaybackResourcesHarmonyBindings,
-    progressionState: progressionState as DrillPlaybackResourcesProgressionStateBindings,
-    playbackSettings: playbackSettings as DrillPlaybackResourcesSettingsBindings,
-    runtime: runtime as DrillPlaybackResourcesRuntimeBindings,
-    audioFacade: audioFacade as DrillPlaybackResourcesAudioFacade
+    harmony: cloneOptions(harmony as DrillPlaybackResourcesHarmonyBindings),
+    progressionState: cloneOptions(progressionState as DrillPlaybackResourcesProgressionStateBindings),
+    playbackSettings: cloneOptions(playbackSettings as DrillPlaybackResourcesSettingsBindings),
+    runtime: cloneOptions(runtime as DrillPlaybackResourcesRuntimeBindings),
+    audioFacade: cloneOptions(audioFacade as DrillPlaybackResourcesAudioFacade)
   };
 }
