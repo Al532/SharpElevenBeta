@@ -23,10 +23,22 @@ export async function importDefaultFixtureLibrary({
   applyImportedLibrary?: (options: { documents: ChartDocument[]; source: string; preferredId?: string; statusMessage?: string }) => void;
   loadPersistedChartId?: () => string;
 } = {}): Promise<void> {
-  const response = await fetchImpl(String(sourceUrl));
-  if (!response.ok) {
-    throw new Error(`Failed to load iReal source (${response.status})`);
+  let response: Response;
+  try {
+    response = await fetchImpl(String(sourceUrl));
+    if (!response.ok) {
+      throw new Error(`Failed to load iReal source (${response.status})`);
+    }
+  } catch {
+    applyImportedLibrary?.({
+      documents: [],
+      source: 'bundled default library',
+      preferredId: loadPersistedChartId?.(),
+      statusMessage: 'No bundled chart library found. Import an iReal backup or paste an iReal link.'
+    });
+    return;
   }
+
   const rawText = await response.text();
   const importedDocuments = await importDocumentsFromIRealText?.(
     rawText,
