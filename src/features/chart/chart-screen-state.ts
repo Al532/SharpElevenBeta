@@ -5,7 +5,7 @@ import type {
   PracticeSessionSpec
 } from '../../core/types/contracts';
 
-import { createPracticeSessionFromChartSelection } from '../../chart/index.js';
+import { createPracticeSessionFromChartSelection } from '../../../chart/index.js';
 import { renderChartSelectionState } from './chart-renderer.js';
 
 export function getSelectedPracticeSession(state: {

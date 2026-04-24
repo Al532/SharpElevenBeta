@@ -2,13 +2,13 @@ import type {
   ChartDocument,
   ChartPlaybackPlan,
   PracticeSessionExport
-} from '../core/types/contracts';
+} from '../src/core/types/contracts';
 
 import {
   buildLegacyEnginePatternStringFromPracticeBars,
   buildLegacyPatternStringFromPracticeBars,
   createPracticePlaybackBarsFromChartEntries
-} from '../core/models/practice-session.js';
+} from '../src/core/models/practice-session.js';
 
 /**
  * @param {ChartPlaybackPlan | null | undefined} playbackPlan

@@ -12,8 +12,8 @@ import {
   createPracticePlaybackBarsFromChartEntries,
   createPracticeSessionSpec
 } from '../../core/models/practice-session.js';
-import { createChartPlaybackPlanFromDocument } from '../../chart/chart-interpreter.js';
-import { createChartDocument } from '../../chart/chart-types.js';
+import { createChartPlaybackPlanFromDocument } from '../../../chart/chart-interpreter.js';
+import { createChartDocument } from '../../../chart/chart-types.js';
 
 function buildSelectionTitle(baseTitle: string, startIndex: number | null, endIndex: number | null): string {
   if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) {

@@ -1,9 +1,9 @@
-import type { ChartChordSlot } from '../core/types/contracts';
+import type { ChartChordSlot } from '../src/core/types/contracts';
 
 import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
-} from '../core/music/harmony-context.js';
+} from '../src/core/music/harmony-context.js';
 import { normalizeSemitone, parseNoteSymbol, splitChordSymbol } from './chart-harmony.js';
 
 /**

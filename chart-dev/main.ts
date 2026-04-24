@@ -10,7 +10,7 @@
   PlaybackOperationResult,
   PlaybackSettings,
   PracticeSessionSpec
-} from '../core/types/contracts';
+} from '../src/core/types/contracts';
 
 import {
   createChartDocumentsFromIRealText,
@@ -20,44 +20,44 @@ import {
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
   persistChartId as persistChartIdToStorage,
   persistPlaybackSettings as persistChartPlaybackSettings
-} from '../features/chart/chart-persistence.js';
+} from '../src/features/chart/chart-persistence.js';
 import {
   filterChartDocuments,
   importDocumentsFromIRealText as importChartDocumentsFromIRealText
-} from '../features/chart/chart-library.js';
+} from '../src/features/chart/chart-library.js';
 import {
   applyImportedLibrary as applyImportedChartLibrary,
   renderSelectedFixture
-} from '../features/chart/chart-fixture-controller.js';
+} from '../src/features/chart/chart-fixture-controller.js';
 import {
   createChartNavigationController,
   updateChartNavigationState as updateChartNavigationStateUi
-} from '../features/chart/chart-navigation.js';
-import { createChartGestureController } from '../features/chart/chart-gesture-controller.js';
-import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.js';
-import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.js';
-import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.js';
+} from '../src/features/chart/chart-navigation.js';
+import { createChartGestureController } from '../src/features/chart/chart-gesture-controller.js';
+import { createChartPlaybackRuntimeContextBindings } from '../src/features/chart/chart-playback-runtime-context-bindings.js';
+import { createChartDirectPlaybackRuntimeHost } from '../src/features/chart/chart-direct-playback-runtime-host.js';
+import { createChartPlaybackRuntimeContext } from '../src/features/chart/chart-playback-runtime-context.js';
 import {
   applyPlaybackTransportState,
   startPlaybackPolling,
   stopPlaybackPolling
-} from '../features/chart/chart-playback-runtime.js';
+} from '../src/features/chart/chart-playback-runtime.js';
 import {
   renderChartMeta,
   renderChartSelector as renderChartSelectorUi,
   renderChartTransport
-} from '../features/chart/chart-renderer.js';
-import { createAppShellBindings } from '../features/app/app-shell-bindings.js';
-import { initializeAppShell } from '../features/app/app-shell.js';
-import { openIrealBrowser } from '../features/app/ireal-browser.js';
-import { createChartSheetRenderer } from '../features/chart/chart-sheet-renderer.js';
+} from '../src/features/chart/chart-renderer.js';
+import { createAppShellBindings } from '../src/features/app/app-shell-bindings.js';
+import { initializeAppShell } from '../src/features/app/app-shell.js';
+import { openIrealBrowser } from '../src/features/app/ireal-browser.js';
+import { createChartSheetRenderer } from '../src/features/chart/chart-sheet-renderer.js';
 import {
   bindChartImportControls,
   handleChartBackupFileSelection,
   handlePastedChartIRealLinkImport,
   importDefaultFixtureLibrary as importChartDefaultFixtureLibrary,
   setChartImportStatus
-} from '../features/chart/chart-import-controls.js';
+} from '../src/features/chart/chart-import-controls.js';
 import {
   createChartDefaultLibraryBindings,
   createChartDirectPlaybackRuntimeHostBindings,
@@ -83,7 +83,7 @@ import {
   createChartSheetRendererAppBindings,
   createChartSheetRendererBindings,
   createChartTransportBindings
-} from '../features/chart/chart-app-bindings.js';
+} from '../src/features/chart/chart-app-bindings.js';
 import {
   bindChartLayoutObservers,
   closeAllChartPopovers,
@@ -91,17 +91,17 @@ import {
   initializeChartScreen,
   openChartOverlay,
   toggleChartPopover
-} from '../features/chart/chart-ui-shell.js';
-import { bindChartRuntimeControls } from '../features/chart/chart-runtime-controls.js';
-import { createContiguousBarSelectionController } from '../features/chart/chart-selection-controller.js';
+} from '../src/features/chart/chart-ui-shell.js';
+import { bindChartRuntimeControls } from '../src/features/chart/chart-runtime-controls.js';
+import { createContiguousBarSelectionController } from '../src/features/chart/chart-selection-controller.js';
 import {
   getSelectedPracticeSession as getSelectedPracticeSessionFromState,
   renderChartSelectionUi,
   updateChartMixerOutputs
-} from '../features/chart/chart-screen-state.js';
-import { renderChordSymbolHtml } from '../core/music/chord-symbol-display.js';
-import voicingConfig from '../core/music/voicing-config.js';
-import { CHART_DISPLAY_CONFIG } from '../config/trainer-config.js';
+} from '../src/features/chart/chart-screen-state.js';
+import { renderChordSymbolHtml } from '../src/core/music/chord-symbol-display.js';
+import voicingConfig from '../src/core/music/voicing-config.js';
+import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
 const DEFAULT_TEMPO = 120;
 const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;

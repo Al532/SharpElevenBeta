@@ -11,12 +11,9 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "app.ts",
+    "src/**/*.ts",
     "chart/**/*.ts",
     "chart-dev/**/*.ts",
-    "core/**/*.ts",
-    "core/types/**/*.d.ts",
-    "features/**/*.ts",
-    "config/**/*.ts"
+    "src/**/*.d.ts"
   ]
 }

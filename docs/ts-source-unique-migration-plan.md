@@ -30,7 +30,7 @@ L’état actuel impose ce découpage : `tsconfig.json` a encore `allowJs: true`
 
 ### 4. Vague 3 : convertir `features/drill`, `features/app` et l’entrypoint principal
 
-- Introduire `app.ts` comme entrypoint applicatif principal et faire pointer `index.html` vers `./app.ts`.
+- Introduire `src/app.ts` comme entrypoint applicatif principal et faire pointer `index.html` vers `./src/app.ts`.
 - Migrer les modules `features/drill` et `features/app` restants jusqu’à supprimer la dépendance runtime à `app.js`.
 - Garder le comportement de redirection existant dans `index.html` inchangé ; seul le module chargé change.
 - Ne pas coupler cette vague à un durcissement de types global : la migration de langage et la montée en `strict` restent deux chantiers distincts.
@@ -44,7 +44,7 @@ L’état actuel impose ce découpage : `tsconfig.json` a encore `allowJs: true`
 
 ## Interfaces et surfaces publiques impactées
 
-- `index.html` : passage de `./app.js` à `./app.ts`.
+- `index.html` : passage de `./app.js` à `./src/app.ts`.
 - `chart-dev/index.html` : passage de `./main.js` à `./main.ts`.
 - `tsconfig.json` : retrait final de `allowJs`, simplification de `include`, conservation de `noEmit`.
 - Convention de contribution : **les nouvelles sources applicatives sont créées uniquement en `.ts`** ; aucun nouveau miroir `.js` n’est accepté.

@@ -71,23 +71,26 @@
 
 ### Synced Static Assets
 
-- Files at the repository root are the source of truth for synced static assets.
-- Do not manually edit the copies in `public/` when a root-level source file exists.
-- When a synced static asset is modified at the repository root, also sync its `public/` copy so both stay aligned.
+- Files in `public/` are the source of truth for synced static assets.
+- Root-level compatibility copies are generated from `public/` for the local HTML entrypoints and static-server workflows.
+- Do not manually edit the generated root-level copies when a `public/` source file exists.
 
 Synced static assets:
 
-- `default-progressions.txt` -> `public/default-progressions.txt`
-- `progression-suffixes.txt` -> `public/progression-suffixes.txt`
-- `style.css` -> `public/style.css`
-- `demo.html` -> `public/demo.html`
-- `parsing-projects/review-standard-conversions.txt` -> `public/parsing-projects/review-standard-conversions.txt`
+- `public/chord-symbol.css` -> `chord-symbol.css`
+- `public/default-progressions.txt` -> `default-progressions.txt`
+- `public/demo.html` -> `demo.html`
+- `public/favicon.svg` -> `favicon.svg`
+- `public/parsing-projects/review-standard-conversions.txt` -> `parsing-projects/review-standard-conversions.txt`
+- `public/piano-sample-calibrator.html` -> `piano-sample-calibrator.html`
+- `public/piano-sample-calibrator.js` -> `piano-sample-calibrator.js`
+- `public/progression-suffixes.txt` -> `progression-suffixes.txt`
+- `public/style.css` -> `style.css`
 
 ### Progressions Version
 
 - `progressions-version` is independent from the app release version.
 - Only change it when the default progression catalog itself changes.
-- Do not increment the `# progressions-version:` header in `default-progressions.txt`.
 - Do not increment the `# progressions-version:` header in `public/default-progressions.txt`.
 
 ## On-Demand Workflows

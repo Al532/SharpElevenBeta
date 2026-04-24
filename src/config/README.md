@@ -1,13 +1,13 @@
 # Config Map
 
 The main entry point for configurable trainer constants is
-[trainer-config.js](/C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/config/trainer-config.js).
+[trainer-config.js](/C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/src/config/trainer-config.js).
 
 Quick guide:
 
 - `TRAINER_APP_CONFIG`, `TRAINER_MODE_CONFIG`, `TRAINER_AUDIO_CONFIG`,
   `TRAINER_PRESET_CONFIG`
-  Grouped surfaces intended for main consumers like `app.js`.
+  Grouped surfaces intended for main consumers like `src/app.ts`.
 - `TRAINER_DEFAULTS`
   UI and session defaults: default progressions, repetitions, next preview,
   chords per bar.
@@ -45,11 +45,11 @@ Intentionally kept out of this file:
 - pure music theory constants (`roman`, intervals, enharmonic tables)
 - DOM references
 - live runtime state
-- technical hoisting seams in `app.js`
+- technical hoisting seams in `src/app.ts`
 
 Practical rule:
 
 - if a value changes adjustable app behavior, start in
-  `config/trainer-config.js`
+  `src/config/trainer-config.js`
 - if a value describes internal music logic or runtime structure, it probably
   belongs elsewhere

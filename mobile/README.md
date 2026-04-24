@@ -12,7 +12,7 @@ Current decisions:
 ## Current status
 
 - Capacitor config is in place in [mobile/capacitor.config.json](</C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/mobile/capacitor.config.json>).
-- The mobile web bundle is produced by [vite.mobile.config.js](</C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/vite.mobile.config.js>).
+- The mobile web bundle is produced by [vite.mobile.config.js](/C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/config/vite/vite.mobile.config.js).
 - Root scripts now expose the main workflow without changing directory.
 - The Android shell is versioned in this repository under [mobile/android](</C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/mobile/android>).
 
@@ -42,5 +42,5 @@ Current decisions:
 
 - The external demo repository is currently out of scope for the Android/mobile workflow.
 - Android/mobile builds stay local to this repository unless the user explicitly asks to update the separate demo deployment.
-- `vite.mobile.config.js` exists specifically to produce an in-repo `mobile/www` bundle for Capacitor.
+- `config/vite/vite.mobile.config.js` exists specifically to produce an in-repo `mobile/www` bundle for Capacitor.
 - Root shortcuts are available in [package.json](</C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/package.json>) as `mobile:install`, `mobile:copy`, `mobile:sync`, `mobile:open:android`, and `mobile:open:ios`.

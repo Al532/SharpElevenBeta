@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,11 +6,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const publicDir = path.join(projectRoot, 'public');
-const scriptMode = process.argv[2] || 'public';
+const scriptMode = process.argv[2] || 'root';
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
 const appVersion = packageJson.version;
 
-const filesToSync = [
+const mirroredFiles = [
   'chord-symbol.css',
   'default-progressions.txt',
   'demo.html',
@@ -22,55 +22,61 @@ const filesToSync = [
   'style.css'
 ];
 
-const directoriesToSyncForBuild = [
-  'assets'
-];
-
 const templatedFiles = new Set([
   'demo.html'
 ]);
 
-async function getBuildOutDir() {
-  const viteConfigPath = path.join(projectRoot, 'vite.config.js');
-  const viteConfigContent = await readFile(viteConfigPath, 'utf8');
-  const outDirMatch = viteConfigContent.match(/outDir\s*:\s*['"`]([^'"`]+)['"`]/);
-  if (!outDirMatch) return null;
-  return path.resolve(projectRoot, outDirMatch[1]);
+function getPublicPath(relativePath) {
+  return path.join(publicDir, relativePath);
 }
 
-async function syncToDirectory(targetDir, label) {
+function getProjectPath(relativePath) {
+  return path.join(projectRoot, relativePath);
+}
+
+async function renderStaticFile(relativePath) {
+  const content = await readFile(getPublicPath(relativePath), 'utf8');
+  if (!templatedFiles.has(relativePath)) {
+    return content;
+  }
+
+  return content.replaceAll('__APP_VERSION__', appVersion);
+}
+
+async function syncPublicFilesTo(targetDir) {
   await mkdir(targetDir, { recursive: true });
 
-  for (const relativePath of filesToSync) {
-    const sourcePath = path.join(projectRoot, relativePath);
+  for (const relativePath of mirroredFiles) {
     const destinationPath = path.join(targetDir, relativePath);
     await mkdir(path.dirname(destinationPath), { recursive: true });
+
     if (templatedFiles.has(relativePath)) {
-      const sourceContent = await readFile(sourcePath, 'utf8');
-      const renderedContent = sourceContent.replaceAll('__APP_VERSION__', appVersion);
-      await writeFile(destinationPath, renderedContent, 'utf8');
-    } else {
-      await copyFile(sourcePath, destinationPath);
+      await writeFile(destinationPath, await renderStaticFile(relativePath), 'utf8');
+      continue;
     }
+
+    await copyFile(getPublicPath(relativePath), destinationPath);
   }
 }
 
-async function syncDirectoriesToBuild(targetDir, label) {
-  for (const relativePath of directoriesToSyncForBuild) {
-    const sourcePath = path.join(projectRoot, relativePath);
-    const destinationPath = path.join(targetDir, relativePath);
-    await cp(sourcePath, destinationPath, { recursive: true, force: true });
-  }
+async function renderTemplatedOutput(targetDir) {
+  const destinationPath = path.join(targetDir, 'demo.html');
+  await mkdir(path.dirname(destinationPath), { recursive: true });
+  await writeFile(destinationPath, await renderStaticFile('demo.html'), 'utf8');
 }
 
-if (scriptMode === 'public' || scriptMode === 'all') {
-  await syncToDirectory(publicDir, 'public');
+if (scriptMode === 'root' || scriptMode === 'all') {
+  await syncPublicFilesTo(projectRoot);
 }
 
 if (scriptMode === 'build' || scriptMode === 'all') {
-  const buildOutDir = await getBuildOutDir();
-  if (buildOutDir) {
-    await syncToDirectory(buildOutDir, path.relative(projectRoot, buildOutDir) || path.basename(buildOutDir));
-    await syncDirectoriesToBuild(buildOutDir, path.relative(projectRoot, buildOutDir) || path.basename(buildOutDir));
-  }
+  await renderTemplatedOutput(getProjectPath('build'));
+}
+
+if (scriptMode === 'mobile' || scriptMode === 'all') {
+  await renderTemplatedOutput(getProjectPath(path.join('mobile', 'www')));
+}
+
+if (scriptMode === 'demo' || scriptMode === 'all') {
+  await renderTemplatedOutput(path.resolve(projectRoot, '..', 'JazzProgressionTrainerDemo'));
 }

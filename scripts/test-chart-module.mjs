@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -16,54 +16,54 @@ import {
   createPracticeSessionFromSelectedChartDocument,
   createSelectedChartDocument
 } from '../chart/node-index.mjs';
-import { createEmbeddedPlaybackRuntime } from '../core/playback/embedded-playback-runtime.ts';
-import { createEmbeddedPlaybackApi } from '../core/playback/embedded-playback-api.ts';
-import { createEmbeddedPlaybackAssembly } from '../core/playback/embedded-playback-assembly.ts';
-import { createEmbeddedPlaybackApiClient } from '../core/playback/embedded-playback-api-client.ts';
-import { createEmbeddedPlaybackBridge } from '../core/playback/embedded-playback-bridge.ts';
-import { createEmbeddedPlaybackBridgeProvider } from '../core/playback/embedded-playback-bridge-provider.ts';
-import { createEmbeddedPlaybackRuntimeProvider } from '../core/playback/embedded-playback-runtime-provider.ts';
-import { publishDirectPlaybackGlobals, readDirectPlaybackGlobals } from '../core/playback/direct-playback-globals.ts';
-import { createDirectPlaybackOptionsClient } from '../core/playback/direct-playback-options-client.ts';
-import { createDirectPlaybackAssembly } from '../core/playback/direct-playback-assembly.ts';
-import { createDirectPlaybackAssemblyProvider } from '../core/playback/direct-playback-assembly-provider.ts';
-import { createDirectPlaybackBridgeProvider } from '../core/playback/direct-playback-bridge-provider.ts';
-import { createDirectPlaybackRuntime } from '../core/playback/direct-playback-runtime.ts';
-import { createDirectPlaybackRuntimeProvider } from '../core/playback/direct-playback-runtime-provider.ts';
+import { createEmbeddedPlaybackRuntime } from '../src/core/playback/embedded-playback-runtime.ts';
+import { createEmbeddedPlaybackApi } from '../src/core/playback/embedded-playback-api.ts';
+import { createEmbeddedPlaybackAssembly } from '../src/core/playback/embedded-playback-assembly.ts';
+import { createEmbeddedPlaybackApiClient } from '../src/core/playback/embedded-playback-api-client.ts';
+import { createEmbeddedPlaybackBridge } from '../src/core/playback/embedded-playback-bridge.ts';
+import { createEmbeddedPlaybackBridgeProvider } from '../src/core/playback/embedded-playback-bridge-provider.ts';
+import { createEmbeddedPlaybackRuntimeProvider } from '../src/core/playback/embedded-playback-runtime-provider.ts';
+import { publishDirectPlaybackGlobals, readDirectPlaybackGlobals } from '../src/core/playback/direct-playback-globals.ts';
+import { createDirectPlaybackOptionsClient } from '../src/core/playback/direct-playback-options-client.ts';
+import { createDirectPlaybackAssembly } from '../src/core/playback/direct-playback-assembly.ts';
+import { createDirectPlaybackAssemblyProvider } from '../src/core/playback/direct-playback-assembly-provider.ts';
+import { createDirectPlaybackBridgeProvider } from '../src/core/playback/direct-playback-bridge-provider.ts';
+import { createDirectPlaybackRuntime } from '../src/core/playback/direct-playback-runtime.ts';
+import { createDirectPlaybackRuntimeProvider } from '../src/core/playback/direct-playback-runtime-provider.ts';
 import {
   publishEmbeddedPlaybackGlobals,
   readEmbeddedPlaybackGlobals,
   resolveEmbeddedPlaybackApi
-} from '../core/playback/embedded-playback-globals.ts';
-import { createDrillPlaybackAssembly } from '../core/playback/drill-playback-assembly.ts';
-import { createDrillPlaybackAssemblyProvider } from '../core/playback/drill-playback-assembly-provider.ts';
-import { createDrillPlaybackBridgeProvider } from '../core/playback/drill-playback-bridge-provider.ts';
-import { createDrillPlaybackRuntime as createCoreDrillPlaybackRuntime } from '../core/playback/drill-playback-runtime.ts';
-import { createDrillPlaybackRuntimeProvider } from '../core/playback/drill-playback-runtime-provider.ts';
-import { createEmbeddedPlaybackSessionAdapter } from '../core/playback/embedded-playback-session-adapter.ts';
-import { createDirectPlaybackSessionAdapter } from '../core/playback/direct-playback-session-adapter.ts';
-import { createDrillPlaybackSessionAdapter } from '../core/playback/drill-playback-session-adapter.ts';
-import { createPlaybackBridgeProvider } from '../core/playback/playback-bridge-provider.ts';
-import { createPlaybackAssembly } from '../core/playback/playback-assembly.ts';
-import { createPlaybackAssemblyProvider } from '../core/playback/playback-assembly-provider.ts';
-import { createPlaybackRuntimeBindings } from '../core/playback/playback-runtime-bindings.ts';
-import { createRuntimePlaybackBridgeProvider } from '../core/playback/runtime-playback-bridge-provider.ts';
-import { createPlaybackRuntimeProvider } from '../core/playback/playback-runtime-provider.ts';
-import { createPlaybackRuntime } from '../core/playback/playback-runtime.ts';
-import { bootstrapEmbeddedPlaybackApi } from '../core/playback/embedded-playback-bootstrap.ts';
-import { createPublishedEmbeddedPlaybackAssembly } from '../core/playback/published-embedded-playback-assembly.ts';
-import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../core/playback/published-embedded-playback-assembly-provider.ts';
-import { createEmbeddedDrillApi } from '../features/drill/drill-embedded-api.ts';
+} from '../src/core/playback/embedded-playback-globals.ts';
+import { createDrillPlaybackAssembly } from '../src/core/playback/drill-playback-assembly.ts';
+import { createDrillPlaybackAssemblyProvider } from '../src/core/playback/drill-playback-assembly-provider.ts';
+import { createDrillPlaybackBridgeProvider } from '../src/core/playback/drill-playback-bridge-provider.ts';
+import { createDrillPlaybackRuntime as createCoreDrillPlaybackRuntime } from '../src/core/playback/drill-playback-runtime.ts';
+import { createDrillPlaybackRuntimeProvider } from '../src/core/playback/drill-playback-runtime-provider.ts';
+import { createEmbeddedPlaybackSessionAdapter } from '../src/core/playback/embedded-playback-session-adapter.ts';
+import { createDirectPlaybackSessionAdapter } from '../src/core/playback/direct-playback-session-adapter.ts';
+import { createDrillPlaybackSessionAdapter } from '../src/core/playback/drill-playback-session-adapter.ts';
+import { createPlaybackBridgeProvider } from '../src/core/playback/playback-bridge-provider.ts';
+import { createPlaybackAssembly } from '../src/core/playback/playback-assembly.ts';
+import { createPlaybackAssemblyProvider } from '../src/core/playback/playback-assembly-provider.ts';
+import { createPlaybackRuntimeBindings } from '../src/core/playback/playback-runtime-bindings.ts';
+import { createRuntimePlaybackBridgeProvider } from '../src/core/playback/runtime-playback-bridge-provider.ts';
+import { createPlaybackRuntimeProvider } from '../src/core/playback/playback-runtime-provider.ts';
+import { createPlaybackRuntime } from '../src/core/playback/playback-runtime.ts';
+import { bootstrapEmbeddedPlaybackApi } from '../src/core/playback/embedded-playback-bootstrap.ts';
+import { createPublishedEmbeddedPlaybackAssembly } from '../src/core/playback/published-embedded-playback-assembly.ts';
+import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../src/core/playback/published-embedded-playback-assembly-provider.ts';
+import { createEmbeddedDrillApi } from '../src/features/drill/drill-embedded-api.ts';
 import {
   createChartDirectPlaybackBridgeProvider,
   createChartPlaybackBridgeProviderForMode,
   createChartPlaybackPayloadBuilder
-} from '../features/chart/chart-playback-bridge.ts';
-import { createChartDirectPlaybackControllerOptions } from '../features/chart/chart-direct-playback-options.ts';
-import { createChartDirectPlaybackHostResolver } from '../features/chart/chart-direct-playback-host.ts';
-import { createChartDirectPlaybackFrameHost } from '../features/chart/chart-direct-playback-frame.ts';
-import { createChartDirectPlaybackWindowHost } from '../features/chart/chart-direct-playback-window-host.ts';
-import { createChartDirectPlaybackRuntimeHost } from '../features/chart/chart-direct-playback-runtime-host.ts';
+} from '../src/features/chart/chart-playback-bridge.ts';
+import { createChartDirectPlaybackControllerOptions } from '../src/features/chart/chart-direct-playback-options.ts';
+import { createChartDirectPlaybackHostResolver } from '../src/features/chart/chart-direct-playback-host.ts';
+import { createChartDirectPlaybackFrameHost } from '../src/features/chart/chart-direct-playback-frame.ts';
+import { createChartDirectPlaybackWindowHost } from '../src/features/chart/chart-direct-playback-window-host.ts';
+import { createChartDirectPlaybackRuntimeHost } from '../src/features/chart/chart-direct-playback-runtime-host.ts';
 import {
   createChartBarSelectionBindings,
   createChartDefaultLibraryBindings,
@@ -90,45 +90,45 @@ import {
   createChartSheetRendererAppBindings,
   createChartSheetRendererBindings,
   createChartTransportBindings
-} from '../features/chart/chart-app-bindings.ts';
-import { createChartPlaybackRuntimeContextBindings } from '../features/chart/chart-playback-runtime-context-bindings.ts';
-import { createChartPlaybackRuntimeContext } from '../features/chart/chart-playback-runtime-context.ts';
-import { bindChartLifecycleEvents } from '../features/chart/chart-lifecycle.ts';
+} from '../src/features/chart/chart-app-bindings.ts';
+import { createChartPlaybackRuntimeContextBindings } from '../src/features/chart/chart-playback-runtime-context-bindings.ts';
+import { createChartPlaybackRuntimeContext } from '../src/features/chart/chart-playback-runtime-context.ts';
+import { bindChartLifecycleEvents } from '../src/features/chart/chart-lifecycle.ts';
 import {
   applyPlaybackTransportState,
   startPlaybackPolling,
   stopPlaybackPolling
-} from '../features/chart/chart-playback-runtime.ts';
-import { createAppShellBindings } from '../features/app/app-shell-bindings.ts';
-import { initializeEmbeddedDrillRuntime } from '../features/drill/drill-embedded-runtime.ts';
-import { createDrillAudioRuntime } from '../features/drill/drill-audio-runtime.ts';
-import { createEmbeddedDrillRuntimeAppContextOptions } from '../features/drill/drill-embedded-runtime-app-context.ts';
-import { createDrillPatternAnalysis } from '../features/drill/drill-pattern-analysis.ts';
-import { loadDrillPatternHelp } from '../features/drill/drill-pattern-help.ts';
-import { validateDrillCustomPattern } from '../features/drill/drill-pattern-validation.ts';
-import { createDrillHarmonyDisplayHelpers } from '../features/drill/drill-display-runtime.ts';
-import { createDrillHarmonyLayoutHelpers } from '../features/drill/drill-display-runtime.ts';
-import { createDrillPreviewTimingHelpers } from '../features/drill/drill-display-runtime.ts';
-import { createDirectDrillRuntimeAppContextOptions } from '../features/drill/drill-direct-runtime-app-context.ts';
-import { createDirectPlaybackSessionHandlers, createDirectPlaybackSessionHost } from '../features/drill/drill-direct-session.ts';
-import { createDrillDirectRuntimeAppAssembly } from '../features/drill/drill-direct-runtime-app-assembly.ts';
-import { createDrillPlaybackPreparationRuntime } from '../features/drill/drill-playback-preparation-runtime.ts';
-import { createDrillPlaybackPreparationAppContext } from '../features/drill/drill-playback-preparation-app-context.ts';
-import { createDrillPlaybackResourcesAppFacade } from '../features/drill/drill-playback-resources-app-facade.ts';
-import { createDrillPlaybackSettingsRuntime } from '../features/drill/drill-playback-settings-runtime.ts';
-import { createDrillSessionAnalytics } from '../features/drill/drill-session-analytics.ts';
-import { createDrillKeyPoolRuntime } from '../features/drill/drill-key-pool-runtime.ts';
-import { createDrillPlaybackRuntimeHost } from '../features/drill/drill-playback-runtime-host.ts';
-import { createDrillVoicingRuntime } from '../features/drill/drill-voicing-runtime.ts';
+} from '../src/features/chart/chart-playback-runtime.ts';
+import { createAppShellBindings } from '../src/features/app/app-shell-bindings.ts';
+import { initializeEmbeddedDrillRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
+import { createDrillAudioRuntime } from '../src/features/drill/drill-audio-runtime.ts';
+import { createEmbeddedDrillRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
+import { createDrillPatternAnalysis } from '../src/features/drill/drill-pattern-analysis.ts';
+import { loadDrillPatternHelp } from '../src/features/drill/drill-pattern-help.ts';
+import { validateDrillCustomPattern } from '../src/features/drill/drill-pattern-validation.ts';
+import { createDrillHarmonyDisplayHelpers } from '../src/features/drill/drill-display-runtime.ts';
+import { createDrillHarmonyLayoutHelpers } from '../src/features/drill/drill-display-runtime.ts';
+import { createDrillPreviewTimingHelpers } from '../src/features/drill/drill-display-runtime.ts';
+import { createDirectDrillRuntimeAppContextOptions } from '../src/features/drill/drill-direct-runtime-app-context.ts';
+import { createDirectPlaybackSessionHandlers, createDirectPlaybackSessionHost } from '../src/features/drill/drill-direct-session.ts';
+import { createDrillDirectRuntimeAppAssembly } from '../src/features/drill/drill-direct-runtime-app-assembly.ts';
+import { createDrillPlaybackPreparationRuntime } from '../src/features/drill/drill-playback-preparation-runtime.ts';
+import { createDrillPlaybackPreparationAppContext } from '../src/features/drill/drill-playback-preparation-app-context.ts';
+import { createDrillPlaybackResourcesAppFacade } from '../src/features/drill/drill-playback-resources-app-facade.ts';
+import { createDrillPlaybackSettingsRuntime } from '../src/features/drill/drill-playback-settings-runtime.ts';
+import { createDrillSessionAnalytics } from '../src/features/drill/drill-session-analytics.ts';
+import { createDrillKeyPoolRuntime } from '../src/features/drill/drill-key-pool-runtime.ts';
+import { createDrillPlaybackRuntimeHost } from '../src/features/drill/drill-playback-runtime-host.ts';
+import { createDrillVoicingRuntime } from '../src/features/drill/drill-voicing-runtime.ts';
 import {
   createDefaultDrillAppSettingsFactory,
   createDrillLoadedSettingsApplier,
   createDrillLoadedSettingsFinalizer,
   createDrillPlaybackSettingsResetter,
   createDrillSettingsSnapshotBuilder
-} from '../features/drill/drill-settings.ts';
-import { createDrillSettingsAppBindings } from '../features/drill/drill-settings-app-bindings.ts';
-import { createDrillSettingsRuntimeAppBindings } from '../features/drill/drill-settings-runtime-app-bindings.ts';
+} from '../src/features/drill/drill-settings.ts';
+import { createDrillSettingsAppBindings } from '../src/features/drill/drill-settings-app-bindings.ts';
+import { createDrillSettingsRuntimeAppBindings } from '../src/features/drill/drill-settings-runtime-app-bindings.ts';
 import {
   createDrillEmbeddedRuntimeContextBindings,
   createDrillNormalizationBindings,
@@ -137,48 +137,48 @@ import {
   createDrillPlaybackRuntimeBindings,
   createDrillPlaybackStateBindings,
   createDrillTransportActionBindings
-} from '../features/drill/drill-runtime-app-bindings.ts';
-import { createDrillAudioRuntimeAppContext } from '../features/drill/drill-audio-runtime-app-context.ts';
-import { createDrillAudioRuntimeAppAssembly } from '../features/drill/drill-audio-runtime-app-assembly.ts';
-import { createDrillAudioRuntimeAppBindings } from '../features/drill/drill-audio-runtime-app-bindings.ts';
-import { createDrillAudioFacadeAppSurface } from '../features/drill/drill-audio-facade-app-surface.ts';
-import { createDrillAudioStackAppAssembly } from '../features/drill/drill-audio-stack-app-assembly.ts';
-import { createDrillAudioStackAppBindings } from '../features/drill/drill-audio-stack-app-bindings.ts';
-import { createDrillAudioStackAppFacade } from '../features/drill/drill-audio-stack-app-facade.ts';
-import { createDrillAudioStackFacadeAppBindings } from '../features/drill/drill-audio-stack-facade-app-bindings.ts';
-import { createDrillAudioPlaybackRuntime } from '../features/drill/drill-audio-playback-runtime.ts';
-import { createDrillAudioPlaybackAppContext } from '../features/drill/drill-audio-playback-app-context.ts';
-import { createDrillCompingEngineAppBindings } from '../features/drill/drill-comping-engine-app-bindings.ts';
-import { createDrillEmbeddedRuntimeAppAssembly } from '../features/drill/drill-embedded-runtime-app-assembly.ts';
-import { createDrillEmbeddedRuntimeHostBindings } from '../features/drill/drill-embedded-runtime-host.ts';
-import { createDrillPianoToolsAppBindings } from '../features/drill/drill-piano-tools-app-bindings.ts';
-import { createDrillPianoToolsAppFacade } from '../features/drill/drill-piano-tools.ts';
-import { createDrillPlaybackResourcesAppBindings } from '../features/drill/drill-playback-resources-app-bindings.ts';
-import { createDrillPlaybackResourcesRuntimeAppBindings } from '../features/drill/drill-playback-resources-runtime-app-bindings.ts';
-import { createDrillSamplePlaybackRuntime } from '../features/drill/drill-sample-playback-runtime.ts';
-import { createDrillSamplePlaybackAppContext } from '../features/drill/drill-sample-playback-app-context.ts';
-import { createDrillSamplePreloadAppContext } from '../features/drill/drill-sample-preload-app-context.ts';
-import { createDrillSamplePreloadRuntime } from '../features/drill/drill-sample-preload-runtime.ts';
-import { createDrillScheduledAudioRuntime } from '../features/drill/drill-scheduled-audio-runtime.ts';
-import { createDrillScheduledAudioAppContext } from '../features/drill/drill-scheduled-audio-app-context.ts';
-import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createDrillPlaybackRuntime } from '../features/drill/drill-playback-controller.ts';
-import { createDrillPlaybackEngineAppContext } from '../features/drill/drill-playback-engine-app-context.ts';
-import { createDrillPlaybackRuntimeAppAssembly } from '../features/drill/drill-playback-runtime-app-assembly.ts';
-import { createDrillPlaybackRuntimeHostAppBindings } from '../features/drill/drill-playback-runtime-host-app-bindings.ts';
-import { createDrillPlaybackStateAppContext } from '../features/drill/drill-playback-state-app-context.ts';
-import { createDrillRuntimePrimitivesAppBindings } from '../features/drill/drill-runtime-primitives-app-bindings.ts';
-import { createDrillRuntimePrimitivesRuntimeAppBindings } from '../features/drill/drill-runtime-primitives-runtime-app-bindings.ts';
-import { createDrillRuntimeStateAppBindings } from '../features/drill/drill-runtime-state-app-bindings.ts';
+} from '../src/features/drill/drill-runtime-app-bindings.ts';
+import { createDrillAudioRuntimeAppContext } from '../src/features/drill/drill-audio-runtime-app-context.ts';
+import { createDrillAudioRuntimeAppAssembly } from '../src/features/drill/drill-audio-runtime-app-assembly.ts';
+import { createDrillAudioRuntimeAppBindings } from '../src/features/drill/drill-audio-runtime-app-bindings.ts';
+import { createDrillAudioFacadeAppSurface } from '../src/features/drill/drill-audio-facade-app-surface.ts';
+import { createDrillAudioStackAppAssembly } from '../src/features/drill/drill-audio-stack-app-assembly.ts';
+import { createDrillAudioStackAppBindings } from '../src/features/drill/drill-audio-stack-app-bindings.ts';
+import { createDrillAudioStackAppFacade } from '../src/features/drill/drill-audio-stack-app-facade.ts';
+import { createDrillAudioStackFacadeAppBindings } from '../src/features/drill/drill-audio-stack-facade-app-bindings.ts';
+import { createDrillAudioPlaybackRuntime } from '../src/features/drill/drill-audio-playback-runtime.ts';
+import { createDrillAudioPlaybackAppContext } from '../src/features/drill/drill-audio-playback-app-context.ts';
+import { createDrillCompingEngineAppBindings } from '../src/features/drill/drill-comping-engine-app-bindings.ts';
+import { createDrillEmbeddedRuntimeAppAssembly } from '../src/features/drill/drill-embedded-runtime-app-assembly.ts';
+import { createDrillEmbeddedRuntimeHostBindings } from '../src/features/drill/drill-embedded-runtime-host.ts';
+import { createDrillPianoToolsAppBindings } from '../src/features/drill/drill-piano-tools-app-bindings.ts';
+import { createDrillPianoToolsAppFacade } from '../src/features/drill/drill-piano-tools.ts';
+import { createDrillPlaybackResourcesAppBindings } from '../src/features/drill/drill-playback-resources-app-bindings.ts';
+import { createDrillPlaybackResourcesRuntimeAppBindings } from '../src/features/drill/drill-playback-resources-runtime-app-bindings.ts';
+import { createDrillSamplePlaybackRuntime } from '../src/features/drill/drill-sample-playback-runtime.ts';
+import { createDrillSamplePlaybackAppContext } from '../src/features/drill/drill-sample-playback-app-context.ts';
+import { createDrillSamplePreloadAppContext } from '../src/features/drill/drill-sample-preload-app-context.ts';
+import { createDrillSamplePreloadRuntime } from '../src/features/drill/drill-sample-preload-runtime.ts';
+import { createDrillScheduledAudioRuntime } from '../src/features/drill/drill-scheduled-audio-runtime.ts';
+import { createDrillScheduledAudioAppContext } from '../src/features/drill/drill-scheduled-audio-app-context.ts';
+import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createDrillPlaybackRuntime } from '../src/features/drill/drill-playback-controller.ts';
+import { createDrillPlaybackEngineAppContext } from '../src/features/drill/drill-playback-engine-app-context.ts';
+import { createDrillPlaybackRuntimeAppAssembly } from '../src/features/drill/drill-playback-runtime-app-assembly.ts';
+import { createDrillPlaybackRuntimeHostAppBindings } from '../src/features/drill/drill-playback-runtime-host-app-bindings.ts';
+import { createDrillPlaybackStateAppContext } from '../src/features/drill/drill-playback-state-app-context.ts';
+import { createDrillRuntimePrimitivesAppBindings } from '../src/features/drill/drill-runtime-primitives-app-bindings.ts';
+import { createDrillRuntimePrimitivesRuntimeAppBindings } from '../src/features/drill/drill-runtime-primitives-runtime-app-bindings.ts';
+import { createDrillRuntimeStateAppBindings } from '../src/features/drill/drill-runtime-state-app-bindings.ts';
 import {
   createDrillPlaybackSchedulerState,
   createDrillPlaybackTransportState
-} from '../features/drill/drill-playback-runtime-engine.ts';
-import { createDrillSharedPlaybackAppBindings } from '../features/drill/drill-shared-playback-app-bindings.ts';
-import { createDrillSharedPlaybackRuntimeAppBindings } from '../features/drill/drill-shared-playback-runtime-app-bindings.ts';
-import { createDrillPlaybackRuntimeAppBindings } from '../features/drill/drill-playback-runtime-app-bindings.ts';
-import { createDrillVoicingRuntimeAppBindings } from '../features/drill/drill-voicing-runtime-app-bindings.ts';
-import { createDrillWalkingBassAppBindings } from '../features/drill/drill-walking-bass-app-bindings.ts';
-import { createWalkingBassGenerator } from '../features/drill/drill-walking-bass.ts';
+} from '../src/features/drill/drill-playback-runtime-engine.ts';
+import { createDrillSharedPlaybackAppBindings } from '../src/features/drill/drill-shared-playback-app-bindings.ts';
+import { createDrillSharedPlaybackRuntimeAppBindings } from '../src/features/drill/drill-shared-playback-runtime-app-bindings.ts';
+import { createDrillPlaybackRuntimeAppBindings } from '../src/features/drill/drill-playback-runtime-app-bindings.ts';
+import { createDrillVoicingRuntimeAppBindings } from '../src/features/drill/drill-voicing-runtime-app-bindings.ts';
+import { createDrillWalkingBassAppBindings } from '../src/features/drill/drill-walking-bass-app-bindings.ts';
+import { createWalkingBassGenerator } from '../src/features/drill/drill-walking-bass.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

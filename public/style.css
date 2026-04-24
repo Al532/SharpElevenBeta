@@ -1,4 +1,4 @@
-﻿* {
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -1940,7 +1940,7 @@ body.welcome-open {
 }
 
 .pattern-help summary::before {
-  content: 'â–¸';
+  content: '▸';
   display: inline-block;
   margin-right: 0.45rem;
   transition: transform 0.15s ease;
@@ -2480,4 +2480,3 @@ body.welcome-open {
     min-width: 0;
   }
 }
-

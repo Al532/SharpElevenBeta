@@ -6,7 +6,7 @@ import type {
   ChartPlaybackEntry,
   ChartPlaybackNavigation,
   RichChartBar
-} from '../core/types/contracts';
+} from '../src/core/types/contracts';
 
 import { createChartPlaybackPlan } from './chart-types.js';
 import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
@@ -197,7 +197,7 @@ function findHighestEndingWithinRange(endingMap, startIndex, endIndex) {
 /**
  * @param {ChartDocument | null | undefined} chartDocument
  * @param {CreateChartPlaybackPlanFromDocumentOptions} [options]
- * @returns {import('../core/types/contracts').ChartPlaybackPlan}
+ * @returns {import('../src/core/types/contracts').ChartPlaybackPlan}
  */
 export function createChartPlaybackPlanFromDocument(chartDocument, options: CreateChartPlaybackPlanFromDocumentOptions = {}) {
   const bars = chartDocument?.bars || [];

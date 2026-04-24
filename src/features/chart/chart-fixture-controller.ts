@@ -9,7 +9,7 @@ import {
   createChartPlaybackPlanFromDocument,
   createChartViewModel,
   createPracticeSessionFromChartDocument
-} from '../../chart/index.js';
+} from '../../../chart/index.js';
 
 export function applyImportedLibrary({
   state,

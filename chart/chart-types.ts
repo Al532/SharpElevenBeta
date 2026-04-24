@@ -7,7 +7,7 @@ import type {
   ChartPlaybackNavigation,
   ChartPlaybackPlan,
   ChartSection
-} from '../core/types/contracts';
+} from '../src/core/types/contracts';
 
 type CreateChartDocumentOptions = {
   metadata?: Partial<ChartMetadata>,

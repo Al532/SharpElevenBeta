@@ -1,7 +1,7 @@
 import type {
   ChartDocument,
   ChartViewModel
-} from '../core/types/contracts';
+} from '../src/core/types/contracts';
 
 import { cloneChartDocument } from './chart-types.js';
 import { transposeChordSymbol, transposeKeySymbol } from './chart-harmony.js';

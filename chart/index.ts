@@ -22,9 +22,9 @@ export {
   createPracticeSessionFromSelectedChartDocument,
   createSelectedChartDocument,
   createPracticeSessionFromChartSelection
-} from '../features/chart/chart-session-builder.js';
+} from '../src/features/chart/chart-session-builder.js';
 export {
   PRACTICE_SESSION_CONTRACT,
   PRACTICE_SESSION_SCHEMA_VERSION
-} from '../core/models/practice-session.js';
+} from '../src/core/models/practice-session.js';
 export { parseNoteSymbol, transposeChordSymbol, transposeKeySymbol } from './chart-harmony.js';
