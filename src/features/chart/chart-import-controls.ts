@@ -12,45 +12,66 @@ export function setChartImportStatus(
 
 export async function importDefaultFixtureLibrary({
   sourceUrl,
+  rawText: bundledRawText,
   fetchImpl = fetch,
   importDocumentsFromIRealText,
   applyImportedLibrary,
   loadPersistedChartId
 }: {
   sourceUrl?: string;
+  rawText?: string;
   fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>;
   applyImportedLibrary?: (options: { documents: ChartDocument[]; source: string; preferredId?: string; statusMessage?: string }) => void;
   loadPersistedChartId?: () => string;
 } = {}): Promise<void> {
-  let response: Response;
-  try {
-    response = await fetchImpl(String(sourceUrl));
-    if (!response.ok) {
-      throw new Error(`Failed to load iReal source (${response.status})`);
+  let rawText = bundledRawText;
+  const sourceFile = String(sourceUrl || '').split('/').pop() || 'jazz-1460.txt';
+
+  if (rawText === undefined) {
+    let response: Response;
+    try {
+      response = await fetchImpl(String(sourceUrl));
+      if (!response.ok) {
+        throw new Error(`Failed to load iReal source (${response.status})`);
+      }
+    } catch {
+      applyImportedLibrary?.({
+        documents: [],
+        source: 'bundled default library',
+        preferredId: loadPersistedChartId?.(),
+        statusMessage: 'No bundled chart library found. Import an iReal backup or paste an iReal link.'
+      });
+      return;
     }
-  } catch {
+
+    rawText = await response.text();
+  }
+
+  try {
+    if (/^\s*(?:<!doctype\s+html|<html[\s>])/i.test(rawText)) {
+      throw new Error('Bundled iReal source resolved to HTML instead of iReal text.');
+    }
+
+    const importedDocuments = await importDocumentsFromIRealText?.(
+      rawText,
+      sourceFile
+    ) || [];
+
+    applyImportedLibrary?.({
+      documents: importedDocuments,
+      source: 'bundled default library',
+      preferredId: loadPersistedChartId?.(),
+      statusMessage: `Loaded ${importedDocuments.length} charts from the bundled default library.`
+    });
+  } catch (error) {
     applyImportedLibrary?.({
       documents: [],
       source: 'bundled default library',
       preferredId: loadPersistedChartId?.(),
-      statusMessage: 'No bundled chart library found. Import an iReal backup or paste an iReal link.'
+      statusMessage: `Failed to import bundled chart library: ${error instanceof Error ? error.message : String(error)}`
     });
-    return;
   }
-
-  const rawText = await response.text();
-  const importedDocuments = await importDocumentsFromIRealText?.(
-    rawText,
-    String(sourceUrl || '').split('/').pop() || 'jazz-1460.txt'
-  ) || [];
-
-  applyImportedLibrary?.({
-    documents: importedDocuments,
-    source: 'bundled default library',
-    preferredId: loadPersistedChartId?.(),
-    statusMessage: `Loaded ${importedDocuments.length} charts from the bundled default library.`
-  });
 }
 
 export async function handleChartBackupFileSelection({

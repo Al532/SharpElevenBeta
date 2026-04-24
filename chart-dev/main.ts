@@ -15,6 +15,7 @@
 import {
   createChartDocumentsFromIRealText,
 } from '../chart/index.js';
+import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
 import {
   loadPersistedChartId as loadPersistedChartIdFromStorage,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
@@ -1039,6 +1040,7 @@ function closeOverlay() {
 async function importDefaultFixtureLibrary() {
   return importChartDefaultFixtureLibrary(createChartDefaultLibraryBindings({
     sourceUrl: IREAL_SOURCE_URL,
+    rawText: defaultIRealSourceText,
     importDocumentsFromIRealText,
     applyImportedLibrary,
     loadPersistedChartId

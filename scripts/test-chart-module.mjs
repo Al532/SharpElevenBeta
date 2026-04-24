@@ -100,6 +100,7 @@ import {
   stopPlaybackPolling
 } from '../src/features/chart/chart-playback-runtime.ts';
 import { createAppShellBindings } from '../src/features/app/app-shell-bindings.ts';
+import { importDefaultFixtureLibrary as importChartDefaultFixtureLibrary } from '../src/features/chart/chart-import-controls.ts';
 import { initializeEmbeddedDrillRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
 import { createPlaybackAudioRuntime } from '../src/features/playback-audio/playback-audio-runtime.ts';
 import { createEmbeddedDrillRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
@@ -188,6 +189,51 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const sourcePath = path.join(projectRoot, 'parsing-projects', 'ireal', 'sources', 'jazz-1460.txt');
+
+{
+  const appliedLibraries = [];
+  let fetchCallCount = 0;
+  await importChartDefaultFixtureLibrary({
+    sourceUrl: 'https://example.test/default.txt',
+    rawText: 'irealb://fixture',
+    fetchImpl: async () => {
+      fetchCallCount += 1;
+      return new Response('', { status: 404 });
+    },
+    importDocumentsFromIRealText: async (rawText, sourceFile) => [{
+      metadata: { id: 'fixture-chart', title: 'Fixture Chart' },
+      source: { playlistName: 'Fixture', songIndex: 1, rawText, sourceFile },
+      sections: [],
+      bars: []
+    }],
+    applyImportedLibrary: (library) => {
+      appliedLibraries.push(library);
+    }
+  });
+  assert.equal(fetchCallCount, 0, 'Chart default library import uses bundled raw text without falling back to the dev-server URL.');
+  assert.equal(appliedLibraries[0]?.documents?.length, 1, 'Chart default library import applies documents parsed from bundled raw text.');
+  assert.equal(appliedLibraries[0]?.documents?.[0]?.source?.sourceFile, 'default.txt', 'Chart default library import keeps the source label when using bundled raw text.');
+}
+
+{
+  const appliedLibraries = [];
+  await importChartDefaultFixtureLibrary({
+    sourceUrl: 'https://example.test/default.txt',
+    fetchImpl: async () => new Response('<!DOCTYPE html><html><body><input placeholder="irealb://..."></body></html>'),
+    importDocumentsFromIRealText: async () => {
+      throw new Error('HTML fallback should not reach the iReal decoder.');
+    },
+    applyImportedLibrary: (library) => {
+      appliedLibraries.push(library);
+    }
+  });
+  assert.equal(appliedLibraries[0]?.documents?.length, 0, 'Chart default library import rejects HTML fallback responses before decoding.');
+  assert.match(
+    appliedLibraries[0]?.statusMessage || '',
+    /resolved to HTML/,
+    'Chart default library import reports an explicit HTML fallback error.'
+  );
+}
 
 {
   const playbackRuntimeState = {
