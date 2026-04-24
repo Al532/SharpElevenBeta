@@ -1,40 +1,42 @@
+type DrillSettingsUnknownMap = Record<string, unknown>;
+
 type DrillSettingsAppContextOptions = {
-  defaults?: Record<string, any>;
-  dom?: Record<string, any>;
-  snapshotConstants?: Record<string, any>;
-  snapshotState?: Record<string, any>;
-  snapshotHelpers?: Record<string, any>;
-  loadApplierConstants?: Record<string, any>;
-  loadApplierState?: Record<string, any>;
-  loadApplierHelpers?: Record<string, any>;
-  loadFinalizerConstants?: Record<string, any>;
-  loadFinalizerState?: Record<string, any>;
-  loadFinalizerHelpers?: Record<string, any>;
-  resetterState?: Record<string, any>;
-  resetterHelpers?: Record<string, any>;
+  defaults?: DrillSettingsUnknownMap;
+  dom?: DrillSettingsUnknownMap;
+  snapshotConstants?: DrillSettingsUnknownMap;
+  snapshotState?: DrillSettingsUnknownMap;
+  snapshotHelpers?: DrillSettingsUnknownMap;
+  loadApplierConstants?: DrillSettingsUnknownMap;
+  loadApplierState?: DrillSettingsUnknownMap;
+  loadApplierHelpers?: DrillSettingsUnknownMap;
+  loadFinalizerConstants?: DrillSettingsUnknownMap;
+  loadFinalizerState?: DrillSettingsUnknownMap;
+  loadFinalizerHelpers?: DrillSettingsUnknownMap;
+  resetterState?: DrillSettingsUnknownMap;
+  resetterHelpers?: DrillSettingsUnknownMap;
 };
 
-function cloneOptions(options: Record<string, any> = {}) {
+function cloneOptions<T extends DrillSettingsUnknownMap>(options: T = {} as T): T {
   return { ...options };
 }
 
 export function createDrillSettingsDefaultsAppContext(
-  options: Record<string, any> = {}
+  options: DrillSettingsUnknownMap = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSettingsConstantsAppContext(
-  options: Record<string, any> = {}
+  options: DrillSettingsUnknownMap = {}
 ) {
   return cloneOptions(options);
 }
 
-export function createDrillSettingsSnapshotHelpersAppContext(options: Record<string, any> = {}) {
+export function createDrillSettingsSnapshotHelpersAppContext(options: DrillSettingsUnknownMap = {}) {
   return cloneOptions(options);
 }
 
-export function createDrillSettingsLoadApplierHelpersAppContext(options: Record<string, any> = {}) {
+export function createDrillSettingsLoadApplierHelpersAppContext(options: DrillSettingsUnknownMap = {}) {
   return cloneOptions(options);
 }
 

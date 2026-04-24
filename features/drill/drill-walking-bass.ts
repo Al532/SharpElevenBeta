@@ -9,7 +9,18 @@ import {
   getSwingSecondSubdivisionDurationBeats,
 } from '../../core/music/swing-utils.js';
 
-const voicingConfig: Record<string, any> = rawVoicingConfig as Record<string, any>;
+type DrillWalkingBassVoicingConfig = {
+  GUIDE_TONES?: Record<string, unknown>;
+  COLOR_TONES?: Record<string, unknown>;
+  DOMINANT_COLOR_TONES?: Record<string, unknown>;
+  DOMINANT_GUIDE_TONES?: Record<string, unknown>;
+  DOMINANT_DEFAULT_QUALITY_MAJOR?: Record<string, string>;
+  DOMINANT_DEFAULT_QUALITY_MINOR?: Record<string, string>;
+  DOMINANT_QUALITY_ALIASES?: Record<string, unknown>;
+  QUALITY_CATEGORY_ALIASES?: Record<string, string[]>;
+};
+
+const voicingConfig = rawVoicingConfig as DrillWalkingBassVoicingConfig;
 const {
   GUIDE_TONES,
   COLOR_TONES,

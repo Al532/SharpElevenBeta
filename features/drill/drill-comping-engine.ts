@@ -38,19 +38,36 @@ type DrillCompingScheduleWindowOptions = {
 };
 
 type DrillCompingEngineOptions = {
-  constants?: Record<string, any>;
-  helpers?: Record<string, any>;
+  constants?: Record<string, unknown>;
+  helpers?: Record<string, unknown>;
+};
+
+type DrillCompingStyleModule = {
+  buildPlan: (options: unknown) => DrillCompingPlan;
+  collectSampleNotes: (voicing: unknown, sets: { celloNotes?: Set<number>; violinNotes?: Set<number>; pianoNotes?: Set<number> }) => void;
+  playEvent: (options: {
+    progression: DrillCompingProgressionState;
+    event: { timeBeats?: number } & Record<string, unknown>;
+    plan: DrillCompingPlan;
+    nextPlan?: DrillCompingPlan | null;
+    time: number;
+    slotDuration: number;
+    secondsPerBeat: number;
+    nextProgression?: DrillCompingProgressionState;
+  }) => void;
+  stopAll?: (stopTime: number, fadeDuration: number) => void;
+  clear: () => void;
 };
 
 export function createCompingEngine({ constants, helpers }: DrillCompingEngineOptions = {}) {
-  const stringsComping = createStringsComping({ constants, helpers });
-  const pianoComping = createPianoComping({ constants, helpers });
+  const stringsComping = createStringsComping({ constants, helpers }) as unknown as DrillCompingStyleModule;
+  const pianoComping = createPianoComping({ constants, helpers }) as unknown as DrillCompingStyleModule;
 
   function isPianoStyle(style: string) {
     return style === 'piano';
   }
 
-  function getStyleModule(style: string): any {
+  function getStyleModule(style: string): DrillCompingStyleModule {
     return isPianoStyle(style) ? pianoComping : stringsComping;
   }
 
@@ -158,7 +175,7 @@ export function createCompingEngine({ constants, helpers }: DrillCompingEngineOp
 
   function stopActiveComping(stopTime: number, fadeDuration: number) {
     stringsComping.stopAll?.(stopTime, fadeDuration);
-    (pianoComping as any).stopAll?.(stopTime, fadeDuration);
+    pianoComping.stopAll?.(stopTime, fadeDuration);
   }
 
   function clear() {

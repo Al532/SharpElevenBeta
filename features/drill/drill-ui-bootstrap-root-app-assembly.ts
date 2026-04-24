@@ -3,20 +3,32 @@ import { initializeDrillPianoControls } from './drill-piano-tools.js';
 import { initializeDrillRuntimeControls } from './drill-runtime-controls.js';
 import { initializeDrillScreen } from './drill-ui-shell.js';
 import { initializeHarmonyDisplayObservers } from './drill-ui-runtime.js';
+import type {
+  DrillUiBootstrapRuntimeControlsContext,
+  DrillUiBootstrapRuntimeControlsConstants,
+  DrillUiBootstrapRuntimeControlsDom,
+  DrillUiBootstrapRuntimeControlsHelpers,
+  DrillUiBootstrapRuntimeControlsState,
+  DrillUiBootstrapScreenConstants,
+  DrillUiBootstrapScreenContext,
+  DrillUiBootstrapScreenDom,
+  DrillUiBootstrapScreenHelpers,
+  DrillUiBootstrapScreenState
+} from './drill-ui-types.js';
 
 type CreateDrillUiBootstrapRootAppAssemblyOptions = {
-  screen?: Record<string, unknown>;
-  screenDom?: Record<string, unknown>;
-  screenState?: Record<string, unknown>;
-  screenConstants?: Record<string, unknown>;
-  screenHelpers?: Record<string, any>;
+  screen?: DrillUiBootstrapScreenContext;
+  screenDom?: DrillUiBootstrapScreenDom;
+  screenState?: DrillUiBootstrapScreenState;
+  screenConstants?: DrillUiBootstrapScreenConstants;
+  screenHelpers?: DrillUiBootstrapScreenHelpers;
   harmonyDisplayObservers?: Record<string, unknown>;
   pianoControls?: Record<string, unknown>;
-  runtimeControls?: Record<string, unknown>;
-  runtimeControlsDom?: Record<string, unknown>;
-  runtimeControlsState?: Record<string, any>;
-  runtimeControlsConstants?: Record<string, unknown>;
-  runtimeControlsHelpers?: Record<string, any>;
+  runtimeControls?: DrillUiBootstrapRuntimeControlsContext;
+  runtimeControlsDom?: DrillUiBootstrapRuntimeControlsDom;
+  runtimeControlsState?: DrillUiBootstrapRuntimeControlsState;
+  runtimeControlsConstants?: DrillUiBootstrapRuntimeControlsConstants;
+  runtimeControlsHelpers?: DrillUiBootstrapRuntimeControlsHelpers;
 };
 
 function createScreenContext({
@@ -25,10 +37,10 @@ function createScreenContext({
   constants = {},
   helpers = {}
 }: {
-  dom?: Record<string, any>;
-  state?: Record<string, any>;
-  constants?: Record<string, any>;
-  helpers?: Record<string, any>;
+  dom?: DrillUiBootstrapScreenDom;
+  state?: DrillUiBootstrapScreenState;
+  constants?: DrillUiBootstrapScreenConstants;
+  helpers?: DrillUiBootstrapScreenHelpers;
 } = {}) {
   const {
     getProgressions = () => ({}),
@@ -56,10 +68,10 @@ function createScreenContext({
     getSelectedProgressionPattern = () => '',
     hasSelectedProgression = () => false,
     getSelectedProgressionName = () => '',
-    normalizePresetName = (value) => value,
+    normalizePresetName = (value: unknown) => String(value ?? ''),
     setEditorPatternMode = () => {},
     getSelectedProgressionMode = () => '',
-    normalizePatternMode = (value) => value,
+    normalizePatternMode = (value: unknown) => String(value ?? ''),
     syncPatternSelectionFromInput = () => {},
     syncProgressionManagerState = () => {},
     syncCustomPatternUI = () => {},
@@ -73,7 +85,7 @@ function createScreenContext({
     maybeShowWelcomeOverlay = () => {}
   } = helpers;
 
-  return {
+  const context: DrillUiBootstrapScreenContext = {
     initializeSocialShareLinks,
     loadDefaultProgressions,
     loadPatternHelp,
@@ -151,6 +163,8 @@ function createScreenContext({
     setWelcomeOverlayVisible,
     maybeShowWelcomeOverlay
   };
+
+  return context;
 }
 
 function createRuntimeControlsContext({
@@ -159,10 +173,10 @@ function createRuntimeControlsContext({
   constants = {},
   helpers = {}
 }: {
-  dom?: Record<string, any>;
-  state?: Record<string, any>;
-  constants?: Record<string, any>;
-  helpers?: Record<string, any>;
+  dom?: DrillUiBootstrapRuntimeControlsDom;
+  state?: DrillUiBootstrapRuntimeControlsState;
+  constants?: DrillUiBootstrapRuntimeControlsConstants;
+  helpers?: DrillUiBootstrapRuntimeControlsHelpers;
 } = {}) {
   const {
     getIsPlaying = () => false,
@@ -188,7 +202,7 @@ function createRuntimeControlsContext({
     commitNextPreviewValueFromInput = () => {},
     saveSettings = () => {},
     trackEvent = () => {},
-    formatPreviewNumber = (value) => String(value),
+    formatPreviewNumber = (value: unknown) => String(value),
     getNextPreviewLeadBars = () => 0,
     getNextPreviewLeadSeconds = () => 0,
     convertNextPreviewValueToUnit = () => {},
@@ -201,15 +215,15 @@ function createRuntimeControlsContext({
     updateKeyPickerLabels = () => {},
     syncPatternPreview = () => {},
     applyDisplayMode = () => {},
-    normalizeDisplayMode = (value) => value,
-    normalizeHarmonyDisplayMode = (value) => value,
+    normalizeDisplayMode = (value: unknown) => String(value ?? ''),
+    normalizeHarmonyDisplayMode = (value: unknown) => String(value ?? ''),
     applyBeatIndicatorVisibility = () => {},
     applyCurrentHarmonyVisibility = () => {},
     fitHarmonyDisplay = () => {},
     applyMixerSettings = () => {}
   } = helpers;
 
-  return {
+  const context: DrillUiBootstrapRuntimeControlsContext = {
     dom,
     onStartStopClick: () => {
       if (getIsPlaying()) stop();
@@ -335,6 +349,8 @@ function createRuntimeControlsContext({
       });
     }
   };
+
+  return context;
 }
 
 /**

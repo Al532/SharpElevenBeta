@@ -1,8 +1,62 @@
 
 type DrillPianoMidiRuntimeRootAppAssemblyOptions = {
-  dom?: Record<string, any>;
-  runtimeState?: Record<string, any>;
-  runtimeHelpers?: Record<string, any>;
+  dom?: DrillPianoMidiRuntimeDom;
+  runtimeState?: DrillPianoMidiRuntimeState;
+  runtimeHelpers?: DrillPianoMidiRuntimeHelpers;
+};
+
+type DrillPianoMidiInput = {
+  id: string;
+  name?: string | null;
+  onmidimessage: ((event: unknown) => void) | null;
+};
+
+type DrillPianoMidiAccess = {
+  inputs?: Map<string, DrillPianoMidiInput>;
+  onstatechange: (() => void) | null;
+};
+
+type DrillPianoMidiSettings = {
+  enabled?: boolean;
+  inputId?: string;
+  [key: string]: unknown;
+};
+
+type DrillPianoMidiOptionElement = HTMLOptionElement & {
+  value: string;
+  textContent: string | null;
+};
+
+type DrillPianoMidiSelect = {
+  value?: string;
+  innerHTML?: string;
+  append: (node: HTMLOptionElement) => void;
+};
+
+type DrillPianoMidiRuntimeDom = {
+  pianoMidiInput?: DrillPianoMidiSelect | null;
+};
+
+type DrillPianoMidiRuntimeState = {
+  getMidiAccess?: () => DrillPianoMidiAccess | null;
+  setMidiAccess?: (value: DrillPianoMidiAccess | null) => void;
+  getMidiAccessPromise?: () => Promise<DrillPianoMidiAccess | null> | null;
+  setMidiAccessPromise?: (value: Promise<DrillPianoMidiAccess | null> | null) => void;
+  getCurrentMidiInput?: () => DrillPianoMidiInput | null;
+  setCurrentMidiInput?: (value: DrillPianoMidiInput | null) => void;
+  getPianoMidiSettings?: () => DrillPianoMidiSettings;
+};
+
+type DrillPianoMidiRuntimeHelpers = {
+  normalizePianoMidiSettings?: (value: DrillPianoMidiSettings) => DrillPianoMidiSettings;
+  setPianoMidiSettings?: (value: DrillPianoMidiSettings) => void;
+  refreshPianoSettingsJson?: () => void;
+  setPianoMidiStatus?: (message: string) => void;
+  handleMidiMessage?: (event: unknown) => void;
+  ensureMidiPianoRangePreload?: () => void;
+  getAudioContext?: () => BaseAudioContext | null;
+  requestMIDIAccess?: () => Promise<DrillPianoMidiAccess | null>;
+  createOptionElement?: () => DrillPianoMidiOptionElement | null;
 };
 
 /**
@@ -11,9 +65,9 @@ type DrillPianoMidiRuntimeRootAppAssemblyOptions = {
  * preserving the same runtime side effects and UI synchronization behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, Function>} [options.runtimeState]
- * @param {Record<string, Function>} [options.runtimeHelpers]
+ * @param {object} [options.dom]
+ * @param {object} [options.runtimeState]
+ * @param {object} [options.runtimeHelpers]
  */
 export function createDrillPianoMidiRuntimeRootAppAssembly({
   dom = {},
@@ -27,7 +81,7 @@ export function createDrillPianoMidiRuntimeRootAppAssembly({
     setMidiAccessPromise = () => {},
     getCurrentMidiInput = () => null,
     setCurrentMidiInput = () => {},
-    getPianoMidiSettings = () => ({})
+    getPianoMidiSettings = (): DrillPianoMidiSettings => ({})
   } = runtimeState;
   const {
     normalizePianoMidiSettings = (value) => value,

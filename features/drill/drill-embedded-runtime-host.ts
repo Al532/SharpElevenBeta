@@ -1,6 +1,44 @@
 
+type DrillEmbeddedRuntimeHostDom = {
+  patternName?: { value: string };
+  customPattern?: { value: string };
+  patternSelect?: { value?: string | null };
+  patternError?: { textContent?: string | null };
+} & Record<string, unknown>;
+
+type DrillEmbeddedRuntimeHostPatternUiBindings = {
+  setCustomPatternSelection: () => void;
+  setPatternName: (value: string) => void;
+  setCustomPatternValue: (value: string) => void;
+  setEditorPatternMode: (value: string) => void;
+  syncPatternSelectionFromInput: () => void;
+  setLastPatternSelectValue: () => void;
+  getPatternErrorText: () => string;
+};
+
+type DrillEmbeddedRuntimeHostPlaybackStateBindings = {
+  getIsPlaying: () => boolean;
+  getIsPaused: () => boolean;
+  getIsIntro: () => boolean;
+  getCurrentBeat: () => number;
+  getCurrentChordIdx: () => number;
+  getPaddedChordCount: () => number;
+  getTempo: () => number;
+};
+
+type DrillEmbeddedRuntimeHostPlaybackRuntimeBindings = {
+  getAudioContext: () => AudioContext | null;
+  getCurrentKey: () => number;
+};
+
+type DrillEmbeddedRuntimeHostTransportBindings = {
+  startPlayback: () => Promise<void>;
+  stopPlayback: () => void;
+  togglePausePlayback: () => void;
+};
+
 type DrillEmbeddedRuntimeHostBindingsOptions = {
-  dom?: Record<string, any>;
+  dom?: DrillEmbeddedRuntimeHostDom;
   customPatternOptionValue?: string;
   setSuppressPatternSelectChange?: (value: boolean) => void;
   setPatternSelectValue?: (value: string) => void;
@@ -49,10 +87,10 @@ type DrillEmbeddedRuntimeHostBindingsOptions = {
  * @param {() => void} [options.stopPlayback]
  * @param {() => void} [options.togglePausePlayback]
  * @returns {{
- *   patternUi: Record<string, any>,
- *   playbackState: Record<string, any>,
- *   playbackRuntime: Record<string, any>,
- *   transportActions: Record<string, any>
+ *   patternUi: DrillEmbeddedRuntimeHostPatternUiBindings,
+ *   playbackState: DrillEmbeddedRuntimeHostPlaybackStateBindings,
+ *   playbackRuntime: DrillEmbeddedRuntimeHostPlaybackRuntimeBindings,
+ *   transportActions: DrillEmbeddedRuntimeHostTransportBindings
  * }}
  */
 export function createDrillEmbeddedRuntimeHostBindings({

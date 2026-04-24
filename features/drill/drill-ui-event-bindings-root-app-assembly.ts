@@ -1,17 +1,22 @@
 
 import { bindDrillWelcomeControls } from './drill-welcome.js';
 import { createDrillMobileLifecycle } from './drill-mobile-lifecycle.js';
+import type {
+  DrillEventTargetLike,
+  DrillUiAnalyticsLink,
+  DrillUiLifecycleControls,
+  DrillUiPianoPresetControls,
+  DrillUiSettingsControls,
+  DrillUiWelcomeControls
+} from './drill-ui-types.js';
 
 type CreateDrillUiEventBindingsRootAppAssemblyOptions = {
-  welcomeControls?: Record<string, unknown>;
-  analyticsLink?: {
-    element?: HTMLElement | null;
-    trackEvent?: (eventName: string, props?: Record<string, unknown>) => void;
-  };
-  settingsControls?: Record<string, any>;
-  pianoPresetControls?: Record<string, any>;
-  lifecycleControls?: Record<string, any>;
-  lifecycleTarget?: EventTarget | { addEventListener?: (...args: unknown[]) => void };
+  welcomeControls?: DrillUiWelcomeControls;
+  analyticsLink?: DrillUiAnalyticsLink;
+  settingsControls?: DrillUiSettingsControls;
+  pianoPresetControls?: DrillUiPianoPresetControls;
+  lifecycleControls?: DrillUiLifecycleControls;
+  lifecycleTarget?: DrillEventTargetLike;
   trackSessionDuration?: () => void;
 };
 
@@ -218,7 +223,7 @@ export function createDrillUiEventBindingsRootAppAssembly({
 
   function bindLifecycleEvents() {
     const mobileLifecycle = createDrillMobileLifecycle({
-      lifecycleTarget: lifecycleTarget as any,
+      lifecycleTarget,
       visibilityTarget: lifecycleControls.visibilityTarget,
       userGestureTarget: lifecycleControls.userGestureTarget,
       getIsPlaying: lifecycleControls.getIsPlaying,

@@ -5,12 +5,259 @@ type MixerVolumeDefaults = {
   drumsVolume?: number;
 };
 
-type DrillAppSettings = Record<string, any>;
+type DrillSettingsToggleControl = {
+  checked?: boolean;
+};
 
-type DrillSettingsDom = Record<string, any>;
-type DrillSettingsState = Record<string, any>;
-type DrillSettingsHelpers = Record<string, any>;
-type DrillSettingsConstants = Record<string, any>;
+type DrillSettingsValueControl = {
+  value?: string;
+};
+
+type DrillSettingsTextControl = {
+  textContent?: string;
+};
+
+type DrillProgressionEntryLike = {
+  name?: string;
+  pattern?: string;
+  mode?: string;
+};
+
+type DrillEditingProgressionSnapshot = {
+  name?: string;
+  label?: string;
+  pattern?: string;
+  mode?: string;
+};
+
+type DrillEditingState =
+  | {
+      type: 'edit';
+      editingPresetName?: string;
+      presetSelectionBeforeEditing?: string;
+      snapshot?: DrillEditingProgressionSnapshot | null;
+    }
+  | {
+      type: 'create';
+      presetSelectionBeforeEditing?: string;
+    };
+
+type DrillAppSettings = {
+  enabledKeys?: readonly boolean[];
+  pianoFadeSettings?: Record<string, unknown>;
+  pianoMidiSettings?: Record<string, unknown>;
+  majorMinor?: boolean;
+  tempo?: number | string;
+  repetitionsPerKey?: number | string;
+  transposition?: string;
+  chordsPerBar?: number | string;
+  compingStyle?: string;
+  customMediumSwingBass?: boolean;
+  drumsMode?: string;
+  displayMode?: string;
+  harmonyDisplayMode?: string;
+  useMajorTriangleSymbol?: boolean;
+  useHalfDiminishedSymbol?: boolean;
+  useDiminishedSymbol?: boolean;
+  showBeatIndicator?: boolean;
+  hideCurrentHarmony?: boolean;
+  masterVolume?: string;
+  bassVolume?: string;
+  stringsVolume?: string;
+  drumsVolume?: string;
+  nextPreviewLeadValue?: number;
+  nextPreviewUnit?: string;
+} & Record<string, unknown>;
+
+type DrillSettingsDom = {
+  patternSelect?: DrillSettingsValueControl;
+  patternName?: DrillSettingsValueControl;
+  customPattern?: DrillSettingsValueControl;
+  patternMode?: DrillSettingsValueControl;
+  tempoSlider?: DrillSettingsValueControl;
+  tempoValue?: DrillSettingsTextControl;
+  repetitionsPerKey?: DrillSettingsValueControl;
+  transpositionSelect?: DrillSettingsValueControl;
+  chordsPerBar?: DrillSettingsValueControl;
+  majorMinor?: DrillSettingsToggleControl;
+  displayMode?: DrillSettingsValueControl;
+  harmonyDisplayMode?: DrillSettingsValueControl;
+  useMajorTriangleSymbol?: DrillSettingsToggleControl;
+  useHalfDiminishedSymbol?: DrillSettingsToggleControl;
+  useDiminishedSymbol?: DrillSettingsToggleControl;
+  showBeatIndicator?: DrillSettingsToggleControl;
+  hideCurrentHarmony?: DrillSettingsToggleControl;
+  compingStyle?: DrillSettingsValueControl;
+  walkingBass?: DrillSettingsToggleControl;
+  drumsSelect?: DrillSettingsValueControl;
+  masterVolume?: DrillSettingsValueControl;
+  bassVolume?: DrillSettingsValueControl;
+  stringsVolume?: DrillSettingsValueControl;
+  drumsVolume?: DrillSettingsValueControl;
+  welcomeShowNextTime?: DrillSettingsToggleControl;
+  debugToggle?: DrillSettingsToggleControl;
+} & Record<string, unknown>;
+
+type DrillSettingsState = {
+  getEditingProgressionName?: () => string;
+  getProgressionSelectionBeforeEditing?: () => string;
+  getEditingProgressionSnapshot?: () => DrillEditingProgressionSnapshot | null;
+  getIsCreatingProgression?: () => boolean;
+  getHasCompletedWelcomeOnboarding?: () => boolean;
+  setHasCompletedWelcomeOnboarding?: (value: boolean) => void;
+  getShouldShowWelcomeNextTime?: () => boolean;
+  setShouldShowWelcomeNextTime?: (value: boolean) => void;
+  getProgressions?: () => Record<string, DrillProgressionEntryLike>;
+  setProgressions?: (value: Record<string, DrillProgressionEntryLike>) => void;
+  getAppliedDefaultProgressionsFingerprint?: () => string;
+  setAppliedDefaultProgressionsFingerprint?: (value: string) => void;
+  getAcknowledgedDefaultProgressionsVersion?: () => string;
+  setAcknowledgedDefaultProgressionsVersion?: (value: string) => void;
+  getAppliedOneTimeMigrations?: () => unknown;
+  setAppliedOneTimeMigrations?: (value: unknown) => void;
+  getNextPreviewLeadValue?: () => number;
+  setNextPreviewLeadValue?: (value: number) => void;
+  getEnabledKeys?: () => boolean[];
+  setEnabledKeys?: (value: boolean[]) => void;
+  getPianoFadeSettings?: () => Record<string, unknown>;
+  setPianoFadeSettings?: (value: Record<string, unknown>) => void;
+  getPianoMidiSettings?: () => Record<string, unknown>;
+  setPianoMidiSettings?: (value: Record<string, unknown>) => void;
+  getHadStoredProgressions?: () => boolean;
+  setHadStoredProgressions?: (value: boolean) => void;
+  getSavedPatternSelection?: () => string | null;
+  setSavedPatternSelection?: (value: string | null) => void;
+  getShouldPersistRecoveredDefaultProgressions?: () => boolean;
+  setShouldPersistRecoveredDefaultProgressions?: (value: boolean) => void;
+  setLastStandaloneCustomName?: (value: string) => void;
+  setLastStandaloneCustomPattern?: (value: string) => void;
+  setLastStandaloneCustomMode?: (value: string) => void;
+  getDefaultProgressionsVersion?: () => string;
+  setEditingProgressionName?: (value: string) => void;
+  setProgressionSelectionBeforeEditing?: (value: string) => void;
+  setEditingProgressionSnapshot?: (value: DrillEditingProgressionSnapshot) => void;
+  setIsCreatingProgression?: (value: boolean) => void;
+  setLastPatternSelectValue?: (value: string) => void;
+  setShouldPromptForDefaultProgressionsUpdate?: (value: boolean) => void;
+} & Record<string, unknown>;
+
+type DrillSettingsHelpers = {
+  isEditingPreset?: () => boolean;
+  getDefaultProgressionsFingerprint?: () => string;
+  getCurrentPatternName?: () => string;
+  normalizePatternString?: (value: unknown) => string;
+  getCurrentPatternMode?: () => string;
+  getRepetitionsPerKey?: () => number;
+  getNextPreviewInputUnit?: () => string;
+  getSelectedChordsPerBar?: () => number;
+  normalizeDisplayMode?: (value: unknown) => string;
+  normalizeHarmonyDisplayMode?: (value: unknown) => string;
+  getCompingStyle?: () => string;
+  isWalkingBassEnabled?: () => boolean;
+  isChordsEnabled?: () => boolean;
+  getDrumsMode?: () => string;
+  syncPianoToolsUi?: () => void;
+  applyMixerSettings?: () => void;
+  syncNextPreviewControlDisplay?: () => void;
+  applyBeatIndicatorVisibility?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  normalizePresetName?: (value: unknown) => string;
+  normalizePatternMode?: (value: unknown) => string;
+  resetStandaloneCustomDraft?: () => void;
+  getAnalyticsDebugEnabled?: () => boolean;
+  syncProgressionManagerState?: () => void;
+  applyPatternModeAvailability?: () => void;
+  saveSettings?: () => void;
+  normalizeAppliedOneTimeMigrations?: (value: unknown) => unknown;
+  normalizeProgressionsMap?: (value: unknown) => Record<string, DrillProgressionEntryLike>;
+  renderProgressionOptions?: (patternSelect?: unknown) => void;
+  setEditorPatternMode?: (value: string) => void;
+  normalizeRepetitionsPerKey?: (value: unknown) => number;
+  normalizeNextPreviewLeadValue?: (value: unknown) => number;
+  setNextPreviewInputUnit?: (value: string) => void;
+  normalizeChordsPerBar?: (value: unknown) => number;
+  syncDoubleTimeToggle?: () => void;
+  normalizeCompingStyle?: (value: unknown) => string;
+  shouldApplyMasterVolumeDefault50Migration?: () => boolean;
+  normalizePianoFadeSettings?: (value: unknown) => Record<string, unknown>;
+  normalizePianoMidiSettings?: (value: unknown) => Record<string, unknown>;
+  getProgressionEntry?: (name: string) => DrillProgressionEntryLike | null | undefined;
+  createDefaultAppSettings?: () => DrillAppSettings;
+  clearProgressionEditingState?: () => void;
+  closeProgressionManager?: () => void;
+  setPatternSelectValue?: (value: string) => void;
+  getSelectedProgressionName?: () => string;
+  getSelectedProgressionMode?: () => string;
+  applyEnabledKeys?: (enabledKeys: readonly boolean[]) => void;
+  stopAllMidiPianoVoices?: (force?: boolean) => void;
+  attachMidiInput?: () => void;
+  applyDisplayMode?: () => void;
+  syncCustomPatternUI?: () => void;
+  syncPatternPreview?: () => void;
+  refreshDisplayedHarmony?: () => void;
+  trackEvent?: (eventName: string, props?: Record<string, unknown>) => void;
+} & Record<string, unknown>;
+
+type DrillSettingsConstants = {
+  welcomeOnboardingSettingsKey?: string;
+  welcomeShowNextTimeSettingsKey?: string;
+  welcomeVersionSettingsKey?: string;
+  welcomeVersion?: string;
+  customPatternOptionValue?: string;
+  nextPreviewUnitBars?: string;
+  defaultChordsPerBar?: number;
+  defaultProgressions?: Record<string, DrillProgressionEntryLike>;
+  displayModeKeyOnly?: string;
+  displayModeShowBoth?: string;
+  drumModeMetronome24?: string;
+  drumModeOff?: string;
+  defaultMasterVolumePercent?: string;
+  defaultPianoFadeSettings?: Record<string, unknown>;
+  defaultPianoMidiSettings?: Record<string, unknown>;
+} & Record<string, unknown>;
+
+type DrillLoadedSettings = {
+  presets?: Record<string, DrillProgressionEntryLike>;
+  presetsCleared?: boolean;
+  defaultPresetsFingerprintApplied?: string;
+  defaultPresetsVersionAcknowledged?: string;
+  appliedOneTimeMigrations?: unknown;
+  patternSelect?: string;
+  customPatternName?: unknown;
+  customPattern?: unknown;
+  patternMode?: unknown;
+  tempo?: string;
+  repetitionsPerKey?: unknown;
+  transposition?: unknown;
+  nextPreviewLeadValue?: unknown;
+  nextPreviewLeadBars?: unknown;
+  nextPreviewUnit?: string;
+  chordsPerBar?: unknown;
+  doubleTime?: boolean;
+  majorMinor?: boolean;
+  displayMode?: unknown;
+  hideChords?: boolean;
+  harmonyDisplayMode?: unknown;
+  useMajorTriangleSymbol?: unknown;
+  useHalfDiminishedSymbol?: unknown;
+  useDiminishedSymbol?: unknown;
+  showBeatIndicator?: unknown;
+  hideCurrentHarmony?: unknown;
+  compingStyle?: unknown;
+  customMediumSwingBass?: unknown;
+  chordMode?: boolean;
+  drumsMode?: string;
+  metronome?: boolean;
+  masterVolume?: string;
+  bassVolume?: string;
+  stringsVolume?: string;
+  drumsVolume?: string;
+  enabledKeys?: boolean[];
+  pianoFadeSettings?: unknown;
+  pianoMidiSettings?: unknown;
+  editingState?: DrillEditingState | null;
+  [key: string]: unknown;
+};
 
 function normalizeSavedMixerVolume(value, fallbackValue) {
   const parsed = Number(value);
@@ -51,7 +298,7 @@ export function saveDrillSettings({
   saveStoredProgressionSettings?.(buildSettingsSnapshot?.());
 }
 
-export function createDefaultDrillAppSettingsFactory(defaults: Record<string, any> = {}) {
+export function createDefaultDrillAppSettingsFactory(defaults: DrillAppSettings = {}) {
   const defaultAppSettings: DrillAppSettings = Object.freeze({
     ...defaults,
     enabledKeys: Object.freeze(
@@ -63,7 +310,7 @@ export function createDefaultDrillAppSettingsFactory(defaults: Record<string, an
     pianoMidiSettings: Object.freeze({ ...(defaults.pianoMidiSettings || {}) })
   });
 
-  return function createDefaultAppSettings(overrides: Record<string, any> = {}): DrillAppSettings {
+  return function createDefaultAppSettings(overrides: DrillAppSettings = {}): DrillAppSettings {
     return {
       ...defaultAppSettings,
       ...overrides,
@@ -206,7 +453,7 @@ export function createDrillLoadedSettingsApplier({
   state?: DrillSettingsState;
   helpers?: DrillSettingsHelpers;
 } = {}) {
-  return function applyLoadedSettings(s: Record<string, any>) {
+  return function applyLoadedSettings(s: DrillLoadedSettings) {
     if (!s || typeof s !== 'object') return;
 
     state.setHasCompletedWelcomeOnboarding?.(
@@ -322,7 +569,7 @@ export function createDrillLoadedSettingsApplier({
       dom.walkingBass.checked = Boolean(s.customMediumSwingBass);
     }
     if (s.chordMode !== undefined && s.chordMode === false && dom.stringsVolume) {
-      dom.stringsVolume.value = 0;
+      dom.stringsVolume.value = '0';
     }
     if (s.drumsMode !== undefined && dom.drumsSelect) {
       dom.drumsSelect.value = s.drumsMode;

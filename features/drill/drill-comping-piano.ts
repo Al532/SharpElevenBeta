@@ -34,9 +34,78 @@ const INTERVAL_SEMITONES = {
   '13': 9,
 };
 const NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-const rhythmConfig: Record<string, any> = rawRhythmConfig as Record<string, any>;
-const voicingConfig: Record<string, any> = rawVoicingConfig as Record<string, any>;
-const pianoVoicingConfig: Record<string, any> = rawPianoVoicingConfig as Record<string, any>;
+type DrillPianoSampleLayerThresholds = {
+  p?: number;
+  mf?: number;
+  f?: number;
+};
+
+type DrillPianoSampleLayerSmoothing = {
+  boundaryWindow?: number;
+  pToMfLiftDb?: number;
+  mfFromPLiftDb?: number;
+  mfToFLiftDb?: number;
+  fFromMfLiftDb?: number;
+};
+
+type DrillPianoRhythmConfig = {
+  offBeatOneStepRunProbability?: number;
+  onBeatOneStepRunProbability?: number;
+  offBeatOneStepRunLengthWeights?: Record<string, number>;
+  onBeatOneStepRunLengthWeights?: Record<string, number>;
+  resetBeatStartProbability?: number;
+  oneStepRunCooldownJumps?: number;
+  onBeatJumpWeights?: Record<string, number>;
+  offBeatJumpWeights?: Record<string, number>;
+  onBeatJumpWeights250Bpm?: Record<string, number>;
+  offBeatJumpWeights250Bpm?: Record<string, number>;
+  oneStepRunPassingDiminishedProbability?: number;
+  pianoSampleLayerThresholds?: DrillPianoSampleLayerThresholds;
+  pianoSampleLayerSmoothing?: DrillPianoSampleLayerSmoothing;
+  pianoSampleLayerGainDb?: {
+    p?: number;
+    mf?: number;
+    f?: number;
+  };
+  offBeatShortNoteDurationMultiplier?: number;
+  shortNoteDurationRandomness?: number;
+  forcedLegatoOverlapMs?: number;
+  isolatedTwoHandMinSwitchSeconds?: number;
+  noteTimingHumanizeMs?: number;
+  oddEvenBeatVolumeSpread?: number;
+  offbeatVolumeSpread?: number;
+  pianoGlobalDelayMs?: number;
+  twoHandExtraTopBaseVolume?: number;
+  twoHandGlobalVolumeBoost?: number;
+};
+
+type DrillPianoVoicingConfig = {
+  defaultMode?: string;
+  modes?: Record<string, {
+    guideToneIndices?: number[];
+    shapes?: Record<string, {
+      A?: Array<string | number>;
+      B?: Array<string | number>;
+    }>;
+  }>;
+  ranges?: {
+    noteRangeLow?: number;
+    noteRangeHigh?: number;
+    lowestNoteZoneLow?: number;
+    lowestNoteZoneHigh?: number;
+    lowestNoteZoneCenter?: number;
+  };
+};
+
+type DrillCompingVoicingConfig = {
+  DOMINANT_DEFAULT_QUALITY_MAJOR?: Record<string, string>;
+  DOMINANT_DEFAULT_QUALITY_MINOR?: Record<string, string>;
+  QUALITY_CATEGORY_ALIASES?: Record<string, string[]>;
+};
+
+const rhythmConfig = rawRhythmConfig as DrillPianoRhythmConfig;
+const voicingConfig = rawVoicingConfig as DrillCompingVoicingConfig;
+const pianoVoicingConfig = rawPianoVoicingConfig as DrillPianoVoicingConfig;
 
 function chordsMatch(left, right) {
   return Boolean(left && right
@@ -626,8 +695,28 @@ function createPianoPlan({
 }
 
 type DrillPianoCompingOptions = {
-  constants?: Record<string, any>;
-  helpers?: Record<string, any>;
+  constants?: {
+    CHORD_FADE_BEFORE?: number;
+    PIANO_COMP_DURATION_RATIO?: number;
+    PIANO_COMP_MIN_DURATION?: number;
+    PIANO_COMP_MAX_DURATION?: number;
+    PIANO_VOLUME_MULTIPLIER?: number;
+  };
+  helpers?: {
+    getAudioContext?: () => BaseAudioContext | null;
+    getPianoVoicingMode?: () => string;
+    getSecondsPerBeat?: () => number | null;
+    getSwingRatio?: () => number;
+    getVoicingAtIndex?: (...args: unknown[]) => unknown;
+    playSample?: (
+      category: string,
+      midi: number,
+      time: number,
+      duration: number,
+      volume: number,
+      options?: Record<string, unknown>
+    ) => void;
+  };
 };
 
 export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoCompingOptions = {}) {
@@ -659,11 +748,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     defaultMode: defaultPianoMode = 'piano',
     modes: pianoModes = {},
     ranges: pianoRanges = {},
-  } = pianoVoicingConfig as {
-    defaultMode?: string;
-    modes?: Record<string, any>;
-    ranges?: Record<string, number>;
-  };
+  } = pianoVoicingConfig;
   function dbToGain(db) {
     return Math.pow(10, db / 20);
   }

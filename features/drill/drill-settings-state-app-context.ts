@@ -1,12 +1,12 @@
 type DrillSettingsStateAppContextOptions = {
-  snapshotState?: Record<string, any>;
-  snapshotHelpers?: Record<string, any>;
-  loadApplierState?: Record<string, any>;
-  loadApplierHelpers?: Record<string, any>;
-  loadFinalizerState?: Record<string, any>;
-  loadFinalizerHelpers?: Record<string, any>;
-  resetterState?: Record<string, any>;
-  resetterHelpers?: Record<string, any>;
+  snapshotState?: Record<string, unknown>;
+  snapshotHelpers?: Record<string, unknown>;
+  loadApplierState?: Record<string, unknown>;
+  loadApplierHelpers?: Record<string, unknown>;
+  loadFinalizerState?: Record<string, unknown>;
+  loadFinalizerHelpers?: Record<string, unknown>;
+  resetterState?: Record<string, unknown>;
+  resetterHelpers?: Record<string, unknown>;
 };
 
 export function createDrillSettingsStateAppContext({

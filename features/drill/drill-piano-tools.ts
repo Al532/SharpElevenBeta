@@ -1,6 +1,43 @@
-type DrillPianoToolsDom = Record<string, any>;
+type DrillPianoToolsTextControl = {
+  value?: string;
+  textContent?: string | null;
+  focus?: () => void;
+  select?: () => void;
+  addEventListener?: (eventName: string, listener: (...args: unknown[]) => void) => void;
+};
 
-type DrillPianoSettings = Record<string, any>;
+type DrillPianoToolsToggleControl = {
+  checked?: boolean;
+  addEventListener?: (eventName: string, listener: (...args: unknown[]) => void) => void;
+};
+
+type DrillPianoToolsButtonControl = {
+  addEventListener?: (eventName: string, listener: (...args: unknown[]) => void) => void;
+};
+
+type DrillPianoToolsDom = {
+  pianoMidiStatus?: DrillPianoToolsTextControl;
+  pianoTimeConstantLow?: DrillPianoToolsTextControl;
+  pianoTimeConstantHigh?: DrillPianoToolsTextControl;
+  pianoSettingsJson?: DrillPianoToolsTextControl;
+  pianoMidiEnabled?: DrillPianoToolsToggleControl;
+  pianoMidiSustain?: DrillPianoToolsToggleControl;
+  pianoMidiInput?: DrillPianoToolsTextControl;
+  pianoMidiRefresh?: DrillPianoToolsButtonControl;
+} & Record<string, unknown>;
+
+type DrillPianoSettings = {
+  timeConstantLow?: number | string;
+  timeConstantHigh?: number | string;
+  enabled?: boolean;
+  sustainPedalEnabled?: boolean;
+  inputId?: string;
+} & Record<string, unknown>;
+
+type DrillPianoSettingsApplyOptions = {
+  persist?: boolean;
+  reconnect?: boolean;
+};
 
 type ApplyDrillPianoFadeSettingsOptions = {
   nextSettings?: DrillPianoSettings;
@@ -270,7 +307,7 @@ export function createDrillPianoToolsAppFacade({
   attachMidiInput?: () => void;
   saveSettings?: () => void;
 } = {}) {
-  function setPianoMidiStatus(message) {
+  function setPianoMidiStatus(message: string) {
     setDrillPianoMidiStatus(dom, message);
   }
 
@@ -299,7 +336,7 @@ export function createDrillPianoToolsAppFacade({
     });
   }
 
-  function applyPianoFadeSettings(nextSettings: DrillPianoSettings, { persist = true } = {}) {
+  function applyPianoFadeSettings(nextSettings: DrillPianoSettings, { persist = true }: DrillPianoSettingsApplyOptions = {}) {
     applyDrillPianoFadeSettings({
       nextSettings,
       normalizePianoFadeSettings,
@@ -312,7 +349,7 @@ export function createDrillPianoToolsAppFacade({
     });
   }
 
-  function applyPianoMidiSettings(nextSettings: DrillPianoSettings, { persist = true, reconnect = true } = {}) {
+  function applyPianoMidiSettings(nextSettings: DrillPianoSettings, { persist = true, reconnect = true }: DrillPianoSettingsApplyOptions = {}) {
     applyDrillPianoMidiSettings({
       nextSettings,
       normalizePianoMidiSettings,

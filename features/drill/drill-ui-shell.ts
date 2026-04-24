@@ -1,4 +1,4 @@
-type InitializeDrillScreenOptions = Record<string, any>;
+import type { DrillUiBootstrapScreenContext } from './drill-ui-types.js';
 
 export async function initializeDrillScreen({
   initializeSocialShareLinks,
@@ -39,7 +39,7 @@ export async function initializeDrillScreen({
   consumePendingPracticeSessionIntoUi,
   setWelcomeOverlayVisible,
   maybeShowWelcomeOverlay
-}: InitializeDrillScreenOptions = {}) {
+}: DrillUiBootstrapScreenContext = {}) {
   initializeSocialShareLinks?.();
 
   await Promise.all([

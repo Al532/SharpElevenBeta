@@ -237,6 +237,56 @@ const state: ExtendedChartScreenState = {
 
 let chartTextScaleCompensation = 1;
 
+function applyChartDisplayCssVariables() {
+  const rootStyle = document.documentElement.style;
+  const { rowSpacing, barGeometry, chordSizing } = CHART_DISPLAY_CONFIG;
+
+  const setCssVar = (name: string, value: string | number) => {
+    rootStyle.setProperty(name, String(value));
+  };
+
+  setCssVar('--chart-config-row-gap-min', `${rowSpacing.minPx}px`);
+
+  setCssVar('--chart-config-bar-cell-padding-top', `${barGeometry.desktop.cellPadding.topPx}px`);
+  setCssVar('--chart-config-bar-cell-padding-x', `${barGeometry.desktop.cellPadding.horizontalPx}px`);
+  setCssVar('--chart-config-bar-cell-padding-bottom', `${barGeometry.desktop.cellPadding.bottomPx}px`);
+  setCssVar('--chart-config-bar-line-top', `${barGeometry.desktop.barLine.topPx}px`);
+  setCssVar('--chart-config-bar-line-bottom', `${barGeometry.desktop.barLine.bottomPx}px`);
+  setCssVar('--chart-config-bar-body-margin-top', `${barGeometry.desktop.bodyMarginTopPx}px`);
+  setCssVar('--chart-config-bar-base-min-height', `${barGeometry.desktop.baseMinHeightPx}px`);
+  setCssVar('--chart-config-bar-row-1-min-height-min', `${barGeometry.desktop.rowHeights.one.minPx}px`);
+  setCssVar('--chart-config-bar-row-1-min-height-preferred', `${barGeometry.desktop.rowHeights.one.preferredVh}dvh`);
+  setCssVar('--chart-config-bar-row-1-min-height-max', `${barGeometry.desktop.rowHeights.one.maxPx}px`);
+  setCssVar('--chart-config-bar-row-2-min-height-min', `${barGeometry.desktop.rowHeights.two.minPx}px`);
+  setCssVar('--chart-config-bar-row-2-min-height-preferred', `${barGeometry.desktop.rowHeights.two.preferredVh}dvh`);
+  setCssVar('--chart-config-bar-row-2-min-height-max', `${barGeometry.desktop.rowHeights.two.maxPx}px`);
+  setCssVar('--chart-config-bar-row-3-min-height-min', `${barGeometry.desktop.rowHeights.three.minPx}px`);
+  setCssVar('--chart-config-bar-row-3-min-height-preferred', `${barGeometry.desktop.rowHeights.three.preferredVh}dvh`);
+  setCssVar('--chart-config-bar-row-3-min-height-max', `${barGeometry.desktop.rowHeights.three.maxPx}px`);
+  setCssVar('--chart-config-bar-body-size-min-rem', chordSizing.desktop.minRem);
+  setCssVar('--chart-config-bar-body-size-preferred-vw', chordSizing.desktop.preferredVw);
+  setCssVar('--chart-config-bar-body-size-max-rem', chordSizing.desktop.maxRem);
+
+  setCssVar('--chart-config-mobile-bar-padding-top', `${barGeometry.mobile.cellPadding.topPx}px`);
+  setCssVar('--chart-config-mobile-bar-padding-x', `${barGeometry.mobile.cellPadding.horizontalPx}px`);
+  setCssVar('--chart-config-mobile-bar-padding-bottom', `${barGeometry.mobile.cellPadding.bottomPx}px`);
+  setCssVar('--chart-config-mobile-bar-line-top', `${barGeometry.mobile.barLine.topPx}px`);
+  setCssVar('--chart-config-mobile-bar-line-height', `${barGeometry.mobile.barLine.heightPx}px`);
+  setCssVar('--chart-config-mobile-bar-line-height-small', `${barGeometry.mobile.barLine.heightSmallScreenPx}px`);
+  setCssVar('--chart-config-mobile-bar-body-margin-top', `${barGeometry.mobile.bodyMarginTopPx}px`);
+  setCssVar('--chart-config-mobile-bar-row-1-min-height-min', `${barGeometry.mobile.rowHeights.one.minPx}px`);
+  setCssVar('--chart-config-mobile-bar-row-1-min-height-preferred', `${barGeometry.mobile.rowHeights.one.preferredVh}dvh`);
+  setCssVar('--chart-config-mobile-bar-row-1-min-height-max', `${barGeometry.mobile.rowHeights.one.maxPx}px`);
+  setCssVar('--chart-config-mobile-bar-row-2-min-height-min', `${barGeometry.mobile.rowHeights.two.minPx}px`);
+  setCssVar('--chart-config-mobile-bar-row-2-min-height-preferred', `${barGeometry.mobile.rowHeights.two.preferredVh}dvh`);
+  setCssVar('--chart-config-mobile-bar-row-2-min-height-max', `${barGeometry.mobile.rowHeights.two.maxPx}px`);
+  setCssVar('--chart-config-mobile-bar-row-3-min-height-min', `${barGeometry.mobile.rowHeights.three.minPx}px`);
+  setCssVar('--chart-config-mobile-bar-row-3-min-height-preferred', `${barGeometry.mobile.rowHeights.three.preferredVh}dvh`);
+  setCssVar('--chart-config-mobile-bar-row-3-min-height-max', `${barGeometry.mobile.rowHeights.three.maxPx}px`);
+  setCssVar('--chart-config-mobile-bar-body-size', `${chordSizing.mobile.baseRem}rem`);
+  setCssVar('--chart-config-mobile-bar-body-size-small', `${chordSizing.mobile.smallScreenRem}rem`);
+}
+
 function measureChartTextScaleCompensation() {
   const probe = document.createElement('div');
   probe.textContent = CHART_DISPLAY_CONFIG.textScaleCompensation.probeText;
@@ -1148,6 +1198,7 @@ async function loadFixtures() {
   })));
 }
 
+applyChartDisplayCssVariables();
 measureChartTextScaleCompensation();
 
 loadFixtures().catch((error) => {

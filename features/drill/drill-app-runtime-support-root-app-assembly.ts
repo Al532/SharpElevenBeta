@@ -6,13 +6,61 @@ type StateRef<T> = {
   set?: (value: T) => void;
 };
 
-type DrillAppRuntimeSupportDom = Record<string, any>;
+type DrillAppRuntimeSupportElementLike = {
+  value?: string;
+  open?: boolean;
+};
+
+type DrillAppRuntimeSupportDom = {
+  customPattern?: HTMLElement | DrillAppRuntimeSupportElementLike | null;
+  patternError?: Element | null;
+  keyPicker?: HTMLElement | DrillAppRuntimeSupportElementLike | null;
+  compingStyle?: HTMLElement | DrillAppRuntimeSupportElementLike | null;
+  repetitionsPerKey?: HTMLElement | DrillAppRuntimeSupportElementLike | null;
+};
+
+type DrillAppRuntimeSupportState = {
+  getCurrentRawChords?: () => unknown[];
+  setCurrentRawChords?: (value: unknown[]) => void;
+  setNextRawChords?: (value: unknown[]) => void;
+  setOneChordQualityPool?: (value: string[]) => void;
+  setOneChordQualityPoolSignature?: (value: string) => void;
+  setCurrentOneChordQualityValue?: (value: string) => void;
+  setNextOneChordQualityValue?: (value: string) => void;
+  getCurrentPatternString?: () => string;
+  getIsPlaying?: () => boolean;
+  getPlaybackSessionController?: () => unknown;
+  setPlaybackSessionController?: (value: unknown) => void;
+};
+
+type DrillAppRuntimeSupportConstants = {
+  oneChordDefaultQualities?: string[];
+};
+
+type DrillAppRuntimeSupportDisplayFacade = {
+  keyLabelForPicker?: (majorIndex: number) => string;
+  updateKeyPickerLabels?: () => void;
+  refreshDisplayedHarmony?: () => void;
+};
+
+type DrillAppRuntimeSupportHelpers = {
+  isCustomPatternSelected?: () => boolean;
+  normalizePatternString?: (value: string) => string;
+  analyzePattern?: (value: string) => unknown;
+  parseOneChordSpec?: (value: string) => { active: boolean; qualities: string[] };
+  createOneChordToken?: (value: string) => unknown;
+  parsePattern?: (value: string) => unknown[];
+  normalizeCompingStyle?: (value: string | undefined) => string;
+  normalizeRepetitionsPerKey?: (value: string | undefined) => number;
+  stopPlayback?: () => void;
+  getDisplayFacade?: () => DrillAppRuntimeSupportDisplayFacade;
+};
 
 type DrillAppRuntimeSupportOptions = {
   dom?: DrillAppRuntimeSupportDom;
-  runtimeState?: Record<string, any>;
-  runtimeConstants?: Record<string, any>;
-  runtimeHelpers?: Record<string, any>;
+  runtimeState?: DrillAppRuntimeSupportState;
+  runtimeConstants?: DrillAppRuntimeSupportConstants;
+  runtimeHelpers?: DrillAppRuntimeSupportHelpers;
 };
 
 export function createStateRef<T>(get: () => T, set: ((value: T) => void) | undefined = undefined): StateRef<T> {
@@ -25,9 +73,9 @@ export function createStateRef<T>(get: () => T, set: ((value: T) => void) | unde
  *
  * @param {object} [options]
  * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.runtimeState]
- * @param {Record<string, any>} [options.runtimeConstants]
- * @param {Record<string, any>} [options.runtimeHelpers]
+ * @param {object} [options.runtimeState]
+ * @param {object} [options.runtimeConstants]
+ * @param {object} [options.runtimeHelpers]
  */
 export function createDrillAppRuntimeSupportRootAppAssembly({
   dom = {},
@@ -60,11 +108,20 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
     parseOneChordSpec = () => ({ active: false, qualities: [] }),
     createOneChordToken = (value) => value,
     parsePattern = () => [],
-    normalizeCompingStyle = (value) => value,
-    normalizeRepetitionsPerKey = (value) => value,
+    normalizeCompingStyle = (value) => String(value ?? ''),
+    normalizeRepetitionsPerKey = (value) => Number(value ?? 0),
     stopPlayback = () => {},
-    getDisplayFacade = () => ({})
+    getDisplayFacade = (): DrillAppRuntimeSupportDisplayFacade => ({})
   } = runtimeHelpers;
+
+  function getElementValue(element: HTMLElement | DrillAppRuntimeSupportElementLike | null | undefined) {
+    return (element as DrillAppRuntimeSupportElementLike | null | undefined)?.value;
+  }
+
+  function setElementOpen(element: HTMLElement | DrillAppRuntimeSupportElementLike | null | undefined, isOpen: boolean) {
+    if (!element) return;
+    (element as DrillAppRuntimeSupportElementLike).open = isOpen;
+  }
 
   function buildProgression() {
     const currentRawChords = getCurrentRawChords();
@@ -84,7 +141,7 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
   function validateCustomPattern() {
     return validateDrillCustomPattern({
       isCustomPatternSelected,
-      getCustomPatternValue: () => String(dom.customPattern?.value || ''),
+      getCustomPatternValue: () => String(getElementValue(dom.customPattern) || ''),
       normalizePatternString,
       analyzePattern,
       patternErrorElement: dom.patternError
@@ -92,11 +149,10 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
   }
 
   function setKeyPickerOpen(isOpen) {
-    if (!dom.keyPicker) return;
-    dom.keyPicker.open = Boolean(isOpen);
+    setElementOpen(dom.keyPicker, Boolean(isOpen));
   }
 
-  function escapeHtml(value) {
+  function escapeHtml(value: unknown) {
     return String(value || '')
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
@@ -106,12 +162,12 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
   }
 
   function getPianoVoicingMode() {
-    normalizeCompingStyle(dom.compingStyle?.value);
+    normalizeCompingStyle(getElementValue(dom.compingStyle));
     return 'piano';
   }
 
   function getRepetitionsPerKey() {
-    return normalizeRepetitionsPerKey(dom.repetitionsPerKey?.value);
+    return normalizeRepetitionsPerKey(getElementValue(dom.repetitionsPerKey));
   }
 
   function clearOneChordCycleState() {
@@ -138,18 +194,18 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
   }
 
   function keyLabelForPicker(majorIndex) {
-    return getDisplayFacade().keyLabelForPicker(majorIndex);
+    return getDisplayFacade().keyLabelForPicker?.(majorIndex);
   }
 
   function updateKeyPickerLabels() {
-    return getDisplayFacade().updateKeyPickerLabels();
+    return getDisplayFacade().updateKeyPickerLabels?.();
   }
 
   function refreshDisplayedHarmony() {
-    return getDisplayFacade().refreshDisplayedHarmony();
+    return getDisplayFacade().refreshDisplayedHarmony?.();
   }
 
-  function resolvePlaybackSessionController(fallbackController) {
+  function resolvePlaybackSessionController<T>(fallbackController: T) {
     const existingController = getPlaybackSessionController();
     if (existingController) return existingController;
     setPlaybackSessionController(fallbackController);

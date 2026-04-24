@@ -8,13 +8,36 @@ import type {
 
 import { createDirectPlaybackSessionHost } from './drill-direct-session.js';
 
+type DrillDirectPlaybackRuntime = Pick<
+  DirectPlaybackControllerOptions,
+  | 'ensureWalkingBassGenerator'
+  | 'getAudioContext'
+  | 'noteFadeout'
+  | 'stopActiveChordVoices'
+  | 'rebuildPreparedCompingPlans'
+  | 'buildPreparedBassPlan'
+  | 'getCurrentKey'
+  | 'preloadNearTermSamples'
+  | 'validateCustomPattern'
+>;
+
+type DrillDirectPlaybackState = {
+  getIsPlaying?: DirectPlaybackControllerOptions['isPlaying'];
+};
+
+type DrillDirectTransportActions = {
+  startPlayback?: () => Promise<void> | void;
+  stopPlayback?: () => void;
+  togglePausePlayback?: () => void;
+};
+
 type DirectRuntimeAppOptions = {
   applyEmbeddedPattern?: (payload: Partial<EmbeddedPatternPayload>) => PlaybackOperationResult;
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState> | null | undefined;
-  playbackRuntime?: Record<string, any>;
-  playbackState?: Record<string, any>;
-  transportActions?: Record<string, any>;
+  playbackRuntime?: DrillDirectPlaybackRuntime;
+  playbackState?: DrillDirectPlaybackState;
+  transportActions?: DrillDirectTransportActions;
 };
 
 export function createDirectDrillRuntimeAppContextOptions({
@@ -45,7 +68,11 @@ export function createDirectDrillRuntimeAppContextOptions({
     getCurrentKey: playbackRuntime.getCurrentKey,
     preloadNearTermSamples: playbackRuntime.preloadNearTermSamples,
     validateCustomPattern: playbackRuntime.validateCustomPattern,
-    startPlayback: transportActions.startPlayback,
+    startPlayback: transportActions.startPlayback
+      ? async () => {
+        await transportActions.startPlayback?.();
+      }
+      : undefined,
     stopPlayback: transportActions.stopPlayback,
     togglePausePlayback: transportActions.togglePausePlayback
   };

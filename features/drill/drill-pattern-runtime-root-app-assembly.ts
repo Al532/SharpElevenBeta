@@ -1,14 +1,57 @@
 
 type DrillPatternRuntimeRootAppAssemblyOptions = {
-  dom?: Record<string, any>;
-  runtimeState?: Record<string, any>;
-  runtimeConstants?: Record<string, any>;
-  runtimeHelpers?: Record<string, any>;
+  dom?: DrillPatternRuntimeDom;
+  runtimeState?: DrillPatternRuntimeState;
+  runtimeConstants?: DrillPatternRuntimeConstants;
+  runtimeHelpers?: DrillPatternRuntimeHelpers;
 };
 
 type DrillPatternChord = {
   semitones: number;
   bassSemitones?: number;
+};
+
+type DrillPatternRuntimeToggle = {
+  checked?: boolean;
+};
+
+type DrillPatternRuntimeSelect = {
+  value?: string;
+};
+
+type DrillPatternRuntimeDom = {
+  doubleTimeToggle?: DrillPatternRuntimeToggle | null;
+  chordsPerBar?: DrillPatternRuntimeSelect | null;
+};
+
+type DrillPatternRuntimeState = {
+  getOneChordQualityPool?: () => string[];
+  setOneChordQualityPool?: (value: string[]) => void;
+  getOneChordQualityPoolSignature?: () => string;
+  setOneChordQualityPoolSignature?: (value: string) => void;
+};
+
+type DrillPatternRuntimeConstants = {
+  oneChordDefaultQualities?: string[];
+};
+
+type DrillPatternAnalysis = {
+  usesBarLines?: boolean;
+  resolvedChordsPerBar?: number | null;
+};
+
+type DrillPatternRuntimeHelpers = {
+  shuffleArray?: <T>(value: T[]) => T[];
+  getCurrentPatternString?: () => string;
+  isOneChordModeActiveBase?: (pattern: string) => boolean;
+  analyzePatternCached?: (pattern: string) => DrillPatternAnalysis;
+  normalizeChordsPerBar?: (value: unknown) => number;
+  getPatternKeyOverridePitchClassBase?: (pattern: string) => number | null;
+  getBeatsPerChordBase?: (value: number) => number;
+  padProgressionBase?: (chords: DrillPatternChord[], chordsPerBar: number) => DrillPatternChord[];
+  getSelectedChordsPerBarValue?: () => number;
+  getPlayedChordQuality?: (chord: DrillPatternChord, preferMinor: boolean) => string;
+  getCurrentDoubleTimeChecked?: () => boolean;
 };
 
 /**
@@ -17,10 +60,10 @@ type DrillPatternChord = {
  * trimming helpers out of `app.js` while preserving the current behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.runtimeState]
- * @param {Record<string, any>} [options.runtimeConstants]
- * @param {Record<string, any>} [options.runtimeHelpers]
+ * @param {object} [options.dom]
+ * @param {object} [options.runtimeState]
+ * @param {object} [options.runtimeConstants]
+ * @param {object} [options.runtimeHelpers]
  */
 export function createDrillPatternRuntimeRootAppAssembly({
   dom = {},
@@ -44,7 +87,7 @@ export function createDrillPatternRuntimeRootAppAssembly({
     getCurrentPatternString = () => '',
     isOneChordModeActiveBase = () => false,
     analyzePatternCached = () => ({ usesBarLines: false, resolvedChordsPerBar: null }),
-    normalizeChordsPerBar = (value) => value,
+    normalizeChordsPerBar = (value: unknown): number => Number(value ?? 1),
     getPatternKeyOverridePitchClassBase = () => null,
     getBeatsPerChordBase = (value) => value,
     padProgressionBase = (chords) => chords,

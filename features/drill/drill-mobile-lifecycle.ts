@@ -1,21 +1,22 @@
-// @ts-check
+import type { DrillEventTargetLike, DrillVisibilityTargetLike } from './drill-ui-types.js';
+
+type DrillMobileLifecycleOptions = {
+  lifecycleTarget?: DrillEventTargetLike;
+  visibilityTarget?: DrillVisibilityTargetLike;
+  userGestureTarget?: DrillEventTargetLike;
+  getIsPlaying?: () => boolean;
+  getIsPaused?: () => boolean;
+  getAudioContext?: () => BaseAudioContext | null;
+  resumeAudioContext?: () => Promise<unknown> | unknown;
+  togglePausePlayback?: () => Promise<unknown> | unknown;
+  trackSessionDuration?: () => void;
+};
 
 /**
  * Creates the drill mobile lifecycle controller.
  * It keeps background/foreground playback behavior and user-gesture audio
  * unlock out of `app.js` while staying compatible with the current transport
  * contract.
- *
- * @param {object} [options]
- * @param {EventTarget | { addEventListener?: Function }} [options.lifecycleTarget]
- * @param {EventTarget | { addEventListener?: Function, hidden?: boolean }} [options.visibilityTarget]
- * @param {EventTarget | { addEventListener?: Function }} [options.userGestureTarget]
- * @param {() => boolean} [options.getIsPlaying]
- * @param {() => boolean} [options.getIsPaused]
- * @param {() => BaseAudioContext | null} [options.getAudioContext]
- * @param {() => Promise<unknown> | unknown} [options.resumeAudioContext]
- * @param {() => Promise<unknown> | unknown} [options.togglePausePlayback]
- * @param {Function} [options.trackSessionDuration]
  */
 export function createDrillMobileLifecycle({
   lifecycleTarget = globalThis.window,
@@ -27,7 +28,7 @@ export function createDrillMobileLifecycle({
   resumeAudioContext = async () => getAudioContext?.(),
   togglePausePlayback = async () => {},
   trackSessionDuration = () => {}
-} = {}) {
+}: DrillMobileLifecycleOptions = {}) {
   let audioResumeInFlight = false;
 
   async function tryResumeAudioContext() {

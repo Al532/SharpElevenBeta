@@ -7,13 +7,93 @@ import type {
   PlaybackSettings
 } from '../../core/types/contracts';
 
-export type DrillSharedPlaybackHostBindings = Record<string, unknown>;
-export type DrillSharedPlaybackPatternUiBindings = Record<string, unknown>;
-export type DrillSharedPlaybackNormalizationBindings = Record<string, unknown>;
-export type DrillSharedPlaybackSettingsBindings = Record<string, unknown>;
-export type DrillSharedPlaybackRuntimeBindings = Record<string, unknown>;
-export type DrillSharedPlaybackStateBindings = Record<string, unknown>;
-export type DrillSharedPlaybackTransportBindings = Record<string, unknown>;
+export type DrillSharedPlaybackHostBindings = {
+  customPatternOptionValue?: string;
+  setSuppressPatternSelectChange?: (value: boolean) => void;
+  setPatternSelectValue?: (value: string) => void;
+  setEditorPatternMode?: (value: string) => void;
+  syncPatternSelectionFromInput?: () => void;
+  getLastPatternSelectValue?: () => string;
+  setLastPatternSelectValue?: (value: string) => void;
+  getIsPlaying?: () => boolean;
+  getIsPaused?: () => boolean;
+  getIsIntro?: () => boolean;
+  getCurrentBeat?: () => number;
+  getCurrentChordIdx?: () => number;
+  getPaddedChordCount?: () => number;
+  getTempo?: () => number;
+  getAudioContext?: () => BaseAudioContext | null;
+  getCurrentKey?: () => number;
+  startPlayback?: () => Promise<void> | void;
+  stopPlayback?: () => void;
+  togglePausePlayback?: () => void;
+};
+
+export type DrillSharedPlaybackPatternUiBindings = {
+  clearProgressionEditingState?: () => void;
+  closeProgressionManager?: () => void;
+  syncCustomPatternUI?: () => void;
+  normalizeChordsPerBarForCurrentPattern?: () => void;
+  applyPatternModeAvailability?: () => void;
+  syncPatternPreview?: () => void;
+  applyDisplayMode?: () => void;
+  applyBeatIndicatorVisibility?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  updateKeyPickerLabels?: () => void;
+  refreshDisplayedHarmony?: () => void;
+  fitHarmonyDisplay?: () => void;
+  validateCustomPattern?: () => boolean;
+  getCurrentPatternString?: () => string;
+  getCurrentPatternMode?: () => string;
+};
+
+export type DrillSharedPlaybackNormalizationBindings = {
+  normalizePatternString?: (value: unknown) => string;
+  normalizePresetName?: (value: unknown) => string;
+  normalizePatternMode?: (value: unknown) => string;
+  normalizeCompingStyle?: (value: unknown) => string;
+  normalizeRepetitionsPerKey?: (value: unknown) => number;
+  normalizeDisplayMode?: (value: unknown) => string;
+  normalizeHarmonyDisplayMode?: (value: unknown) => string;
+};
+
+export type DrillSharedPlaybackSettingsBindings = {
+  getSwingRatio?: () => number;
+  getCompingStyle?: () => string;
+  getDrumsMode?: () => string;
+  isWalkingBassEnabled?: () => boolean;
+  getRepetitionsPerKey?: () => number;
+  applyMixerSettings?: () => void;
+};
+
+export type DrillSharedPlaybackRuntimeBindings = {
+  ensureWalkingBassGenerator?: () => Promise<unknown>;
+  getAudioContext?: () => BaseAudioContext | null;
+  noteFadeout?: number;
+  stopActiveChordVoices?: (audioTime: number, fadeout: number) => void;
+  rebuildPreparedCompingPlans?: (currentKey: number) => void;
+  buildPreparedBassPlan?: () => void;
+  getCurrentKey?: () => number;
+  preloadNearTermSamples?: () => Promise<unknown>;
+  validateCustomPattern?: () => boolean;
+};
+
+export type DrillSharedPlaybackStateBindings = {
+  isEmbeddedMode?: boolean;
+  getIsPlaying?: () => boolean;
+  getIsPaused?: () => boolean;
+  getIsIntro?: () => boolean;
+  getCurrentBeat?: () => number;
+  getCurrentChordIdx?: () => number;
+  getPaddedChordCount?: () => number;
+  getTempo?: () => number;
+};
+
+export type DrillSharedPlaybackTransportBindings = {
+  startPlayback?: () => Promise<void> | void;
+  stopPlayback?: () => void;
+  togglePausePlayback?: () => void;
+};
 
 export type DrillSharedPlaybackEmbeddedBindings = {
   dom?: Record<string, unknown>;

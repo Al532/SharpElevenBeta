@@ -1,4 +1,55 @@
 import { createEmbeddedDrillRuntimeAppOptions } from './drill-runtime-boundary.js';
+import type { DrillPlaybackControllerOptions, EmbeddedDrillRuntimeOptions } from '../../core/types/contracts';
+
+type DrillEmbeddedRuntimeDom = Record<string, unknown>;
+type DrillEmbeddedPatternUiBindings = {
+  clearProgressionEditingState?: () => void;
+  closeProgressionManager?: () => void;
+  setCustomPatternSelection?: () => void;
+  setPatternName?: (value: string) => void;
+  setCustomPatternValue?: (value: string) => void;
+  setEditorPatternMode?: (value: string) => void;
+  syncPatternSelectionFromInput?: () => void;
+  setLastPatternSelectValue?: () => void;
+  syncCustomPatternUI?: () => void;
+  normalizeChordsPerBarForCurrentPattern?: () => void;
+  applyPatternModeAvailability?: () => void;
+  syncPatternPreview?: () => void;
+  applyDisplayMode?: () => void;
+  applyBeatIndicatorVisibility?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  updateKeyPickerLabels?: () => void;
+  refreshDisplayedHarmony?: () => void;
+  fitHarmonyDisplay?: () => void;
+  validateCustomPattern?: () => boolean;
+  getPatternErrorText?: () => string;
+  getCurrentPatternString?: () => string;
+  getCurrentPatternMode?: () => string;
+};
+type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedDrillRuntimeOptions['playbackStateOptions']>;
+type DrillEmbeddedPlaybackControllerBindings = NonNullable<DrillPlaybackControllerOptions>;
+type DrillEmbeddedNormalizationBindings = {
+  normalizePatternString?: (value: string) => string;
+  normalizePresetName?: (value: string) => string;
+  normalizePatternMode?: (value: string) => string;
+  normalizeCompingStyle?: (value: string) => string;
+  normalizeRepetitionsPerKey?: (value: number | string) => number;
+  normalizeDisplayMode?: (value: string) => string;
+  normalizeHarmonyDisplayMode?: (value: string) => string;
+};
+type DrillEmbeddedPlaybackSettingsBindings = {
+  getSwingRatio?: () => number;
+  getCompingStyle?: () => string;
+  getDrumsMode?: () => string;
+  isWalkingBassEnabled?: () => boolean;
+  getRepetitionsPerKey?: () => number;
+  applyMixerSettings?: () => void;
+};
+type DrillEmbeddedTransportActions = {
+  startPlayback?: () => Promise<void> | void;
+  stopPlayback?: () => void;
+  togglePausePlayback?: () => void;
+};
 
 export function createEmbeddedDrillRuntimeAppContextOptions({
   dom,
@@ -9,13 +60,13 @@ export function createEmbeddedDrillRuntimeAppContextOptions({
   playbackRuntime = {},
   transportActions = {}
 }: {
-  dom?: Record<string, any>;
-  patternUi?: Record<string, any>;
-  normalization?: Record<string, any>;
-  playbackSettings?: Record<string, any>;
-  playbackState?: Record<string, any>;
-  playbackRuntime?: Record<string, any>;
-  transportActions?: Record<string, any>;
+  dom?: DrillEmbeddedRuntimeDom;
+  patternUi?: DrillEmbeddedPatternUiBindings;
+  normalization?: DrillEmbeddedNormalizationBindings;
+  playbackSettings?: DrillEmbeddedPlaybackSettingsBindings;
+  playbackState?: Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown>;
+  playbackRuntime?: Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
+  transportActions?: DrillEmbeddedTransportActions;
 } = {}) {
   return createEmbeddedDrillRuntimeAppOptions({
     dom,
@@ -74,7 +125,9 @@ export function createEmbeddedDrillRuntimeAppContextOptions({
     buildPreparedBassPlan: playbackRuntime.buildPreparedBassPlan,
     getCurrentKey: playbackRuntime.getCurrentKey,
     preloadNearTermSamples: playbackRuntime.preloadNearTermSamples,
-    startPlayback: transportActions.startPlayback,
+    startPlayback: async () => {
+      await transportActions.startPlayback?.();
+    },
     stopPlayback: transportActions.stopPlayback,
     togglePausePlayback: transportActions.togglePausePlayback,
     applyMixerSettings: playbackSettings.applyMixerSettings

@@ -936,7 +936,7 @@ const {
     getCurrentPatternString,
     isOneChordModeActiveBase,
     analyzePatternCached,
-    normalizeChordsPerBar,
+    normalizeChordsPerBar: normalizeChordsPerBarBase,
     getPatternKeyOverridePitchClassBase,
     getBeatsPerChordBase,
     padProgressionBase,

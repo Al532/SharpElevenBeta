@@ -33,6 +33,50 @@ type CreateDrillSharedPlaybackRootAppContextOptions = {
   directTransportActions?: DrillSharedPlaybackTransportBindings;
 };
 
+type DrillSharedPlaybackTempoDom = {
+  tempoSlider?: { value?: string | number | null };
+};
+
+type DrillSharedPlaybackLegacyHostBindings = {
+  dom?: DrillSharedPlaybackTempoDom;
+  state?: DrillSharedPlaybackHostBindings;
+  constants?: {
+    customPatternOptionValue?: string;
+  };
+  helpers?: {
+    setSuppressPatternSelectChange?: (value: boolean) => void;
+    setPatternSelectValue?: (value: string) => void;
+    setEditorPatternMode?: (value: string) => void;
+    syncPatternSelectionFromInput?: () => void;
+    startPlayback?: () => Promise<void> | void;
+    stopPlayback?: () => void;
+    togglePausePlayback?: () => void;
+  };
+};
+
+type DrillSharedPlaybackLegacyPatternUiBindings = {
+  helpers?: DrillSharedPlaybackPatternUiBindings;
+};
+
+type DrillSharedPlaybackLegacyDirectRuntimeBindings = {
+  state?: Pick<DrillSharedPlaybackRuntimeBindings, 'getAudioContext' | 'getCurrentKey'>;
+  constants?: Pick<DrillSharedPlaybackRuntimeBindings, 'noteFadeout'>;
+  helpers?: Omit<DrillSharedPlaybackRuntimeBindings, 'getAudioContext' | 'getCurrentKey' | 'noteFadeout'>;
+};
+
+function hasTempoHostBindings(host: DrillSharedPlaybackHostBindings | DrillSharedPlaybackLegacyHostBindings): host is DrillSharedPlaybackHostBindings {
+  return typeof (host as DrillSharedPlaybackHostBindings).getTempo === 'function';
+}
+
+function hasResolvedPatternUiBindings(patternUi: DrillSharedPlaybackPatternUiBindings | DrillSharedPlaybackLegacyPatternUiBindings): patternUi is DrillSharedPlaybackPatternUiBindings {
+  return typeof (patternUi as DrillSharedPlaybackPatternUiBindings).getCurrentPatternMode === 'function'
+    || typeof (patternUi as DrillSharedPlaybackPatternUiBindings).validateCustomPattern === 'function';
+}
+
+function hasResolvedDirectRuntimeBindings(directPlaybackRuntime: DrillSharedPlaybackRuntimeBindings | DrillSharedPlaybackLegacyDirectRuntimeBindings): directPlaybackRuntime is DrillSharedPlaybackRuntimeBindings {
+  return Object.prototype.hasOwnProperty.call(directPlaybackRuntime, 'noteFadeout');
+}
+
 /**
  * Creates the shared playback root app context from live root-app bindings.
  * This keeps the host/pattern/runtime sub-context construction out of `app.js`
@@ -63,15 +107,14 @@ export function createDrillSharedPlaybackRootAppContext({
   directTransportActions = {}
 }: CreateDrillSharedPlaybackRootAppContextOptions = {}) {
   const resolvedHost = (() => {
-    const looseHost = host as Record<string, any>;
-    if (typeof looseHost.getTempo === 'function') return looseHost;
+    if (hasTempoHostBindings(host)) return host;
 
     const {
       dom = {},
       state = {},
       constants = {},
       helpers = {}
-    } = looseHost;
+    } = host as DrillSharedPlaybackLegacyHostBindings;
     const {
       getLastPatternSelectValue = () => '',
       setLastPatternSelectValue = () => {},
@@ -111,7 +154,7 @@ export function createDrillSharedPlaybackRootAppContext({
       getCurrentBeat,
       getCurrentChordIdx,
       getPaddedChordCount,
-      getTempo: () => Number((dom as Record<string, any>).tempoSlider?.value || 0),
+      getTempo: () => Number(dom.tempoSlider?.value || 0),
       getAudioContext,
       getCurrentKey,
       startPlayback,
@@ -121,12 +164,11 @@ export function createDrillSharedPlaybackRootAppContext({
   })();
 
   const resolvedPatternUi = (() => {
-    const loosePatternUi = patternUi as Record<string, any>;
-    if (typeof loosePatternUi.getCurrentPatternMode === 'function' || typeof loosePatternUi.validateCustomPattern === 'function') {
-      return loosePatternUi;
+    if (hasResolvedPatternUiBindings(patternUi)) {
+      return patternUi;
     }
 
-    const { helpers = {} } = loosePatternUi;
+    const { helpers = {} } = patternUi as DrillSharedPlaybackLegacyPatternUiBindings;
     const {
       clearProgressionEditingState = () => {},
       closeProgressionManager = () => {},
@@ -165,16 +207,15 @@ export function createDrillSharedPlaybackRootAppContext({
   })();
 
   const resolvedDirectRuntime = (() => {
-    const looseDirectPlaybackRuntime = directPlaybackRuntime as Record<string, any>;
-    if (Object.prototype.hasOwnProperty.call(looseDirectPlaybackRuntime, 'noteFadeout')) {
-      return looseDirectPlaybackRuntime;
+    if (hasResolvedDirectRuntimeBindings(directPlaybackRuntime)) {
+      return directPlaybackRuntime;
     }
 
     const {
       state = {},
       constants = {},
       helpers = {}
-    } = looseDirectPlaybackRuntime;
+    } = directPlaybackRuntime as DrillSharedPlaybackLegacyDirectRuntimeBindings;
     const {
       getAudioContext = () => null,
       getCurrentKey = () => 0

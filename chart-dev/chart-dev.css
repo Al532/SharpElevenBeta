@@ -9,6 +9,44 @@
   --chart-text-scale-compensation: 1;
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
+  --chart-config-row-gap-min: 40px;
+  --chart-config-bar-cell-padding-top: 10px;
+  --chart-config-bar-cell-padding-x: 16px;
+  --chart-config-bar-cell-padding-bottom: 10px;
+  --chart-config-bar-line-top: 8px;
+  --chart-config-bar-line-bottom: 16px;
+  --chart-config-bar-body-margin-top: 14px;
+  --chart-config-bar-base-min-height: 138px;
+  --chart-config-bar-row-1-min-height-min: 220px;
+  --chart-config-bar-row-1-min-height-preferred: 40dvh;
+  --chart-config-bar-row-1-min-height-max: 340px;
+  --chart-config-bar-row-2-min-height-min: 180px;
+  --chart-config-bar-row-2-min-height-preferred: 28dvh;
+  --chart-config-bar-row-2-min-height-max: 260px;
+  --chart-config-bar-row-3-min-height-min: 156px;
+  --chart-config-bar-row-3-min-height-preferred: 22dvh;
+  --chart-config-bar-row-3-min-height-max: 210px;
+  --chart-config-bar-body-size-min-rem: 4;
+  --chart-config-bar-body-size-preferred-vw: 4.2;
+  --chart-config-bar-body-size-max-rem: 4.75;
+  --chart-config-mobile-bar-padding-top: 0px;
+  --chart-config-mobile-bar-padding-x: 2px;
+  --chart-config-mobile-bar-padding-bottom: 0px;
+  --chart-config-mobile-bar-line-top: 6px;
+  --chart-config-mobile-bar-line-height: 32px;
+  --chart-config-mobile-bar-line-height-small: 30px;
+  --chart-config-mobile-bar-body-margin-top: 3px;
+  --chart-config-mobile-bar-row-1-min-height-min: 86px;
+  --chart-config-mobile-bar-row-1-min-height-preferred: 22dvh;
+  --chart-config-mobile-bar-row-1-min-height-max: 132px;
+  --chart-config-mobile-bar-row-2-min-height-min: 62px;
+  --chart-config-mobile-bar-row-2-min-height-preferred: 14dvh;
+  --chart-config-mobile-bar-row-2-min-height-max: 92px;
+  --chart-config-mobile-bar-row-3-min-height-min: 48px;
+  --chart-config-mobile-bar-row-3-min-height-preferred: 10dvh;
+  --chart-config-mobile-bar-row-3-min-height-max: 66px;
+  --chart-config-mobile-bar-body-size: 2.22rem;
+  --chart-config-mobile-bar-body-size-small: 2rem;
 }
 
 * {
@@ -535,17 +573,17 @@ select {
 
 .chart-sheet-grid[data-row-count="1"] .chart-bar-cell,
 .chart-sheet-grid[data-row-count="1"] .chart-bar-cell.is-empty {
-  min-height: clamp(220px, 40dvh, 340px);
+  min-height: clamp(var(--chart-config-bar-row-1-min-height-min), var(--chart-config-bar-row-1-min-height-preferred), var(--chart-config-bar-row-1-min-height-max));
 }
 
 .chart-sheet-grid[data-row-count="2"] .chart-bar-cell,
 .chart-sheet-grid[data-row-count="2"] .chart-bar-cell.is-empty {
-  min-height: clamp(180px, 28dvh, 260px);
+  min-height: clamp(var(--chart-config-bar-row-2-min-height-min), var(--chart-config-bar-row-2-min-height-preferred), var(--chart-config-bar-row-2-min-height-max));
 }
 
 .chart-sheet-grid[data-row-count="3"] .chart-bar-cell,
 .chart-sheet-grid[data-row-count="3"] .chart-bar-cell.is-empty {
-  min-height: clamp(156px, 22dvh, 210px);
+  min-height: clamp(var(--chart-config-bar-row-3-min-height-min), var(--chart-config-bar-row-3-min-height-preferred), var(--chart-config-bar-row-3-min-height-max));
 }
 
 .chart-sheet-grid * {
@@ -599,13 +637,13 @@ select {
 }
 
 .chart-bar-cell {
-  --chart-bar-line-top: 8px;
-  --chart-bar-line-bottom: 16px;
+  --chart-bar-line-top: var(--chart-config-bar-line-top);
+  --chart-bar-line-bottom: var(--chart-config-bar-line-bottom);
   --chart-bar-line-height: auto;
   position: relative;
   height: 100%;
-  min-height: 138px;
-  padding: 10px 16px 10px;
+  min-height: var(--chart-config-bar-base-min-height);
+  padding: var(--chart-config-bar-cell-padding-top) var(--chart-config-bar-cell-padding-x) var(--chart-config-bar-cell-padding-bottom);
   background: transparent;
   transition: background-color 120ms ease;
 }
@@ -642,7 +680,7 @@ select {
 
 .chart-bar-cell.is-empty {
   height: 100%;
-  min-height: 138px;
+  min-height: var(--chart-config-bar-base-min-height);
   padding: 0;
 }
 
@@ -801,13 +839,13 @@ select {
 /* --- Bar body & tokens ------------------------------------------- */
 
 .chart-bar-body {
-  margin-top: 14px;
+  margin-top: var(--chart-config-bar-body-margin-top);
   display: grid;
   grid-template-columns: repeat(var(--chart-bar-parts, 2), minmax(0, 1fr));
   column-gap: 12px;
   row-gap: 6px;
   align-items: end;
-  font-size: calc(clamp(4rem, 4.2vw, 4.75rem) * var(--chart-text-scale-compensation));
+  font-size: calc(clamp(calc(var(--chart-config-bar-body-size-min-rem) * 1rem), calc(var(--chart-config-bar-body-size-preferred-vw) * 1vw), calc(var(--chart-config-bar-body-size-max-rem) * 1rem)) * var(--chart-text-scale-compensation));
   line-height: 0.92;
   letter-spacing: -0.06em;
   color: #111;
@@ -1011,13 +1049,13 @@ select {
 
 @media (max-width: 1200px) {
   :root {
-    --chart-mobile-row-gap: clamp(20px, 6dvh, 64px);
+    --chart-mobile-row-gap: var(--chart-config-row-gap-min);
     --chart-mobile-section-offset: clamp(8px, 1.7dvh, 12px);
     --chart-mobile-section-badge-height: clamp(11px, 1.8dvh, 13px);
     --chart-mobile-section-badge-font-size: clamp(0.66rem, 1.15dvh, 0.76rem);
     --chart-mobile-bar-min-height: clamp(34px, 5.6dvh, 46px);
-    --chart-mobile-bar-line-height: 32px;
-    --chart-mobile-bar-body-size: 2.22rem;
+    --chart-mobile-bar-line-height: var(--chart-config-mobile-bar-line-height);
+    --chart-mobile-bar-body-size: var(--chart-config-mobile-bar-body-size);
     --chart-mobile-bar-body-subdivided-size: calc(var(--chart-mobile-bar-body-size) * 0.79);
     --chart-mobile-bar-body-dense-size: calc(var(--chart-mobile-bar-body-size) * 0.89);
     --chart-mobile-bar-body-dense-subdivided-size: calc(var(--chart-mobile-bar-body-size) * 0.71);
@@ -1238,8 +1276,8 @@ select {
   .chart-bar-cell {
     min-height: 0;
     height: 100%;
-    padding: 0 2px 0;
-    --chart-bar-line-top: 6px;
+    padding: var(--chart-config-mobile-bar-padding-top) var(--chart-config-mobile-bar-padding-x) var(--chart-config-mobile-bar-padding-bottom);
+    --chart-bar-line-top: var(--chart-config-mobile-bar-line-top);
     --chart-bar-line-bottom: auto;
     --chart-bar-line-height: var(--chart-mobile-bar-line-height);
   }
@@ -1266,7 +1304,7 @@ select {
   }
 
   .chart-bar-body {
-    margin-top: 3px;
+    margin-top: var(--chart-config-mobile-bar-body-margin-top);
     min-height: var(--chart-mobile-bar-line-height);
     align-items: center;
     font-size: calc(var(--chart-mobile-bar-body-size) * var(--chart-text-scale-compensation));
@@ -1308,7 +1346,7 @@ select {
     min-height: 0;
     display: grid;
     grid-auto-rows: auto;
-    row-gap: 10px;
+    row-gap: var(--chart-mobile-row-gap);
     align-content: start;
   }
 
@@ -1319,17 +1357,17 @@ select {
 
   .chart-sheet-grid[data-row-count="1"] .chart-bar-cell,
   .chart-sheet-grid[data-row-count="1"] .chart-bar-cell.is-empty {
-    min-height: clamp(86px, 22dvh, 132px);
+    min-height: clamp(var(--chart-config-mobile-bar-row-1-min-height-min), var(--chart-config-mobile-bar-row-1-min-height-preferred), var(--chart-config-mobile-bar-row-1-min-height-max));
   }
 
   .chart-sheet-grid[data-row-count="2"] .chart-bar-cell,
   .chart-sheet-grid[data-row-count="2"] .chart-bar-cell.is-empty {
-    min-height: clamp(62px, 14dvh, 92px);
+    min-height: clamp(var(--chart-config-mobile-bar-row-2-min-height-min), var(--chart-config-mobile-bar-row-2-min-height-preferred), var(--chart-config-mobile-bar-row-2-min-height-max));
   }
 
   .chart-sheet-grid[data-row-count="3"] .chart-bar-cell,
   .chart-sheet-grid[data-row-count="3"] .chart-bar-cell.is-empty {
-    min-height: clamp(48px, 10dvh, 66px);
+    min-height: clamp(var(--chart-config-mobile-bar-row-3-min-height-min), var(--chart-config-mobile-bar-row-3-min-height-preferred), var(--chart-config-mobile-bar-row-3-min-height-max));
   }
 
   .chart-bar-body {
@@ -1339,8 +1377,8 @@ select {
 
 @media (max-width: 560px) {
   :root {
-    --chart-mobile-bar-line-height: 30px;
-    --chart-mobile-bar-body-size: 2rem;
+    --chart-mobile-bar-line-height: var(--chart-config-mobile-bar-line-height-small);
+    --chart-mobile-bar-body-size: var(--chart-config-mobile-bar-body-size-small);
   }
 
   .chart-top-actions,

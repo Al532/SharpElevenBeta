@@ -2,8 +2,11 @@ import { CHART_DISPLAY_CONFIG } from '../../config/trainer-config.js';
 
 const {
   layout: CHART_LAYOUT_CONFIG,
-  compression: CHART_COMPRESSION_CONFIG,
+  rowSpacing: CHART_ROW_SPACING_CONFIG,
+  withinBar: CHART_WITHIN_BAR_CONFIG,
+  compressionHomogenization: CHART_COMPRESSION_HOMOGENIZATION_CONFIG,
   alignment: CHART_ALIGNMENT_CONFIG,
+  density: CHART_DENSITY_CONFIG,
   tokenMetrics: CHART_TOKEN_METRICS_CONFIG,
   subdividedTokenScale: CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG
 } = CHART_DISPLAY_CONFIG;
@@ -343,8 +346,8 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   const tokenMetrics = tokens.map(getTokenVisualMetrics);
   const weight = tokenMetrics.reduce((total, tokenMetric) => total + tokenMetric.visualWeight, 0);
   const maxTokenWeight = tokenMetrics.reduce((max, tokenMetric) => Math.max(max, tokenMetric.visualWeight), 0);
-  const hasVeryLongSymbol = maxTokenWeight >= CHART_COMPRESSION_CONFIG.denseChordThreshold;
-  const hasExtremelyLongSymbol = maxTokenWeight >= CHART_COMPRESSION_CONFIG.veryDenseChordThreshold;
+  const hasVeryLongSymbol = maxTokenWeight >= CHART_DENSITY_CONFIG.denseChordThreshold;
+  const hasExtremelyLongSymbol = maxTokenWeight >= CHART_DENSITY_CONFIG.veryDenseChordThreshold;
 
   const classes = ['chart-bar-body'];
   if (useHalfLayout) {
@@ -358,8 +361,8 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
     || (!useHalfLayout && hasVeryLongSymbol);
   const shouldReduceAggressively =
     tokenCount > logicalSlots
-    || (tokenCount >= logicalSlots && weight >= CHART_COMPRESSION_CONFIG.aggressiveDensityThreshold)
-    || (!useHalfLayout && hasExtremelyLongSymbol && weight >= CHART_COMPRESSION_CONFIG.aggressiveExtremeDensityThreshold);
+    || (tokenCount >= logicalSlots && weight >= CHART_DENSITY_CONFIG.aggressiveDensityThreshold)
+    || (!useHalfLayout && hasExtremelyLongSymbol && weight >= CHART_DENSITY_CONFIG.aggressiveExtremeDensityThreshold);
 
   if (shouldReduceForDensity) {
     classes.push('is-dense');
@@ -474,8 +477,8 @@ function getBarBodyCollisionScale(barBodyEl) {
   const occupiedLeft = Math.min(...symbolLefts);
   const occupiedRight = Math.max(...symbolRights);
   const occupiedWidth = Math.max(0, occupiedRight - occupiedLeft);
-  const spanScale = occupiedWidth > availableWidth * CHART_COMPRESSION_CONFIG.collisionTargetFillRatio
-    ? (availableWidth * CHART_COMPRESSION_CONFIG.collisionTargetFillRatio) / occupiedWidth
+  const spanScale = occupiedWidth > availableWidth * CHART_WITHIN_BAR_CONFIG.compressionTriggerFillRatio
+    ? (availableWidth * CHART_WITHIN_BAR_CONFIG.compressionTriggerFillRatio) / occupiedWidth
     : 1;
 
   let maxOverlap = 0;
@@ -485,14 +488,14 @@ function getBarBodyCollisionScale(barBodyEl) {
 
   const overlapScale = maxOverlap > 0
       ? Math.max(
-        CHART_COMPRESSION_CONFIG.minCollisionScale,
-        1 - (((maxOverlap + CHART_ALIGNMENT_CONFIG.collisionOverlapPaddingPx) / availableWidth)
-          * CHART_COMPRESSION_CONFIG.overlapPenaltyMultiplier)
+        CHART_WITHIN_BAR_CONFIG.minCompressionScale,
+        1 - (((maxOverlap + CHART_WITHIN_BAR_CONFIG.antiCollisionPaddingPx) / availableWidth)
+          * CHART_WITHIN_BAR_CONFIG.compressionBalance)
       )
     : 1;
 
   return Math.max(
-    CHART_COMPRESSION_CONFIG.minCollisionScale,
+    CHART_WITHIN_BAR_CONFIG.minCompressionScale,
     Math.min(1, spanScale, overlapScale)
   );
 }
@@ -507,7 +510,7 @@ function getBarBodyCollisionScale(barBodyEl) {
  * @returns {void}
  */
 function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect) {
-  const minGap = CHART_ALIGNMENT_CONFIG.collisionMinGapPx;
+  const minGap = CHART_WITHIN_BAR_CONFIG.antiCollisionGapPx;
   const count = rawLefts.length;
 
   for (let index = count - 2; index >= 0; index -= 1) {
@@ -715,12 +718,12 @@ export function createChartSheetRenderer({
     }
     if (rowCount < 2) {
       sheetGrid.style.rowGap = shouldStretchRows
-        ? `${CHART_LAYOUT_CONFIG.stretchSingleRowGapPx}px`
-        : `${CHART_LAYOUT_CONFIG.rowGapMinPx}px`;
+        ? `${CHART_ROW_SPACING_CONFIG.singleRowPx}px`
+        : `${CHART_ROW_SPACING_CONFIG.minPx}px`;
       return;
     }
 
-    sheetGrid.style.rowGap = `${CHART_LAYOUT_CONFIG.rowGapMinPx}px`;
+    sheetGrid.style.rowGap = `${CHART_ROW_SPACING_CONFIG.minPx}px`;
     const workspace = sheetGrid.closest('.chart-workspace');
     const gridTop = sheetGrid.getBoundingClientRect().top;
     const bottomBound = workspace ? workspace.getBoundingClientRect().bottom : window.innerHeight;
@@ -732,9 +735,9 @@ export function createChartSheetRenderer({
     const availableForGaps = availableForGrid - totalRowHeight;
     const idealGap = Math.floor(availableForGaps / (rowCount - 1));
     const maxGap = shouldStretchRows
-      ? CHART_LAYOUT_CONFIG.stretchRowGapMaxPx
-      : CHART_LAYOUT_CONFIG.rowGapMaxPx;
-    const clampedGap = Math.max(CHART_LAYOUT_CONFIG.rowGapMinPx, Math.min(maxGap, idealGap));
+      ? CHART_ROW_SPACING_CONFIG.stretchMaxPx
+      : CHART_ROW_SPACING_CONFIG.maxPx;
+    const clampedGap = Math.max(CHART_ROW_SPACING_CONFIG.minPx, Math.min(maxGap, idealGap));
     sheetGrid.style.rowGap = `${clampedGap}px`;
   }
 
@@ -779,19 +782,19 @@ export function createChartSheetRenderer({
       return { barBodies, rowMaxFitRatio };
     });
 
-    const globalScale = globalMaxFitRatio > CHART_COMPRESSION_CONFIG.targetFillRatio
+    const globalScale = globalMaxFitRatio > CHART_COMPRESSION_HOMOGENIZATION_CONFIG.pageTargetFillRatio
       ? Math.max(
-          CHART_COMPRESSION_CONFIG.minGlobalScale,
-          (CHART_COMPRESSION_CONFIG.targetFillRatio / globalMaxFitRatio) * CHART_COMPRESSION_CONFIG.easingFactor
+          CHART_COMPRESSION_HOMOGENIZATION_CONFIG.pageMinScale,
+          (CHART_COMPRESSION_HOMOGENIZATION_CONFIG.pageTargetFillRatio / globalMaxFitRatio) * CHART_COMPRESSION_HOMOGENIZATION_CONFIG.easingFactor
         )
       : 1;
 
     rowData.forEach(({ barBodies, rowMaxFitRatio }) => {
       const effectiveFitRatio = rowMaxFitRatio * globalScale;
-      const rowExtraScale = effectiveFitRatio > CHART_COMPRESSION_CONFIG.rowTargetFillRatio
+      const rowExtraScale = effectiveFitRatio > CHART_COMPRESSION_HOMOGENIZATION_CONFIG.rowTargetFillRatio
         ? Math.max(
-            CHART_COMPRESSION_CONFIG.minRowScale / globalScale,
-            (CHART_COMPRESSION_CONFIG.rowTargetFillRatio / effectiveFitRatio) * CHART_COMPRESSION_CONFIG.easingFactor
+            CHART_COMPRESSION_HOMOGENIZATION_CONFIG.rowMinScale / globalScale,
+            (CHART_COMPRESSION_HOMOGENIZATION_CONFIG.rowTargetFillRatio / effectiveFitRatio) * CHART_COMPRESSION_HOMOGENIZATION_CONFIG.easingFactor
           )
         : 1;
       const finalScale = globalScale * rowExtraScale;
