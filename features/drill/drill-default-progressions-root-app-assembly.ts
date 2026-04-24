@@ -1,4 +1,19 @@
-﻿// @ts-nocheck
+
+type DrillProgressionEntry = {
+  name?: string;
+  mode?: string;
+  pattern?: string;
+};
+
+type CreateDrillDefaultProgressionsRootAppAssemblyOptions = {
+  constants?: {
+    defaultPatternMode?: string;
+  };
+  state?: {
+    getDefaultProgressions?: () => Record<string, DrillProgressionEntry>;
+  };
+  helpers?: Record<string, any>;
+};
 
 /**
  * Creates the drill default-progressions assembly from live root-app bindings.
@@ -14,7 +29,7 @@ export function createDrillDefaultProgressionsRootAppAssembly({
   constants = {},
   state = {},
   helpers = {}
-} = {}) {
+}: CreateDrillDefaultProgressionsRootAppAssemblyOptions = {}) {
   const {
     defaultPatternMode = 'major'
   } = constants;
@@ -32,7 +47,7 @@ export function createDrillDefaultProgressionsRootAppAssembly({
     normalizePresetName = (value) => value
   } = helpers;
 
-  function createProgressionEntry(pattern, mode = defaultPatternMode, name = '') {
+  function createProgressionEntry(pattern: string, mode = defaultPatternMode, name = '') {
     return createProgressionEntryBase(
       pattern,
       normalizePatternMode,
@@ -43,14 +58,14 @@ export function createDrillDefaultProgressionsRootAppAssembly({
     );
   }
 
-  function normalizeProgressionEntry(name, entry) {
+  function normalizeProgressionEntry(name: string, entry: unknown): DrillProgressionEntry {
     return normalizeProgressionEntryBase(name, entry, {
       createEntry: createProgressionEntry,
       defaultMode: defaultPatternMode
     });
   }
 
-  function normalizeProgressionsMap(source) {
+  function normalizeProgressionsMap(source: unknown) {
     return normalizeProgressionsMapBase(
       source,
       getDefaultProgressions(),
@@ -58,7 +73,7 @@ export function createDrillDefaultProgressionsRootAppAssembly({
     );
   }
 
-  function parseDefaultProgressionsText(source) {
+  function parseDefaultProgressionsText(source: unknown) {
     return parseDefaultProgressionsTextBase(source, {
       createEntry: createProgressionEntry,
       isModeToken

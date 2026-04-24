@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-import type {
+﻿import type {
   ChartDocument,
   ChartPlaybackController,
   ChartPlaybackPlan,
@@ -185,7 +184,7 @@ const dom = {
   settingsPopover: document.getElementById('settings-popover'),
   chartTopOverlay: document.getElementById('chart-top-overlay'),
   chartBottomOverlay: document.getElementById('chart-bottom-overlay'),
-  chartApp: document.querySelector('.chart-app')
+  chartApp: document.querySelector<HTMLElement>('.chart-app')
 };
 
 initializeAppShell(createAppShellBindings({
@@ -427,12 +426,11 @@ function bindChartNavigationControls() {
 }
 
 function setImportStatus(message: string, isError = false) {
-  const bindings = createChartImportStatusBindings({
+  setChartImportStatus(...Object.values(createChartImportStatusBindings({
     chartImportStatus: dom.chartImportStatus,
     message,
     isError
-  });
-  setChartImportStatus(bindings.chartImportStatus, bindings.message, bindings.isError);
+  })) as [HTMLElement | null, string, boolean]);
 }
 
 async function importDocumentsFromIRealText(rawText: string, sourceFile = '') {
@@ -760,11 +758,10 @@ function getChartSheetRenderer(): ChartSheetRenderer {
 }
 
 function renderMeta(viewModel: ChartViewModel) {
-  const bindings = createChartMetaBindings({
+  renderChartMeta(...Object.values(createChartMetaBindings({
     chartMeta: dom.chartMeta,
     viewModel
-  });
-  renderChartMeta(bindings.chartMeta, bindings.viewModel);
+  })) as [Element | null, ChartViewModel]);
 }
 
 function renderChordMarkup(token: any, harmonyDisplayMode: string) {
@@ -883,18 +880,73 @@ function renderFixture() {
 }
 
 function closeAllPopovers() {
-  const bindings = createChartPopoverBindings({
+  closeAllChartPopovers((createChartPopoverBindings({
     popovers: [dom.manageChartsPopover, dom.settingsPopover]
-  });
-  closeAllChartPopovers(bindings.popovers);
+  }) as { popovers: Array<HTMLElement | null> }).popovers);
 }
 
 function togglePopover(targetPopover: HTMLElement | null, otherPopover: HTMLElement | null) {
   const bindings = createChartPopoverBindings({
     targetPopover,
     popovers: [targetPopover, otherPopover]
-  });
+  }) as { targetPopover: HTMLElement | null, popovers: Array<HTMLElement | null> };
   toggleChartPopover(bindings.targetPopover, bindings.popovers);
+  syncMobileOverlayDrawerLayout();
+}
+
+function syncMobileOverlayDrawerLayout() {
+  if (!dom.chartApp) return;
+  const topHeight = Math.ceil(dom.chartTopOverlay?.querySelector('.chart-top-bar')?.getBoundingClientRect().height || 0);
+  const bottomHeight = Math.ceil(dom.chartBottomOverlay?.getBoundingClientRect().height || 0);
+  dom.chartApp.style.setProperty('--chart-mobile-top-overlay-height', `${topHeight}px`);
+  dom.chartApp.style.setProperty('--chart-mobile-bottom-overlay-height', `${bottomHeight}px`);
+}
+
+function bindMobileOverlayDrawerLayout() {
+  syncMobileOverlayDrawerLayout();
+  window.addEventListener('resize', syncMobileOverlayDrawerLayout);
+
+  if (typeof ResizeObserver === 'undefined') return;
+
+  const overlayLayoutObserver = new ResizeObserver(() => {
+    syncMobileOverlayDrawerLayout();
+  });
+
+  const topBar = dom.chartTopOverlay?.querySelector('.chart-top-bar');
+  if (topBar) {
+    overlayLayoutObserver.observe(topBar);
+  }
+  if (dom.chartBottomOverlay) {
+    overlayLayoutObserver.observe(dom.chartBottomOverlay);
+  }
+}
+
+function handleSyntheticAndroidBack() {
+  const popovers = [dom.manageChartsPopover, dom.settingsPopover];
+  const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
+  if (hasOpenPopover) {
+    closeAllPopovers();
+    syncMobileOverlayDrawerLayout();
+    return true;
+  }
+
+  if (dom.chartApp?.classList.contains('overlay-open')) {
+    closeOverlay();
+    return true;
+  }
+
+  return false;
+}
+
+function bindDesktopAndroidBackShortcut() {
+  document.addEventListener('keydown', (event) => {
+    if (event.repeat) return;
+    const isBrowserBackKey = event.key === 'BrowserBack';
+    const isDesktopShortcut = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === 'b';
+    if (!isBrowserBackKey && !isDesktopShortcut) return;
+    event.preventDefault();
+    handleSyntheticAndroidBack();
+  });
 }
 
 function openOverlay() {
@@ -903,6 +955,7 @@ function openOverlay() {
     chartTopOverlay: dom.chartTopOverlay,
     chartBottomOverlay: dom.chartBottomOverlay
   }));
+  syncMobileOverlayDrawerLayout();
 }
 
 function closeOverlay() {
@@ -912,6 +965,7 @@ function closeOverlay() {
     chartBottomOverlay: dom.chartBottomOverlay,
     popovers: [dom.manageChartsPopover, dom.settingsPopover]
   }));
+  syncMobileOverlayDrawerLayout();
 }
 
 async function importDefaultFixtureLibrary() {
@@ -1047,17 +1101,28 @@ async function loadFixtures() {
         goToAdjacentChart: (direction) => chartNavigationController?.goToAdjacentChart(direction) ?? false
       }).bind();
     },
-    bindOverlayControls: () => {
-      const bindings = createChartOverlayControlsBindings({
-        mobileMenuToggle: dom.mobileMenuToggle,
-        mobileBackdrop: dom.mobileBackdrop,
+      bindOverlayControls: () => {
+        bindMobileOverlayDrawerLayout();
+        bindDesktopAndroidBackShortcut();
+        const bindings = createChartOverlayControlsBindings({
+          mobileMenuToggle: dom.mobileMenuToggle,
+          mobileBackdrop: dom.mobileBackdrop,
         manageChartsButton: dom.manageChartsButton,
         settingsButton: dom.settingsButton,
         onOpenOverlay: openOverlay,
         onCloseOverlay: closeOverlay,
         onManageChartsToggle: () => togglePopover(dom.manageChartsPopover as HTMLElement | null, dom.settingsPopover as HTMLElement | null),
         onSettingsToggle: () => togglePopover(dom.settingsPopover as HTMLElement | null, dom.manageChartsPopover as HTMLElement | null)
-      });
+      }) as {
+        mobileMenuToggle?: HTMLButtonElement | null,
+        mobileBackdrop?: HTMLElement | null,
+        manageChartsButton?: HTMLButtonElement | null,
+        settingsButton?: HTMLButtonElement | null,
+        onOpenOverlay: () => void,
+        onCloseOverlay: () => void,
+        onManageChartsToggle: () => void,
+        onSettingsToggle: () => void
+      };
       bindings.mobileMenuToggle?.addEventListener('click', bindings.onOpenOverlay);
       bindings.mobileBackdrop?.addEventListener('click', bindings.onCloseOverlay);
       bindings.manageChartsButton?.addEventListener('click', bindings.onManageChartsToggle);

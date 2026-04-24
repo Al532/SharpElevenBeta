@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 
 import {
   applyDrillBeatIndicatorVisibility,
@@ -7,6 +6,70 @@ import {
   refreshDrillDisplayedHarmony,
   updateDrillKeyPickerLabels
 } from './drill-display-runtime.js';
+
+type DrillChordToken = {
+  roman?: string;
+  semitones?: number;
+  bassSemitones?: number;
+  inputType?: string;
+};
+
+type DrillDisplayDom = {
+  keyCheckboxes?: ParentNode | null;
+  nextHeader?: HTMLElement | null;
+  nextKeyDisplay?: HTMLElement | null;
+  nextChordDisplay?: HTMLElement | null;
+  displayPlaceholder?: HTMLElement | null;
+  reopenWelcome?: HTMLElement | null;
+  displayPlaceholderMessage?: HTMLElement | null;
+  beatDots?: HTMLElement[];
+  beatIndicator?: HTMLElement | null;
+  display?: HTMLElement | null;
+  keyDisplay?: HTMLElement | null;
+  chordDisplay?: HTMLElement | null;
+};
+
+type DrillDisplayState = {
+  getIsPlaying?: () => boolean;
+  getIsIntro?: () => boolean;
+  getCurrentKey?: () => number;
+  getNextKeyValue?: () => number | null;
+  getCurrentChordIdx?: () => number;
+  getPaddedChords?: () => DrillChordToken[];
+  getNextRawChords?: () => DrillChordToken[];
+  getShowBeatIndicatorEnabled?: () => boolean;
+  getCurrentHarmonyHidden?: () => boolean;
+  getDisplayMode?: () => string;
+};
+
+type DrillDisplayConstants = {
+  keyNamesMajor?: string[];
+  defaultDisplayPlaceholderMessage?: string;
+};
+
+type DrillDisplayHelpers = {
+  transposeDisplayPitchClass?: (value: number) => number;
+  getUpdateKeyCheckboxVisualState?: () => (label: HTMLElement, checkbox: HTMLInputElement, index: number) => void;
+  getSyncSelectedKeysSummary?: () => () => void;
+  getRemainingBeatsUntilNextProgression?: () => number;
+  shouldShowNextPreview?: (currentKeyValue: number, upcomingKeyValue: number | null, remainingBeats: number) => boolean;
+  keyNameHtml?: (key: number | null | undefined) => string;
+  chordSymbolHtml?: (
+    key: number | null | undefined,
+    chord: DrillChordToken | null | undefined,
+    isMinorOverride?: boolean | null,
+    nextChord?: DrillChordToken | null
+  ) => string;
+  applyDisplaySideLayout?: () => void;
+  fitHarmonyDisplay?: () => void;
+};
+
+type CreateDrillDisplayRootAppFacadeOptions = {
+  dom?: DrillDisplayDom;
+  state?: DrillDisplayState;
+  constants?: DrillDisplayConstants;
+  helpers?: DrillDisplayHelpers;
+};
 
 /**
  * Creates the drill display root facade from live root-app bindings. This
@@ -24,7 +87,7 @@ export function createDrillDisplayRootAppFacade({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: CreateDrillDisplayRootAppFacadeOptions = {}) {
   const {
     getIsPlaying = () => false,
     getIsIntro = () => false,
@@ -92,14 +155,14 @@ export function createDrillDisplayRootAppFacade({
   }
 
   function updateBeatDots(beat, isIntro) {
-    dom.beatDots.forEach((dot, index) => {
+    (dom.beatDots || []).forEach((dot, index) => {
       dot.classList.toggle('active', index === beat && !isIntro);
       dot.classList.toggle('intro', index === beat && isIntro);
     });
   }
 
   function clearBeatDots() {
-    dom.beatDots.forEach((dot) => {
+    (dom.beatDots || []).forEach((dot) => {
       dot.classList.remove('active', 'intro');
     });
   }

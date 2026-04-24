@@ -1,4 +1,14 @@
-﻿// @ts-nocheck
+
+type DrillPatternHelpDom = {
+  patternHelp?: HTMLElement | null;
+};
+
+type LoadDrillPatternHelpOptions = {
+  dom?: DrillPatternHelpDom;
+  url?: string;
+  version?: string;
+  fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
 
 /**
  * Loads and renders the progression syntax help panel for the drill UI.
@@ -14,7 +24,7 @@ export async function loadDrillPatternHelp({
   url = '',
   version = '',
   fetchImpl = fetch
-} = {}) {
+}: LoadDrillPatternHelpOptions = {}) {
   if (!dom.patternHelp) return;
   try {
     const response = await fetchImpl(`${url}?v=${version}`);

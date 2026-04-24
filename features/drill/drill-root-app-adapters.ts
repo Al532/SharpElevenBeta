@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 
 import { createDrillDisplayRootAppFacade } from './drill-display-root-app-facade.js';
 import { createDrillKeysRootAppAssembly } from './drill-keys-root-app-assembly.js';
@@ -17,16 +16,24 @@ import { createDrillUiBootstrapRootAppAssembly } from './drill-ui-bootstrap-root
 import { createDrillUiEventBindingsRootAppAssembly } from './drill-ui-event-bindings-root-app-assembly.js';
 import { createDrillWelcomeRootAppFacade } from './drill-welcome-root-app-facade.js';
 
-function createGetterName(name) {
+type StateRef<T = unknown> = {
+  get?: () => T;
+  set?: (value: T) => void;
+};
+
+type StateRefs = Record<string, StateRef>;
+type AdapterOptions = Record<string, any>;
+
+function createGetterName(name: string) {
   return `get${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 }
 
-function createSetterName(name) {
+function createSetterName(name: string) {
   return `set${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 }
 
-function createBindingsFromRefs(refs = {}) {
-  const bindings = {};
+function createBindingsFromRefs(refs: StateRefs = {}) {
+  const bindings: Record<string, (...args: unknown[]) => unknown> = {};
   for (const [name, ref] of Object.entries(refs)) {
     if (!ref || typeof ref.get !== 'function') continue;
     bindings[createGetterName(name)] = () => ref.get();
@@ -37,12 +44,12 @@ function createBindingsFromRefs(refs = {}) {
   return bindings;
 }
 
-function createGetter(ref) {
+function createGetter<T>(ref: StateRef<T>) {
   return typeof ref?.get === 'function' ? () => ref.get() : undefined;
 }
 
-function createSetter(ref) {
-  return typeof ref?.set === 'function' ? (value) => ref.set(value) : undefined;
+function createSetter<T>(ref: StateRef<T>) {
+  return typeof ref?.set === 'function' ? (value: T) => ref.set?.(value) : undefined;
 }
 
 export function createDrillDisplayDrillRootAppFacade({
@@ -51,7 +58,7 @@ export function createDrillDisplayDrillRootAppFacade({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillDisplayRootAppFacade({
     dom,
     state: {
@@ -69,7 +76,7 @@ export function createDrillKeysDrillRootAppAssembly({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillKeysRootAppAssembly({
     dom,
     state: {
@@ -87,7 +94,7 @@ export function createDrillNextPreviewDrillRootAppFacade({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillNextPreviewRootAppFacade({
     dom,
     state: {
@@ -104,7 +111,7 @@ export function createDrillPianoMidiRuntimeDrillRootAppAssembly({
   runtimeStateRefs = {},
   runtimeState = {},
   runtimeHelpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillPianoMidiRuntimeRootAppAssembly({
     dom,
     runtimeState: {
@@ -118,7 +125,7 @@ export function createDrillPianoMidiRuntimeDrillRootAppAssembly({
 export function createDrillPianoToolsDrillRootAppFacade({
   stateRefs = {},
   ...options
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillPianoToolsRootAppFacade({
     ...options,
     getPianoFadeSettings: createGetter(stateRefs.pianoFadeSettings) || options.getPianoFadeSettings,
@@ -137,7 +144,7 @@ export function createDrillPlaybackRuntimeHostDrillRootAppAssembly({
   preloadState = {},
   playbackConstants = {},
   runtimeHelpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillPlaybackRuntimeHostRootAppAssembly({
     dom,
     runtimeState: {
@@ -171,7 +178,7 @@ export function createDrillProgressionDrillRootAppAssembly({
   domainState = {},
   domainConstants = {},
   domainHelpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillProgressionRootAppAssembly({
     dom,
     editorState: {
@@ -207,7 +214,7 @@ export function createDrillRuntimeStateDrillRootAppAssembly({
   sessionAnalyticsHelpers = {},
   sessionAnalyticsConstants = {},
   sessionAnalyticsNow
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillRuntimeStateRootAppAssembly({
     keyPoolState: {
       ...createBindingsFromRefs(keyPoolStateRefs),
@@ -221,7 +228,7 @@ export function createDrillRuntimeStateDrillRootAppAssembly({
     sessionAnalyticsHelpers,
     sessionAnalyticsConstants,
     sessionAnalyticsNow
-  });
+  } as any);
 }
 
 export function createDrillSettingsDrillRootAppAssembly({
@@ -242,7 +249,7 @@ export function createDrillSettingsDrillRootAppAssembly({
   resetterStateRefs = {},
   resetterState = {},
   resetterHelpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillSettingsRootAppAssembly({
     defaults,
     dom,
@@ -278,7 +285,7 @@ export function createDrillSettingsPersistenceDrillRootAppAssembly({
   helpers = {},
   stateRefs = {},
   state = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillSettingsPersistenceRootAppAssembly({
     dom,
     constants,
@@ -296,7 +303,7 @@ export function createDrillSharedPlaybackDrillRootAppAssembly({
   directPlaybackRuntimeStateRefs = {},
   directPlaybackStateRefs = {},
   ...rootBindings
-} = {}) {
+}: AdapterOptions = {}) {
   const rootAppContext = createDrillSharedPlaybackRootAppContext({
     ...rootBindings,
     host: {
@@ -317,14 +324,14 @@ export function createDrillSharedPlaybackDrillRootAppAssembly({
       ...createBindingsFromRefs(directPlaybackStateRefs),
       ...(rootBindings.directPlaybackState || {})
     }
-  });
+  } as any);
 
   return {
     rootAppContext,
     ...createDrillSharedPlaybackRootAppAssembly({
       dom,
       ...rootAppContext
-    })
+    } as any)
   };
 }
 
@@ -334,7 +341,7 @@ export function createDrillStartupDataDrillRootAppAssembly({
   welcomeStandards = {},
   patternHelp = {},
   defaultProgressions = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillStartupDataRootAppAssembly({
     state: {
       ...createBindingsFromRefs(stateRefs),
@@ -361,7 +368,7 @@ export function createDrillUiBootstrapDrillRootAppAssembly({
   runtimeControlsState = {},
   runtimeControlsConstants = {},
   runtimeControlsHelpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillUiBootstrapRootAppAssembly({
     screen,
     screenDom,
@@ -381,7 +388,7 @@ export function createDrillUiBootstrapDrillRootAppAssembly({
     },
     runtimeControlsConstants,
     runtimeControlsHelpers
-  });
+  } as any);
 }
 
 export function createDrillUiEventBindingsDrillRootAppAssembly({
@@ -395,7 +402,7 @@ export function createDrillUiEventBindingsDrillRootAppAssembly({
   lifecycleStateRefs = {},
   lifecycleTarget = globalThis.window,
   trackSessionDuration
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillUiEventBindingsRootAppAssembly({
     welcomeControls,
     analyticsLink,
@@ -419,7 +426,7 @@ export function createDrillUiEventBindingsDrillRootAppAssembly({
     },
     lifecycleTarget,
     trackSessionDuration
-  });
+  } as any);
 }
 
 export function createDrillWelcomeDrillRootAppFacade({
@@ -428,7 +435,7 @@ export function createDrillWelcomeDrillRootAppFacade({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: AdapterOptions = {}) {
   return createDrillWelcomeRootAppFacade({
     dom,
     state: {
@@ -437,7 +444,7 @@ export function createDrillWelcomeDrillRootAppFacade({
     },
     constants,
     helpers
-  });
+  } as any);
 }
 
 

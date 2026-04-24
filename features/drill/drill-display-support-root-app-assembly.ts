@@ -1,4 +1,32 @@
-﻿// @ts-nocheck
+
+type MatchMediaResult = {
+  matches: boolean;
+};
+
+type DrillDisplaySupportDom = {
+  transpositionSelect?: HTMLSelectElement | null;
+  harmonyDisplayMode?: HTMLSelectElement | null;
+  hideCurrentHarmony?: HTMLInputElement | null;
+  displayMode?: HTMLSelectElement | null;
+};
+
+type DrillDisplaySupportConstants = {
+  displayModeChordsOnly?: string;
+};
+
+type DrillDisplaySupportRuntimeHelpers = {
+  getPlayedChordQuality?: (chord: unknown, isMinor: boolean, nextChord?: unknown | null) => string;
+  getDisplayAliasQuality?: (quality: string, harmonyDisplayMode: unknown) => string;
+  normalizeHarmonyDisplayMode?: (value: unknown) => unknown;
+  normalizeDisplayMode?: (value: unknown) => string;
+  matchMedia?: (query: string) => MatchMediaResult;
+};
+
+type CreateDrillDisplaySupportRootAppAssemblyOptions = {
+  dom?: DrillDisplaySupportDom;
+  constants?: DrillDisplaySupportConstants;
+  runtimeHelpers?: DrillDisplaySupportRuntimeHelpers;
+};
 
 /**
  * Creates the small display/transposition support helpers from live root-app
@@ -14,7 +42,7 @@ export function createDrillDisplaySupportRootAppAssembly({
   dom = {},
   constants = {},
   runtimeHelpers = {}
-} = {}) {
+}: CreateDrillDisplaySupportRootAppAssemblyOptions = {}) {
   const {
     displayModeChordsOnly = 'chords-only'
   } = constants;
@@ -44,7 +72,7 @@ export function createDrillDisplaySupportRootAppAssembly({
   }
 
   function normalizeDisplayedRootName(rootName) {
-    const normalizedEnharmonicMap = {
+    const normalizedEnharmonicMap: Record<string, string> = {
       'F\u266D': 'E',
       'E\u266F': 'F',
       'C\u266D': 'B',
@@ -58,7 +86,7 @@ export function createDrillDisplaySupportRootAppAssembly({
       return normalizedEnharmonicMap[rootName];
     }
 
-    const enharmonicMap = {
+    const enharmonicMap: Record<string, string> = {
       'Fâ™­': 'E',
       'Eâ™¯': 'F',
       'Câ™­': 'B',

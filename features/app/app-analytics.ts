@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-const ANALYTICS_DISABLED_STORAGE_KEY = 'jazzTrainerAnalyticsDisabled';
+﻿const ANALYTICS_DISABLED_STORAGE_KEY = 'jazzTrainerAnalyticsDisabled';
 const ANALYTICS_VISITOR_ID_STORAGE_KEY = 'jazzTrainerAnonymousVisitorId';
 const ANALYTICS_VISITOR_FIRST_SEEN_STORAGE_KEY = 'jazzTrainerVisitorFirstSeenDay';
 const ANALYTICS_VISITOR_LAST_SEEN_STORAGE_KEY = 'jazzTrainerVisitorLastSeenDay';
@@ -38,6 +37,23 @@ const TRACKING_KEY_PRIORITY = [
 
 let analyticsBootstrapped = false;
 
+type AnalyticsProps = Record<string, unknown>;
+
+type TrackEventOptions = {
+  includePropsInPath?: boolean
+};
+
+type GoatCounterCountPayload = {
+  path: string | (() => string),
+  title: string,
+  event: boolean
+};
+
+type GoatCounterWindowState = {
+  count?: (payload: GoatCounterCountPayload) => void,
+  q?: GoatCounterCountPayload[]
+};
+
 function isBrowser() {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
 }
@@ -51,7 +67,7 @@ function shouldDisableForLocalHost() {
   return LOCAL_HOSTS.has(getHostname());
 }
 
-function persistDisabledState(disabled) {
+function persistDisabledState(disabled: boolean) {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(ANALYTICS_DISABLED_STORAGE_KEY, disabled ? '1' : '0');
@@ -84,7 +100,7 @@ function isAnalyticsDisabled() {
   return shouldDisableForLocalHost() || readStoredDisabledState();
 }
 
-function readStorageValue(key) {
+function readStorageValue(key: string) {
   if (!isBrowser()) return '';
   try {
     return window.localStorage.getItem(key) || '';
@@ -93,7 +109,7 @@ function readStorageValue(key) {
   }
 }
 
-function writeStorageValue(key, value) {
+function writeStorageValue(key: string, value: string) {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(key, value);
@@ -134,15 +150,15 @@ function parseDayKey(value) {
   return new Date(year, month - 1, day);
 }
 
-function getDaysBetween(startDayKey, endDayKey) {
+function getDaysBetween(startDayKey: string, endDayKey: string) {
   const start = parseDayKey(startDayKey);
   const end = parseDayKey(endDayKey);
   if (!start || !end) return null;
   const msPerDay = 24 * 60 * 60 * 1000;
-  return Math.round((end - start) / msPerDay);
+  return Math.round((end.getTime() - start.getTime()) / msPerDay);
 }
 
-function getReturnGapBucket(gapDays) {
+function getReturnGapBucket(gapDays: number | null) {
   if (!Number.isFinite(gapDays) || gapDays < 1) return 'same_day';
   if (gapDays === 1) return 'next_day';
   if (gapDays <= 7) return 'same_week';
@@ -206,13 +222,13 @@ export function initAnalytics() {
   trackVisitorLifecycle();
 }
 
-function normalizeProps(props = {}) {
+function normalizeProps(props: AnalyticsProps = {}) {
   return Object.fromEntries(
     Object.entries(props).filter(([, value]) => value !== undefined && value !== null && value !== '')
   );
 }
 
-function toToken(value) {
+function toToken(value: unknown) {
   return String(value)
     .trim()
     .toLowerCase()
@@ -221,7 +237,7 @@ function toToken(value) {
     .slice(0, 60);
 }
 
-function getTrackingSegments(props) {
+function getTrackingSegments(props: AnalyticsProps) {
   const normalizedProps = normalizeProps(props);
   return TRACKING_KEY_PRIORITY
     .filter(key => Object.prototype.hasOwnProperty.call(normalizedProps, key))
@@ -233,14 +249,14 @@ function getTrackingSegments(props) {
     .slice(0, 4);
 }
 
-function buildEventPath(name, props, { includePropsInPath = true } = {}) {
+function buildEventPath(name: string, props: AnalyticsProps, { includePropsInPath = true }: TrackEventOptions = {}) {
   const base = `/event/${toToken(name) || 'unknown'}`;
   if (!includePropsInPath) return base;
   const segments = getTrackingSegments(props);
   return segments.length > 0 ? `${base}/${segments.join('/')}` : base;
 }
 
-function buildEventTitle(name, props) {
+function buildEventTitle(name: string, props: AnalyticsProps) {
   const normalizedProps = normalizeProps(props);
   const summary = Object.entries(normalizedProps)
     .slice(0, 6)
@@ -249,7 +265,7 @@ function buildEventTitle(name, props) {
   return summary ? `${name} (${summary})` : name;
 }
 
-export function trackEvent(name, props = {}, options = {}) {
+export function trackEvent(name: string, props: AnalyticsProps = {}, options: TrackEventOptions = {}) {
   if (!name || isAnalyticsDisabled()) return;
   const loaded = ensureGoatCounterScript();
   if (!loaded || !ensureGoatCounterStub()) return;
@@ -317,4 +333,11 @@ function trackVisitorLifecycle() {
 }
 
 initAnalytics();
+
+declare global {
+  interface Window {
+    goatcounter?: GoatCounterWindowState;
+    JAZZ_TRAINER_GOATCOUNTER_ENDPOINT?: string;
+  }
+}
 

@@ -1,8 +1,21 @@
-﻿// @ts-nocheck
 
 import { validateDrillCustomPattern } from './drill-pattern-validation.js';
 
-export function createStateRef(get, set = undefined) {
+type StateRef<T> = {
+  get: () => T;
+  set?: (value: T) => void;
+};
+
+type DrillAppRuntimeSupportDom = Record<string, any>;
+
+type DrillAppRuntimeSupportOptions = {
+  dom?: DrillAppRuntimeSupportDom;
+  runtimeState?: Record<string, any>;
+  runtimeConstants?: Record<string, any>;
+  runtimeHelpers?: Record<string, any>;
+};
+
+export function createStateRef<T>(get: () => T, set: ((value: T) => void) | undefined = undefined): StateRef<T> {
   return { get, set };
 }
 
@@ -21,7 +34,7 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
   runtimeState = {},
   runtimeConstants = {},
   runtimeHelpers = {}
-} = {}) {
+}: DrillAppRuntimeSupportOptions = {}) {
   const {
     getCurrentRawChords = () => [],
     setCurrentRawChords = () => {},

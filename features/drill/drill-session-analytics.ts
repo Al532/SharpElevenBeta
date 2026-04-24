@@ -1,4 +1,68 @@
-﻿// @ts-nocheck
+
+type AnalyticsProps = Record<string, unknown>;
+
+type OneChordSpec = {
+  active?: boolean;
+  qualities?: string[];
+};
+
+type PatternAnalysisResult = {
+  chords?: unknown[];
+  tokens?: unknown[];
+  hasOverride?: boolean;
+};
+
+type DrillSessionAnalyticsDom = {
+  tempoSlider?: HTMLInputElement | null;
+  patternSelect?: HTMLSelectElement | null;
+  drumsSelect?: HTMLSelectElement | null;
+  displayMode?: HTMLSelectElement | null;
+  harmonyDisplayMode?: HTMLSelectElement | null;
+  transpositionSelect?: HTMLSelectElement | null;
+};
+
+type DrillSessionAnalyticsState = {
+  getSessionStartedAt?: () => number;
+  getSessionStartTracked?: () => boolean;
+  setSessionStartTracked?: (value: boolean) => void;
+  getSessionEngagedTracked?: () => boolean;
+  setSessionEngagedTracked?: (value: boolean) => void;
+  getSessionDurationTracked?: () => boolean;
+  setSessionDurationTracked?: (value: boolean) => void;
+  getSessionActionCount?: () => number;
+  setSessionActionCount?: (value: number) => void;
+};
+
+type DrillSessionAnalyticsHelpers = {
+  trackEvent?: (eventName: string, props?: AnalyticsProps) => void;
+  getCurrentPatternString?: () => string;
+  parseOneChordSpec?: (pattern: string) => OneChordSpec;
+  getCurrentPatternMode?: () => string;
+  getPatternModeLabel?: (mode: string) => string;
+  hasSelectedProgression?: () => boolean;
+  toAnalyticsToken?: (value: string) => string;
+  analyzePattern?: (pattern: string) => PatternAnalysisResult;
+  matchesOneChordQualitySet?: (qualities: string[], defaults: string[]) => boolean;
+  getChordsPerBar?: () => number;
+  getRepetitionsPerKey?: () => number;
+  getCompingStyle?: () => string;
+  normalizeDisplayMode?: (mode: string | undefined) => string;
+  normalizeHarmonyDisplayMode?: (mode: string | undefined) => string;
+  getEnabledKeyCount?: () => number;
+};
+
+type DrillSessionAnalyticsConstants = {
+  oneChordDefaultQualities?: string[];
+  oneChordDominantQualities?: string[];
+};
+
+type CreateDrillSessionAnalyticsOptions = {
+  dom?: DrillSessionAnalyticsDom;
+  state?: DrillSessionAnalyticsState;
+  helpers?: DrillSessionAnalyticsHelpers;
+  constants?: DrillSessionAnalyticsConstants;
+  now?: () => number;
+};
 
 /**
  * Creates playback/session analytics helpers for the drill runtime without
@@ -43,7 +107,7 @@ export function createDrillSessionAnalytics({
   helpers = {},
   constants = {},
   now = () => Date.now()
-} = {}) {
+}: CreateDrillSessionAnalyticsOptions = {}) {
   function getTempoBucket() {
     const tempo = Number(dom.tempoSlider?.value || 0);
     if (tempo < 90) return 'slow';
@@ -66,7 +130,7 @@ export function createDrillSessionAnalytics({
     helpers.trackEvent?.('session_start', { entrypoint });
   }
 
-  function registerSessionAction(actionName, extraProps = {}) {
+  function registerSessionAction(actionName: string, extraProps: AnalyticsProps = {}) {
     ensureSessionStarted(actionName);
     const nextActionCount = (state.getSessionActionCount?.() || 0) + 1;
     state.setSessionActionCount?.(nextActionCount);
@@ -88,7 +152,7 @@ export function createDrillSessionAnalytics({
     });
   }
 
-  function getProgressionAnalyticsProps() {
+  function getProgressionAnalyticsProps(): AnalyticsProps {
     const patternString = helpers.getCurrentPatternString?.();
     const oneChordSpec = helpers.parseOneChordSpec?.(patternString) || {};
     const patternMode = helpers.getPatternModeLabel?.(helpers.getCurrentPatternMode?.());
@@ -130,7 +194,7 @@ export function createDrillSessionAnalytics({
     };
   }
 
-  function getPlaybackAnalyticsProps() {
+  function getPlaybackAnalyticsProps(): AnalyticsProps {
     const chordsPerBar = helpers.getChordsPerBar?.();
     return {
       tempo: Number(dom.tempoSlider?.value || 120),
@@ -147,14 +211,14 @@ export function createDrillSessionAnalytics({
     };
   }
 
-  function trackProgressionEvent(name, extraProps = {}) {
+  function trackProgressionEvent(name: string, extraProps: AnalyticsProps = {}) {
     helpers.trackEvent?.(name, {
       ...getProgressionAnalyticsProps(),
       ...extraProps
     });
   }
 
-  function trackProgressionOccurrence(extraProps = {}) {
+  function trackProgressionOccurrence(extraProps: AnalyticsProps = {}) {
     helpers.trackEvent?.('progression_occurrence_played', {
       ...getProgressionAnalyticsProps(),
       ...getPlaybackAnalyticsProps(),

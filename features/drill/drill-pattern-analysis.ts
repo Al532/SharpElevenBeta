@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 
 const DEFAULT_ONE_CHORD_TAG = 'one:';
 const DEFAULT_ONE_CHORD_QUALITIES = Object.freeze([
@@ -41,6 +40,66 @@ const DEFAULT_ONE_CHORD_QUALITY_ALIASES = Object.freeze({
   '13b9sus': '7b9sus'
 });
 
+type RomanToken = {
+  roman: string;
+  modifier: string;
+};
+
+type DrillPatternToken = {
+  label: string;
+  roman: string;
+  modifier: string;
+  semitones: number;
+  bassSemitones: number;
+  qualityMajor: string;
+  qualityMinor: string;
+  inputType: 'degree' | 'note' | 'one-chord';
+  slashBassLabel: string | null;
+};
+
+type OneChordSpec = {
+  active: boolean;
+  qualities: string[];
+  invalidTokens: string[];
+  errorMessage: string | null;
+};
+
+type PatternBase = {
+  body: string;
+  basePitchClass: number;
+  hasOverride: boolean;
+  overrideToken: string | null;
+  error: string | null;
+};
+
+type PatternAnalysisResult = PatternBase & {
+  usesBarLines: boolean;
+  resolvedChordsPerBar: number | null;
+  expandedMeasures: DrillPatternToken[][] | null;
+  tokens: string[];
+  chords: DrillPatternToken[];
+  invalidTokens: string[];
+  errorMessage: string | null;
+};
+
+type CreateDrillPatternAnalysisOptions = {
+  romanToSemitones?: Record<string, number>;
+  noteLetterToSemitone?: Record<string, number>;
+  semitoneToRomanTokenMap?: Record<number, RomanToken>;
+  degreeQualityMajor?: Record<string, string>;
+  alteredSemitoneQualityMajor?: Record<number, string>;
+  degreeQualityMinor?: Record<string, string>;
+  alteredSemitoneQualityMinor?: Record<number, string>;
+  dominantQualityAliases?: Record<string, string[]>;
+  qualityCategoryAliases?: Record<string, string[]>;
+  defaultChordsPerBar?: number;
+  supportedChordsPerBar?: number[];
+  oneChordTag?: string;
+  oneChordDefaultQualities?: string[];
+  oneChordDominantQualities?: string[];
+  oneChordQualityAliases?: Record<string, string>;
+};
+
 /**
  * @param {{
  *   romanToSemitones?: Record<string, number>,
@@ -76,10 +135,8 @@ export function createDrillPatternAnalysis({
   oneChordDefaultQualities = [...DEFAULT_ONE_CHORD_QUALITIES],
   oneChordDominantQualities = [...DEFAULT_ONE_CHORD_DOMINANT_QUALITIES],
   oneChordQualityAliases = { ...DEFAULT_ONE_CHORD_QUALITY_ALIASES }
-} = {}) {
-  /** @type {string | null} */
+}: CreateDrillPatternAnalysisOptions = {}) {
   let cachedPatternAnalysisInput = null;
-  /** @type {ReturnType<typeof analyzePattern> | null} */
   let cachedPatternAnalysisResult = null;
 
   function normalizeMusicalText(value) {
@@ -112,7 +169,7 @@ export function createDrillPatternAnalysis({
     return oneChordQualityAliases[normalized] || null;
   }
 
-  function parseOneChordSpec(str) {
+  function parseOneChordSpec(str: string): OneChordSpec {
     const normalized = String(str || '').trim();
     if (!normalized.toLowerCase().startsWith(oneChordTag)) {
       return {
@@ -174,7 +231,7 @@ export function createDrillPatternAnalysis({
     return parseOneChordSpec(pattern).active;
   }
 
-  function createOneChordToken(quality) {
+  function createOneChordToken(quality: string): DrillPatternToken {
     return {
       label: quality,
       roman: 'I',
@@ -188,7 +245,7 @@ export function createDrillPatternAnalysis({
     };
   }
 
-  function noteNameToPitchClass(letter, accidental = '') {
+  function noteNameToPitchClass(letter: string, accidental = ''): number | null {
     const base = noteLetterToSemitone[String(letter || '').toUpperCase()];
     if (base === undefined) return null;
     const normalizedAccidental = normalizeMusicalText(accidental);
@@ -197,11 +254,11 @@ export function createDrillPatternAnalysis({
     return base;
   }
 
-  function semitoneToRomanToken(semitones) {
+  function semitoneToRomanToken(semitones: number): RomanToken | null {
     return semitoneToRomanTokenMap[((semitones % 12) + 12) % 12] || null;
   }
 
-  function normalizeParsedQuality(quality, roman) {
+  function normalizeParsedQuality(quality: string, roman: string): string {
     const normalizedQuality = String(quality).toLowerCase();
     if (Object.prototype.hasOwnProperty.call(dominantQualityAliases, normalizedQuality)) return normalizedQuality;
     for (const [canonicalQuality, aliases] of Object.entries(dominantQualityAliases)) {
@@ -218,11 +275,25 @@ export function createDrillPatternAnalysis({
     return quality;
   }
 
-  function isAcceptedCustomQuality() {
+  function isAcceptedCustomQuality(_quality: string): boolean {
     return true;
   }
 
-  function buildParsedToken({ label, roman, modifier, semitones, customQuality = null, inputType = 'degree' }) {
+  function buildParsedToken({
+    label,
+    roman,
+    modifier,
+    semitones,
+    customQuality = null,
+    inputType = 'degree'
+  }: {
+    label: string;
+    roman: string;
+    modifier: string;
+    semitones: number;
+    customQuality?: string | null;
+    inputType?: DrillPatternToken['inputType'];
+  }): DrillPatternToken | null {
     let qualityMajor;
     let qualityMinor;
 
@@ -255,7 +326,7 @@ export function createDrillPatternAnalysis({
     };
   }
 
-  function parseDegreeToken(token) {
+  function parseDegreeToken(token: string): DrillPatternToken | null {
     const normalizedToken = normalizeMusicalText(token).trim();
     const match = normalizedToken.match(/^([b#]?)(VII|VI|IV|V|III|II|I)(.+)?$/i);
     if (!match) return null;
@@ -277,7 +348,7 @@ export function createDrillPatternAnalysis({
     });
   }
 
-  function parseNoteToken(token, basePitchClass = 0) {
+  function parseNoteToken(token: string, basePitchClass = 0): DrillPatternToken | null {
     const normalizedToken = normalizeMusicalText(token).trim();
     const match = normalizedToken.match(/^([A-Ga-g])([b#]?)(.*)?$/);
     if (!match) return null;
@@ -302,7 +373,7 @@ export function createDrillPatternAnalysis({
     });
   }
 
-  function extractPatternBase(str) {
+  function extractPatternBase(str: string): PatternBase {
     const normalized = normalizeMusicalText(str).trim();
     const equalsOverrideMatch = normalized.match(/^key\s*=\s*([A-Ga-g])([b#]?)\s*:\s*(.*)$/);
     const colonOverrideMatch = normalized.match(/^key\s*:\s*([A-Ga-g])([b#]?)(?:\s*\|\s*|\s+)(.*)$/);
@@ -343,7 +414,7 @@ export function createDrillPatternAnalysis({
     };
   }
 
-  function parseSlashBassToken(token, basePitchClass = 0) {
+  function parseSlashBassToken(token: string, basePitchClass = 0): DrillPatternToken | null {
     const normalized = normalizeMusicalText(token).trim();
     if (!/^([b#]?(?:VII|VI|IV|V|III|II|I)|[A-Ga-g][b#]?)$/i.test(normalized)) {
       return null;
@@ -351,7 +422,7 @@ export function createDrillPatternAnalysis({
     return parseDegreeToken(normalized) || parseNoteToken(normalized, basePitchClass);
   }
 
-  function parseToken(token, basePitchClass = 0) {
+  function parseToken(token: string, basePitchClass = 0): DrillPatternToken | null {
     const normalized = normalizeMusicalText(token).trim();
     if (!normalized) return null;
 
@@ -374,7 +445,7 @@ export function createDrillPatternAnalysis({
     };
   }
 
-  function expandRepeatedMeasureStrings(body) {
+  function expandRepeatedMeasureStrings(body: string): string[] {
     const normalized = String(body || '')
       .replace(/\r?\n/g, ' ')
       .replace(/:\]/g, ' __REPEAT_END__ ')
@@ -472,18 +543,18 @@ export function createDrillPatternAnalysis({
     return measures;
   }
 
-  function tokenizeDrillSegment(segment) {
+  function tokenizeDrillSegment(segment: string): string[] {
     return String(segment || '')
       .split(/[\s-]+/)
       .filter(Boolean)
       .flatMap((token) => (/^[%/]+$/.test(token) ? token.split('') : [token]));
   }
 
-  function containsRejectedQuality() {
+  function containsRejectedQuality(_token: string): boolean {
     return false;
   }
 
-  function analyzePattern(str) {
+  function analyzePattern(str: string): PatternAnalysisResult {
     const oneChordSpec = parseOneChordSpec(str);
     if (oneChordSpec.active) {
       return {
@@ -491,6 +562,7 @@ export function createDrillPatternAnalysis({
         basePitchClass: 0,
         hasOverride: false,
         overrideToken: null,
+        error: null,
         usesBarLines: false,
         resolvedChordsPerBar: null,
         expandedMeasures: null,
@@ -624,7 +696,7 @@ export function createDrillPatternAnalysis({
     };
   }
 
-  function analyzePatternCached(str) {
+  function analyzePatternCached(str: string): PatternAnalysisResult {
     const normalized = String(str || '');
     if (cachedPatternAnalysisInput === normalized && cachedPatternAnalysisResult) {
       return cachedPatternAnalysisResult;
@@ -635,16 +707,16 @@ export function createDrillPatternAnalysis({
     return analysis;
   }
 
-  function parsePattern(str) {
+  function parsePattern(str: string): DrillPatternToken[] {
     return analyzePattern(str).chords;
   }
 
-  function normalizeChordsPerBar(value) {
+  function normalizeChordsPerBar(value: unknown): number {
     const parsed = Number.parseInt(String(value ?? defaultChordsPerBar), 10);
     return supportedChordsPerBar.includes(parsed) ? parsed : defaultChordsPerBar;
   }
 
-  function getPatternKeyOverridePitchClass(patternString = '') {
+  function getPatternKeyOverridePitchClass(patternString = ''): number | null {
     const oneChordSpec = parseOneChordSpec(patternString);
     if (oneChordSpec.active) return null;
 
@@ -654,11 +726,11 @@ export function createDrillPatternAnalysis({
       : null;
   }
 
-  function getBeatsPerChord(chordsPerBar = defaultChordsPerBar) {
+  function getBeatsPerChord(chordsPerBar = defaultChordsPerBar): number {
     return 4 / normalizeChordsPerBar(chordsPerBar);
   }
 
-  function padProgression(chords, chordsPerBar = defaultChordsPerBar) {
+  function padProgression(chords: DrillPatternToken[], chordsPerBar = defaultChordsPerBar): DrillPatternToken[] {
     if (chords.length === 0) return [];
     const result = chords.slice();
     const chordsPerMeasure = normalizeChordsPerBar(chordsPerBar);

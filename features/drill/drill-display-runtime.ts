@@ -1,8 +1,118 @@
-﻿// @ts-nocheck
+type QueryableElement = HTMLElement & {
+  querySelector: <T extends Element = Element>(selectors: string) => T | null;
+};
+
+type DrillChordToken = {
+  roman?: string;
+  semitones?: number;
+  bassSemitones?: number;
+  inputType?: string;
+};
+
+type ChordSymbolRenderOptions = {
+  useMajorTriangleSymbol: boolean;
+  useHalfDiminishedSymbol: boolean;
+  useDiminishedSymbol: boolean;
+};
+
+type DrillDisplayHarmonyHelpersOptions = {
+  keyNamesMajor?: string[];
+  keyNamesMinor?: string[];
+  letters?: string[];
+  naturalSemitones?: number[];
+  degreeIndices?: Record<string, number>;
+  escapeHtml?: (value: unknown) => string;
+  renderChordSymbolHtml?: (
+    rootName: string,
+    quality: string,
+    bassName: string | null,
+    options: ChordSymbolRenderOptions
+  ) => string;
+  getDisplayTranspositionSemitones?: () => number;
+  isOneChordModeActive?: () => boolean;
+  isMinorMode?: () => boolean;
+  getDisplayedQuality?: (chord: DrillChordToken | null, isMinor: boolean, nextChord?: DrillChordToken | null) => string;
+  normalizeDisplayedRootName?: (value: string) => string;
+  normalizeHarmonyDisplayMode?: (value: unknown) => unknown;
+  getUseMajorTriangleSymbol?: () => boolean;
+  getUseHalfDiminishedSymbol?: () => boolean;
+  getUseDiminishedSymbol?: () => boolean;
+};
+
+type DrillPreviewTimingHelpersOptions = {
+  getChordsPerBar?: () => number;
+  getSecondsPerBeat?: () => number;
+  getNextPreviewLeadSeconds?: () => number;
+  getCurrentChordIdx?: () => number;
+  getCurrentBeat?: () => number;
+  getChordCount?: () => number;
+};
+
+type DrillHarmonyLayoutHelpersOptions = {
+  requestAnimationFrameImpl?: (callback: FrameRequestCallback) => number | void;
+  getDisplayElement?: () => HTMLElement | null;
+  getChordDisplayElement?: () => QueryableElement | null;
+  getNextChordDisplayElement?: () => QueryableElement | null;
+  getBaseChordDisplaySize?: () => number;
+  isCurrentHarmonyHidden?: () => boolean;
+};
+
+type ApplyDrillBeatIndicatorVisibilityOptions = {
+  beatIndicator?: HTMLElement | null;
+  showBeatIndicatorEnabled?: boolean;
+};
+
+type ApplyDrillCurrentHarmonyVisibilityOptions = {
+  displayElement?: HTMLElement | null;
+  currentHarmonyHidden?: boolean;
+};
+
+type ApplyDrillDisplayModeOptions = {
+  displayElement?: HTMLElement | null;
+  mode?: string;
+  applyDisplaySideLayout?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  fitHarmonyDisplay?: () => void;
+};
+
+type UpdateDrillKeyPickerLabelsOptions = {
+  keyCheckboxes?: ParentNode | null;
+  updateKeyCheckboxVisualState?: (label: HTMLElement, checkbox: HTMLInputElement, index: number) => void;
+  syncSelectedKeysSummary?: () => void;
+};
+
+type RefreshDrillDisplayedHarmonyOptions = {
+  isPlaying?: boolean;
+  isIntro?: boolean;
+  currentKey?: number;
+  nextKeyValue?: number | null;
+  currentChordIdx?: number;
+  paddedChords?: DrillChordToken[];
+  nextRawChords?: DrillChordToken[];
+  getRemainingBeatsUntilNextProgression?: () => number;
+  shouldShowNextPreview?: (currentKeyValue: number, upcomingKeyValue: number | null, remainingBeats: number) => boolean;
+  keyNameHtml?: (key: number | null | undefined) => string;
+  chordSymbolHtml?: (
+    key: number | null | undefined,
+    chord: DrillChordToken | null | undefined,
+    isMinorOverride?: boolean | null,
+    nextChord?: DrillChordToken | null
+  ) => string;
+  showNextCol?: () => void;
+  hideNextCol?: () => void;
+  keyDisplay?: HTMLElement | null;
+  chordDisplay?: HTMLElement | null;
+  nextKeyDisplay?: HTMLElement | null;
+  nextChordDisplay?: HTMLElement | null;
+  applyDisplaySideLayout?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  fitHarmonyDisplay?: () => void;
+};
+
 export function applyDrillBeatIndicatorVisibility({
   beatIndicator,
   showBeatIndicatorEnabled
-} = {}) {
+}: ApplyDrillBeatIndicatorVisibilityOptions = {}) {
   beatIndicator?.classList.toggle('hidden', showBeatIndicatorEnabled === false);
 }
 
@@ -23,7 +133,7 @@ export function createDrillHarmonyDisplayHelpers({
   getUseMajorTriangleSymbol = () => true,
   getUseHalfDiminishedSymbol = () => true,
   getUseDiminishedSymbol = () => true
-} = {}) {
+}: DrillDisplayHarmonyHelpersOptions = {}) {
   function transposeDisplayPitchClass(pitchClass) {
     return (pitchClass + Number(getDisplayTranspositionSemitones?.() || 0) + 12) % 12;
   }
@@ -161,7 +271,7 @@ export function createDrillPreviewTimingHelpers({
   getCurrentChordIdx = () => 0,
   getCurrentBeat = () => 0,
   getChordCount = () => 0
-} = {}) {
+}: DrillPreviewTimingHelpersOptions = {}) {
   function getRemainingBeatsUntilNextProgression(
     chordIndex = getCurrentChordIdx(),
     beatInMeasure = getCurrentBeat(),
@@ -191,13 +301,13 @@ export function createDrillPreviewTimingHelpers({
 }
 
 export function createDrillHarmonyLayoutHelpers({
-  requestAnimationFrameImpl = (callback) => callback(),
+  requestAnimationFrameImpl = (callback) => callback(0),
   getDisplayElement = () => null,
   getChordDisplayElement = () => null,
   getNextChordDisplayElement = () => null,
   getBaseChordDisplaySize = () => 5,
   isCurrentHarmonyHidden = () => false
-} = {}) {
+}: DrillHarmonyLayoutHelpersOptions = {}) {
   function applyDisplaySideLayout() {
     const display = getDisplayElement();
     if (!display) return;
@@ -258,7 +368,7 @@ export function createDrillHarmonyLayoutHelpers({
 export function applyDrillCurrentHarmonyVisibility({
   displayElement,
   currentHarmonyHidden
-} = {}) {
+}: ApplyDrillCurrentHarmonyVisibilityOptions = {}) {
   displayElement?.classList.toggle('display-hide-current', currentHarmonyHidden === true);
 }
 
@@ -268,7 +378,7 @@ export function applyDrillDisplayMode({
   applyDisplaySideLayout,
   applyCurrentHarmonyVisibility,
   fitHarmonyDisplay
-} = {}) {
+}: ApplyDrillDisplayModeOptions = {}) {
   if (!displayElement) return;
   displayElement.classList.remove('display-show-both', 'display-chords-only', 'display-key-only');
   if (mode === 'chords-only') {
@@ -287,10 +397,10 @@ export function updateDrillKeyPickerLabels({
   keyCheckboxes,
   updateKeyCheckboxVisualState,
   syncSelectedKeysSummary
-} = {}) {
-  const labels = keyCheckboxes?.querySelectorAll('.key-checkbox-label') || [];
+}: UpdateDrillKeyPickerLabelsOptions = {}) {
+  const labels = keyCheckboxes?.querySelectorAll<HTMLElement>('.key-checkbox-label') || [];
   labels.forEach((label, index) => {
-    const checkbox = label.querySelector('input[type="checkbox"]');
+    const checkbox = label.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     if (!checkbox) return;
     updateKeyCheckboxVisualState?.(label, checkbox, index);
   });
@@ -318,7 +428,7 @@ export function refreshDrillDisplayedHarmony({
   applyDisplaySideLayout,
   applyCurrentHarmonyVisibility,
   fitHarmonyDisplay
-} = {}) {
+}: RefreshDrillDisplayedHarmonyOptions = {}) {
   if (!isPlaying) return;
   applyDisplaySideLayout?.();
   applyCurrentHarmonyVisibility?.();

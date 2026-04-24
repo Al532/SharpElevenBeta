@@ -1,26 +1,30 @@
-﻿// @ts-nocheck
-
-/** @typedef {import('../types/contracts').EmbeddedPlaybackApi} EmbeddedPlaybackApi */
-/** @typedef {import('../types/contracts').EmbeddedPlaybackRuntimeState} EmbeddedPlaybackRuntimeState */
-/** @typedef {import('../types/contracts').PlaybackRuntime} PlaybackRuntime */
-/** @typedef {import('../types/contracts').PlaybackOperationResult} PlaybackOperationResult */
-/** @typedef {import('../types/contracts').PlaybackSessionController} PlaybackSessionController */
-/** @typedef {import('../types/contracts').PublishedEmbeddedPlaybackAssemblyProvider} PublishedEmbeddedPlaybackAssemblyProvider */
+﻿
 
 import { createPublishedEmbeddedPlaybackAssemblyProvider } from './published-embedded-playback-assembly-provider.js';
+import type {
+  EmbeddedPatternPayload,
+  EmbeddedPlaybackApi,
+  EmbeddedPlaybackRuntimeState,
+  PlaybackOperationResult,
+  PlaybackRuntime,
+  PlaybackSessionController,
+  PublishedEmbeddedPlaybackAssemblyProvider
+} from '../types/contracts';
+
+type BootstrapEmbeddedPlaybackApiOptions = {
+  playbackRuntime?: PlaybackRuntime,
+  playbackController?: PlaybackSessionController,
+  applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult | Promise<PlaybackOperationResult>,
+  getPlaybackState?: () => EmbeddedPlaybackRuntimeState,
+  publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null
+};
 
 /**
  * Publishes the embedded playback API surface from either an existing runtime,
  * an existing controller, or a caller-supplied published assembly provider.
  * This keeps the legacy global publication pipeline in `core/playback`.
  *
- * @param {{
- *   playbackRuntime?: PlaybackRuntime,
- *   playbackController?: PlaybackSessionController,
- *   applyEmbeddedPattern?: (payload: import('../types/contracts').EmbeddedPatternPayload) => PlaybackOperationResult | Promise<PlaybackOperationResult>,
- *   getPlaybackState?: () => EmbeddedPlaybackRuntimeState,
- *   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null
- * }} [options]
+ * @param {BootstrapEmbeddedPlaybackApiOptions} [options]
  * @returns {EmbeddedPlaybackApi}
  */
 export function bootstrapEmbeddedPlaybackApi({
@@ -29,7 +33,7 @@ export function bootstrapEmbeddedPlaybackApi({
   applyEmbeddedPattern,
   getPlaybackState,
   publishedPlaybackAssemblyProvider
-} = {}) {
+}: BootstrapEmbeddedPlaybackApiOptions = {}) {
   if (publishedPlaybackAssemblyProvider) {
     return publishedPlaybackAssemblyProvider.getAssembly().embeddedApi;
   }

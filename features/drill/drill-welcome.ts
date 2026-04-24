@@ -1,4 +1,19 @@
-﻿// @ts-nocheck
+﻿type WelcomeControlBindings = {
+  updateWelcomePanelVisibility?: () => void,
+  updateWelcomeSummary?: () => void,
+  trackEvent?: (name: string, props?: Record<string, unknown>) => void,
+  syncWelcomeShowNextTimePreference?: () => void,
+  saveSettings?: () => void,
+  applyWelcomeRecommendation?: () => void,
+  skipWelcomeOverlay?: () => void,
+  setWelcomeOverlayVisible?: (isVisible: boolean) => void,
+  welcomeStandardSelect?: HTMLSelectElement | null,
+  welcomeShowNextTime?: HTMLInputElement | null,
+  welcomeApply?: HTMLElement | null,
+  welcomeSkip?: HTMLElement | null,
+  reopenWelcome?: HTMLElement | null
+};
+
 export function bindDrillWelcomeControls({
   updateWelcomePanelVisibility,
   updateWelcomeSummary,
@@ -13,8 +28,8 @@ export function bindDrillWelcomeControls({
   welcomeApply,
   welcomeSkip,
   reopenWelcome
-} = {}) {
-  document.querySelectorAll('input[name="welcome-goal"]').forEach((input) => {
+}: WelcomeControlBindings = {}) {
+  document.querySelectorAll<HTMLInputElement>('input[name="welcome-goal"]').forEach((input) => {
     input.addEventListener('change', () => {
       updateWelcomePanelVisibility?.();
       updateWelcomeSummary?.();
@@ -22,21 +37,21 @@ export function bindDrillWelcomeControls({
     });
   });
 
-  document.querySelectorAll('input[name="welcome-progression"]').forEach((input) => {
+  document.querySelectorAll<HTMLInputElement>('input[name="welcome-progression"]').forEach((input) => {
     input.addEventListener('change', () => {
       updateWelcomeSummary?.();
       trackEvent?.('welcome_progression_changed', { welcome_progression: input.value });
     });
   });
 
-  document.querySelectorAll('input[name="welcome-one-chord"]').forEach((input) => {
+  document.querySelectorAll<HTMLInputElement>('input[name="welcome-one-chord"]').forEach((input) => {
     input.addEventListener('change', () => {
       updateWelcomeSummary?.();
       trackEvent?.('welcome_one_chord_changed', { welcome_one_chord: input.value });
     });
   });
 
-  document.querySelectorAll('input[name="welcome-instrument"]').forEach((input) => {
+  document.querySelectorAll<HTMLInputElement>('input[name="welcome-instrument"]').forEach((input) => {
     input.addEventListener('change', () => {
       updateWelcomeSummary?.();
       trackEvent?.('welcome_instrument_changed', { transposition: input.value });

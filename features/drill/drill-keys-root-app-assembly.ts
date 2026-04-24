@@ -1,11 +1,50 @@
-﻿// @ts-nocheck
-
+﻿
 import {
   buildDrillKeyCheckboxes,
   invertDrillKeysEnabled,
   setAllDrillKeysEnabled
 } from './drill-key-selection.js';
 import { initializeKeyPickerUi } from './drill-ui-runtime.js';
+
+type KeysAssemblyDom = {
+  selectedKeysSummary?: HTMLElement | null,
+  keyCheckboxes?: HTMLElement | null,
+  keyPicker?: HTMLElement | null,
+  keyPickerBackdrop?: HTMLElement | null,
+  closeKeyPicker?: HTMLElement | null
+};
+
+type KeysAssemblyState = {
+  getEnabledKeys?: () => boolean[],
+  setEnabledKeys?: (value: boolean[]) => void,
+  setKeyPool?: (value: unknown[]) => void,
+  getSavedKeySelectionPreset?: () => boolean[] | null,
+  setSavedKeySelectionPreset?: (value: boolean[]) => void
+};
+
+type KeysAssemblyConstants = {
+  PIANO_BLACK_KEY_COLUMNS?: Record<number, number>,
+  PIANO_WHITE_KEY_COLUMNS?: Record<number, number>
+};
+
+type KeysAssemblyHelpers = {
+  setKeyPickerOpen?: (isOpen: boolean) => void,
+  stopPlaybackIfRunning?: () => void,
+  getDisplayTranspositionSemitones?: () => number,
+  keyLabelForPicker?: (value: number) => string,
+  renderAccidentalTextHtml?: (value: string) => string,
+  saveStoredKeySelectionPreset?: (value: boolean[] | null) => void,
+  saveSettings?: () => void,
+  trackEvent?: (name: string, props?: Record<string, unknown>) => void,
+  alert?: (message: string) => void
+};
+
+type KeysAssemblyOptions = {
+  dom?: KeysAssemblyDom,
+  state?: KeysAssemblyState,
+  constants?: KeysAssemblyConstants,
+  helpers?: KeysAssemblyHelpers
+};
 
 /**
  * Creates the drill keys assembly from live root-app bindings. This keeps the
@@ -23,7 +62,7 @@ export function createDrillKeysRootAppAssembly({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: KeysAssemblyOptions = {}) {
   const {
     getEnabledKeys = () => [],
     setEnabledKeys = () => {},
@@ -98,8 +137,8 @@ export function createDrillKeysRootAppAssembly({
   }
 
   function syncKeyCheckboxStates() {
-    dom.keyCheckboxes?.querySelectorAll('.key-checkbox-label').forEach((label, index) => {
-      const checkbox = label.querySelector('input[type="checkbox"]');
+    dom.keyCheckboxes?.querySelectorAll<HTMLElement>('.key-checkbox-label').forEach((label, index) => {
+      const checkbox = label.querySelector<HTMLInputElement>('input[type="checkbox"]');
       if (!checkbox) return;
       checkbox.checked = getEnabledKeys()[index];
       updateKeyCheckboxVisualState(label, checkbox, index);

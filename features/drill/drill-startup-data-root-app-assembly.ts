@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-
+﻿
 /**
  * Creates the drill startup-data assembly from live root-app bindings.
  * This keeps the welcome standards, pattern-help, and default-progressions
@@ -12,12 +11,39 @@
  * @param {Record<string, any>} [options.patternHelp]
  * @param {Record<string, any>} [options.defaultProgressions]
  */
+type WelcomeStandardEntry = {
+  patternName?: string,
+  pattern?: string,
+  summary?: string,
+  patternMode?: string,
+  majorMinor?: boolean,
+  repetitionsPerKey?: number,
+  tempo?: number,
+  chordsPerBar?: number,
+  compingStyle?: string,
+  enabledKeys?: boolean[],
+  sourcePitchClass?: number,
+  [key: string]: unknown
+};
+
+type StartupDataAssemblyOptions = {
+  state?: {
+    setWelcomeStandards?: (value: Record<string, WelcomeStandardEntry>) => void,
+    setDefaultProgressionsVersion?: (value: string) => void,
+    setDefaultProgressions?: (value: Record<string, unknown>) => void,
+    setProgressions?: (value: Record<string, unknown>) => void
+  },
+  welcomeStandards?: Record<string, any>,
+  patternHelp?: Record<string, any>,
+  defaultProgressions?: Record<string, any>
+};
+
 export function createDrillStartupDataRootAppAssembly({
   state = {},
   welcomeStandards = {},
   patternHelp = {},
   defaultProgressions = {}
-} = {}) {
+}: StartupDataAssemblyOptions = {}) {
   const {
     setWelcomeStandards = () => {},
     setDefaultProgressionsVersion = () => {},
@@ -64,7 +90,7 @@ export function createDrillStartupDataRootAppAssembly({
       return Array.from({ length: 12 }, (_, index) => index === pitchClass);
     }
 
-    const entries = {};
+    const entries: Record<string, WelcomeStandardEntry> = {};
     const lines = String(text || '').split(/\r?\n/);
     let pendingTempo = 120;
     let pendingName = null;
@@ -168,13 +194,13 @@ export function createDrillStartupDataRootAppAssembly({
 
     if (!select) return;
     const previousValue = select.value;
-    const entries = Object.entries(getWelcomeStandards());
+    const entries = Object.entries(getWelcomeStandards() as Record<string, WelcomeStandardEntry>);
     select.innerHTML = '';
 
     entries.forEach(([key, entry], index) => {
       const option = document.createElement('option');
       option.value = key;
-      option.textContent = entry.patternName || key;
+      option.textContent = entry?.patternName || key;
       if ((previousValue && previousValue === key) || (!previousValue && index === 0)) {
         option.selected = true;
       }

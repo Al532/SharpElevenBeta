@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './features/app/app-analytics.js';
+﻿import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './features/app/app-analytics.js';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
@@ -75,6 +74,30 @@ import { consumePendingPracticeSessionIntoUi } from './features/drill/drill-sess
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
 import { shuffleArray } from './features/drill/drill-key-pool-runtime.js';
+
+type AnyFn = (...args: any[]) => any;
+
+declare const __APP_VERSION__: string | undefined;
+
+declare global {
+  interface Window {
+    Capacitor?: {
+      isNativePlatform?: () => boolean,
+      Plugins?: {
+        App?: {
+          addListener?: (eventName: string, listener: (event: { url?: string }) => void) => void
+        }
+      }
+    },
+    webkitAudioContext?: typeof AudioContext
+  }
+}
+
+interface ImportMeta {
+  readonly env: {
+    BASE_URL?: string
+  };
+}
 
 /* ============================================================
    Sharp Eleven App app.js
@@ -240,17 +263,17 @@ const dom = {
   drumsSelect:     document.getElementById('drums-select'),
   patternHelp:     document.getElementById('pattern-help'),
   patternPicker:   document.getElementById('pattern-picker'),
-  patternSelect:   document.getElementById('pattern-select'),
+  patternSelect:   document.getElementById('pattern-select') as HTMLSelectElement | null,
   patternPickerCustom: document.getElementById('pattern-picker-custom'),
   patternPreview:  document.getElementById('pattern-preview'),
   patternPreviewRow: document.querySelector('.pattern-preview-row'),
   patternPreviewDefaultAnchor: document.getElementById('pattern-preview-default-anchor'),
   patternPreviewEditAnchor: document.getElementById('pattern-preview-edit-anchor'),
   customPatternPanel: document.getElementById('custom-pattern-panel'),
-  customPattern:   document.getElementById('custom-pattern'),
-  patternName:     document.getElementById('pattern-name'),
-  patternMode:     document.getElementById('pattern-mode'),
-  patternModeBoth: document.getElementById('pattern-mode-both'),
+  customPattern:   document.getElementById('custom-pattern') as HTMLTextAreaElement | HTMLInputElement | null,
+  patternName:     document.getElementById('pattern-name') as HTMLInputElement | null,
+  patternMode:     document.getElementById('pattern-mode') as HTMLSelectElement | null,
+  patternModeBoth: document.getElementById('pattern-mode-both') as HTMLInputElement | null,
   patternError:    document.getElementById('pattern-error'),
   saveProgression:      document.getElementById('save-progression'),
   cancelProgressionEdit: document.getElementById('cancel-progression-edit'),
@@ -269,24 +292,24 @@ const dom = {
   progressionUpdateReplace: document.getElementById('progression-update-replace'),
   progressionUpdateMerge: document.getElementById('progression-update-merge'),
   progressionUpdateKeep: document.getElementById('progression-update-keep'),
-  tempoSlider:     document.getElementById('tempo-slider'),
+  tempoSlider:     document.getElementById('tempo-slider') as HTMLInputElement | null,
   tempoValue:      document.getElementById('tempo-value'),
-  repetitionsPerKey: document.getElementById('repetitions-per-key'),
-  transpositionSelect: document.getElementById('transposition-select'),
-  nextPreviewValue: document.getElementById('next-preview-value'),
-  nextPreviewUnitToggle: document.getElementById('next-preview-unit-toggle'),
+  repetitionsPerKey: document.getElementById('repetitions-per-key') as HTMLInputElement | HTMLSelectElement | null,
+  transpositionSelect: document.getElementById('transposition-select') as HTMLSelectElement | null,
+  nextPreviewValue: document.getElementById('next-preview-value') as HTMLInputElement | null,
+  nextPreviewUnitToggle: document.getElementById('next-preview-unit-toggle') as HTMLInputElement | null,
   nextPreviewHint: document.getElementById('next-preview-hint'),
-  chordsPerBar:    document.getElementById('chords-per-bar'),
+  chordsPerBar:    document.getElementById('chords-per-bar') as HTMLSelectElement | null,
   doubleTimeRow:   document.getElementById('double-time-row'),
-  doubleTimeToggle: document.getElementById('double-time'),
-  majorMinor:      document.getElementById('major-minor'),
-  displayMode:     document.getElementById('display-mode'),
-  harmonyDisplayMode: document.getElementById('harmony-display-mode'),
-  useMajorTriangleSymbol: document.getElementById('use-major-triangle-symbol'),
-  useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol'),
-  useDiminishedSymbol: document.getElementById('use-diminished-symbol'),
-  debugToggle:     document.getElementById('debug-toggle'),
-  keyPicker:       document.getElementById('key-picker'),
+  doubleTimeToggle: document.getElementById('double-time') as HTMLInputElement | null,
+  majorMinor:      document.getElementById('major-minor') as HTMLInputElement | null,
+  displayMode:     document.getElementById('display-mode') as HTMLSelectElement | null,
+  harmonyDisplayMode: document.getElementById('harmony-display-mode') as HTMLSelectElement | null,
+  useMajorTriangleSymbol: document.getElementById('use-major-triangle-symbol') as HTMLInputElement | null,
+  useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol') as HTMLInputElement | null,
+  useDiminishedSymbol: document.getElementById('use-diminished-symbol') as HTMLInputElement | null,
+  debugToggle:     document.getElementById('debug-toggle') as HTMLInputElement | null,
+  keyPicker:       document.getElementById('key-picker') as HTMLDetailsElement | null,
   keyPickerBackdrop: document.getElementById('key-picker-backdrop'),
   closeKeyPicker:  document.getElementById('close-key-picker'),
   startStop:       document.getElementById('start-stop'),
@@ -307,9 +330,9 @@ const dom = {
   stringsVolumeValue: document.getElementById('strings-volume-value'),
   drumsVolume:     document.getElementById('drums-volume'),
   drumsVolumeValue: document.getElementById('drums-volume-value'),
-  walkingBass:     document.getElementById('walking-bass-toggle'),
-  showBeatIndicator: document.getElementById('show-beat-indicator'),
-  hideCurrentHarmony: document.getElementById('hide-current-harmony'),
+  walkingBass:     document.getElementById('walking-bass-toggle') as HTMLInputElement | null,
+  showBeatIndicator: document.getElementById('show-beat-indicator') as HTMLInputElement | null,
+  hideCurrentHarmony: document.getElementById('hide-current-harmony') as HTMLInputElement | null,
   welcomeOverlay: document.getElementById('welcome-overlay'),
   welcomeSkip: document.getElementById('welcome-skip'),
   welcomeApply: document.getElementById('welcome-apply'),
@@ -339,47 +362,47 @@ if (dom.appVersion) {
 
 initializeAppShell({
   mode: 'drill',
-  drillLink: document.getElementById('app-mode-drill-link'),
-  chartLink: document.getElementById('app-mode-chart-link'),
+  drillLink: document.getElementById('app-mode-drill-link') as HTMLAnchorElement | null,
+  chartLink: document.getElementById('app-mode-chart-link') as HTMLAnchorElement | null,
   modeBadge: document.getElementById('app-mode-badge')
 });
 
-let createDefaultAppSettingsImpl = (..._args) => ({});
+let createDefaultAppSettingsImpl: AnyFn = (..._args) => ({});
 
 function createDefaultAppSettings(...args) {
   return createDefaultAppSettingsImpl(...args);
 }
 
-let clearProgressionEditingStateImpl = () => {};
-let closeProgressionManagerImpl = () => {};
-let setPatternSelectValueImpl = () => {};
-let getSelectedProgressionNameImpl = () => '';
-let getSelectedProgressionPatternImpl = () => '';
-let setEditorPatternModeImpl = () => {};
-let getSelectedProgressionModeImpl = () => '';
-let getCurrentPatternModeImpl = () => '';
-let getCurrentPatternNameImpl = () => '';
-let getCurrentPatternStringImpl = () => '';
-let hasSelectedProgressionImpl = () => false;
-let isCustomPatternSelectedImpl = () => false;
-let syncPatternSelectionFromInputImpl = () => {};
-let syncCustomPatternUIImpl = () => {};
-let syncProgressionManagerStateImpl = () => {};
-let applyPatternModeAvailabilityImpl = () => {};
-let syncPatternPreviewImpl = () => {};
-let showNextColImpl = () => {};
-let hideNextColImpl = () => {};
-let applyCurrentHarmonyVisibilityImpl = () => {};
-let getSecondsPerBeatImpl = () => 60 / 120;
-let getSwingRatioImpl = () => DEFAULT_SWING_RATIO;
-let buildProgressionImpl = () => [];
-let validateCustomPatternImpl = () => true;
-let setKeyPickerOpenImpl = () => {};
-let escapeHtmlImpl = (value) => String(value || '');
-let getPianoVoicingModeImpl = () => 'piano';
-let getRepetitionsPerKeyImpl = () => DEFAULT_REPETITIONS_PER_KEY;
-let clearOneChordCycleStateImpl = () => {};
-let toAnalyticsTokenImpl = (value, fallback = 'unknown') => {
+let clearProgressionEditingStateImpl: AnyFn = () => {};
+let closeProgressionManagerImpl: AnyFn = () => {};
+let setPatternSelectValueImpl: AnyFn = () => {};
+let getSelectedProgressionNameImpl: AnyFn = () => '';
+let getSelectedProgressionPatternImpl: AnyFn = () => '';
+let setEditorPatternModeImpl: AnyFn = () => {};
+let getSelectedProgressionModeImpl: AnyFn = () => '';
+let getCurrentPatternModeImpl: AnyFn = () => '';
+let getCurrentPatternNameImpl: AnyFn = () => '';
+let getCurrentPatternStringImpl: AnyFn = () => '';
+let hasSelectedProgressionImpl: AnyFn = () => false;
+let isCustomPatternSelectedImpl: AnyFn = () => false;
+let syncPatternSelectionFromInputImpl: AnyFn = () => {};
+let syncCustomPatternUIImpl: AnyFn = () => {};
+let syncProgressionManagerStateImpl: AnyFn = () => {};
+let applyPatternModeAvailabilityImpl: AnyFn = () => {};
+let syncPatternPreviewImpl: AnyFn = () => {};
+let showNextColImpl: AnyFn = () => {};
+let hideNextColImpl: AnyFn = () => {};
+let applyCurrentHarmonyVisibilityImpl: AnyFn = () => {};
+let getSecondsPerBeatImpl: AnyFn = () => 60 / 120;
+let getSwingRatioImpl: AnyFn = () => DEFAULT_SWING_RATIO;
+let buildProgressionImpl: AnyFn = () => [];
+let validateCustomPatternImpl: AnyFn = () => true;
+let setKeyPickerOpenImpl: AnyFn = () => {};
+let escapeHtmlImpl: AnyFn = (value) => String(value || '');
+let getPianoVoicingModeImpl: AnyFn = () => 'piano';
+let getRepetitionsPerKeyImpl: AnyFn = () => DEFAULT_REPETITIONS_PER_KEY;
+let clearOneChordCycleStateImpl: AnyFn = () => {};
+let toAnalyticsTokenImpl: AnyFn = (value, fallback = 'unknown') => {
   const normalized = String(value || '')
     .trim()
     .toLowerCase()
@@ -387,17 +410,17 @@ let toAnalyticsTokenImpl = (value, fallback = 'unknown') => {
     .replace(/^_+|_+$/g, '');
   return normalized || fallback;
 };
-let stopPlaybackIfRunningImpl = () => {};
-let keyLabelForPickerImpl = () => '';
-let updateKeyPickerLabelsImpl = () => {};
-let refreshDisplayedHarmonyImpl = () => {};
-let resolvePlaybackSessionControllerImpl = (fallbackController) => fallbackController;
-let ensureMidiPianoRangePreloadImpl = () => Promise.resolve(null);
-let stopMidiPianoVoiceImpl = () => {};
-let stopAllMidiPianoVoicesImpl = () => {};
-let handleMidiMessageImpl = () => {};
-let startImpl = () => {};
-let saveSettingsImpl = () => {};
+let stopPlaybackIfRunningImpl: AnyFn = () => {};
+let keyLabelForPickerImpl: AnyFn = () => '';
+let updateKeyPickerLabelsImpl: AnyFn = () => {};
+let refreshDisplayedHarmonyImpl: AnyFn = () => {};
+let resolvePlaybackSessionControllerImpl: AnyFn = (fallbackController) => fallbackController;
+let ensureMidiPianoRangePreloadImpl: AnyFn = () => Promise.resolve(null);
+let stopMidiPianoVoiceImpl: AnyFn = () => {};
+let stopAllMidiPianoVoicesImpl: AnyFn = () => {};
+let handleMidiMessageImpl: AnyFn = () => {};
+let startImpl: AnyFn = () => {};
+let saveSettingsImpl: AnyFn = () => {};
 
 function clearProgressionEditingState(...args) {
   return clearProgressionEditingStateImpl(...args);
@@ -531,7 +554,7 @@ const drillBackNavigation = createMobileBackNavigationController({
     || isElementVisible(dom.welcomeOverlay)
   ),
   handleBack: handleDrillDismissibleBack
-});
+} as any);
 
 if (typeof MutationObserver !== 'undefined') {
   const drillBackObserver = new MutationObserver(() => {
@@ -735,7 +758,7 @@ const {
     welcomeStandards: createStateRef(() => welcomeStandards, (value) => { welcomeStandards = value; })
   },
   welcomeStandards: {
-    fetchImpl: (...args) => fetch(...args),
+    fetchImpl: (...args) => (fetch as AnyFn)(...args),
     url: REVIEW_STANDARD_CONVERSIONS_URL,
     version: APP_VERSION,
     welcomeStandardsFallback: WELCOME_STANDARDS_FALLBACK,
@@ -1209,15 +1232,15 @@ const PIANO_COMP_MAX_DURATION = PIANO_COMPING_CONFIG.maxDurationSeconds;
 const PIANO_VOLUME_MULTIPLIER = PIANO_COMPING_CONFIG.volumeMultiplier;
 
 function getNextDifferentChord(...args) {
-  return getNextDifferentDrillChord(...args);
+  return (getNextDifferentDrillChord as AnyFn)(...args);
 }
 
 function getVoicingAtIndex(...args) {
-  return getDrillVoicingAtIndex(...args);
+  return (getDrillVoicingAtIndex as AnyFn)(...args);
 }
 
 function getPreparedNextProgression(...args) {
-  return getDrillPreparedNextProgression(...args);
+  return (getDrillPreparedNextProgression as AnyFn)(...args);
 }
 
 const compingEngine = createDrillCompingEngineRootAppAssembly({
@@ -1292,11 +1315,11 @@ const {
 });
 
 function classifyQuality(...args) {
-  return classifySharedVoicingQuality(...args);
+  return (classifySharedVoicingQuality as AnyFn)(...args);
 }
 
 function getPlayedChordQuality(...args) {
-  return getSharedPlayedChordQuality(...args);
+  return (getSharedPlayedChordQuality as AnyFn)(...args);
 }
 
 function getDisplayAliasQuality(quality, displayMode) {
@@ -1408,7 +1431,7 @@ function getVoicing(key, chord, isMinor, nextChord = null) {
 }
 
 function getVoicingPlanForProgression(chords, key, isMinor) {
-  return getSharedVoicingPlanForProgression(chords, key, isMinor);
+  return (getSharedVoicingPlanForProgression as AnyFn)(chords, key, isMinor);
 }
 
 let keyPool = [];
@@ -1443,7 +1466,7 @@ const {
     getDisplayAliasQuality,
     normalizeHarmonyDisplayMode,
     normalizeDisplayMode,
-    matchMedia: (...args) => window.matchMedia(...args)
+    matchMedia: (...args) => (window.matchMedia as AnyFn)(...args)
   }
 });
 
@@ -1596,7 +1619,7 @@ getSwingRatioImpl = tempoGetSwingRatio;
 let getNextPreviewLeadSecondsImpl = () => 0;
 
 function getNextPreviewLeadSeconds(...args) {
-  return getNextPreviewLeadSecondsImpl(...args);
+  return (getNextPreviewLeadSecondsImpl as AnyFn)(...args);
 }
 
 const {
@@ -1780,12 +1803,12 @@ const {
     },
   sessionAnalyticsHelpers: {
       trackEvent,
-      getCurrentPatternString: (...args) => getCurrentPatternString(...args),
+      getCurrentPatternString: (...args) => (getCurrentPatternString as AnyFn)(...args),
       parseOneChordSpec,
-      getCurrentPatternMode: (...args) => getCurrentPatternMode(...args),
-      getPatternModeLabel: (...args) => getPatternModeLabel(...args),
-      hasSelectedProgression: (...args) => hasSelectedProgression(...args),
-      toAnalyticsToken: (...args) => toAnalyticsToken(...args),
+      getCurrentPatternMode: (...args) => (getCurrentPatternMode as AnyFn)(...args),
+      getPatternModeLabel: (...args) => (getPatternModeLabel as AnyFn)(...args),
+      hasSelectedProgression: (...args) => (hasSelectedProgression as AnyFn)(...args),
+      toAnalyticsToken: (...args) => (toAnalyticsToken as AnyFn)(...args),
       analyzePattern,
       matchesOneChordQualitySet,
       getChordsPerBar,
@@ -2133,12 +2156,9 @@ const {
     clearBeatDots,
     clearScheduledDisplays,
     ensureWalkingBassGenerator,
-    ensureNearTermSamplePreload,
     ensureSessionStarted,
-    fitHarmonyDisplay,
     getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
-    hideNextCol,
     initAudio,
     resumeAudioContext: resumeDrillAudioContext,
     suspendAudioContext: suspendDrillAudioContext,
@@ -2172,7 +2192,7 @@ startImpl = playbackStart;
 
 // ---- Persistence (localStorage) ----
 
-const APP_BASE_URL = (import.meta?.env?.BASE_URL) || './';
+const APP_BASE_URL = (((import.meta as unknown) as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL) || './';
 const PATTERN_HELP_URL = `${APP_BASE_URL}${TRAINER_RESOURCE_PATHS.patternHelp}`;
 const PATTERN_HELP_VERSION = APP_VERSION;
 
@@ -2326,7 +2346,7 @@ const {
   },
   loadFinalizerHelpers: {
       getDefaultProgressionsFingerprint,
-      syncPianoToolsUi: (...args) => syncPianoToolsUi(...args),
+      syncPianoToolsUi: (...args) => (syncPianoToolsUi as AnyFn)(...args),
       applyMixerSettings,
       syncNextPreviewControlDisplay,
       applyBeatIndicatorVisibility,
@@ -2360,7 +2380,7 @@ const {
       normalizePianoFadeSettings,
       normalizePianoMidiSettings,
       stopAllMidiPianoVoices,
-      syncPianoToolsUi: (...args) => syncPianoToolsUi(...args),
+      syncPianoToolsUi: (...args) => (syncPianoToolsUi as AnyFn)(...args),
       attachMidiInput,
       setNextPreviewInputUnit,
       applyMixerSettings,
@@ -2408,12 +2428,12 @@ const drillSettingsPersistence = createDrillSettingsPersistenceDrillRootAppAssem
   }
 });
 
-saveSettingsImpl = (...args) => drillSettingsPersistence.saveSettings(...args);
+saveSettingsImpl = (...args) => (drillSettingsPersistence.saveSettings as AnyFn)(...args);
 
 let attachMidiInputImpl = () => {};
 
 function attachMidiInput(...args) {
-  return attachMidiInputImpl(...args);
+  return (attachMidiInputImpl as AnyFn)(...args);
 }
 
 const {
@@ -2435,8 +2455,8 @@ const {
   normalizePianoFadeSettings,
   normalizePianoMidiSettings,
   attachMidiInput: (...args) => attachMidiInput(...args),
-  saveSettings: (...args) => saveSettings(...args)
-});
+  saveSettings: (...args) => (saveSettings as AnyFn)(...args)
+} as any);
 
 const {
   ensureMidiPianoRangePreload: pianoMidiEnsureRangePreload,
@@ -2527,7 +2547,7 @@ const {
     version: PATTERN_HELP_VERSION
   },
   defaultProgressions: {
-    fetchImpl: (...args) => fetch(...args),
+    fetchImpl: (...args) => (fetch as AnyFn)(...args),
     url: DEFAULT_PROGRESSIONS_URL,
     appVersion: APP_VERSION,
     parseDefaultProgressionsText,
@@ -2560,7 +2580,7 @@ const drillUiBootstrap = createDrillUiBootstrapDrillRootAppAssembly({
     loadPatternHelp,
     loadWelcomeStandards,
     renderProgressionOptions,
-    loadSettings: (...args) => drillSettingsPersistence.loadSettings(...args),
+    loadSettings: (...args) => (drillSettingsPersistence.loadSettings as AnyFn)(...args),
     applySilentDefaultPresetResetMigration,
     saveSettings,
     buildKeyCheckboxes,
@@ -2746,7 +2766,7 @@ const drillUiEventBindings = createDrillUiEventBindingsDrillRootAppAssembly({
   },
   lifecycleTarget: window,
   trackSessionDuration
-});
+} as any);
 
 drillUiEventBindings.bindAnalyticsLink();
 drillUiEventBindings.bindWelcomeEvents();
@@ -2867,7 +2887,7 @@ const {
     stopPlayback: () => stop(),
     togglePausePlayback: () => togglePause()
   }
-});
+} as any);
 
 function getPlaybackSessionController() {
   return resolvePlaybackSessionController(embeddedPlaybackController);

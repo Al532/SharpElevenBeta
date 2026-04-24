@@ -1,4 +1,10 @@
-﻿// @ts-nocheck
+
+type DrillWelcomeRootAppFacadeOptions = {
+  dom?: Record<string, any>;
+  state?: Record<string, any>;
+  constants?: Record<string, any>;
+  helpers?: Record<string, any>;
+};
 
 /**
  * Creates the drill welcome/onboarding facade from live root-app bindings.
@@ -16,7 +22,7 @@ export function createDrillWelcomeRootAppFacade({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: DrillWelcomeRootAppFacadeOptions = {}) {
   const {
     getHasCompletedWelcomeOnboarding = () => false,
     setHasCompletedWelcomeOnboarding = () => {},
@@ -82,7 +88,7 @@ export function createDrillWelcomeRootAppFacade({
   } = helpers;
 
   function getCheckedInputValue(name, fallback = '') {
-    return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+    return document.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value || fallback;
   }
 
   function setWelcomeOverlayVisible(isVisible) {

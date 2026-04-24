@@ -1,4 +1,36 @@
-﻿// @ts-nocheck
+
+type DrillNextPreviewDom = {
+  nextPreviewUnitToggle?: HTMLInputElement | null;
+  nextPreviewValue?: HTMLInputElement | null;
+  nextPreviewHint?: HTMLElement | null;
+  tempoSlider?: HTMLInputElement | null;
+};
+
+type DrillNextPreviewState = {
+  getNextPreviewLeadUnit?: () => string;
+  setNextPreviewLeadUnit?: (unit: string) => void;
+  getNextPreviewLeadValue?: () => number;
+  setNextPreviewLeadValue?: (value: number) => void;
+};
+
+type DrillNextPreviewConstants = {
+  NEXT_PREVIEW_UNIT_BARS?: string;
+  NEXT_PREVIEW_UNIT_SECONDS?: string;
+  DEFAULT_NEXT_PREVIEW_LEAD_BARS?: number;
+};
+
+type DrillNextPreviewHelpers = {
+  getSecondsPerBeat?: () => number;
+  refreshDisplayedHarmony?: () => void;
+  formatNumber?: (value: unknown, maximumFractionDigits?: number) => string;
+};
+
+type CreateDrillNextPreviewRootAppFacadeOptions = {
+  dom?: DrillNextPreviewDom;
+  state?: DrillNextPreviewState;
+  constants?: DrillNextPreviewConstants;
+  helpers?: DrillNextPreviewHelpers;
+};
 
 /**
  * Creates the drill next-preview facade from live root-app bindings.
@@ -16,7 +48,7 @@ export function createDrillNextPreviewRootAppFacade({
   state = {},
   constants = {},
   helpers = {}
-} = {}) {
+}: CreateDrillNextPreviewRootAppFacadeOptions = {}) {
   const {
     getNextPreviewLeadUnit = () => 'bars',
     setNextPreviewLeadUnit = () => {},

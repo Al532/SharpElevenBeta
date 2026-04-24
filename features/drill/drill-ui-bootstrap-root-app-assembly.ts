@@ -1,15 +1,34 @@
-﻿// @ts-nocheck
 
 import { initializeDrillPianoControls } from './drill-piano-tools.js';
 import { initializeDrillRuntimeControls } from './drill-runtime-controls.js';
 import { initializeDrillScreen } from './drill-ui-shell.js';
 import { initializeHarmonyDisplayObservers } from './drill-ui-runtime.js';
 
+type CreateDrillUiBootstrapRootAppAssemblyOptions = {
+  screen?: Record<string, unknown>;
+  screenDom?: Record<string, unknown>;
+  screenState?: Record<string, unknown>;
+  screenConstants?: Record<string, unknown>;
+  screenHelpers?: Record<string, any>;
+  harmonyDisplayObservers?: Record<string, unknown>;
+  pianoControls?: Record<string, unknown>;
+  runtimeControls?: Record<string, unknown>;
+  runtimeControlsDom?: Record<string, unknown>;
+  runtimeControlsState?: Record<string, any>;
+  runtimeControlsConstants?: Record<string, unknown>;
+  runtimeControlsHelpers?: Record<string, any>;
+};
+
 function createScreenContext({
   dom = {},
   state = {},
   constants = {},
   helpers = {}
+}: {
+  dom?: Record<string, any>;
+  state?: Record<string, any>;
+  constants?: Record<string, any>;
+  helpers?: Record<string, any>;
 } = {}) {
   const {
     getProgressions = () => ({}),
@@ -126,7 +145,7 @@ function createScreenContext({
     setAppliedDefaultProgressionsFingerprint,
     getDefaultProgressionsFingerprint,
     ensurePageSampleWarmup,
-    consumePendingPracticeSessionIntoUi: ({ afterApply } = {}) => consumePendingPracticeSessionIntoUi({
+    consumePendingPracticeSessionIntoUi: ({ afterApply }: { afterApply?: () => void } = {}) => consumePendingPracticeSessionIntoUi({
       afterApply
     }),
     setWelcomeOverlayVisible,
@@ -139,6 +158,11 @@ function createRuntimeControlsContext({
   state = {},
   constants = {},
   helpers = {}
+}: {
+  dom?: Record<string, any>;
+  state?: Record<string, any>;
+  constants?: Record<string, any>;
+  helpers?: Record<string, any>;
 } = {}) {
   const {
     getIsPlaying = () => false,
@@ -345,7 +369,7 @@ export function createDrillUiBootstrapRootAppAssembly({
   runtimeControlsState = {},
   runtimeControlsConstants = {},
   runtimeControlsHelpers = {}
-} = {}) {
+}: CreateDrillUiBootstrapRootAppAssemblyOptions = {}) {
   const resolvedScreen = Object.keys(screen).length > 0
     ? screen
     : createScreenContext({

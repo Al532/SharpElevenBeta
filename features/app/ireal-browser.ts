@@ -1,7 +1,10 @@
-﻿// @ts-nocheck
-import { Capacitor, registerPlugin } from '@capacitor/core';
+﻿import { Capacitor, registerPlugin } from '@capacitor/core';
 
-const IrealBrowser = registerPlugin('IrealBrowser');
+type IrealBrowserPlugin = {
+  open: (options: { url: string, title?: string }) => Promise<void>
+};
+
+const IrealBrowser = registerPlugin<IrealBrowserPlugin>('IrealBrowser');
 
 /**
  * @param {{ url: string, title?: string }} options

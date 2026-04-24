@@ -1,9 +1,34 @@
-﻿// @ts-nocheck
+type SocialShareLinkElement = HTMLElement & {
+  dataset: DOMStringMap & { shareNetwork?: string };
+};
+
+type InitializeSocialShareLinksOptions = {
+  selector?: string;
+  onShareClick?: (network: string | undefined, link: SocialShareLinkElement) => void;
+};
+
+type InitializeKeyPickerUiOptions = {
+  keyPicker?: (HTMLElement & { open?: boolean }) | null;
+  keyPickerBackdrop?: HTMLElement | null;
+  closeKeyPickerButton?: HTMLElement | null;
+  selectedKeysSummary?: HTMLElement | null;
+  setKeyPickerOpen?: (isOpen: boolean) => void;
+  stopPlaybackIfRunning?: () => void;
+  restoreAllKeysIfNoneSelectedOnClose?: () => void;
+};
+
+type InitializeHarmonyDisplayObserversOptions = {
+  fitHarmonyDisplay?: () => void;
+  chordDisplay?: Element | null;
+  nextChordDisplay?: Element | null;
+  displayColumns?: Element | null;
+};
+
 export function initializeSocialShareLinks({
   selector = '.social-share-link[data-share-network]',
   onShareClick
-} = {}) {
-  const shareLinks = Array.from(document.querySelectorAll(selector));
+}: InitializeSocialShareLinksOptions = {}) {
+  const shareLinks = Array.from(document.querySelectorAll<SocialShareLinkElement>(selector));
   if (!shareLinks.length) return;
 
   shareLinks.forEach((link) => {
@@ -22,7 +47,7 @@ export function initializeKeyPickerUi({
   setKeyPickerOpen,
   stopPlaybackIfRunning,
   restoreAllKeysIfNoneSelectedOnClose
-} = {}) {
+}: InitializeKeyPickerUiOptions = {}) {
   closeKeyPickerButton?.addEventListener('click', () => {
     setKeyPickerOpen?.(false);
   });
@@ -56,7 +81,7 @@ export function initializeHarmonyDisplayObservers({
   chordDisplay,
   nextChordDisplay,
   displayColumns
-} = {}) {
+}: InitializeHarmonyDisplayObserversOptions = {}) {
   window.addEventListener('resize', fitHarmonyDisplay);
 
   if (document.fonts?.ready) {

@@ -1,4 +1,10 @@
-﻿// @ts-nocheck
+
+type CreateDrillNormalizationRootAppContextOptions = {
+  constants?: Record<string, any>;
+  helpers?: {
+    normalizeChordsPerBarBase?: (value: unknown) => number;
+  };
+};
 
 /**
  * Creates the drill normalization root context from live root-app bindings.
@@ -12,7 +18,7 @@
 export function createDrillNormalizationRootAppContext({
   constants = {},
   helpers = {}
-} = {}) {
+}: CreateDrillNormalizationRootAppContextOptions = {}) {
   const {
     patternModeBoth = 'both',
     patternModeMajor = 'major',
@@ -31,25 +37,25 @@ export function createDrillNormalizationRootAppContext({
     normalizeChordsPerBarBase = (value) => value
   } = helpers;
 
-  function normalizePatternMode(mode) {
+  function normalizePatternMode(mode: string) {
     if (mode === 'major/minor') return patternModeBoth;
     return [patternModeMajor, patternModeMinor, patternModeBoth].includes(mode)
       ? mode
       : patternModeMajor;
   }
 
-  function normalizePresetName(name) {
+  function normalizePresetName(name: unknown) {
     return String(name || '')
       .trim()
       .replace(/\s+/g, ' ');
   }
 
-  function normalizePresetNameForInput(name) {
+  function normalizePresetNameForInput(name: unknown) {
     return String(name || '')
       .replace(/\s{2,}/g, ' ');
   }
 
-  function normalizeCompingStyle(style) {
+  function normalizeCompingStyle(style: string) {
     if (style === 'piano-one-hand' || style === 'piano-two-hand') return compingStylePiano;
     return [
       compingStyleOff,
@@ -60,17 +66,17 @@ export function createDrillNormalizationRootAppContext({
       : compingStyleStrings;
   }
 
-  function normalizeRepetitionsPerKey(value) {
-    const parsed = Number.parseInt(value, 10);
+  function normalizeRepetitionsPerKey(value: unknown) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
     if (!Number.isFinite(parsed)) return defaultRepetitionsPerKey;
     return Math.min(8, Math.max(1, parsed));
   }
 
-  function normalizeChordsPerBar(value) {
+  function normalizeChordsPerBar(value: unknown) {
     return normalizeChordsPerBarBase(value);
   }
 
-  function normalizeDisplayMode(mode) {
+  function normalizeDisplayMode(mode: string) {
     return [
       displayModeShowBoth,
       displayModeChordsOnly,
@@ -80,7 +86,7 @@ export function createDrillNormalizationRootAppContext({
       : displayModeShowBoth;
   }
 
-  function normalizeHarmonyDisplayMode(mode) {
+  function normalizeHarmonyDisplayMode(mode: string) {
     return [
       harmonyDisplayModeDefault,
       harmonyDisplayModeRich

@@ -1,4 +1,17 @@
-﻿// @ts-nocheck
+type MixerVolumeDefaults = {
+  masterVolume?: number;
+  bassVolume?: number;
+  stringsVolume?: number;
+  drumsVolume?: number;
+};
+
+type DrillAppSettings = Record<string, any>;
+
+type DrillSettingsDom = Record<string, any>;
+type DrillSettingsState = Record<string, any>;
+type DrillSettingsHelpers = Record<string, any>;
+type DrillSettingsConstants = Record<string, any>;
+
 function normalizeSavedMixerVolume(value, fallbackValue) {
   const parsed = Number(value);
   if (Number.isFinite(parsed)) {
@@ -16,6 +29,15 @@ export function saveDrillSettings({
   isWalkingBassEnabled,
   dom,
   defaultMixerVolumes = {}
+}: {
+  saveSharedPlaybackSettings?: (value: Record<string, unknown>) => void;
+  saveStoredProgressionSettings?: (value: Record<string, unknown>) => void;
+  buildSettingsSnapshot?: () => Record<string, unknown>;
+  getCompingStyle?: () => string;
+  getDrumsMode?: () => string;
+  isWalkingBassEnabled?: () => boolean;
+  dom?: DrillSettingsDom;
+  defaultMixerVolumes?: MixerVolumeDefaults;
 } = {}) {
   saveSharedPlaybackSettings?.({
     compingStyle: getCompingStyle?.(),
@@ -29,8 +51,8 @@ export function saveDrillSettings({
   saveStoredProgressionSettings?.(buildSettingsSnapshot?.());
 }
 
-export function createDefaultDrillAppSettingsFactory(defaults = {}) {
-  const defaultAppSettings = Object.freeze({
+export function createDefaultDrillAppSettingsFactory(defaults: Record<string, any> = {}) {
+  const defaultAppSettings: DrillAppSettings = Object.freeze({
     ...defaults,
     enabledKeys: Object.freeze(
       Array.isArray(defaults.enabledKeys) && defaults.enabledKeys.length === 12
@@ -41,7 +63,7 @@ export function createDefaultDrillAppSettingsFactory(defaults = {}) {
     pianoMidiSettings: Object.freeze({ ...(defaults.pianoMidiSettings || {}) })
   });
 
-  return function createDefaultAppSettings(overrides = {}) {
+  return function createDefaultAppSettings(overrides: Record<string, any> = {}): DrillAppSettings {
     return {
       ...defaultAppSettings,
       ...overrides,
@@ -57,8 +79,13 @@ export function createDrillSettingsSnapshotBuilder({
   dom = {},
   state = {},
   helpers = {}
+}: {
+  constants?: DrillSettingsConstants;
+  dom?: DrillSettingsDom;
+  state?: DrillSettingsState;
+  helpers?: DrillSettingsHelpers;
 } = {}) {
-  return function buildSettingsSnapshot() {
+  return function buildSettingsSnapshot(): Record<string, unknown> {
     const editingState = helpers.isEditingPreset?.()
       ? {
           type: 'edit',
@@ -125,6 +152,11 @@ export function createDrillLoadedSettingsFinalizer({
   dom = {},
   state = {},
   helpers = {}
+}: {
+  constants?: DrillSettingsConstants;
+  dom?: DrillSettingsDom;
+  state?: DrillSettingsState;
+  helpers?: DrillSettingsHelpers;
 } = {}) {
   return function finalizeLoadedSettings() {
     if (!state.getAppliedDefaultProgressionsFingerprint?.() && !state.getHadStoredProgressions?.()) {
@@ -168,8 +200,13 @@ export function createDrillLoadedSettingsApplier({
   dom = {},
   state = {},
   helpers = {}
+}: {
+  constants?: DrillSettingsConstants;
+  dom?: DrillSettingsDom;
+  state?: DrillSettingsState;
+  helpers?: DrillSettingsHelpers;
 } = {}) {
-  return function applyLoadedSettings(s) {
+  return function applyLoadedSettings(s: Record<string, any>) {
     if (!s || typeof s !== 'object') return;
 
     state.setHasCompletedWelcomeOnboarding?.(
@@ -371,6 +408,10 @@ export function createDrillPlaybackSettingsResetter({
   dom = {},
   state = {},
   helpers = {}
+}: {
+  dom?: DrillSettingsDom;
+  state?: DrillSettingsState;
+  helpers?: DrillSettingsHelpers;
 } = {}) {
   return function resetPlaybackSettings() {
     const standardSettings = helpers.createDefaultAppSettings?.();
@@ -442,6 +483,12 @@ export function loadDrillSettings({
   applyLoadedSettings,
   finalizeLoadedSettings,
   setSavedKeySelectionPreset
+}: {
+  loadStoredProgressionSettings?: () => Record<string, unknown> | null;
+  loadStoredKeySelectionPreset?: () => unknown;
+  applyLoadedSettings?: (value: Record<string, unknown>) => void;
+  finalizeLoadedSettings?: () => void;
+  setSavedKeySelectionPreset?: (value: unknown) => void;
 } = {}) {
   const storedSettings = loadStoredProgressionSettings?.();
   if (storedSettings) {

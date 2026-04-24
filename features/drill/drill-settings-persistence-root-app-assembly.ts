@@ -1,6 +1,35 @@
-﻿// @ts-nocheck
 
 import { loadDrillSettings, saveDrillSettings } from './drill-settings.js';
+
+type DrillSettingsPersistenceDom = Record<string, unknown>;
+
+type DrillSettingsPersistenceConstants = {
+  defaultMixerVolumes?: Record<string, number>;
+};
+
+type DrillSettingsPersistenceHelpers = {
+  saveSharedPlaybackSettings?: (value: Record<string, unknown>) => void;
+  saveStoredProgressionSettings?: (value: Record<string, unknown>) => void;
+  buildSettingsSnapshot?: () => Record<string, unknown>;
+  getCompingStyle?: () => string;
+  getDrumsMode?: () => string;
+  isWalkingBassEnabled?: () => boolean;
+  loadStoredProgressionSettings?: () => Record<string, unknown> | null;
+  loadStoredKeySelectionPreset?: () => unknown;
+  applyLoadedSettings?: (value: Record<string, unknown>) => void;
+  finalizeLoadedSettings?: () => void;
+};
+
+type DrillSettingsPersistenceState = {
+  setSavedKeySelectionPreset?: (value: unknown) => void;
+};
+
+type CreateDrillSettingsPersistenceRootAppAssemblyOptions = {
+  dom?: DrillSettingsPersistenceDom;
+  constants?: DrillSettingsPersistenceConstants;
+  helpers?: DrillSettingsPersistenceHelpers;
+  state?: DrillSettingsPersistenceState;
+};
 
 /**
  * Creates the drill settings-persistence assembly from live root-app bindings.
@@ -18,7 +47,7 @@ export function createDrillSettingsPersistenceRootAppAssembly({
   constants = {},
   helpers = {},
   state = {}
-} = {}) {
+}: CreateDrillSettingsPersistenceRootAppAssemblyOptions = {}) {
   const {
     defaultMixerVolumes = {}
   } = constants;

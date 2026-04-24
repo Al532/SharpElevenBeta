@@ -1,6 +1,5 @@
-﻿// @ts-nocheck
 
-export function shuffleArray(arr) {
+export function shuffleArray<T>(arr: T[]): T[] {
   const copy = arr.slice();
   for (let index = copy.length - 1; index > 0; index--) {
     const swapIndex = Math.floor(Math.random() * (index + 1));
@@ -19,6 +18,10 @@ export function createDrillKeyPoolRuntime({
   getEnabledKeys = () => [],
   getKeyPool = () => [],
   setKeyPool = () => {}
+}: {
+  getEnabledKeys?: () => boolean[];
+  getKeyPool?: () => number[];
+  setKeyPool?: (value: number[]) => void;
 } = {}) {
 
   function getEffectiveKeyPool() {
@@ -33,7 +36,7 @@ export function createDrillKeyPoolRuntime({
     return pool;
   }
 
-  function nextKey(excludedKey = null) {
+  function nextKey(excludedKey: number | null = null) {
     const effectivePool = getEffectiveKeyPool();
     let keyPool = getKeyPool();
     if (effectivePool.length <= 1 || excludedKey === null) {

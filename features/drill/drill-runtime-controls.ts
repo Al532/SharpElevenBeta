@@ -1,4 +1,55 @@
-﻿// @ts-nocheck
+type DrillRuntimeControlsDom = {
+  startStop?: HTMLElement | null;
+  pause?: HTMLElement | null;
+  tempoSlider?: HTMLInputElement | null;
+  nextPreviewValue?: HTMLInputElement | null;
+  nextPreviewUnitToggle?: HTMLInputElement | null;
+  selectAllKeys?: HTMLElement | null;
+  invertKeys?: HTMLElement | null;
+  clearAllKeys?: HTMLElement | null;
+  saveKeyPreset?: HTMLElement | null;
+  loadKeyPreset?: HTMLElement | null;
+  transpositionSelect?: HTMLSelectElement | null;
+  displayMode?: HTMLSelectElement | null;
+  harmonyDisplayMode?: HTMLSelectElement | null;
+  useMajorTriangleSymbol?: HTMLInputElement | null;
+  useHalfDiminishedSymbol?: HTMLInputElement | null;
+  useDiminishedSymbol?: HTMLInputElement | null;
+  showBeatIndicator?: HTMLInputElement | null;
+  hideCurrentHarmony?: HTMLInputElement | null;
+  masterVolume?: HTMLInputElement | null;
+  bassVolume?: HTMLInputElement | null;
+  stringsVolume?: HTMLInputElement | null;
+  drumsVolume?: HTMLInputElement | null;
+};
+
+type DrillRuntimeControlsOptions = {
+  dom?: DrillRuntimeControlsDom;
+  onStartStopClick?: () => void;
+  onPauseClick?: () => void;
+  onTempoInput?: () => void;
+  onNextPreviewValueChange?: () => void;
+  onNextPreviewUnitToggleChange?: () => void;
+  onSelectAllKeys?: () => void;
+  onInvertKeys?: () => void;
+  onClearKeys?: () => void;
+  onSaveKeyPreset?: () => void;
+  onLoadKeyPreset?: () => void;
+  onTranspositionChange?: () => void;
+  onDisplayModeChange?: () => void;
+  onHarmonyDisplayModeChange?: () => void;
+  onSymbolToggleChange?: () => void;
+  onShowBeatIndicatorChange?: () => void;
+  onHideCurrentHarmonyChange?: () => void;
+  onMasterVolumeInput?: () => void;
+  onBassVolumeInput?: () => void;
+  onDrumsVolumeInput?: () => void;
+  onMasterVolumeChange?: () => void;
+  onBassVolumeChange?: () => void;
+  onStringsVolumeChange?: () => void;
+  onDrumsVolumeChange?: () => void;
+};
+
 export function initializeDrillRuntimeControls({
   dom,
   onStartStopClick,
@@ -24,7 +75,7 @@ export function initializeDrillRuntimeControls({
   onBassVolumeChange,
   onStringsVolumeChange,
   onDrumsVolumeChange
-} = {}) {
+}: DrillRuntimeControlsOptions = {}) {
   dom?.startStop?.addEventListener('click', () => {
     onStartStopClick?.();
   });

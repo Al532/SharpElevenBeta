@@ -1,15 +1,39 @@
-﻿// @ts-nocheck
+﻿type KeyCheckboxLabel = HTMLLabelElement & {
+  querySelector(selectors: '.key-checkbox-text'): HTMLSpanElement | null,
+  querySelector(selectors: 'input[type="checkbox"]'): HTMLInputElement | null
+};
+
+type BuildDrillKeyCheckboxesOptions = {
+  keyCheckboxes?: HTMLElement | null,
+  enabledKeys?: boolean[],
+  onKeyChange?: (payload: {
+    index: number,
+    checked: boolean,
+    label: HTMLLabelElement,
+    checkbox: HTMLInputElement
+  }) => void,
+  updateKeyCheckboxVisualState?: (label: HTMLLabelElement, checkbox: HTMLInputElement, index: number) => void,
+  syncSelectedKeysSummary?: () => void
+};
+
+type ToggleDrillKeysOptions = {
+  enabledKeys?: boolean[],
+  applyEnabledKeys?: (enabledKeys: boolean[]) => void,
+  saveSettings?: () => void,
+  isEnabled?: boolean
+};
+
 export function buildDrillKeyCheckboxes({
   keyCheckboxes,
   enabledKeys = [],
   onKeyChange,
   updateKeyCheckboxVisualState,
   syncSelectedKeysSummary
-} = {}) {
+}: BuildDrillKeyCheckboxesOptions = {}) {
   if (!keyCheckboxes) return;
   keyCheckboxes.innerHTML = '';
   for (let index = 0; index < 12; index += 1) {
-    const label = document.createElement('label');
+    const label = document.createElement('label') as KeyCheckboxLabel;
     label.className = 'key-checkbox-label';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -38,7 +62,7 @@ export function setAllDrillKeysEnabled({
   applyEnabledKeys,
   saveSettings,
   isEnabled
-} = {}) {
+}: ToggleDrillKeysOptions = {}) {
   applyEnabledKeys?.(enabledKeys.map(() => Boolean(isEnabled)));
   saveSettings?.();
 }
@@ -47,7 +71,7 @@ export function invertDrillKeysEnabled({
   enabledKeys = [],
   applyEnabledKeys,
   saveSettings
-} = {}) {
+}: ToggleDrillKeysOptions = {}) {
   applyEnabledKeys?.(enabledKeys.map((isEnabled) => !isEnabled));
   saveSettings?.();
 }

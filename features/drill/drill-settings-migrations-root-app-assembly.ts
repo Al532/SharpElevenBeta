@@ -1,4 +1,40 @@
-﻿// @ts-nocheck
+
+type AppliedMigrationEntry = {
+  appliedAt: string;
+  appVersion: string;
+  defaultPresetsVersion: string;
+};
+
+type DrillSettingsMigrationConstants = {
+  appVersion?: string;
+  oneTimeMigrations?: Record<string, string>;
+  customPatternOptionValue?: string;
+};
+
+type DrillSettingsMigrationState = {
+  getAppliedOneTimeMigrations?: () => Record<string, AppliedMigrationEntry>;
+  setAppliedOneTimeMigrations?: (value: Record<string, AppliedMigrationEntry>) => void;
+  getDefaultProgressions?: () => Record<string, unknown>;
+  getProgressions?: () => Record<string, unknown>;
+  setProgressions?: (value: Record<string, unknown>) => void;
+  getDefaultProgressionsVersion?: () => string;
+  getAppliedDefaultProgressionsFingerprint?: () => string;
+  setAppliedDefaultProgressionsFingerprint?: (value: string) => void;
+  setAcknowledgedDefaultProgressionsVersion?: (value: string) => void;
+  setShouldPromptForDefaultProgressionsUpdate?: (value: boolean) => void;
+  setSavedPatternSelection?: (value: string) => void;
+};
+
+type DrillSettingsMigrationHelpers = {
+  normalizeProgressionsMap?: (value: Record<string, unknown>) => Record<string, unknown>;
+  getDefaultProgressionsFingerprint?: () => string;
+};
+
+type CreateDrillSettingsMigrationsRootAppAssemblyOptions = {
+  constants?: DrillSettingsMigrationConstants;
+  state?: DrillSettingsMigrationState;
+  helpers?: DrillSettingsMigrationHelpers;
+};
 
 /**
  * Creates the drill settings-migrations assembly from live root-app bindings.
@@ -14,7 +50,7 @@ export function createDrillSettingsMigrationsRootAppAssembly({
   constants = {},
   state = {},
   helpers = {}
-} = {}) {
+}: CreateDrillSettingsMigrationsRootAppAssemblyOptions = {}) {
   const {
     appVersion = 'dev',
     oneTimeMigrations = {},
@@ -38,21 +74,23 @@ export function createDrillSettingsMigrationsRootAppAssembly({
     getDefaultProgressionsFingerprint = () => ''
   } = helpers;
 
-  function normalizeAppliedOneTimeMigrations(value) {
+  function normalizeAppliedOneTimeMigrations(value: unknown): Record<string, AppliedMigrationEntry> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
     return Object.fromEntries(
       Object.entries(value)
         .filter(([key, entry]) => Boolean(key) && entry && typeof entry === 'object' && !Array.isArray(entry))
         .map(([key, entry]) => [key, {
-          appliedAt: typeof entry.appliedAt === 'string' ? entry.appliedAt : '',
-          appVersion: typeof entry.appVersion === 'string' ? entry.appVersion : '',
-          defaultPresetsVersion: typeof entry.defaultPresetsVersion === 'string' ? entry.defaultPresetsVersion : ''
+          appliedAt: typeof (entry as AppliedMigrationEntry).appliedAt === 'string' ? (entry as AppliedMigrationEntry).appliedAt : '',
+          appVersion: typeof (entry as AppliedMigrationEntry).appVersion === 'string' ? (entry as AppliedMigrationEntry).appVersion : '',
+          defaultPresetsVersion: typeof (entry as AppliedMigrationEntry).defaultPresetsVersion === 'string'
+            ? (entry as AppliedMigrationEntry).defaultPresetsVersion
+            : ''
         }])
     );
   }
 
-  function markOneTimeMigrationApplied(migrationId) {
+  function markOneTimeMigrationApplied(migrationId: string) {
     if (!migrationId) return;
 
     setAppliedOneTimeMigrations({
@@ -65,11 +103,11 @@ export function createDrillSettingsMigrationsRootAppAssembly({
     });
   }
 
-  function hasAppliedOneTimeMigration(migrationId) {
+  function hasAppliedOneTimeMigration(migrationId: string): boolean {
     return Boolean(migrationId && getAppliedOneTimeMigrations()?.[migrationId]);
   }
 
-  function applySilentDefaultPresetResetMigration() {
+  function applySilentDefaultPresetResetMigration(): boolean {
     const migrationId = oneTimeMigrations.silentDefaultPresetReset;
     const defaultProgressions = getDefaultProgressions();
     if (!migrationId || hasAppliedOneTimeMigration(migrationId) || Object.keys(defaultProgressions).length === 0) {
@@ -86,7 +124,7 @@ export function createDrillSettingsMigrationsRootAppAssembly({
     return true;
   }
 
-  function shouldApplyMasterVolumeDefault50Migration() {
+  function shouldApplyMasterVolumeDefault50Migration(): boolean {
     const migrationId = oneTimeMigrations.masterVolumeDefault50;
     if (!migrationId || hasAppliedOneTimeMigration(migrationId)) {
       return false;

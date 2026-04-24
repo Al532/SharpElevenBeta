@@ -1,4 +1,15 @@
-﻿// @ts-nocheck
+
+type DrillPatternRuntimeRootAppAssemblyOptions = {
+  dom?: Record<string, any>;
+  runtimeState?: Record<string, any>;
+  runtimeConstants?: Record<string, any>;
+  runtimeHelpers?: Record<string, any>;
+};
+
+type DrillPatternChord = {
+  semitones: number;
+  bassSemitones?: number;
+};
 
 /**
  * Creates the app-level drill pattern runtime from live root-app bindings.
@@ -16,7 +27,7 @@ export function createDrillPatternRuntimeRootAppAssembly({
   runtimeState = {},
   runtimeConstants = {},
   runtimeHelpers = {}
-} = {}) {
+}: DrillPatternRuntimeRootAppAssemblyOptions = {}) {
   const {
     getOneChordQualityPool = () => [],
     setOneChordQualityPool = () => {},
@@ -46,17 +57,17 @@ export function createDrillPatternRuntimeRootAppAssembly({
     return isOneChordModeActiveBase(pattern);
   }
 
-  function getOneChordQualitySignature(qualities) {
+  function getOneChordQualitySignature(qualities: string[]) {
     return (qualities || []).join('|');
   }
 
-  function matchesOneChordQualitySet(qualities, reference) {
+  function matchesOneChordQualitySet(qualities: string[], reference: string[]) {
     if (!Array.isArray(qualities) || !Array.isArray(reference)) return false;
     if (qualities.length !== reference.length) return false;
     return qualities.every((quality, index) => quality === reference[index]);
   }
 
-  function takeNextOneChordQuality(qualities, excludedQuality = null) {
+  function takeNextOneChordQuality(qualities: string[], excludedQuality: string | null = null) {
     const availableQualities = Array.isArray(qualities) && qualities.length > 0
       ? qualities
       : oneChordDefaultQualities;
@@ -135,11 +146,11 @@ export function createDrillPatternRuntimeRootAppAssembly({
     return getBeatsPerChordBase(chordsPerBar);
   }
 
-  function padProgression(chords, chordsPerBar = getChordsPerBar()) {
+  function padProgression(chords: DrillPatternChord[], chordsPerBar = getChordsPerBar()) {
     return padProgressionBase(chords, chordsPerBar);
   }
 
-  function canLoopTrimProgression(rawChords, chordsPerBar = getChordsPerBar()) {
+  function canLoopTrimProgression(rawChords: DrillPatternChord[], chordsPerBar = getChordsPerBar()) {
     if (rawChords.length < 3) return false;
     const first = rawChords[0];
     const last = rawChords[rawChords.length - 1];
@@ -162,7 +173,7 @@ export function createDrillPatternRuntimeRootAppAssembly({
     return measures % 2 === 0;
   }
 
-  function buildLoopRepVoicings(template, paddedLength, isFirstRep) {
+  function buildLoopRepVoicings(template: unknown[], paddedLength: number, isFirstRep: boolean) {
     if (!Array.isArray(template) || template.length === 0) {
       return new Array(Math.max(0, paddedLength)).fill(null);
     }

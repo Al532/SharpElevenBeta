@@ -1,9 +1,20 @@
-﻿// @ts-nocheck
-
-import {
+﻿import {
   startPlaybackPolling,
   stopPlaybackPolling
 } from './chart-playback-runtime.js';
+
+type LifecycleTarget = EventTarget | {
+  addEventListener?: (eventName: string, listener: () => void) => void
+};
+
+type VisibilityTarget = LifecycleTarget & {
+  hidden?: boolean
+};
+
+type ChartLifecycleState = {
+  playbackPollTimer?: number | null,
+  isPlaying?: boolean
+};
 
 /**
  * Binds lightweight chart lifecycle listeners so playback polling is paused
@@ -22,6 +33,12 @@ export function bindChartLifecycleEvents({
   state,
   intervalMs = 120,
   onTick = () => {}
+}: {
+  lifecycleTarget?: LifecycleTarget,
+  visibilityTarget?: VisibilityTarget,
+  state?: ChartLifecycleState,
+  intervalMs?: number,
+  onTick?: () => void
 } = {}) {
   function suspendPolling() {
     stopPlaybackPolling({

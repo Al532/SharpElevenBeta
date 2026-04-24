@@ -1,4 +1,27 @@
-﻿// @ts-nocheck
+﻿type ChordSymbolRenderOptions = {
+  useHalfDiminishedSymbol?: boolean,
+  useDiminishedSymbol?: boolean,
+  useMajorTriangleSymbol?: boolean
+};
+
+type SplitRootNameResult = {
+  letter: string,
+  accidental: string
+};
+
+type QualityDisplayPart = {
+  type: 'text' | 'symbol',
+  text: string,
+  symbolName: string
+};
+
+type QualityDisplayParts = {
+  base: QualityDisplayPart,
+  sup: QualityDisplayPart
+};
+
+type AccidentalKind = 'flat' | 'sharp';
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -51,7 +74,7 @@ const DEFAULT_CHORD_SYMBOL_RENDER_OPTIONS = Object.freeze({
   useMajorTriangleSymbol: true
 });
 
-function createAccidentalSpan(kind) {
+function createAccidentalSpan(kind: AccidentalKind) {
   if (kind === 'flat') {
     return `<span class="chord-symbol-accidental chord-symbol-accidental-flat" aria-hidden="true">${ACCIDENTAL_SVGS.flat}</span>`;
   }
@@ -75,7 +98,7 @@ export function renderAccidentalTextHtml(value) {
   return formatAccidentals(value);
 }
 
-function splitRootName(rootName) {
+function splitRootName(rootName: string | null | undefined): SplitRootNameResult {
   const value = String(rootName || '');
   const match = /^([A-G])([b#\u266D\u266F]?)$/.exec(value);
   if (!match) {
@@ -87,7 +110,7 @@ function splitRootName(rootName) {
   };
 }
 
-function normalizeChordSymbolRenderOptions(options = {}) {
+function normalizeChordSymbolRenderOptions(options: ChordSymbolRenderOptions = {}) {
   return {
     useHalfDiminishedSymbol: options.useHalfDiminishedSymbol !== undefined
       ? Boolean(options.useHalfDiminishedSymbol)
@@ -101,23 +124,26 @@ function normalizeChordSymbolRenderOptions(options = {}) {
   };
 }
 
-function createQualityBasePart(text) {
+function createQualityBasePart(text: string): QualityDisplayPart {
   return { type: 'text', text, symbolName: '' };
 }
 
-function createQualitySymbolPart(symbolName) {
+function createQualitySymbolPart(symbolName: string): QualityDisplayPart {
   return { type: 'symbol', text: '', symbolName };
 }
 
-function createQualitySupPart(text) {
+function createQualitySupPart(text: string): QualityDisplayPart {
   return { type: 'text', text, symbolName: '' };
 }
 
-function createQualitySupSymbolPart(symbolName) {
+function createQualitySupSymbolPart(symbolName: string): QualityDisplayPart {
   return { type: 'symbol', text: '', symbolName };
 }
 
-function getDisplayPartsForQuality(quality, options = {}) {
+function getDisplayPartsForQuality(
+  quality: string | null | undefined,
+  options: ChordSymbolRenderOptions = {}
+): QualityDisplayParts {
   const renderOptions = normalizeChordSymbolRenderOptions(options);
 
   if (/^\d+$/.test(String(quality || ''))) {
@@ -197,7 +223,7 @@ function getDisplayPartsForQuality(quality, options = {}) {
   }
 }
 
-function getSegmentCompressionClass(value, type) {
+function getSegmentCompressionClass(value: string | null | undefined, type: 'base' | 'sup') {
   const safeValue = String(value || '');
 
   if (type === 'base') {
@@ -226,7 +252,7 @@ function getSegmentCompressionClass(value, type) {
   return '';
 }
 
-function getSupAnchorCompressionClass(base) {
+function getSupAnchorCompressionClass(base: string | null | undefined) {
   switch (String(base || '')) {
     case 'm':
       return ' chord-symbol-sup-anchor-condensed-m';
@@ -243,7 +269,12 @@ function getSupAnchorCompressionClass(base) {
   }
 }
 
-export function renderChordSymbolHtml(rootName, quality, bassName = null, options = {}) {
+export function renderChordSymbolHtml(
+  rootName: string | null | undefined,
+  quality: string | null | undefined,
+  bassName: string | null = null,
+  options: ChordSymbolRenderOptions = {}
+) {
   const { letter, accidental } = splitRootName(rootName);
   const safeRootLetter = escapeHtml(letter);
   const safeRootAccidental = formatAccidentals(accidental);
@@ -288,7 +319,7 @@ export function renderChordSymbolHtml(rootName, quality, bassName = null, option
   ].join('');
 }
 
-function createQualitySupSymbolMarkup(symbolName) {
+function createQualitySupSymbolMarkup(symbolName: string) {
   if (symbolName === 'sixNine') {
     return [
       '<span class="chord-symbol-figure69" aria-hidden="true">',

@@ -1,9 +1,36 @@
-﻿// @ts-nocheck
-export function formatDrillPianoSettingNumber(value) {
+type DrillPianoToolsDom = Record<string, any>;
+
+type DrillPianoSettings = Record<string, any>;
+
+type ApplyDrillPianoFadeSettingsOptions = {
+  nextSettings?: DrillPianoSettings;
+  normalizePianoFadeSettings?: (value: unknown) => DrillPianoSettings;
+  setPianoFadeSettings?: (value: DrillPianoSettings) => void;
+  dom?: DrillPianoToolsDom;
+  version?: string;
+  getPianoMidiSettings?: () => DrillPianoSettings;
+  saveSettings?: () => void;
+  persist?: boolean;
+};
+
+type ApplyDrillPianoMidiSettingsOptions = {
+  nextSettings?: DrillPianoSettings;
+  normalizePianoMidiSettings?: (value: unknown) => DrillPianoSettings;
+  setPianoMidiSettings?: (value: DrillPianoSettings) => void;
+  dom?: DrillPianoToolsDom;
+  version?: string;
+  getPianoFadeSettings?: () => DrillPianoSettings;
+  attachMidiInput?: () => void;
+  saveSettings?: () => void;
+  persist?: boolean;
+  reconnect?: boolean;
+};
+
+export function formatDrillPianoSettingNumber(value: unknown) {
   return String(Math.round(Number(value || 0) * 1000) / 1000);
 }
 
-export function setDrillPianoMidiStatus(dom, message) {
+export function setDrillPianoMidiStatus(dom: DrillPianoToolsDom, message: string) {
   if (dom?.pianoMidiStatus) {
     dom.pianoMidiStatus.textContent = message;
   }
@@ -12,6 +39,9 @@ export function setDrillPianoMidiStatus(dom, message) {
 export function syncDrillPianoFadeControlsFromState({
   dom,
   pianoFadeSettings
+}: {
+  dom?: DrillPianoToolsDom;
+  pianoFadeSettings?: DrillPianoSettings;
 } = {}) {
   if (dom?.pianoTimeConstantLow) {
     dom.pianoTimeConstantLow.value = formatDrillPianoSettingNumber(pianoFadeSettings?.timeConstantLow);
@@ -25,6 +55,10 @@ export function createDrillPianoSettingsPresetObject({
   version,
   pianoFadeSettings,
   pianoMidiSettings
+}: {
+  version?: string;
+  pianoFadeSettings?: DrillPianoSettings;
+  pianoMidiSettings?: DrillPianoSettings;
 } = {}) {
   return {
     version,
@@ -38,6 +72,11 @@ export function refreshDrillPianoSettingsJson({
   version,
   pianoFadeSettings,
   pianoMidiSettings
+}: {
+  dom?: DrillPianoToolsDom;
+  version?: string;
+  pianoFadeSettings?: DrillPianoSettings;
+  pianoMidiSettings?: DrillPianoSettings;
 } = {}) {
   if (!dom?.pianoSettingsJson) return;
   dom.pianoSettingsJson.value = JSON.stringify(
@@ -54,6 +93,9 @@ export function refreshDrillPianoSettingsJson({
 export function syncDrillPianoMidiControlsFromState({
   dom,
   pianoMidiSettings
+}: {
+  dom?: DrillPianoToolsDom;
+  pianoMidiSettings?: DrillPianoSettings;
 } = {}) {
   if (dom?.pianoMidiEnabled) {
     dom.pianoMidiEnabled.checked = Boolean(pianoMidiSettings?.enabled);
@@ -71,6 +113,11 @@ export function syncDrillPianoToolsUi({
   version,
   pianoFadeSettings,
   pianoMidiSettings
+}: {
+  dom?: DrillPianoToolsDom;
+  version?: string;
+  pianoFadeSettings?: DrillPianoSettings;
+  pianoMidiSettings?: DrillPianoSettings;
 } = {}) {
   syncDrillPianoFadeControlsFromState({
     dom,
@@ -91,6 +138,9 @@ export function syncDrillPianoToolsUi({
 export function readDrillPianoFadeSettingsFromControls({
   dom,
   normalizePianoFadeSettings
+}: {
+  dom?: DrillPianoToolsDom;
+  normalizePianoFadeSettings?: (value: unknown) => DrillPianoSettings;
 } = {}) {
   return normalizePianoFadeSettings?.({
     timeConstantLow: dom?.pianoTimeConstantLow?.value,
@@ -107,7 +157,7 @@ export function applyDrillPianoFadeSettings({
   getPianoMidiSettings,
   saveSettings,
   persist = true
-} = {}) {
+}: ApplyDrillPianoFadeSettingsOptions = {}) {
   const normalized = normalizePianoFadeSettings?.(nextSettings);
   setPianoFadeSettings?.(normalized);
   syncDrillPianoFadeControlsFromState({
@@ -136,7 +186,7 @@ export function applyDrillPianoMidiSettings({
   saveSettings,
   persist = true,
   reconnect = true
-} = {}) {
+}: ApplyDrillPianoMidiSettingsOptions = {}) {
   const normalized = normalizePianoMidiSettings?.(nextSettings);
   setPianoMidiSettings?.(normalized);
   syncDrillPianoMidiControlsFromState({
@@ -168,6 +218,17 @@ export function applyDrillPianoPresetFromJsonText({
   version,
   attachMidiInput,
   saveSettings
+}: {
+  jsonText?: string;
+  normalizePianoFadeSettings?: (value: unknown) => DrillPianoSettings;
+  normalizePianoMidiSettings?: (value: unknown) => DrillPianoSettings;
+  getCurrentPianoMidiSettings?: () => DrillPianoSettings;
+  setPianoFadeSettings?: (value: DrillPianoSettings) => void;
+  setPianoMidiSettings?: (value: DrillPianoSettings) => void;
+  dom?: DrillPianoToolsDom;
+  version?: string;
+  attachMidiInput?: () => void;
+  saveSettings?: () => void;
 } = {}) {
   const parsed = JSON.parse(jsonText);
   const fadeSettings = normalizePianoFadeSettings?.(parsed.fadeSettings || parsed);
@@ -197,6 +258,17 @@ export function createDrillPianoToolsAppFacade({
   normalizePianoMidiSettings,
   attachMidiInput,
   saveSettings
+}: {
+  dom?: DrillPianoToolsDom;
+  version?: string;
+  getPianoFadeSettings?: () => DrillPianoSettings;
+  setPianoFadeSettings?: (value: DrillPianoSettings) => void;
+  normalizePianoFadeSettings?: (value: unknown) => DrillPianoSettings;
+  getPianoMidiSettings?: () => DrillPianoSettings;
+  setPianoMidiSettings?: (value: DrillPianoSettings) => void;
+  normalizePianoMidiSettings?: (value: unknown) => DrillPianoSettings;
+  attachMidiInput?: () => void;
+  saveSettings?: () => void;
 } = {}) {
   function setPianoMidiStatus(message) {
     setDrillPianoMidiStatus(dom, message);
@@ -227,7 +299,7 @@ export function createDrillPianoToolsAppFacade({
     });
   }
 
-  function applyPianoFadeSettings(nextSettings, { persist = true } = {}) {
+  function applyPianoFadeSettings(nextSettings: DrillPianoSettings, { persist = true } = {}) {
     applyDrillPianoFadeSettings({
       nextSettings,
       normalizePianoFadeSettings,
@@ -240,7 +312,7 @@ export function createDrillPianoToolsAppFacade({
     });
   }
 
-  function applyPianoMidiSettings(nextSettings, { persist = true, reconnect = true } = {}) {
+  function applyPianoMidiSettings(nextSettings: DrillPianoSettings, { persist = true, reconnect = true } = {}) {
     applyDrillPianoMidiSettings({
       nextSettings,
       normalizePianoMidiSettings,
@@ -255,7 +327,7 @@ export function createDrillPianoToolsAppFacade({
     });
   }
 
-  function applyPianoPresetFromJsonText(jsonText) {
+  function applyPianoPresetFromJsonText(jsonText: string) {
     applyDrillPianoPresetFromJsonText({
       jsonText,
       normalizePianoFadeSettings,
@@ -285,12 +357,24 @@ export function initializeDrillPianoControls({
   dom,
   readPianoFadeSettingsFromControls,
   refreshPianoSettingsJson,
+  setPianoFadeSettings,
   applyPianoFadeSettings,
   refreshMidiInputs,
   stopAllMidiPianoVoices,
   applyPianoMidiSettings,
   getPianoMidiSettings,
   ensureMidiPianoRangePreload
+}: {
+  dom?: DrillPianoToolsDom;
+  readPianoFadeSettingsFromControls?: () => DrillPianoSettings;
+  refreshPianoSettingsJson?: () => void;
+  setPianoFadeSettings?: (value: DrillPianoSettings) => void;
+  applyPianoFadeSettings?: (value: DrillPianoSettings) => void;
+  refreshMidiInputs?: () => Promise<void> | void;
+  stopAllMidiPianoVoices?: (immediate?: boolean) => void;
+  applyPianoMidiSettings?: (value: DrillPianoSettings, options?: { reconnect?: boolean }) => void;
+  getPianoMidiSettings?: () => DrillPianoSettings;
+  ensureMidiPianoRangePreload?: () => void;
 } = {}) {
   [
     dom?.pianoTimeConstantLow,

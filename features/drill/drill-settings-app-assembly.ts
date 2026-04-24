@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 
 import {
   createDefaultDrillAppSettingsFactory,
@@ -7,6 +6,25 @@ import {
   createDrillPlaybackSettingsResetter,
   createDrillSettingsSnapshotBuilder
 } from './drill-settings.js';
+
+type DrillSettingsAssemblySection = {
+  constants?: Record<string, unknown>;
+  dom?: Record<string, unknown>;
+  state?: Record<string, unknown>;
+  helpers?: Record<string, unknown>;
+};
+
+type CreateDrillSettingsAppAssemblyOptions = {
+  defaults?: Record<string, unknown>;
+  snapshot?: DrillSettingsAssemblySection;
+  loadApplier?: DrillSettingsAssemblySection;
+  loadFinalizer?: DrillSettingsAssemblySection;
+  resetter?: {
+    dom?: Record<string, unknown>;
+    state?: Record<string, unknown>;
+    helpers?: Record<string, unknown>;
+  };
+};
 
 /**
  * Creates the app-level settings helpers used by the drill screen from grouped
@@ -55,7 +73,7 @@ export function createDrillSettingsAppAssembly({
   loadApplier = {},
   loadFinalizer = {},
   resetter = {}
-} = {}) {
+}: CreateDrillSettingsAppAssemblyOptions = {}) {
   const createDefaultAppSettings = createDefaultDrillAppSettingsFactory(defaults);
 
   return {

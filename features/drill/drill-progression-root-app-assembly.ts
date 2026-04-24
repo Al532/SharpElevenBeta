@@ -1,16 +1,52 @@
-﻿// @ts-nocheck
 
 import { bindProgressionControls } from '../progression/progression-bindings.js';
 import { createProgressionEditor } from '../progression/progression-editor.js';
 import { createProgressionManager } from '../progression/progression-manager.js';
 
-function getStatePropertyName(name) {
+type LiveStateBindings = Record<string, ((value?: unknown) => unknown) | unknown>;
+
+type DrillProgressionEntry = {
+  name?: string;
+  mode?: string;
+  pattern?: string;
+};
+
+type DrillProgressionRootAppAssemblyOptions = {
+  dom?: Record<string, unknown>;
+  editorState?: LiveStateBindings;
+  editorConstants?: Record<string, unknown>;
+  editorHelpers?: Record<string, unknown>;
+  managerState?: LiveStateBindings;
+  managerConstants?: Record<string, unknown>;
+  managerHelpers?: Record<string, unknown>;
+  controlsState?: LiveStateBindings;
+  controlsConstants?: Record<string, unknown>;
+  controlsHelpers?: Record<string, unknown>;
+  domainState?: {
+    getDefaultProgressions?: () => Record<string, DrillProgressionEntry>;
+  };
+  domainConstants?: {
+    defaultPatternMode?: string;
+  };
+  domainHelpers?: {
+    createProgressionEntryBase?: ((...args: unknown[]) => DrillProgressionEntry) | null;
+    normalizeProgressionEntryBase?: ((name: string, entry: unknown, options: Record<string, unknown>) => DrillProgressionEntry) | null;
+    normalizeProgressionsMapBase?: ((source: unknown, defaults: Record<string, DrillProgressionEntry>, normalizeEntry: (name: string, entry: unknown) => DrillProgressionEntry) => Record<string, DrillProgressionEntry>) | null;
+    parseDefaultProgressionsTextBase?: ((source: unknown, options: Record<string, unknown>) => Record<string, DrillProgressionEntry>) | null;
+    isModeToken?: (value: string) => boolean;
+    normalizePatternMode?: (value: unknown) => string;
+    normalizePatternString?: (value: unknown) => string;
+    normalizePresetName?: (value: unknown) => string;
+  };
+};
+
+function getStatePropertyName(name: string) {
   if (!name || name.length <= 3) return '';
   return `${name.charAt(3).toLowerCase()}${name.slice(4)}`;
 }
 
-function createLiveStateProxy(bindings = {}) {
-  const proxy = {};
+function createLiveStateProxy(bindings: LiveStateBindings = {}) {
+  const proxy: Record<string, unknown> = {};
   const propertyNames = new Set();
 
   for (const name of Object.keys(bindings)) {
@@ -19,7 +55,8 @@ function createLiveStateProxy(bindings = {}) {
     }
   }
 
-  for (const propertyName of propertyNames) {
+  for (const propertyNameValue of propertyNames) {
+    const propertyName = String(propertyNameValue);
     if (!propertyName) continue;
     const getterName = `get${propertyName.charAt(0).toUpperCase()}${propertyName.slice(1)}`;
     const setterName = `set${propertyName.charAt(0).toUpperCase()}${propertyName.slice(1)}`;
@@ -71,7 +108,7 @@ export function createDrillProgressionRootAppAssembly({
   domainState = {},
   domainConstants = {},
   domainHelpers = {}
-} = {}) {
+}: DrillProgressionRootAppAssemblyOptions = {}) {
   const {
     getDefaultProgressions = () => ({})
   } = domainState;

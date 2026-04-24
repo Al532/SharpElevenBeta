@@ -1,4 +1,5 @@
-﻿// @ts-nocheck
+type InitializeDrillScreenOptions = Record<string, any>;
+
 export async function initializeDrillScreen({
   initializeSocialShareLinks,
   loadDefaultProgressions,
@@ -38,7 +39,7 @@ export async function initializeDrillScreen({
   consumePendingPracticeSessionIntoUi,
   setWelcomeOverlayVisible,
   maybeShowWelcomeOverlay
-} = {}) {
+}: InitializeDrillScreenOptions = {}) {
   initializeSocialShareLinks?.();
 
   await Promise.all([

@@ -1,4 +1,23 @@
-﻿// @ts-nocheck
+
+type PatternErrorElement = {
+  classList?: {
+    add: (value: string) => void;
+    remove: (value: string) => void;
+  };
+  textContent?: string | null;
+};
+
+type PatternAnalysisResult = {
+  errorMessage?: string | null;
+};
+
+type ValidateDrillCustomPatternOptions = {
+  isCustomPatternSelected?: () => boolean;
+  getCustomPatternValue?: () => string;
+  normalizePatternString?: (value: string) => string;
+  analyzePattern?: (value: string) => PatternAnalysisResult;
+  patternErrorElement?: PatternErrorElement;
+};
 
 /**
  * @param {object} [options]
@@ -15,7 +34,7 @@ export function validateDrillCustomPattern({
   normalizePatternString = (value) => value,
   analyzePattern = () => ({}),
   patternErrorElement
-} = {}) {
+}: ValidateDrillCustomPatternOptions = {}) {
   if (!isCustomPatternSelected()) {
     patternErrorElement?.classList?.add('hidden');
     return true;
