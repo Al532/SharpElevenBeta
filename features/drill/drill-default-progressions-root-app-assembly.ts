@@ -12,7 +12,40 @@ type CreateDrillDefaultProgressionsRootAppAssemblyOptions = {
   state?: {
     getDefaultProgressions?: () => Record<string, DrillProgressionEntry>;
   };
-  helpers?: Record<string, any>;
+  helpers?: {
+    createProgressionEntryBase?: (
+      pattern: string,
+      normalizePatternMode: (value: unknown) => string,
+      normalizePatternString: (value: unknown) => string,
+      mode: string,
+      name: string,
+      normalizePresetName: (value: unknown) => string
+    ) => DrillProgressionEntry;
+    normalizeProgressionEntryBase?: (
+      name: string,
+      entry: unknown,
+      options: {
+        createEntry: (pattern: string, mode?: string, name?: string) => DrillProgressionEntry;
+        defaultMode: string;
+      }
+    ) => DrillProgressionEntry;
+    normalizeProgressionsMapBase?: (
+      source: unknown,
+      defaults: Record<string, DrillProgressionEntry>,
+      normalizeEntry: (name: string, entry: unknown) => DrillProgressionEntry
+    ) => Record<string, DrillProgressionEntry>;
+    parseDefaultProgressionsTextBase?: (
+      source: unknown,
+      options: {
+        createEntry: (pattern: string, mode?: string, name?: string) => DrillProgressionEntry;
+        isModeToken: (value: string) => boolean;
+      }
+    ) => unknown;
+    isModeToken?: (value: string) => boolean;
+    normalizePatternMode?: (value: unknown) => string;
+    normalizePatternString?: (value: unknown) => string;
+    normalizePresetName?: (value: unknown) => string;
+  };
 };
 
 /**
@@ -21,9 +54,9 @@ type CreateDrillDefaultProgressionsRootAppAssemblyOptions = {
  * preserving the same default-progressions behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.state]
- * @param {Record<string, Function>} [options.helpers]
+ * @param {object} [options.constants]
+ * @param {object} [options.state]
+ * @param {object} [options.helpers]
  */
 export function createDrillDefaultProgressionsRootAppAssembly({
   constants = {},
@@ -42,9 +75,9 @@ export function createDrillDefaultProgressionsRootAppAssembly({
     normalizeProgressionsMapBase,
     parseDefaultProgressionsTextBase,
     isModeToken = () => false,
-    normalizePatternMode = (value) => value,
-    normalizePatternString = (value) => value,
-    normalizePresetName = (value) => value
+    normalizePatternMode = (value) => String(value ?? defaultPatternMode),
+    normalizePatternString = (value) => String(value ?? ''),
+    normalizePresetName = (value) => String(value ?? '')
   } = helpers;
 
   function createProgressionEntry(pattern: string, mode = defaultPatternMode, name = '') {

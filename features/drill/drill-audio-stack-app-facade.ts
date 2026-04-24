@@ -14,11 +14,11 @@ type DrillAudioStackAppFacadeOptions = {
  *
  * @param {object} [options]
  * @param {{
- *   audioRuntime?: Record<string, any>,
- *   samplePreload?: Record<string, any>,
- *   scheduledAudio?: Record<string, any>,
- *   audioPlayback?: Record<string, any>,
- *   samplePlayback?: Record<string, any>
+ *   audioRuntime?: Record<string, unknown>,
+ *   samplePreload?: Record<string, unknown>,
+ *   scheduledAudio?: Record<string, unknown>,
+ *   audioPlayback?: Record<string, unknown>,
+ *   samplePlayback?: Record<string, unknown>
  * }} [options.audioStack]
  * @param {() => number} [options.getCurrentTime]
  * @param {number} [options.defaultFadeDuration]

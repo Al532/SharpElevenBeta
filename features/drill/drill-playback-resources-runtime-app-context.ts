@@ -1,10 +1,6 @@
-type DrillPlaybackResourcesRuntimeAppContextOptions = {
-  harmony?: Record<string, any>;
-  progressionState?: Record<string, any>;
-  playbackSettings?: Record<string, any>;
-  runtime?: Record<string, any>;
-  audioFacade?: Record<string, any>;
-};
+import type { DrillPlaybackResourcesAppContextShape } from './drill-playback-resources-types.js';
+
+type DrillPlaybackResourcesRuntimeAppContextOptions = Partial<DrillPlaybackResourcesAppContextShape>;
 
 export function createDrillPlaybackResourcesRuntimeAppContext({
   harmony = {},
@@ -12,7 +8,7 @@ export function createDrillPlaybackResourcesRuntimeAppContext({
   playbackSettings = {},
   runtime = {},
   audioFacade = {}
-}: DrillPlaybackResourcesRuntimeAppContextOptions = {}) {
+}: DrillPlaybackResourcesRuntimeAppContextOptions = {}): DrillPlaybackResourcesAppContextShape {
   return {
     harmony,
     progressionState,

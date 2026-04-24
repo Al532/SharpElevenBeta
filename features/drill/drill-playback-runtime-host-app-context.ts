@@ -1,36 +1,36 @@
 type DrillPlaybackRuntimeHostAppContextOptions = {
-  dom?: Record<string, any>;
-  runtimeState?: Record<string, any>;
-  audioState?: Record<string, any>;
-  preloadState?: Record<string, any>;
-  playbackConstants?: Record<string, any>;
-  runtimeHelpers?: Record<string, any>;
+  dom?: Record<string, unknown>;
+  runtimeState?: Record<string, unknown>;
+  audioState?: Record<string, unknown>;
+  preloadState?: Record<string, unknown>;
+  playbackConstants?: Record<string, unknown>;
+  runtimeHelpers?: Record<string, unknown>;
 };
 
-function cloneOptions(options: Record<string, any> = {}) {
+function cloneOptions<T extends Record<string, unknown>>(options: T): T {
   return { ...options };
 }
 
 export function createDrillPlaybackRuntimeHostAudioAppContext(
-  options: Record<string, any> = {}
+  options: Record<string, unknown> = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillPlaybackRuntimeHostConstantsAppContext(
-  options: Record<string, any> = {}
+  options: Record<string, unknown> = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillPlaybackRuntimeHostHelpersAppContext(
-  options: Record<string, any> = {}
+  options: Record<string, unknown> = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillPlaybackRuntimeHostPreloadAppContext(
-  options: Record<string, any> = {}
+  options: Record<string, unknown> = {}
 ) {
   return cloneOptions(options);
 }

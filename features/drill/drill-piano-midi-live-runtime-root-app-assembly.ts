@@ -6,15 +6,85 @@ type DrillMidiVoice = {
   volume: number;
 };
 
+type DrillPianoMidiSettings = {
+  enabled?: boolean;
+  sustainPedalEnabled?: boolean;
+};
+
+type DrillPianoFadeSettings = {
+  timeConstantLow?: number;
+  timeConstantHigh?: number;
+};
+
+type DrillPianoRhythmConfig = {
+  pianoSampleLayerThresholds?: {
+    p?: number;
+    mf?: number;
+    f?: number;
+  };
+  pianoSampleLayerSmoothing?: {
+    boundaryWindow?: number;
+    pToMfLiftDb?: number;
+    mfFromPLiftDb?: number;
+    mfToFLiftDb?: number;
+    fFromMfLiftDb?: number;
+  };
+  pianoSampleLayerGainDb?: Record<string, number>;
+  pianoMidiVelocity?: {
+    curvePower?: number;
+    minVolume?: number;
+    maxVolume?: number;
+    attackMin?: number;
+    attackMax?: number;
+  };
+};
+
+type DrillPianoMidiLiveRuntimeState = {
+  getAudioContext?: () => BaseAudioContext | null;
+  getPianoMidiSettings?: () => DrillPianoMidiSettings;
+  getPianoFadeSettings?: () => DrillPianoFadeSettings;
+  getMidiPianoRangePreloadPromise?: () => Promise<unknown> | null;
+  setMidiPianoRangePreloadPromise?: (value: Promise<unknown> | null) => void;
+  getMidiSustainPedalDown?: () => boolean;
+  setMidiSustainPedalDown?: (value: boolean) => void;
+};
+
+type DrillPianoMidiLiveRuntimeHelpers = {
+  clamp01?: (value: number) => number;
+  clampRange?: (value: unknown, min: number, max: number, fallback: number) => number;
+  getPianoFadeProfile?: (
+    midi: number,
+    volume: number,
+    maxDuration: number,
+    settings?: DrillPianoFadeSettings
+  ) => { timeConstant: number };
+  bassMidiToNoteName?: (midi: number) => string;
+  initAudio?: () => void;
+  resumeAudioContext?: () => Promise<unknown>;
+  loadPianoSample?: (layer: string, midi: number) => Promise<void>;
+  loadPianoSampleList?: (midiValues: Set<number>) => Promise<unknown>;
+  getSampleBuffer?: (sampleKey: string) => AudioBuffer | null;
+  getMixerDestination?: (channel: string) => AudioNode | null;
+  trackScheduledSource?: (source: AudioBufferSourceNode, nodes?: AudioNode[]) => void;
+  setPianoMidiStatus?: (message: string) => void;
+};
+
+type DrillPianoMidiLiveRuntimeConstants = {
+  pianoRhythmConfig?: DrillPianoRhythmConfig;
+  pianoSampleLow?: number;
+  pianoSampleHigh?: number;
+  pianoVolumeMultiplier?: number;
+};
+
 type DrillPianoMidiLiveRuntimeRootAppAssemblyOptions = {
-  runtimeState?: Record<string, any>;
+  runtimeState?: DrillPianoMidiLiveRuntimeState;
   collections?: {
     pendingMidiNoteTokens?: Map<number, number>;
     activeMidiPianoVoices?: Map<number, DrillMidiVoice>;
     sustainedMidiNotes?: Set<number>;
   };
-  runtimeHelpers?: Record<string, any>;
-  constants?: Record<string, any>;
+  runtimeHelpers?: DrillPianoMidiLiveRuntimeHelpers;
+  constants?: DrillPianoMidiLiveRuntimeConstants;
 };
 
 /**
@@ -23,10 +93,10 @@ type DrillPianoMidiLiveRuntimeRootAppAssemblyOptions = {
  * `app.js` while preserving the existing runtime side effects.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.runtimeState]
- * @param {Record<string, any>} [options.collections]
- * @param {Record<string, any>} [options.runtimeHelpers]
- * @param {Record<string, any>} [options.constants]
+ * @param {object} [options.runtimeState]
+ * @param {object} [options.collections]
+ * @param {object} [options.runtimeHelpers]
+ * @param {object} [options.constants]
  */
 export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
   runtimeState = {},
@@ -36,8 +106,8 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
 }: DrillPianoMidiLiveRuntimeRootAppAssemblyOptions = {}) {
   const {
     getAudioContext = () => null,
-    getPianoMidiSettings = () => ({}),
-    getPianoFadeSettings = () => ({}),
+    getPianoMidiSettings = (): DrillPianoMidiSettings => ({}),
+    getPianoFadeSettings = (): DrillPianoFadeSettings => ({}),
     getMidiPianoRangePreloadPromise = () => null,
     setMidiPianoRangePreloadPromise = () => {},
     getMidiSustainPedalDown = () => false,

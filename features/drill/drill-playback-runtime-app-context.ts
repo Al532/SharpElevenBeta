@@ -1,10 +1,10 @@
 type DrillPlaybackRuntimeAppContextOptions = {
-  dom?: Record<string, any>;
-  runtimeState?: Record<string, any>;
-  audioState?: Record<string, any>;
-  preloadState?: Record<string, any>;
-  playbackConstants?: Record<string, any>;
-  runtimeHelpers?: Record<string, any>;
+  dom?: Record<string, unknown>;
+  runtimeState?: Record<string, unknown>;
+  audioState?: Record<string, unknown>;
+  preloadState?: Record<string, unknown>;
+  playbackConstants?: Record<string, unknown>;
+  runtimeHelpers?: Record<string, unknown>;
 };
 
 export function createDrillPlaybackRuntimeAppContextOptions({

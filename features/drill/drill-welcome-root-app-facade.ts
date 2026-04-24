@@ -1,9 +1,132 @@
+type DrillWelcomeDom = {
+  welcomeOverlay?: HTMLElement | null;
+  reopenWelcome?: HTMLElement | null;
+  startStop?: HTMLElement | null;
+  welcomeApply?: HTMLElement | null;
+  welcomeStandardSelect?: HTMLSelectElement | null;
+  welcomeGoalPanels?: NodeListOf<HTMLElement> | null;
+  welcomeSummary?: HTMLElement | null;
+  welcomeShowNextTime?: HTMLInputElement | null;
+  patternName?: HTMLInputElement | null;
+  customPattern?: HTMLInputElement | null;
+  patternSelect?: HTMLSelectElement | null;
+  majorMinor?: HTMLInputElement | null;
+  transpositionSelect?: HTMLSelectElement | null;
+  tempoSlider?: HTMLInputElement | null;
+  tempoValue?: HTMLElement | null;
+  repetitionsPerKey?: HTMLInputElement | HTMLSelectElement | null;
+  chordsPerBar?: HTMLInputElement | HTMLSelectElement | null;
+  compingStyle?: HTMLSelectElement | null;
+  walkingBass?: HTMLInputElement | null;
+  drumsSelect?: HTMLSelectElement | null;
+  displayMode?: HTMLSelectElement | null;
+  showBeatIndicator?: HTMLInputElement | null;
+  hideCurrentHarmony?: HTMLInputElement | null;
+  masterVolume?: HTMLInputElement | null;
+  bassVolume?: HTMLInputElement | null;
+  stringsVolume?: HTMLInputElement | null;
+  drumsVolume?: HTMLInputElement | null;
+};
+
+type DrillWelcomeRecommendation = {
+  summary?: string;
+  goal?: string;
+  presetName?: string;
+  patternName?: string;
+  pattern?: string;
+  patternMode?: string;
+  majorMinor?: boolean;
+  instrument?: string | number;
+  tempo?: string | number;
+  repetitionsPerKey?: unknown;
+  chordsPerBar?: unknown;
+  doubleTime?: boolean;
+  compingStyle?: string;
+  customMediumSwingBass?: boolean;
+  drumsMode?: string;
+  displayMode?: string;
+  showBeatIndicator?: boolean;
+  hideCurrentHarmony?: boolean;
+  masterVolume?: string;
+  bassVolume?: string;
+  stringsVolume?: string;
+  drumsVolume?: string;
+  nextPreviewLeadValue?: unknown;
+  nextPreviewUnit?: unknown;
+  enabledKeys?: boolean[];
+};
+
+type DrillWelcomeState = {
+  getHasCompletedWelcomeOnboarding?: () => boolean;
+  setHasCompletedWelcomeOnboarding?: (value: boolean) => void;
+  getShouldShowWelcomeNextTime?: () => boolean;
+  setShouldShowWelcomeNextTime?: (value: boolean) => void;
+  getWelcomeStandards?: () => Record<string, DrillWelcomeRecommendation>;
+  getProgressions?: () => Record<string, unknown>;
+  setSuppressPatternSelectChange?: (value: boolean) => void;
+  setProgressionSelectionBeforeEditing?: (value: string) => void;
+  setIsCreatingProgression?: (value: boolean) => void;
+  setLastPatternSelectValue?: (value: string) => void;
+  setNextPreviewLeadValue?: (value: unknown) => void;
+  getDefaultEnabledKeys?: () => boolean[];
+};
+
+type DrillWelcomeConstants = {
+  CUSTOM_PATTERN_OPTION_VALUE?: string;
+  DEFAULT_CHORDS_PER_BAR?: number;
+  DRUM_MODE_FULL_SWING?: string;
+  IS_EMBEDDED_DRILL_MODE?: boolean;
+  NEXT_PREVIEW_UNIT_BARS?: string;
+  PATTERN_MODE_BOTH?: string;
+  WELCOME_GOAL_ONE_CHORD?: string;
+  WELCOME_GOAL_PROGRESSION?: string;
+  WELCOME_GOAL_STANDARD?: string;
+  WELCOME_ONE_CHORDS?: Record<string, DrillWelcomeRecommendation>;
+  WELCOME_PROGRESSIONS?: Record<string, DrillWelcomeRecommendation>;
+  WELCOME_STANDARDS_FALLBACK?: Record<string, DrillWelcomeRecommendation>;
+};
+
+type DrillWelcomeHelpers = {
+  createDefaultAppSettings?: (options?: { goal?: string; instrument?: string }) => DrillWelcomeRecommendation & { enabledKeys: boolean[] };
+  normalizeRepetitionsPerKey?: (value: unknown) => number;
+  normalizeChordsPerBar?: (value: unknown) => number;
+  normalizeCompingStyle?: (value: unknown) => string;
+  normalizeDisplayMode?: (value: unknown) => string;
+  clearProgressionEditingState?: () => void;
+  closeProgressionManager?: () => void;
+  setPatternSelectValue?: (value: string) => void;
+  getSelectedProgressionName?: () => string;
+  getSelectedProgressionPattern?: () => string;
+  setEditorPatternMode?: (value: string) => void;
+  getSelectedProgressionMode?: () => string;
+  syncPatternSelectionFromInput?: () => void;
+  syncDoubleTimeToggle?: () => void;
+  applyEnabledKeys?: (value: boolean[]) => void;
+  syncCustomPatternUI?: () => void;
+  normalizeChordsPerBarForCurrentPattern?: () => void;
+  syncProgressionManagerState?: () => void;
+  applyPatternModeAvailability?: () => void;
+  validateCustomPattern?: () => boolean;
+  syncPatternPreview?: () => void;
+  syncNextPreviewControlDisplay?: () => void;
+  applyDisplayMode?: () => void;
+  applyBeatIndicatorVisibility?: () => void;
+  applyCurrentHarmonyVisibility?: () => void;
+  applyMixerSettings?: () => void;
+  updateKeyPickerLabels?: () => void;
+  refreshDisplayedHarmony?: () => void;
+  saveSettings?: () => void;
+  start?: () => void;
+  trackEvent?: (name: string, payload?: Record<string, unknown>) => void;
+  setNextPreviewInputUnit?: (value: unknown) => void;
+  normalizeNextPreviewLeadValue?: (value: unknown) => unknown;
+};
 
 type DrillWelcomeRootAppFacadeOptions = {
-  dom?: Record<string, any>;
-  state?: Record<string, any>;
-  constants?: Record<string, any>;
-  helpers?: Record<string, any>;
+  dom?: DrillWelcomeDom;
+  state?: DrillWelcomeState;
+  constants?: DrillWelcomeConstants;
+  helpers?: DrillWelcomeHelpers;
 };
 
 /**
@@ -12,10 +135,10 @@ type DrillWelcomeRootAppFacadeOptions = {
  * workflow out of `app.js` while preserving the same onboarding behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, Function>} [options.state]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.helpers]
+ * @param {object} [options.dom]
+ * @param {object} [options.state]
+ * @param {object} [options.constants]
+ * @param {object} [options.helpers]
  */
 export function createDrillWelcomeRootAppFacade({
   dom = {},
@@ -55,8 +178,8 @@ export function createDrillWelcomeRootAppFacade({
     createDefaultAppSettings = () => ({ enabledKeys: getDefaultEnabledKeys() }),
     normalizeRepetitionsPerKey = (value) => value,
     normalizeChordsPerBar = (value) => value,
-    normalizeCompingStyle = (value) => value,
-    normalizeDisplayMode = (value) => value,
+    normalizeCompingStyle = (value) => String(value ?? ''),
+    normalizeDisplayMode = (value) => String(value ?? ''),
     clearProgressionEditingState = () => {},
     closeProgressionManager = () => {},
     setPatternSelectValue = () => {},

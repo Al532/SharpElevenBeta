@@ -34,29 +34,29 @@ type CreateDrillSettingsAppAssemblyOptions = {
  * low-level builders and runtime behavior.
  *
  * @param {{
- *   defaults?: Record<string, any>,
+ *   defaults?: Record<string, unknown>,
  *   snapshot?: {
- *     constants?: Record<string, any>,
- *     dom?: Record<string, any>,
- *     state?: Record<string, any>,
- *     helpers?: Record<string, any>
+ *     constants?: Record<string, unknown>,
+ *     dom?: Record<string, unknown>,
+ *     state?: Record<string, unknown>,
+ *     helpers?: Record<string, unknown>
  *   },
  *   loadApplier?: {
- *     constants?: Record<string, any>,
- *     dom?: Record<string, any>,
- *     state?: Record<string, any>,
- *     helpers?: Record<string, any>
+ *     constants?: Record<string, unknown>,
+ *     dom?: Record<string, unknown>,
+ *     state?: Record<string, unknown>,
+ *     helpers?: Record<string, unknown>
  *   },
  *   loadFinalizer?: {
- *     constants?: Record<string, any>,
- *     dom?: Record<string, any>,
- *     state?: Record<string, any>,
- *     helpers?: Record<string, any>
+ *     constants?: Record<string, unknown>,
+ *     dom?: Record<string, unknown>,
+ *     state?: Record<string, unknown>,
+ *     helpers?: Record<string, unknown>
  *   },
  *   resetter?: {
- *     dom?: Record<string, any>,
- *     state?: Record<string, any>,
- *     helpers?: Record<string, any>
+ *     dom?: Record<string, unknown>,
+ *     state?: Record<string, unknown>,
+ *     helpers?: Record<string, unknown>
  *   }
  * }} [options]
  * @returns {{

@@ -21,24 +21,24 @@ type CreateDrillPlaybackEngineAppContextOptions = {
  * the historical runtime still lives in `app.js`.
  *
  * @param {{
- *   dom?: Record<string, any>,
- *   schedulerState?: Record<string, any>,
- *   transportState?: Record<string, any>,
+ *   dom?: Record<string, unknown>,
+ *   schedulerState?: Record<string, unknown>,
+ *   transportState?: Record<string, unknown>,
  *   scheduleAhead?: number,
  *   noteFadeout?: number,
  *   scheduleInterval?: number,
- *   schedulerHelperBindings?: Record<string, any>,
- *   transportHelperBindings?: Record<string, any>
+ *   schedulerHelperBindings?: Record<string, unknown>,
+ *   transportHelperBindings?: Record<string, unknown>
  * }} [options]
  * @returns {{
- *   dom: Record<string, any> | undefined,
- *   schedulerState: Record<string, any> | undefined,
- *   transportState: Record<string, any> | undefined,
+ *   dom: Record<string, unknown> | undefined,
+ *   schedulerState: Record<string, unknown> | undefined,
+ *   transportState: Record<string, unknown> | undefined,
  *   scheduleAhead: number | undefined,
  *   noteFadeout: number | undefined,
  *   scheduleInterval: number | undefined,
- *   schedulerHelpers: Record<string, any>,
- *   transportHelpers: Record<string, any>
+ *   schedulerHelpers: Record<string, unknown>,
+ *   transportHelpers: Record<string, unknown>
  * }}
  */
 export function createDrillPlaybackEngineAppContext({

@@ -27,17 +27,17 @@ type CreateDrillSharedPlaybackRootAppAssemblyOptions = {
  * preserving the same runtime assembly path used by the chart direct backend.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.host]
- * @param {Record<string, any>} [options.patternUi]
- * @param {Record<string, any>} [options.normalization]
- * @param {Record<string, any>} [options.playbackSettings]
- * @param {Record<string, any>} [options.embeddedPlaybackState]
- * @param {Record<string, any>} [options.embeddedPlaybackRuntime]
- * @param {Record<string, any>} [options.embeddedTransportActions]
- * @param {Record<string, any>} [options.directPlaybackRuntime]
- * @param {Record<string, any>} [options.directPlaybackState]
- * @param {Record<string, any>} [options.directTransportActions]
+ * @param {Record<string, unknown>} [options.dom]
+ * @param {Record<string, unknown>} [options.host]
+ * @param {Record<string, unknown>} [options.patternUi]
+ * @param {Record<string, unknown>} [options.normalization]
+ * @param {Record<string, unknown>} [options.playbackSettings]
+ * @param {Record<string, unknown>} [options.embeddedPlaybackState]
+ * @param {Record<string, unknown>} [options.embeddedPlaybackRuntime]
+ * @param {Record<string, unknown>} [options.embeddedTransportActions]
+ * @param {Record<string, unknown>} [options.directPlaybackRuntime]
+ * @param {Record<string, unknown>} [options.directPlaybackState]
+ * @param {Record<string, unknown>} [options.directTransportActions]
  * @param {boolean} [options.publishDirectGlobals]
  */
 export function createDrillSharedPlaybackRootAppAssembly({

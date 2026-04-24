@@ -1,11 +1,18 @@
 
+type DrillPlaybackSettingsDom = {
+  compingStyle?: { value?: unknown } | null;
+  stringsVolume?: { value?: unknown } | null;
+  walkingBass?: { checked?: unknown } | null;
+  drumsSelect?: { value?: unknown } | null;
+};
+
 type DrillPlaybackSettingsRuntimeOptions = {
-  dom?: Record<string, any>;
+  dom?: DrillPlaybackSettingsDom;
   mixer?: {
     getMixerNodes?: () => Record<string, unknown> | null;
     getAudioContext?: () => BaseAudioContext | null;
     applyAudioMixerSettings?: (options: {
-      dom: Record<string, any>;
+      dom: Record<string, unknown>;
       mixerNodes: Record<string, unknown> | null;
       audioCtx: BaseAudioContext | null;
       sliderValueToGain: (slider: { value?: unknown } | null | undefined) => number;
@@ -30,20 +37,20 @@ type DrillPlaybackSettingsRuntimeOptions = {
  * mixer state, so `app.js` does not need to own them inline.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
+ * @param {object} [options.dom]
  * @param {object} [options.mixer]
- * @param {() => Record<string, any> | null} [options.mixer.getMixerNodes]
+ * @param {() => Record<string, unknown> | null} [options.mixer.getMixerNodes]
  * @param {() => BaseAudioContext | null} [options.mixer.getAudioContext]
  * @param {(options: {
- *   dom: Record<string, any>,
- *   mixerNodes: Record<string, any> | null,
+ *   dom: Record<string, unknown>,
+ *   mixerNodes: Record<string, unknown> | null,
  *   audioCtx: BaseAudioContext | null,
- *   sliderValueToGain: (slider: any) => number,
+ *   sliderValueToGain: (slider: { value?: unknown } | null | undefined) => number,
  *   mixerChannelCalibration: Record<string, number>
- * }) => any} [options.mixer.applyAudioMixerSettings]
- * @param {Record<string, any>} [options.helpers]
- * @param {(style: any) => string} [options.helpers.normalizeCompingStyle]
- * @param {Record<string, any>} [options.constants]
+ * }) => unknown} [options.mixer.applyAudioMixerSettings]
+ * @param {object} [options.helpers]
+ * @param {(style: unknown) => string} [options.helpers.normalizeCompingStyle]
+ * @param {object} [options.constants]
  * @param {string} [options.constants.compingStyleOff]
  * @param {Record<string, number>} [options.constants.mixerChannelCalibration]
  * @param {string} [options.constants.drumModeOff]

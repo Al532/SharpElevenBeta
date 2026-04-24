@@ -11,12 +11,12 @@ import { createDrillPlaybackSettingsRuntime } from './drill-playback-settings-ru
  * `app.js` while preserving the same helper surfaces for the rest of the app.
  *
  * @param {{
- *   patternAnalysis?: Record<string, any>,
+ *   patternAnalysis?: Record<string, unknown>,
  *   playbackSettings?: {
- *     dom?: Record<string, any>,
- *     mixer?: Record<string, any>,
- *     helpers?: Record<string, any>,
- *     constants?: Record<string, any>
+ *     dom?: Record<string, unknown>,
+ *     mixer?: Record<string, unknown>,
+ *     helpers?: Record<string, unknown>,
+ *     constants?: Record<string, unknown>
  *   }
  * }} [options]
  * @returns {{

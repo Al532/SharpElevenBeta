@@ -26,11 +26,11 @@ type CreateDrillUiEventBindingsRootAppAssemblyOptions = {
  * `app.js` while preserving the same UI event side effects.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.welcomeControls]
- * @param {Record<string, any>} [options.analyticsLink]
- * @param {Record<string, any>} [options.settingsControls]
- * @param {Record<string, any>} [options.pianoPresetControls]
- * @param {Record<string, any>} [options.lifecycleControls]
+ * @param {Record<string, unknown>} [options.welcomeControls]
+ * @param {Record<string, unknown>} [options.analyticsLink]
+ * @param {Record<string, unknown>} [options.settingsControls]
+ * @param {Record<string, unknown>} [options.pianoPresetControls]
+ * @param {Record<string, unknown>} [options.lifecycleControls]
  * @param {EventTarget | { addEventListener?: Function }} [options.lifecycleTarget]
  * @param {Function} [options.trackSessionDuration]
  */

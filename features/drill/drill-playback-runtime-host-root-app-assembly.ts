@@ -16,12 +16,12 @@ import { createDrillPlaybackRuntimeHostStateAppContext } from './drill-playback-
  * while preserving the existing host/app-context layering.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.runtimeState]
- * @param {Record<string, any>} [options.audioState]
- * @param {Record<string, any>} [options.preloadState]
- * @param {Record<string, any>} [options.playbackConstants]
- * @param {Record<string, any>} [options.runtimeHelpers]
+ * @param {Record<string, unknown>} [options.dom]
+ * @param {Record<string, unknown>} [options.runtimeState]
+ * @param {Record<string, unknown>} [options.audioState]
+ * @param {Record<string, unknown>} [options.preloadState]
+ * @param {Record<string, unknown>} [options.playbackConstants]
+ * @param {Record<string, unknown>} [options.runtimeHelpers]
  */
 export function createDrillPlaybackRuntimeHostRootAppAssembly({
   dom = {},

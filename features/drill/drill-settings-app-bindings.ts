@@ -4,17 +4,17 @@
  * Groups the app-level bindings consumed by the drill settings assembly.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.defaults]
- * @param {Record<string, any>} [options.snapshot]
- * @param {Record<string, any>} [options.loadApplier]
- * @param {Record<string, any>} [options.loadFinalizer]
- * @param {Record<string, any>} [options.resetter]
+ * @param {Record<string, unknown>} [options.defaults]
+ * @param {Record<string, unknown>} [options.snapshot]
+ * @param {Record<string, unknown>} [options.loadApplier]
+ * @param {Record<string, unknown>} [options.loadFinalizer]
+ * @param {Record<string, unknown>} [options.resetter]
  * @returns {{
- *   defaults: Record<string, any>,
- *   snapshot: Record<string, any>,
- *   loadApplier: Record<string, any>,
- *   loadFinalizer: Record<string, any>,
- *   resetter: Record<string, any>
+ *   defaults: Record<string, unknown>,
+ *   snapshot: Record<string, unknown>,
+ *   loadApplier: Record<string, unknown>,
+ *   loadFinalizer: Record<string, unknown>,
+ *   resetter: Record<string, unknown>
  * }}
  */
 export function createDrillSettingsAppBindings({

@@ -11,11 +11,11 @@ import { createDrillRuntimePrimitivesAppContextOptions } from './drill-runtime-p
  * out of `app.js` while preserving the existing app-context/bindings layers.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.patternAnalysisConstants]
- * @param {Record<string, any>} [options.playbackSettingsDom]
- * @param {Record<string, any>} [options.playbackSettingsMixer]
- * @param {Record<string, any>} [options.playbackSettingsHelpers]
- * @param {Record<string, any>} [options.playbackSettingsConstants]
+ * @param {Record<string, unknown>} [options.patternAnalysisConstants]
+ * @param {Record<string, unknown>} [options.playbackSettingsDom]
+ * @param {Record<string, unknown>} [options.playbackSettingsMixer]
+ * @param {Record<string, unknown>} [options.playbackSettingsHelpers]
+ * @param {Record<string, unknown>} [options.playbackSettingsConstants]
  */
 export function createDrillRuntimePrimitivesRootAppAssembly({
   patternAnalysisConstants = {},

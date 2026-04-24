@@ -72,7 +72,7 @@ export function createStateRef<T>(get: () => T, set: ((value: T) => void) | unde
  * `app.js` while keeping their logic out of the entry file.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
+ * @param {object} [options.dom]
  * @param {object} [options.runtimeState]
  * @param {object} [options.runtimeConstants]
  * @param {object} [options.runtimeHelpers]

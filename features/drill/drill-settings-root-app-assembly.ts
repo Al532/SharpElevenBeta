@@ -18,19 +18,19 @@ import { createDrillSettingsStateAppContext } from './drill-settings-state-app-c
  * while preserving the existing settings app-context/bindings layers.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.defaults]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.snapshotConstants]
- * @param {Record<string, any>} [options.snapshotState]
- * @param {Record<string, any>} [options.snapshotHelpers]
- * @param {Record<string, any>} [options.loadApplierConstants]
- * @param {Record<string, any>} [options.loadApplierState]
- * @param {Record<string, any>} [options.loadApplierHelpers]
- * @param {Record<string, any>} [options.loadFinalizerConstants]
- * @param {Record<string, any>} [options.loadFinalizerState]
- * @param {Record<string, any>} [options.loadFinalizerHelpers]
- * @param {Record<string, any>} [options.resetterState]
- * @param {Record<string, any>} [options.resetterHelpers]
+ * @param {Record<string, unknown>} [options.defaults]
+ * @param {Record<string, unknown>} [options.dom]
+ * @param {Record<string, unknown>} [options.snapshotConstants]
+ * @param {Record<string, unknown>} [options.snapshotState]
+ * @param {Record<string, unknown>} [options.snapshotHelpers]
+ * @param {Record<string, unknown>} [options.loadApplierConstants]
+ * @param {Record<string, unknown>} [options.loadApplierState]
+ * @param {Record<string, unknown>} [options.loadApplierHelpers]
+ * @param {Record<string, unknown>} [options.loadFinalizerConstants]
+ * @param {Record<string, unknown>} [options.loadFinalizerState]
+ * @param {Record<string, unknown>} [options.loadFinalizerHelpers]
+ * @param {Record<string, unknown>} [options.resetterState]
+ * @param {Record<string, unknown>} [options.resetterHelpers]
  */
 export function createDrillSettingsRootAppAssembly({
   defaults = {},

@@ -1,7 +1,11 @@
+import type {
+  DrillPlaybackResourcesAudioFacade,
+  DrillPlaybackResourcesPreparationFacade
+} from './drill-playback-resources-types.js';
 
 type DrillPlaybackResourcesAppFacadeOptions = {
-  audioFacade?: Record<string, any>;
-  playbackPreparation?: Record<string, any>;
+  audioFacade?: DrillPlaybackResourcesAudioFacade;
+  playbackPreparation?: DrillPlaybackResourcesPreparationFacade;
 };
 
 /**
@@ -10,8 +14,8 @@ type DrillPlaybackResourcesAppFacadeOptions = {
  * thin wrappers.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.audioFacade]
- * @param {Record<string, any>} [options.playbackPreparation]
+ * @param {object} [options.audioFacade]
+ * @param {object} [options.playbackPreparation]
  */
 export function createDrillPlaybackResourcesAppFacade({
   audioFacade = {},

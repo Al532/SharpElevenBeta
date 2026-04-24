@@ -1,57 +1,77 @@
+import type {
+  DrillPlaybackBassPlan,
+  DrillPlaybackCompingPlan,
+  DrillPlaybackResourceChord,
+  DrillPlaybackResourcesCompingEngine,
+  DrillPlaybackResourcesWalkingBassGenerator
+} from './drill-playback-resources-types.js';
 
 type DrillPlaybackPreparationRuntimeOptions = {
-  getPlayedChordQuality?: (chord: any, isMinor: boolean, nextChord?: any | null) => string;
-  getVoicingPlanForProgression?: (chords: any[], key: number, isMinor: boolean) => any[] | null | undefined;
-  getVoicing?: (key: number, chord: any, isMinor: boolean, nextChord?: any | null) => any;
+  getPlayedChordQuality?: (
+    chord: DrillPlaybackResourceChord,
+    isMinor: boolean,
+    nextChord?: DrillPlaybackResourceChord | null
+  ) => string;
+  getVoicingPlanForProgression?: (
+    chords: DrillPlaybackResourceChord[],
+    key: number,
+    isMinor: boolean
+  ) => unknown[] | null | undefined;
+  getVoicing?: (
+    key: number,
+    chord: DrillPlaybackResourceChord,
+    isMinor: boolean,
+    nextChord?: DrillPlaybackResourceChord | null
+  ) => unknown;
   getNextKeyValue?: () => number | null;
-  getNextPaddedChords?: () => any[] | null;
-  getNextVoicingPlan?: () => any[] | null;
-  getNextCompingPlan?: () => unknown;
+  getNextPaddedChords?: () => DrillPlaybackResourceChord[] | null;
+  getNextVoicingPlan?: () => unknown[] | null;
+  getNextCompingPlan?: () => DrillPlaybackCompingPlan;
   getIsMinorMode?: () => boolean;
-  setCurrentCompingPlan?: (value: unknown) => void;
-  setNextCompingPlan?: (value: unknown) => void;
-  getPaddedChords?: () => any[];
+  setCurrentCompingPlan?: (value: DrillPlaybackCompingPlan) => void;
+  setNextCompingPlan?: (value: DrillPlaybackCompingPlan) => void;
+  getPaddedChords?: () => DrillPlaybackResourceChord[];
   getCurrentKey?: () => number;
-  getCurrentVoicingPlan?: () => any[];
+  getCurrentVoicingPlan?: () => unknown[];
   getBeatsPerChord?: () => number;
   getCompingStyle?: () => string;
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
   getSwingRatio?: () => number;
-  getCurrentBassPlan?: () => any[];
-  setCurrentBassPlan?: (value: any[]) => void;
-  getNextPaddedChordsForBass?: () => any[];
+  getCurrentBassPlan?: () => DrillPlaybackBassPlan;
+  setCurrentBassPlan?: (value: DrillPlaybackBassPlan) => void;
+  getNextPaddedChordsForBass?: () => DrillPlaybackResourceChord[];
   getNextKeyForBass?: () => number | null;
-  compingEngine?: { buildPreparedPlans: (options: Record<string, any>) => { currentPlan: unknown; nextPlan: unknown } };
-  walkingBassGenerator?: { buildLine: (options: Record<string, any>) => any[] } | null;
+  compingEngine?: DrillPlaybackResourcesCompingEngine;
+  walkingBassGenerator?: DrillPlaybackResourcesWalkingBassGenerator | null;
 };
 
 /**
  * @param {object} [options]
- * @param {(chord: any, isMinor: boolean, nextChord?: any | null) => string} [options.getPlayedChordQuality]
- * @param {(chords: any[], key: number, isMinor: boolean) => any[] | null | undefined} [options.getVoicingPlanForProgression]
- * @param {(key: number, chord: any, isMinor: boolean, nextChord?: any | null) => any} [options.getVoicing]
+ * @param {(chord: DrillPlaybackResourceChord, isMinor: boolean, nextChord?: DrillPlaybackResourceChord | null) => string} [options.getPlayedChordQuality]
+ * @param {(chords: DrillPlaybackResourceChord[], key: number, isMinor: boolean) => unknown[] | null | undefined} [options.getVoicingPlanForProgression]
+ * @param {(key: number, chord: DrillPlaybackResourceChord, isMinor: boolean, nextChord?: DrillPlaybackResourceChord | null) => unknown} [options.getVoicing]
  * @param {() => number | null} [options.getNextKeyValue]
- * @param {() => any[] | null} [options.getNextPaddedChords]
- * @param {() => any[] | null} [options.getNextVoicingPlan]
- * @param {() => unknown} [options.getNextCompingPlan]
+ * @param {() => DrillPlaybackResourceChord[] | null} [options.getNextPaddedChords]
+ * @param {() => unknown[] | null} [options.getNextVoicingPlan]
+ * @param {() => DrillPlaybackCompingPlan} [options.getNextCompingPlan]
  * @param {() => boolean} [options.getIsMinorMode]
- * @param {(value: unknown) => void} [options.setCurrentCompingPlan]
- * @param {(value: unknown) => void} [options.setNextCompingPlan]
- * @param {() => any[]} [options.getPaddedChords]
+ * @param {(value: DrillPlaybackCompingPlan) => void} [options.setCurrentCompingPlan]
+ * @param {(value: DrillPlaybackCompingPlan) => void} [options.setNextCompingPlan]
+ * @param {() => DrillPlaybackResourceChord[]} [options.getPaddedChords]
  * @param {() => number} [options.getCurrentKey]
- * @param {() => any[]} [options.getCurrentVoicingPlan]
+ * @param {() => unknown[]} [options.getCurrentVoicingPlan]
  * @param {() => number} [options.getBeatsPerChord]
  * @param {() => string} [options.getCompingStyle]
  * @param {() => number} [options.getTempoBpm]
  * @param {() => boolean} [options.isWalkingBassEnabled]
  * @param {() => number} [options.getSwingRatio]
- * @param {() => any[] | null} [options.getCurrentBassPlan]
- * @param {(value: any[]) => void} [options.setCurrentBassPlan]
- * @param {() => any[]} [options.getNextPaddedChordsForBass]
+ * @param {() => DrillPlaybackBassPlan | null} [options.getCurrentBassPlan]
+ * @param {(value: DrillPlaybackBassPlan) => void} [options.setCurrentBassPlan]
+ * @param {() => DrillPlaybackResourceChord[]} [options.getNextPaddedChordsForBass]
  * @param {() => number | null} [options.getNextKeyForBass]
- * @param {any} [options.compingEngine]
- * @param {any} [options.walkingBassGenerator]
+ * @param {DrillPlaybackResourcesCompingEngine} [options.compingEngine]
+ * @param {DrillPlaybackResourcesWalkingBassGenerator | null} [options.walkingBassGenerator]
  */
 export function createDrillPlaybackPreparationRuntime({
   getPlayedChordQuality = () => '',
@@ -79,7 +99,7 @@ export function createDrillPlaybackPreparationRuntime({
   compingEngine,
   walkingBassGenerator = null
 }: DrillPlaybackPreparationRuntimeOptions = {}) {
-  function getNextDifferentChord(chords: any[], startIdx: number) {
+  function getNextDifferentChord(chords: DrillPlaybackResourceChord[], startIdx: number) {
     const chord = chords[startIdx];
     if (!chord) return null;
     const playedMajor = getPlayedChordQuality(chord, false, chords[startIdx + 1] || null);
@@ -100,7 +120,7 @@ export function createDrillPlaybackPreparationRuntime({
     return null;
   }
 
-  function getVoicingAtIndex(chords: any[], key: number, chordIdx: number, isMinor: boolean) {
+  function getVoicingAtIndex(chords: DrillPlaybackResourceChord[], key: number, chordIdx: number, isMinor: boolean) {
     const chord = chords[chordIdx];
     if (!chord) return null;
     const plannedVoicing = getVoicingPlanForProgression(chords, key, isMinor)?.[chordIdx];

@@ -1,6 +1,20 @@
+type DrillNormalizationConstants = {
+  patternModeBoth?: string;
+  patternModeMajor?: string;
+  patternModeMinor?: string;
+  compingStyleOff?: string;
+  compingStyleStrings?: string;
+  compingStylePiano?: string;
+  defaultRepetitionsPerKey?: number;
+  displayModeShowBoth?: string;
+  displayModeChordsOnly?: string;
+  displayModeKeyOnly?: string;
+  harmonyDisplayModeDefault?: string;
+  harmonyDisplayModeRich?: string;
+};
 
 type CreateDrillNormalizationRootAppContextOptions = {
-  constants?: Record<string, any>;
+  constants?: DrillNormalizationConstants;
   helpers?: {
     normalizeChordsPerBarBase?: (value: unknown) => number;
   };
@@ -12,8 +26,8 @@ type CreateDrillNormalizationRootAppContextOptions = {
  * `app.js` while preserving the same normalization behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, Function>} [options.helpers]
+ * @param {object} [options.constants]
+ * @param {object} [options.helpers]
  */
 export function createDrillNormalizationRootAppContext({
   constants = {},

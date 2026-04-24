@@ -16,12 +16,12 @@ type CreateDrillPlaybackRuntimeAppHostAssemblyOptions = {
  * place while the concrete state still lives in `app.js`.
  *
  * @param {{
- *   dom?: Record<string, any>,
- *   state?: Record<string, any>,
- *   audio?: Record<string, any>,
- *   preload?: Record<string, any>,
- *   constants?: Record<string, any>,
- *   helpers?: Record<string, any>
+ *   dom?: Record<string, unknown>,
+ *   state?: Record<string, unknown>,
+ *   audio?: Record<string, unknown>,
+ *   preload?: Record<string, unknown>,
+ *   constants?: Record<string, unknown>,
+ *   helpers?: Record<string, unknown>
  * }} [options]
  * @returns {{
  *   prepareNextProgressionPlayback: (...args: any[]) => any,

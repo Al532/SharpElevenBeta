@@ -359,18 +359,18 @@ function createRuntimeControlsContext({
  * `app.js` while preserving the same one-shot drill UI bootstrap behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.screen]
- * @param {Record<string, any>} [options.screenDom]
- * @param {Record<string, any>} [options.screenState]
- * @param {Record<string, any>} [options.screenConstants]
- * @param {Record<string, any>} [options.screenHelpers]
- * @param {Record<string, any>} [options.harmonyDisplayObservers]
- * @param {Record<string, any>} [options.pianoControls]
- * @param {Record<string, any>} [options.runtimeControls]
- * @param {Record<string, any>} [options.runtimeControlsDom]
- * @param {Record<string, any>} [options.runtimeControlsState]
- * @param {Record<string, any>} [options.runtimeControlsConstants]
- * @param {Record<string, any>} [options.runtimeControlsHelpers]
+ * @param {Record<string, unknown>} [options.screen]
+ * @param {Record<string, unknown>} [options.screenDom]
+ * @param {Record<string, unknown>} [options.screenState]
+ * @param {Record<string, unknown>} [options.screenConstants]
+ * @param {Record<string, unknown>} [options.screenHelpers]
+ * @param {Record<string, unknown>} [options.harmonyDisplayObservers]
+ * @param {Record<string, unknown>} [options.pianoControls]
+ * @param {Record<string, unknown>} [options.runtimeControls]
+ * @param {Record<string, unknown>} [options.runtimeControlsDom]
+ * @param {Record<string, unknown>} [options.runtimeControlsState]
+ * @param {Record<string, unknown>} [options.runtimeControlsConstants]
+ * @param {Record<string, unknown>} [options.runtimeControlsHelpers]
  */
 export function createDrillUiBootstrapRootAppAssembly({
   screen = {},

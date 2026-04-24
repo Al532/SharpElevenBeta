@@ -19,14 +19,14 @@ type CreateDrillPlaybackRuntimeAppAssemblyOptions = {
  * state bindings, helper bindings, and transport constants.
  *
  * @param {{
- *   dom?: Record<string, any>,
- *   schedulerBindings?: Record<string, any>,
- *   transportBindings?: Record<string, any>,
+ *   dom?: Record<string, unknown>,
+ *   schedulerBindings?: Record<string, unknown>,
+ *   transportBindings?: Record<string, unknown>,
  *   scheduleAhead?: number,
  *   noteFadeout?: number,
  *   scheduleInterval?: number,
- *   schedulerHelperBindings?: Record<string, any>,
- *   transportHelperBindings?: Record<string, any>
+ *   schedulerHelperBindings?: Record<string, unknown>,
+ *   transportHelperBindings?: Record<string, unknown>
  * }} [options]
  * @returns {{
  *   prepareNextProgressionPlayback: (...args: any[]) => any,

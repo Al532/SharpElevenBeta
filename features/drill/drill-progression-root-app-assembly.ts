@@ -80,19 +80,19 @@ function createLiveStateProxy(bindings: LiveStateBindings = {}) {
  * while preserving the same progression workflow surface.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.editorState]
- * @param {Record<string, any>} [options.editorConstants]
- * @param {Record<string, any>} [options.editorHelpers]
- * @param {Record<string, any>} [options.managerState]
- * @param {Record<string, any>} [options.managerConstants]
- * @param {Record<string, any>} [options.managerHelpers]
- * @param {Record<string, any>} [options.controlsState]
- * @param {Record<string, any>} [options.controlsConstants]
- * @param {Record<string, any>} [options.controlsHelpers]
- * @param {Record<string, any>} [options.domainState]
- * @param {Record<string, any>} [options.domainConstants]
- * @param {Record<string, any>} [options.domainHelpers]
+ * @param {Record<string, unknown>} [options.dom]
+ * @param {Record<string, unknown>} [options.editorState]
+ * @param {Record<string, unknown>} [options.editorConstants]
+ * @param {Record<string, unknown>} [options.editorHelpers]
+ * @param {Record<string, unknown>} [options.managerState]
+ * @param {Record<string, unknown>} [options.managerConstants]
+ * @param {Record<string, unknown>} [options.managerHelpers]
+ * @param {Record<string, unknown>} [options.controlsState]
+ * @param {Record<string, unknown>} [options.controlsConstants]
+ * @param {Record<string, unknown>} [options.controlsHelpers]
+ * @param {Record<string, unknown>} [options.domainState]
+ * @param {Record<string, unknown>} [options.domainConstants]
+ * @param {Record<string, unknown>} [options.domainHelpers]
  */
 export function createDrillProgressionRootAppAssembly({
   dom = {},

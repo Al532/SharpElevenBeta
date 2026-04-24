@@ -1,9 +1,9 @@
 type DrillRuntimePrimitivesAppContextOptions = {
-  patternAnalysisConstants?: Record<string, any>;
-  playbackSettingsDom?: Record<string, any>;
-  playbackSettingsMixer?: Record<string, any>;
-  playbackSettingsHelpers?: Record<string, any>;
-  playbackSettingsConstants?: Record<string, any>;
+  patternAnalysisConstants?: Record<string, unknown>;
+  playbackSettingsDom?: Record<string, unknown>;
+  playbackSettingsMixer?: Record<string, unknown>;
+  playbackSettingsHelpers?: Record<string, unknown>;
+  playbackSettingsConstants?: Record<string, unknown>;
 };
 
 export function createDrillRuntimePrimitivesAppContextOptions({

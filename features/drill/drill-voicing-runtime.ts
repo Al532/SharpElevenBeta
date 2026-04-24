@@ -1,26 +1,49 @@
+type DrillVoicingChord = {
+  semitones?: number;
+  bassSemitones?: number;
+  modifier?: string;
+  roman?: string;
+  qualityMajor?: string;
+  qualityMinor?: string;
+  [key: string]: unknown;
+};
+
+type DrillVoicingShape = {
+  bassNote: number;
+  guideTones: number[];
+  colorTones: number[];
+};
+
+type DrillVoicingPriorityPayload = {
+  chord: DrillVoicingChord;
+  quality: string;
+  nextChord?: DrillVoicingChord | null;
+  nextQuality?: string;
+  resolutionSemitones?: number | null;
+};
 
 type DrillVoicingRuntimeOptions = {
   qualityCategoryAliases?: Record<string, string[]>;
   dominantDefaultQualityMajor?: Record<string, string>;
   dominantDefaultQualityMinor?: Record<string, string>;
-  colorTones?: Record<string, any>;
-  dominantColorTones?: Record<string, any>;
-  guideTones?: Record<string, any>;
-  dominantGuideTones?: Record<string, any>;
+  colorTones?: Record<string, Array<string | number>>;
+  dominantColorTones?: Record<string, Array<string | number>>;
+  guideTones?: Record<string, Array<string | number>>;
+  dominantGuideTones?: Record<string, Array<string | number>>;
   intervalSemitones?: Record<string, number>;
   violinLow?: number;
   violinHigh?: number;
   celloLow?: number;
   guideToneLow?: number;
   guideToneHigh?: number;
-  applyContextualQualityRules?: (chord: any, quality: string) => string;
-  applyPriorityDominantResolutionRules?: (payload: Record<string, any>) => string;
-  getCurrentPaddedChords?: () => any[] | null;
+  applyContextualQualityRules?: (chord: DrillVoicingChord, quality: string) => string;
+  applyPriorityDominantResolutionRules?: (payload: DrillVoicingPriorityPayload) => string;
+  getCurrentPaddedChords?: () => DrillVoicingChord[] | null;
   getCurrentKey?: () => number | null;
-  getCurrentVoicingPlan?: () => any[] | null;
-  getNextPaddedChords?: () => any[] | null;
+  getCurrentVoicingPlan?: () => DrillVoicingShape[] | null;
+  getNextPaddedChords?: () => DrillVoicingChord[] | null;
   getNextKeyValue?: () => number | null;
-  getNextVoicingPlan?: () => any[] | null;
+  getNextVoicingPlan?: () => DrillVoicingShape[] | null;
 };
 
 /**
@@ -38,20 +61,20 @@ type DrillVoicingRuntimeOptions = {
  * @param {number} [options.celloLow]
  * @param {number} [options.guideToneLow]
  * @param {number} [options.guideToneHigh]
- * @param {(chord: any, quality: string) => string} [options.applyContextualQualityRules]
+ * @param {(chord: DrillVoicingChord, quality: string) => string} [options.applyContextualQualityRules]
  * @param {(payload: {
- *   chord: any,
+ *   chord: DrillVoicingChord,
  *   quality: string,
- *   nextChord?: any | null,
+ *   nextChord?: DrillVoicingChord | null,
  *   nextQuality?: string,
  *   resolutionSemitones?: number | null
  * }) => string} [options.applyPriorityDominantResolutionRules]
- * @param {() => any[] | null} [options.getCurrentPaddedChords]
+ * @param {() => DrillVoicingChord[] | null} [options.getCurrentPaddedChords]
  * @param {() => number | null} [options.getCurrentKey]
- * @param {() => any[] | null} [options.getCurrentVoicingPlan]
- * @param {() => any[] | null} [options.getNextPaddedChords]
+ * @param {() => DrillVoicingShape[] | null} [options.getCurrentVoicingPlan]
+ * @param {() => DrillVoicingChord[] | null} [options.getNextPaddedChords]
  * @param {() => number | null} [options.getNextKeyValue]
- * @param {() => any[] | null} [options.getNextVoicingPlan]
+ * @param {() => DrillVoicingShape[] | null} [options.getNextVoicingPlan]
  */
 export function createDrillVoicingRuntime({
   qualityCategoryAliases = {},
@@ -95,19 +118,19 @@ export function createDrillVoicingRuntime({
     return null;
   }
 
-  function resolveDominantQuality(chord, quality, isMinor) {
+  function resolveDominantQuality(chord: DrillVoicingChord, quality: string, isMinor: boolean) {
     if (quality !== '7') return quality;
     const defaults = isMinor ? dominantDefaultQualityMinor : dominantDefaultQualityMajor;
     if (chord.modifier) return '13';
     return defaults[chord.roman] || '13';
   }
 
-  function getCanonicalChordQuality(chord, isMinor) {
+  function getCanonicalChordQuality(chord: DrillVoicingChord | null | undefined, isMinor: boolean) {
     if (!chord) return '';
     return isMinor ? chord.qualityMinor : chord.qualityMajor;
   }
 
-  function getPlayedChordQuality(chord, isMinor, nextChord = null) {
+  function getPlayedChordQuality(chord: DrillVoicingChord, isMinor: boolean, nextChord: DrillVoicingChord | null = null) {
     const canonicalQuality = getCanonicalChordQuality(chord, isMinor);
     if (!canonicalQuality) return '';
     const contextualQuality = applyContextualQualityRules(chord, canonicalQuality);

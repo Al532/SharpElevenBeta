@@ -5,19 +5,19 @@
  * runtime host assembly.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.dom]
- * @param {Record<string, any>} [options.state]
- * @param {Record<string, any>} [options.audio]
- * @param {Record<string, any>} [options.preload]
- * @param {Record<string, any>} [options.constants]
- * @param {Record<string, any>} [options.helpers]
+ * @param {Record<string, unknown>} [options.dom]
+ * @param {Record<string, unknown>} [options.state]
+ * @param {Record<string, unknown>} [options.audio]
+ * @param {Record<string, unknown>} [options.preload]
+ * @param {Record<string, unknown>} [options.constants]
+ * @param {Record<string, unknown>} [options.helpers]
  * @returns {{
- *   dom: Record<string, any>,
- *   state: Record<string, any>,
- *   audio: Record<string, any>,
- *   preload: Record<string, any>,
- *   constants: Record<string, any>,
- *   helpers: Record<string, any>
+ *   dom: Record<string, unknown>,
+ *   state: Record<string, unknown>,
+ *   audio: Record<string, unknown>,
+ *   preload: Record<string, unknown>,
+ *   constants: Record<string, unknown>,
+ *   helpers: Record<string, unknown>
  * }}
  */
 export function createDrillPlaybackRuntimeHostAppBindings({

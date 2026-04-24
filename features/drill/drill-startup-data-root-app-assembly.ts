@@ -33,9 +33,32 @@ type StartupDataAssemblyOptions = {
     setDefaultProgressions?: (value: Record<string, unknown>) => void,
     setProgressions?: (value: Record<string, unknown>) => void
   },
-  welcomeStandards?: Record<string, any>,
-  patternHelp?: Record<string, any>,
-  defaultProgressions?: Record<string, any>
+  welcomeStandards?: {
+    noteLetterToSemitone?: Record<string, number>,
+    patternModeMinor?: string,
+    compingStylePiano?: string,
+    normalizePatternMode?: (value: unknown) => string,
+    select?: HTMLSelectElement | null,
+    getWelcomeStandards?: () => Record<string, WelcomeStandardEntry>,
+    fetchImpl?: typeof globalThis.fetch,
+    url?: string,
+    version?: string,
+    welcomeStandardsFallback?: Record<string, WelcomeStandardEntry>
+  },
+  patternHelp?: {
+    loadDrillPatternHelp?: (options: { dom?: unknown, url?: string, version?: string }) => Promise<void>,
+    dom?: unknown,
+    url?: string,
+    version?: string
+  },
+  defaultProgressions?: {
+    fetchImpl?: typeof globalThis.fetch,
+    url?: string,
+    appVersion?: string,
+    parseDefaultProgressionsText?: (value: unknown) => { version?: string, progressions: Record<string, unknown> },
+    normalizeProgressionsMap?: (value: unknown) => Record<string, unknown>,
+    getDefaultProgressions?: () => Record<string, unknown>
+  }
 };
 
 export function createDrillStartupDataRootAppAssembly({
@@ -56,7 +79,7 @@ export function createDrillStartupDataRootAppAssembly({
       noteLetterToSemitone = {},
       patternModeMinor = 'minor',
       compingStylePiano = 'piano',
-      normalizePatternMode = (value) => value
+      normalizePatternMode = (value) => String(value ?? '')
     } = welcomeStandards;
 
     function slugifyWelcomeStandardName(name) {
@@ -251,7 +274,11 @@ export function createDrillStartupDataRootAppAssembly({
       url = '',
       appVersion = '',
       parseDefaultProgressionsText = () => ({ version: '1', progressions: {} }),
-      normalizeProgressionsMap = (value) => value
+      normalizeProgressionsMap = (value): Record<string, unknown> => (
+        value && typeof value === 'object'
+          ? (value as Record<string, unknown>)
+          : {}
+      )
     } = defaultProgressions;
 
     try {

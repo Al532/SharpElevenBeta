@@ -1,9 +1,9 @@
 type DrillRuntimeStateAppContextOptions = {
-  keyPoolState?: Record<string, any>;
-  sessionAnalyticsDom?: Record<string, any>;
-  sessionAnalyticsState?: Record<string, any>;
-  sessionAnalyticsHelpers?: Record<string, any>;
-  sessionAnalyticsConstants?: Record<string, any>;
+  keyPoolState?: Record<string, unknown>;
+  sessionAnalyticsDom?: Record<string, unknown>;
+  sessionAnalyticsState?: Record<string, unknown>;
+  sessionAnalyticsHelpers?: Record<string, unknown>;
+  sessionAnalyticsConstants?: Record<string, unknown>;
   sessionAnalyticsNow?: (() => number) | undefined;
 };
 

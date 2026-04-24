@@ -1,28 +1,39 @@
-type DrillPlaybackResourcesAppContextOptions = {
-  harmony?: Record<string, any>;
-  progressionState?: Record<string, any>;
-  playbackSettings?: Record<string, any>;
-  runtime?: Record<string, any>;
-  audioFacade?: Record<string, any>;
-};
+import type {
+  DrillPlaybackResourcesAppContextShape,
+  DrillPlaybackResourcesAudioFacade,
+  DrillPlaybackResourcesHarmonyBindings,
+  DrillPlaybackResourcesProgressionStateBindings,
+  DrillPlaybackResourcesRuntimeBindings,
+  DrillPlaybackResourcesSettingsBindings
+} from './drill-playback-resources-types.js';
 
-function cloneOptions(options: Record<string, any> = {}) {
+type DrillPlaybackResourcesAppContextOptions = Partial<DrillPlaybackResourcesAppContextShape>;
+
+function cloneOptions<T extends Record<string, unknown>>(options: T): T {
   return { ...options };
 }
 
-export function createDrillPlaybackResourcesHarmonyAppContext(options: Record<string, any> = {}) {
+export function createDrillPlaybackResourcesHarmonyAppContext(
+  options: DrillPlaybackResourcesHarmonyBindings = {}
+) {
   return cloneOptions(options);
 }
 
-export function createDrillPlaybackResourcesProgressionStateAppContext(options: Record<string, any> = {}) {
+export function createDrillPlaybackResourcesProgressionStateAppContext(
+  options: DrillPlaybackResourcesProgressionStateBindings = {}
+) {
   return cloneOptions(options);
 }
 
-export function createDrillPlaybackResourcesRuntimeEngineAppContext(options: Record<string, any> = {}) {
+export function createDrillPlaybackResourcesRuntimeEngineAppContext(
+  options: DrillPlaybackResourcesRuntimeBindings = {}
+) {
   return cloneOptions(options);
 }
 
-export function createDrillPlaybackResourcesSettingsAppContext(options: Record<string, any> = {}) {
+export function createDrillPlaybackResourcesSettingsAppContext(
+  options: DrillPlaybackResourcesSettingsBindings = {}
+) {
   return cloneOptions(options);
 }
 
@@ -32,12 +43,12 @@ export function createDrillPlaybackResourcesAppContext({
   playbackSettings = {},
   runtime = {},
   audioFacade = {}
-}: DrillPlaybackResourcesAppContextOptions = {}) {
+}: DrillPlaybackResourcesAppContextOptions = {}): DrillPlaybackResourcesAppContextShape {
   return {
-    harmony,
-    progressionState,
-    playbackSettings,
-    runtime,
-    audioFacade
+    harmony: harmony as DrillPlaybackResourcesHarmonyBindings,
+    progressionState: progressionState as DrillPlaybackResourcesProgressionStateBindings,
+    playbackSettings: playbackSettings as DrillPlaybackResourcesSettingsBindings,
+    runtime: runtime as DrillPlaybackResourcesRuntimeBindings,
+    audioFacade: audioFacade as DrillPlaybackResourcesAudioFacade
   };
 }

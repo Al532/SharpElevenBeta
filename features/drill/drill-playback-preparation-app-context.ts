@@ -1,11 +1,17 @@
 
 import { createDrillPlaybackPreparationRuntime } from './drill-playback-preparation-runtime.js';
+import type {
+  DrillPlaybackResourcesHarmonyBindings,
+  DrillPlaybackResourcesProgressionStateBindings,
+  DrillPlaybackResourcesRuntimeBindings,
+  DrillPlaybackResourcesSettingsBindings
+} from './drill-playback-resources-types.js';
 
 type CreateDrillPlaybackPreparationAppContextOptions = {
-  harmony?: Record<string, any>;
-  progressionState?: Record<string, any>;
-  playbackSettings?: Record<string, any>;
-  runtime?: Record<string, any>;
+  harmony?: DrillPlaybackResourcesHarmonyBindings;
+  progressionState?: DrillPlaybackResourcesProgressionStateBindings;
+  playbackSettings?: DrillPlaybackResourcesSettingsBindings;
+  runtime?: DrillPlaybackResourcesRuntimeBindings;
 };
 
 /**
@@ -49,7 +55,7 @@ export function createDrillPlaybackPreparationAppContext({
     getNextKeyForBass: progressionState.getNextKeyForBass,
     compingEngine: runtime.compingEngine,
     walkingBassGenerator: runtime.walkingBassGenerator
-  } as any);
+  });
 }
 
 

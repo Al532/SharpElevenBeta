@@ -18,11 +18,11 @@ type CreateDrillRuntimeStateRootAppAssemblyOptions = {
  * while preserving the existing app-context/bindings layers.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.keyPoolState]
- * @param {Record<string, any>} [options.sessionAnalyticsDom]
- * @param {Record<string, any>} [options.sessionAnalyticsState]
- * @param {Record<string, any>} [options.sessionAnalyticsHelpers]
- * @param {Record<string, any>} [options.sessionAnalyticsConstants]
+ * @param {Record<string, unknown>} [options.keyPoolState]
+ * @param {Record<string, unknown>} [options.sessionAnalyticsDom]
+ * @param {Record<string, unknown>} [options.sessionAnalyticsState]
+ * @param {Record<string, unknown>} [options.sessionAnalyticsHelpers]
+ * @param {Record<string, unknown>} [options.sessionAnalyticsConstants]
  * @param {(() => number) | undefined} [options.sessionAnalyticsNow]
  */
 export function createDrillRuntimeStateRootAppAssembly({

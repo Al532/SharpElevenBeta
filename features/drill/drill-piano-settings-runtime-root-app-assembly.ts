@@ -1,7 +1,26 @@
+type DrillPianoFadeSettings = {
+  timeConstantLow: number;
+  timeConstantHigh: number;
+};
+
+type DrillPianoMidiSettings = {
+  enabled: boolean;
+  inputId: string;
+  sustainPedalEnabled: boolean;
+};
+
+type DrillPianoSettingsRuntimeState = {
+  getPianoFadeSettings?: () => DrillPianoFadeSettings;
+};
+
+type DrillPianoSettingsRuntimeConstants = {
+  defaultPianoFadeSettings?: DrillPianoFadeSettings;
+  defaultPianoMidiSettings?: DrillPianoMidiSettings;
+};
 
 type DrillPianoSettingsRuntimeRootAppAssemblyOptions = {
-  runtimeState?: Record<string, any>;
-  constants?: Record<string, any>;
+  runtimeState?: DrillPianoSettingsRuntimeState;
+  constants?: DrillPianoSettingsRuntimeConstants;
 };
 
 /**
@@ -10,8 +29,8 @@ type DrillPianoSettingsRuntimeRootAppAssemblyOptions = {
  * while preserving the same behavior.
  *
  * @param {object} [options]
- * @param {Record<string, any>} [options.runtimeState]
- * @param {Record<string, any>} [options.constants]
+ * @param {object} [options.runtimeState]
+ * @param {object} [options.constants]
  */
 export function createDrillPianoSettingsRuntimeRootAppAssembly({
   runtimeState = {},
@@ -36,14 +55,14 @@ export function createDrillPianoSettingsRuntimeRootAppAssembly({
     return Math.min(max, Math.max(min, parsed));
   }
 
-  function createDefaultPianoFadeSettings(overrides: Record<string, any> = {}) {
+  function createDefaultPianoFadeSettings(overrides: Partial<DrillPianoFadeSettings> = {}) {
     return {
       ...defaultPianoFadeSettings,
       ...overrides
     };
   }
 
-  function normalizePianoFadeSettings(candidate: Record<string, any> = {}) {
+  function normalizePianoFadeSettings(candidate: Partial<DrillPianoFadeSettings> = {}) {
     return {
       timeConstantLow: clampRange(
         candidate.timeConstantLow,
@@ -60,7 +79,7 @@ export function createDrillPianoSettingsRuntimeRootAppAssembly({
     };
   }
 
-  function normalizePianoMidiSettings(candidate: Record<string, any> = {}) {
+  function normalizePianoMidiSettings(candidate: Partial<DrillPianoMidiSettings> = {}) {
     return {
       enabled: Boolean(candidate.enabled),
       inputId: typeof candidate.inputId === 'string'
