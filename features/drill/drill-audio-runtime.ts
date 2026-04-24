@@ -1,4 +1,16 @@
-﻿// @ts-nocheck
+
+type DrillSampleBufferStore = Record<string, Record<string | number, AudioBuffer | null | undefined>>;
+type DrillSampleLoadPromiseStore = Record<string, Map<string | number, Promise<any>>>;
+
+type DrillAudioRuntimeOptions = {
+  sampleBuffers?: DrillSampleBufferStore;
+  sampleLoadPromises?: DrillSampleLoadPromiseStore;
+  sampleFileBuffers?: Map<string, ArrayBuffer>;
+  sampleFileFetchPromises?: Map<string, Promise<ArrayBuffer>>;
+  getAudioContext?: () => AudioContext | null;
+  appVersion?: string;
+  fetchImpl?: typeof fetch;
+};
 
 /**
  * @param {{
@@ -19,10 +31,13 @@ export function createDrillAudioRuntime({
   getAudioContext,
   appVersion = 'dev',
   fetchImpl
-} = {}) {
+}: DrillAudioRuntimeOptions = {}) {
   const effectiveFetch = fetchImpl || fetch;
 
-  function updateMixerValueLabel(slider, output) {
+  function updateMixerValueLabel(
+    slider?: { value: string | number } | null,
+    output?: { value?: string; textContent?: string | null } | null
+  ) {
     if (!slider || !output) return;
     output.value = `${slider.value}%`;
     output.textContent = `${slider.value}%`;
@@ -34,6 +49,12 @@ export function createDrillAudioRuntime({
     audioCtx,
     sliderValueToGain,
     mixerChannelCalibration
+  }: {
+    dom?: Record<string, any>;
+    mixerNodes?: Record<string, GainNode> | null;
+    audioCtx?: AudioContext | null;
+    sliderValueToGain: (slider?: any) => number;
+    mixerChannelCalibration: Record<string, number>;
   }) {
     updateMixerValueLabel(dom?.masterVolume, dom?.masterVolumeValue);
     updateMixerValueLabel(dom?.bassVolume, dom?.bassVolumeValue);
@@ -49,7 +70,11 @@ export function createDrillAudioRuntime({
     mixerNodes.drums.gain.setValueAtTime(sliderValueToGain(dom?.drumsVolume) * mixerChannelCalibration.drums, now);
   }
 
-  function loadTrackedSample(category, key, loader) {
+  function loadTrackedSample(
+    category: string,
+    key: string | number,
+    loader: () => Promise<any>
+  ) {
     if (sampleBuffers[category]?.[key]) {
       return Promise.resolve(sampleBuffers[category][key]);
     }
@@ -64,7 +89,7 @@ export function createDrillAudioRuntime({
     return loadPromise;
   }
 
-  function fetchArrayBufferFromUrl(baseUrl) {
+  function fetchArrayBufferFromUrl(baseUrl: string) {
     if (sampleFileBuffers.has(baseUrl)) {
       return Promise.resolve(sampleFileBuffers.get(baseUrl));
     }
@@ -93,7 +118,7 @@ export function createDrillAudioRuntime({
     return fetchPromise;
   }
 
-  function loadBufferFromUrl(baseUrl) {
+  function loadBufferFromUrl(baseUrl: string) {
     const audioContext = getAudioContext?.();
     if (!audioContext) {
       return Promise.reject(new Error('Audio context unavailable.'));
@@ -102,7 +127,7 @@ export function createDrillAudioRuntime({
       .then((buffer) => audioContext.decodeAudioData(buffer.slice(0)));
   }
 
-  function loadSample(category, folder, midi) {
+  function loadSample(category: string, folder: string, midi: number) {
     const baseUrl = `assets/MP3/${folder}/${midi}.mp3`;
     return loadTrackedSample(category, midi, () => loadBufferFromUrl(baseUrl)
       .then((decoded) => {
@@ -112,7 +137,7 @@ export function createDrillAudioRuntime({
       .catch(() => null));
   }
 
-  function loadPianoSample(layer, midi) {
+  function loadPianoSample(layer: string, midi: number) {
     const key = `${layer}:${midi}`;
     const layeredUrl = `assets/Piano/${layer}/${midi}.mp3`;
     const legacyUrl = `assets/MP3/Piano/${midi}.mp3`;
@@ -128,9 +153,9 @@ export function createDrillAudioRuntime({
       .catch(() => null));
   }
 
-  async function loadPianoSampleList(midiValues) {
+  async function loadPianoSampleList(midiValues: Iterable<number>) {
     const sortedMidis = [...midiValues].sort((a, b) => a - b);
-    const promises = [];
+    const promises: Promise<any>[] = [];
     for (const midi of sortedMidis) {
       promises.push(loadPianoSample('p', midi));
       promises.push(loadPianoSample('mf', midi));
@@ -139,7 +164,7 @@ export function createDrillAudioRuntime({
     await Promise.all(promises);
   }
 
-  function loadFileSample(category, key, baseUrl) {
+  function loadFileSample(category: string, key: string, baseUrl: string) {
     return loadTrackedSample(category, key, () => loadBufferFromUrl(baseUrl)
       .then((decoded) => {
         sampleBuffers[category][key] = decoded;

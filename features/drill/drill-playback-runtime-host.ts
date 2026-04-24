@@ -1,6 +1,14 @@
-﻿// @ts-nocheck
 
 import { createDrillPlaybackRuntimeAppAssembly } from './drill-playback-runtime-app-assembly.js';
+
+type CreateDrillPlaybackRuntimeHostOptions = {
+  dom?: Record<string, unknown>;
+  state?: Record<string, any>;
+  audio?: Record<string, any>;
+  preload?: Record<string, any>;
+  helpers?: Record<string, any>;
+  constants?: Record<string, any>;
+};
 
 /**
  * Creates the shared playback runtime host wiring from grouped app concerns.
@@ -22,7 +30,7 @@ export function createDrillPlaybackRuntimeHost({
   preload = {},
   helpers = {},
   constants = {}
-} = {}) {
+}: CreateDrillPlaybackRuntimeHostOptions = {}) {
   return createDrillPlaybackRuntimeAppAssembly({
     dom,
     schedulerBindings: {

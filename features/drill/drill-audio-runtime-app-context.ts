@@ -1,10 +1,14 @@
-﻿// @ts-nocheck
 import { createDrillAudioRuntime } from './drill-audio-runtime.js';
+import type {
+  DrillAudioCacheContext,
+  DrillAudioConstantsContext,
+  DrillAudioStateContext
+} from './drill-audio-types.js';
 
 type DrillAudioRuntimeAppContextOptions = {
-  audioState?: Record<string, any>;
-  cacheState?: Record<string, any>;
-  constants?: Record<string, any>;
+  audioState?: DrillAudioStateContext;
+  cacheState?: DrillAudioCacheContext;
+  constants?: DrillAudioConstantsContext;
   fetchImpl?: typeof fetch;
 };
 

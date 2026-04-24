@@ -1,10 +1,7 @@
-﻿// @ts-nocheck
 
-/**
- * @param {Record<string, any>} helpers
- * @returns {Record<string, any>}
- */
-export function createDrillPlaybackSchedulerHelpers(helpers = {}) {
+type DrillPlaybackHelperBindings = Record<string, unknown>;
+
+export function createDrillPlaybackSchedulerHelpers(helpers: DrillPlaybackHelperBindings = {}) {
   return {
     applyDisplaySideLayout: helpers.applyDisplaySideLayout,
     buildPreparedBassPlan: helpers.buildPreparedBassPlan,
@@ -53,11 +50,7 @@ export function createDrillPlaybackSchedulerHelpers(helpers = {}) {
   };
 }
 
-/**
- * @param {Record<string, any>} helpers
- * @returns {Record<string, any>}
- */
-export function createDrillPlaybackTransportHelpers(helpers = {}) {
+export function createDrillPlaybackTransportHelpers(helpers: DrillPlaybackHelperBindings = {}) {
   return {
     applyDisplaySideLayout: helpers.applyDisplaySideLayout,
     clearBeatDots: helpers.clearBeatDots,

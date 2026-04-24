@@ -1,10 +1,7 @@
-type DrillAudioRuntimeAssemblyAppContextOptions = {
-  audioRuntime?: Record<string, any>;
-  samplePreload?: Record<string, any>;
-  scheduledAudio?: Record<string, any>;
-  audioPlayback?: Record<string, any>;
-  samplePlayback?: Record<string, any>;
-  audioFacade?: Record<string, any>;
+import type { DrillAudioFacadeLike, DrillAudioStackLike } from './drill-audio-types.js';
+
+type DrillAudioRuntimeAssemblyAppContextOptions = DrillAudioStackLike & {
+  audioFacade?: DrillAudioFacadeLike;
 };
 
 export function createDrillAudioRuntimeAssemblyAppContext({

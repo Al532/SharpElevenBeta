@@ -1,9 +1,19 @@
-﻿// @ts-nocheck
 
 import {
   createDrillPlaybackSchedulerHelpers,
   createDrillPlaybackTransportHelpers
 } from './drill-playback-runtime-helpers.js';
+
+type CreateDrillPlaybackEngineAppContextOptions = {
+  dom?: Record<string, unknown>;
+  schedulerState?: Record<string, unknown>;
+  transportState?: Record<string, unknown>;
+  scheduleAhead?: number;
+  noteFadeout?: number;
+  scheduleInterval?: number;
+  schedulerHelperBindings?: Record<string, unknown>;
+  transportHelperBindings?: Record<string, unknown>;
+};
 
 /**
  * Creates the app-level options consumed by `initializeDrillPlaybackRuntimeEngine`.
@@ -40,7 +50,7 @@ export function createDrillPlaybackEngineAppContext({
   scheduleInterval,
   schedulerHelperBindings,
   transportHelperBindings
-} = {}) {
+}: CreateDrillPlaybackEngineAppContextOptions = {}) {
   return {
     dom,
     schedulerState,

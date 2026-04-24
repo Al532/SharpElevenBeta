@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-import voicingConfig from '../../core/music/voicing-config.js';
+import rawVoicingConfig from '../../core/music/voicing-config.js';
 import {
   applyContextualQualityRules,
   applyPriorityDominantResolutionRules
@@ -10,6 +9,7 @@ import {
   getSwingSecondSubdivisionDurationBeats,
 } from '../../core/music/swing-utils.js';
 
+const voicingConfig: Record<string, any> = rawVoicingConfig as Record<string, any>;
 const {
   GUIDE_TONES,
   COLOR_TONES,
@@ -20,6 +20,7 @@ const {
   DOMINANT_QUALITY_ALIASES = {},
   QUALITY_CATEGORY_ALIASES = {}
 } = voicingConfig;
+const QUALITY_CATEGORY_ALIASES_TYPED = QUALITY_CATEGORY_ALIASES as Record<string, string[]>;
 
 const INTERVAL_SEMITONES = {
   '1': 0,
@@ -64,7 +65,7 @@ function classifyQuality(quality) {
   const normalizedQuality = String(quality || '')
     .replace(/Ã¢â€“Â³/g, 'â–³')
     .toLowerCase();
-  for (const [category, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES)) {
+  for (const [category, aliases] of Object.entries(QUALITY_CATEGORY_ALIASES_TYPED)) {
     if (normalizedQuality === String(category).toLowerCase()) return category;
     if ((aliases || []).map((alias) => String(alias).toLowerCase()).includes(normalizedQuality)) return category;
   }
@@ -451,6 +452,11 @@ function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO) {
 
 const REPEATED_NOTE_EFFECT_MAX_BPM = 170;
 const ANTICIPATION_EFFECT_MAX_BPM = 190;
+
+type DrillWalkingBassConstants = {
+  BASS_LOW?: number;
+  BASS_HIGH?: number;
+};
 
 function classifyResolvedRank(pools, midi) {
   const pitchClass = mod12(midi);
@@ -1168,7 +1174,7 @@ function searchSpanEvents(span, nextSpan, previousEvent, beatIndex, events) {
 
 // Public generator API
 
-export function createWalkingBassGenerator({ constants = {} } = {}) {
+export function createWalkingBassGenerator({ constants = {} }: { constants?: DrillWalkingBassConstants } = {}) {
   const { BASS_LOW = 28, BASS_HIGH = 48 } = constants;
 
   function buildPreparedSpans(chords, beatsPerChord, key, isMinor, nextChords, nextKey, nextIsMinor) {

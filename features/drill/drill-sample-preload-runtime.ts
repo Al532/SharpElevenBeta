@@ -1,10 +1,55 @@
-﻿// @ts-nocheck
+
+type DrillProgressionSnapshot = {
+  chords?: any[];
+  key?: number | null;
+  voicingPlan?: any[];
+  bassPlan?: any[];
+};
+
+type DrillSampleNoteSets = {
+  bassNotes: Set<number>;
+  celloNotes: Set<number>;
+  violinNotes: Set<number>;
+  pianoNotes: Set<number>;
+};
+
+type DrillCollectRequiredSampleNotesOptions = {
+  includeCurrent?: boolean;
+  includeNext?: boolean;
+  currentChordLimit?: number | null;
+  nextChordLimit?: number | null;
+};
+
+type DrillSamplePreloadRuntimeOptions = {
+  getBassPreloadRange?: () => { low: number; high: number };
+  getBassMidi?: (key: number, semitoneOffset: number) => number;
+  getBeatsPerChord?: () => number;
+  getChordsPerBar?: () => number;
+  getCompingStyle?: () => string;
+  getDrumsMode?: () => string;
+  getCurrentProgression?: () => DrillProgressionSnapshot;
+  getNextProgression?: () => DrillProgressionSnapshot;
+  collectCompingSampleNotes?: (
+    style: string,
+    voicing: any,
+    noteSets: Omit<DrillSampleNoteSets, 'bassNotes'>
+  ) => void;
+  loadSample?: (category: string, folder: string, midi: number) => Promise<any>;
+  loadPianoSampleList?: (midiValues: Iterable<number>) => Promise<any>;
+  loadFileSample?: (category: string, key: string, baseUrl: string) => Promise<any>;
+  fetchArrayBufferFromUrl?: (baseUrl: string) => Promise<any>;
+  drumHihatSampleUrl?: string;
+  drumRideSampleUrls?: string[];
+  drumModeHihats24?: string;
+  drumModeFullSwing?: string;
+  safePreloadMeasures?: number;
+};
 
 /**
  * @param {Iterable<number>} midiValues
  * @returns {number[]}
  */
-function sortMidiValues(midiValues) {
+function sortMidiValues(midiValues: Iterable<number>) {
   return [...midiValues].sort((left, right) => left - right);
 }
 
@@ -12,7 +57,7 @@ function sortMidiValues(midiValues) {
  * @param {number | null | undefined} value
  * @returns {number | null}
  */
-function normalizeOptionalLimit(value) {
+function normalizeOptionalLimit(value: number | null | undefined) {
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
@@ -20,7 +65,7 @@ function normalizeOptionalLimit(value) {
  * @param {number[]} values
  * @param {(value: number) => void} register
  */
-function registerSortedMidiValues(values, register) {
+function registerSortedMidiValues(values: number[], register: (value: number) => void) {
   for (const midi of values) {
     register(midi);
   }
@@ -66,19 +111,19 @@ export function createDrillSamplePreloadRuntime({
   drumModeHihats24 = 'hihats_24',
   drumModeFullSwing = 'full_swing',
   safePreloadMeasures = 2
-} = {}) {
-  let backgroundSamplePreloadPromise = null;
-  let pageSampleWarmupPromise = null;
-  let nearTermSamplePreloadPromise = null;
+}: DrillSamplePreloadRuntimeOptions = {}) {
+  let backgroundSamplePreloadPromise: Promise<any> | null = null;
+  let pageSampleWarmupPromise: Promise<any> | null = null;
+  let nearTermSamplePreloadPromise: Promise<any> | null = null;
   let startupSamplePreloadInProgress = false;
 
-  async function loadSampleRange(category, folder, low, high) {
+  async function loadSampleRange(category: string, folder: string, low: number, high: number) {
     for (let midi = low; midi <= high; midi++) {
       await loadSample(category, folder, midi);
     }
   }
 
-  async function loadSampleList(category, folder, midiValues) {
+  async function loadSampleList(category: string, folder: string, midiValues: Iterable<number>) {
     for (const midi of sortMidiValues(midiValues)) {
       await loadSample(category, folder, midi);
     }
@@ -89,15 +134,18 @@ export function createDrillSamplePreloadRuntime({
     includeNext = true,
     currentChordLimit = null,
     nextChordLimit = null
-  } = {}) {
-    const bassNotes = new Set();
-    const celloNotes = new Set();
-    const violinNotes = new Set();
-    const pianoNotes = new Set();
+  }: DrillCollectRequiredSampleNotesOptions = {}): DrillSampleNoteSets {
+    const bassNotes = new Set<number>();
+    const celloNotes = new Set<number>();
+    const violinNotes = new Set<number>();
+    const pianoNotes = new Set<number>();
     const compingStyle = getCompingStyle();
     const beatsPerChord = getBeatsPerChord();
 
-    const registerProgression = (progression, chordLimit = null) => {
+    const registerProgression = (
+      progression: DrillProgressionSnapshot,
+      chordLimit: number | null = null
+    ) => {
       const chords = Array.isArray(progression?.chords) ? progression.chords : [];
       const key = progression?.key;
       const voicingPlan = Array.isArray(progression?.voicingPlan) ? progression.voicingPlan : [];
@@ -134,7 +182,7 @@ export function createDrillSamplePreloadRuntime({
   }
 
   function buildAllSampleFetchDescriptors() {
-    const descriptors = [];
+    const descriptors: string[] = [];
     const startupChordLimit = getChordsPerBar();
     const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
       includeCurrent: true,
@@ -170,7 +218,7 @@ export function createDrillSamplePreloadRuntime({
     const { celloNotes, violinNotes, pianoNotes } = buildAllRequiredSampleNoteSets();
 
     await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
-    const drumPromises = [];
+    const drumPromises: Promise<any>[] = [];
     if (drumHihatSampleUrl) {
       drumPromises.push(loadFileSample('drums', 'hihat', drumHihatSampleUrl));
     }
@@ -201,7 +249,7 @@ export function createDrillSamplePreloadRuntime({
     await loadSampleList('bass', 'Bass', bassNotes);
 
     const drumsMode = getDrumsMode();
-    const drumPromises = [];
+    const drumPromises: Promise<any>[] = [];
     if ((drumsMode === drumModeHihats24 || drumsMode === drumModeFullSwing) && drumHihatSampleUrl) {
       drumPromises.push(loadFileSample('drums', 'hihat', drumHihatSampleUrl));
     }
@@ -302,9 +350,9 @@ export function createDrillSamplePreloadRuntime({
     getBackgroundSamplePreloadPromise: () => backgroundSamplePreloadPromise,
     getPageSampleWarmupPromise: () => pageSampleWarmupPromise,
     getNearTermSamplePreloadPromise: () => nearTermSamplePreloadPromise,
-    setNearTermSamplePreloadPromise: (value) => { nearTermSamplePreloadPromise = value; },
+    setNearTermSamplePreloadPromise: (value: Promise<any> | null) => { nearTermSamplePreloadPromise = value; },
     getStartupSamplePreloadInProgress: () => startupSamplePreloadInProgress,
-    setStartupSamplePreloadInProgress: (value) => { startupSamplePreloadInProgress = Boolean(value); }
+    setStartupSamplePreloadInProgress: (value: unknown) => { startupSamplePreloadInProgress = Boolean(value); }
   };
 }
 

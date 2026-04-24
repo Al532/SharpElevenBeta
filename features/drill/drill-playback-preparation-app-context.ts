@@ -1,6 +1,12 @@
-﻿// @ts-nocheck
 
 import { createDrillPlaybackPreparationRuntime } from './drill-playback-preparation-runtime.js';
+
+type CreateDrillPlaybackPreparationAppContextOptions = {
+  harmony?: Record<string, any>;
+  progressionState?: Record<string, any>;
+  playbackSettings?: Record<string, any>;
+  runtime?: Record<string, any>;
+};
 
 /**
  * Creates the comping/bass preparation runtime from grouped app concerns so
@@ -17,7 +23,7 @@ export function createDrillPlaybackPreparationAppContext({
   progressionState = {},
   playbackSettings = {},
   runtime = {}
-} = {}) {
+}: CreateDrillPlaybackPreparationAppContextOptions = {}) {
   return createDrillPlaybackPreparationRuntime({
     getPlayedChordQuality: harmony.getPlayedChordQuality,
     getVoicingPlanForProgression: harmony.getVoicingPlanForProgression,
@@ -43,7 +49,7 @@ export function createDrillPlaybackPreparationAppContext({
     getNextKeyForBass: progressionState.getNextKeyForBass,
     compingEngine: runtime.compingEngine,
     walkingBassGenerator: runtime.walkingBassGenerator
-  });
+  } as any);
 }
 
 

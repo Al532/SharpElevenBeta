@@ -1,26 +1,25 @@
-// @ts-check
+type MobileBackNavigationControllerOptions = {
+  windowTarget?: Window;
+  historyTarget?: History;
+  canHandleBack?: () => boolean;
+  handleBack?: () => boolean | void;
+};
 
 /**
  * Uses a synthetic history entry while dismissible UI is open so the browser
  * or Android back action closes that UI first.
- *
- * @param {object} [options]
- * @param {Window} [options.windowTarget]
- * @param {History} [options.historyTarget]
- * @param {() => boolean} [options.canHandleBack]
- * @param {() => boolean | void} [options.handleBack]
  */
 export function createMobileBackNavigationController({
   windowTarget = globalThis.window,
   historyTarget = globalThis.history,
   canHandleBack = () => false,
   handleBack = () => false
-} = {}) {
+}: MobileBackNavigationControllerOptions = {}) {
   let isArmed = false;
   let ignoreNextPopState = false;
 
   function arm() {
-    if (isArmed || !canHandleBack?.()) return;
+    if (isArmed || !canHandleBack()) return;
     isArmed = true;
     historyTarget?.pushState?.(
       { ...(historyTarget.state || {}), __sharpElevenDismissibleBack: true },
@@ -29,7 +28,7 @@ export function createMobileBackNavigationController({
     );
   }
 
-  function disarm({ rewindHistory = true } = {}) {
+  function disarm({ rewindHistory = true }: { rewindHistory?: boolean } = {}) {
     if (!isArmed) return;
     isArmed = false;
     if (!rewindHistory) return;
@@ -38,7 +37,7 @@ export function createMobileBackNavigationController({
   }
 
   function sync() {
-    if (canHandleBack?.()) {
+    if (canHandleBack()) {
       arm();
       return;
     }
@@ -52,8 +51,8 @@ export function createMobileBackNavigationController({
     }
     if (!isArmed) return;
     isArmed = false;
-    const handled = handleBack?.();
-    if (handled && canHandleBack?.()) {
+    const handled = handleBack();
+    if (handled && canHandleBack()) {
       arm();
     }
   }

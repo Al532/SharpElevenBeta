@@ -1,5 +1,31 @@
-﻿// @ts-nocheck
-export function createProgressionManager({ dom, state, constants, helpers }) {
+type ProgressionEntry = {
+  name?: string;
+  pattern?: string;
+  mode?: string;
+};
+
+type ProgressionFeedbackAction = {
+  label: string;
+  onClick: () => void;
+};
+
+type ProgressionManagerDom = Record<string, any>;
+type ProgressionManagerState = Record<string, any> & {
+  progressions: Record<string, ProgressionEntry>;
+};
+type ProgressionManagerConstants = {
+  CUSTOM_PATTERN_OPTION_VALUE?: string;
+};
+type ProgressionManagerHelpers = Record<string, any>;
+
+type CreateProgressionManagerOptions = {
+  dom: ProgressionManagerDom;
+  state: ProgressionManagerState;
+  constants: ProgressionManagerConstants;
+  helpers: ProgressionManagerHelpers;
+};
+
+export function createProgressionManager({ dom, state, constants, helpers }: CreateProgressionManagerOptions) {
   const { CUSTOM_PATTERN_OPTION_VALUE } = constants;
   const {
     applyPatternModeAvailability,
@@ -34,11 +60,11 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     return Object.keys(state.progressions);
   }
 
-  function scheduleProgressionMutation(work) {
+  function scheduleProgressionMutation(work: () => void) {
     window.setTimeout(work, 0);
   }
 
-  function rebuildProgressionsFromNames(names) {
+  function rebuildProgressionsFromNames(names: string[]) {
     state.progressions = Object.fromEntries(
       names
         .filter(name => Object.prototype.hasOwnProperty.call(state.progressions, name))
@@ -47,16 +73,21 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
   }
 
   function clearProgressionManagerDropMarkers() {
-    dom.progressionManagerList?.querySelectorAll('.progression-manager-item').forEach(item => {
-      item.classList.remove('drop-before', 'drop-after');
+    Array.from(dom.progressionManagerList?.querySelectorAll?.('.progression-manager-item') || []).forEach((item) => {
+      const htmlItem = item as HTMLElement;
+      htmlItem.classList.remove('drop-before', 'drop-after');
     });
   }
 
-  function setProgressionFeedback(message, isError = false, action = null) {
+  function setProgressionFeedback(
+    message: string,
+    isError = false,
+    action: ProgressionFeedbackAction | ProgressionFeedbackAction[] | null = null
+  ) {
     if (!dom.progressionFeedback) return;
     dom.progressionFeedback.textContent = '';
     const actions = Array.isArray(action)
-      ? action.filter(entry => entry?.label && typeof entry.onClick === 'function')
+      ? action.filter((entry) => entry?.label && typeof entry.onClick === 'function')
       : (action?.label && typeof action.onClick === 'function' ? [action] : []);
     if (message) {
       const text = document.createElement('span');
@@ -105,7 +136,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
         item.classList.remove('is-dragging');
         clearProgressionManagerDropMarkers();
       });
-      item.addEventListener('dragover', event => {
+      item.addEventListener('dragover', (event) => {
         event.preventDefault();
         if (!state.draggedProgressionName || state.draggedProgressionName === name) return;
         clearProgressionManagerDropMarkers();
@@ -116,7 +147,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
       item.addEventListener('dragleave', () => {
         item.classList.remove('drop-before', 'drop-after');
       });
-      item.addEventListener('drop', event => {
+      item.addEventListener('drop', (event) => {
         event.preventDefault();
         if (!state.draggedProgressionName || state.draggedProgressionName === name) return;
         const names = getProgressionNames().filter(entry => entry !== state.draggedProgressionName);
@@ -143,7 +174,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
       deleteButton.className = 'progression-manager-item-delete';
       deleteButton.textContent = 'Delete';
       deleteButton.addEventListener('click', () => {
-        const itemElement = deleteButton.closest('.progression-manager-item');
+        const itemElement = deleteButton.closest('.progression-manager-item') as HTMLElement | null;
         deleteProgressionInline(name, itemElement);
       });
 
@@ -217,7 +248,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     syncProgressionManagerState();
   }
 
-  function syncProgressionManagerState({ skipListRender = false } = {}) {
+  function syncProgressionManagerState({ skipListRender = false }: { skipListRender?: boolean } = {}) {
     const customSelected = dom.patternSelect.value === CUSTOM_PATTERN_OPTION_VALUE;
     if (dom.saveProgression) {
       dom.saveProgression.classList.toggle('hidden', !customSelected);
@@ -238,7 +269,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     syncProgressionManagerPanel(skipListRender);
   }
 
-  function deleteProgressionByName(name, {
+  function deleteProgressionByName(name: string, {
     requireConfirmation = false,
     confirmationMessage = `Delete progression "${name}"?`,
     successMessage = `Progression deleted: ${name}`,
@@ -296,7 +327,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     return true;
   }
 
-  function deleteProgressionInline(name, itemElement) {
+  function deleteProgressionInline(name: string, itemElement: HTMLElement | null) {
     const entry = state.progressions[name];
     if (!entry) return;
 
@@ -328,7 +359,9 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     saveSettings();
     state.suppressListRender = false;
 
-    dom.progressionManagerList?.querySelectorAll('.progression-manager-undo-placeholder').forEach(el => el.remove());
+    Array.from(dom.progressionManagerList?.querySelectorAll?.('.progression-manager-undo-placeholder') || []).forEach((el) => {
+      (el as HTMLElement).remove();
+    });
 
     const placeholder = document.createElement('div');
     placeholder.className = 'progression-manager-undo-placeholder';
@@ -547,7 +580,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     });
   }
 
-  function duplicateProgression(name) {
+  function duplicateProgression(name: string) {
     const entry = state.progressions[name];
     if (!entry) {
       setProgressionFeedback('Progression not found.', true);
@@ -555,7 +588,7 @@ export function createProgressionManager({ dom, state, constants, helpers }) {
     }
     const baseName = (entry.name || entry.pattern).replace(/\s*\(\d+\)$/, '');
     let copyIndex = 2;
-    const existingNames = new Set(Object.values(state.progressions).map(e => e.name || e.pattern));
+    const existingNames = new Set(Object.values(state.progressions).map((entry) => entry.name || entry.pattern));
     while (existingNames.has(`${baseName} (${copyIndex})`)) {
       copyIndex++;
     }

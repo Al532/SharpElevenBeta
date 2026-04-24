@@ -1,4 +1,26 @@
-﻿// @ts-nocheck
+
+type DrillEmbeddedRuntimeHostBindingsOptions = {
+  dom?: Record<string, any>;
+  customPatternOptionValue?: string;
+  setSuppressPatternSelectChange?: (value: boolean) => void;
+  setPatternSelectValue?: (value: string) => void;
+  setEditorPatternMode?: (value: string) => void;
+  syncPatternSelectionFromInput?: () => void;
+  getLastPatternSelectValue?: () => string;
+  setLastPatternSelectValue?: (value: string) => void;
+  getIsPlaying?: () => boolean;
+  getIsPaused?: () => boolean;
+  getIsIntro?: () => boolean;
+  getCurrentBeat?: () => number;
+  getCurrentChordIdx?: () => number;
+  getPaddedChordCount?: () => number;
+  getTempo?: () => number;
+  getAudioContext?: () => AudioContext | null;
+  getCurrentKey?: () => number;
+  startPlayback?: () => Promise<void>;
+  stopPlayback?: () => void;
+  togglePausePlayback?: () => void;
+};
 
 /**
  * Creates grouped app-host bindings for the embedded Drill runtime.
@@ -54,24 +76,24 @@ export function createDrillEmbeddedRuntimeHostBindings({
   startPlayback = async () => {},
   stopPlayback = () => {},
   togglePausePlayback = () => {}
-} = {}) {
+}: DrillEmbeddedRuntimeHostBindingsOptions = {}) {
   return {
     patternUi: {
       setCustomPatternSelection() {
         setSuppressPatternSelectChange(true);
         setPatternSelectValue(customPatternOptionValue);
       },
-      setPatternName(value) {
+      setPatternName(value: string) {
         if (dom.patternName) {
           dom.patternName.value = value;
         }
       },
-      setCustomPatternValue(value) {
+      setCustomPatternValue(value: string) {
         if (dom.customPattern) {
           dom.customPattern.value = value;
         }
       },
-      setEditorPatternMode(value) {
+      setEditorPatternMode(value: string) {
         setEditorPatternMode(value);
       },
       syncPatternSelectionFromInput() {

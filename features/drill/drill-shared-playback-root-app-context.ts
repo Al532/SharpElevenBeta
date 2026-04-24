@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 
 import {
   createDrillSharedPlaybackDirectRuntimeAppContext,
@@ -11,6 +10,28 @@ import {
   createDrillSharedPlaybackPatternUiAppContext,
   createDrillSharedPlaybackSettingsAppContext
 } from './drill-shared-playback-app-context.js';
+import type {
+  DrillSharedPlaybackHostBindings,
+  DrillSharedPlaybackNormalizationBindings,
+  DrillSharedPlaybackPatternUiBindings,
+  DrillSharedPlaybackRuntimeBindings,
+  DrillSharedPlaybackSettingsBindings,
+  DrillSharedPlaybackStateBindings,
+  DrillSharedPlaybackTransportBindings
+} from './drill-shared-playback-types.js';
+
+type CreateDrillSharedPlaybackRootAppContextOptions = {
+  host?: DrillSharedPlaybackHostBindings;
+  patternUi?: DrillSharedPlaybackPatternUiBindings;
+  normalization?: DrillSharedPlaybackNormalizationBindings;
+  playbackSettings?: DrillSharedPlaybackSettingsBindings;
+  embeddedPlaybackState?: DrillSharedPlaybackStateBindings;
+  embeddedPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  embeddedTransportActions?: DrillSharedPlaybackTransportBindings;
+  directPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  directPlaybackState?: DrillSharedPlaybackStateBindings;
+  directTransportActions?: DrillSharedPlaybackTransportBindings;
+};
 
 /**
  * Creates the shared playback root app context from live root-app bindings.
@@ -40,16 +61,17 @@ export function createDrillSharedPlaybackRootAppContext({
   directPlaybackRuntime = {},
   directPlaybackState = {},
   directTransportActions = {}
-} = {}) {
+}: CreateDrillSharedPlaybackRootAppContextOptions = {}) {
   const resolvedHost = (() => {
-    if (typeof host.getTempo === 'function') return host;
+    const looseHost = host as Record<string, any>;
+    if (typeof looseHost.getTempo === 'function') return looseHost;
 
     const {
       dom = {},
       state = {},
       constants = {},
       helpers = {}
-    } = host;
+    } = looseHost;
     const {
       getLastPatternSelectValue = () => '',
       setLastPatternSelectValue = () => {},
@@ -89,7 +111,7 @@ export function createDrillSharedPlaybackRootAppContext({
       getCurrentBeat,
       getCurrentChordIdx,
       getPaddedChordCount,
-      getTempo: () => Number(dom.tempoSlider?.value || 0),
+      getTempo: () => Number((dom as Record<string, any>).tempoSlider?.value || 0),
       getAudioContext,
       getCurrentKey,
       startPlayback,
@@ -99,11 +121,12 @@ export function createDrillSharedPlaybackRootAppContext({
   })();
 
   const resolvedPatternUi = (() => {
-    if (typeof patternUi.getCurrentPatternMode === 'function' || typeof patternUi.validateCustomPattern === 'function') {
-      return patternUi;
+    const loosePatternUi = patternUi as Record<string, any>;
+    if (typeof loosePatternUi.getCurrentPatternMode === 'function' || typeof loosePatternUi.validateCustomPattern === 'function') {
+      return loosePatternUi;
     }
 
-    const { helpers = {} } = patternUi;
+    const { helpers = {} } = loosePatternUi;
     const {
       clearProgressionEditingState = () => {},
       closeProgressionManager = () => {},
@@ -142,15 +165,16 @@ export function createDrillSharedPlaybackRootAppContext({
   })();
 
   const resolvedDirectRuntime = (() => {
-    if (Object.prototype.hasOwnProperty.call(directPlaybackRuntime, 'noteFadeout')) {
-      return directPlaybackRuntime;
+    const looseDirectPlaybackRuntime = directPlaybackRuntime as Record<string, any>;
+    if (Object.prototype.hasOwnProperty.call(looseDirectPlaybackRuntime, 'noteFadeout')) {
+      return looseDirectPlaybackRuntime;
     }
 
     const {
       state = {},
       constants = {},
       helpers = {}
-    } = directPlaybackRuntime;
+    } = looseDirectPlaybackRuntime;
     const {
       getAudioContext = () => null,
       getCurrentKey = () => 0

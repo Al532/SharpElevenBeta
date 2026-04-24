@@ -1,4 +1,12 @@
-﻿// @ts-nocheck
+
+type CreateDrillTempoRuntimeRootAppAssemblyOptions = {
+  dom?: {
+    tempoSlider?: HTMLInputElement | null;
+  };
+  constants?: {
+    defaultSwingRatio?: number;
+  };
+};
 
 /**
  * Creates the small tempo/swing support helpers from live root-app bindings.
@@ -12,7 +20,7 @@
 export function createDrillTempoRuntimeRootAppAssembly({
   dom = {},
   constants = {}
-} = {}) {
+}: CreateDrillTempoRuntimeRootAppAssemblyOptions = {}) {
   const {
     defaultSwingRatio = 2 / 3
   } = constants;

@@ -316,7 +316,7 @@ function Get-AvailableAvd {
     }
 
     $avds = & $emulatorPath -list-avds 2>$null
-    return @($avds | Where-Object { $_ -and $_.Trim() })
+    return ,@($avds | Where-Object { $_ -and $_.Trim() })
 }
 
 function Wait-ForAndroidTarget {
@@ -409,62 +409,203 @@ function Invoke-CapRun {
     }
 }
 
-function Start-AndroidLiveReload {
+function Get-LaunchOptions {
     param([string]$WifiHost)
 
+    $options = [System.Collections.Generic.List[object]]::new()
     $targets = Get-AndroidTargets
-    $usbTarget = $targets | Where-Object { $_.Kind -eq 'usb' } | Select-Object -First 1
-    if ($usbTarget) {
-        Write-Step "Lancement de l'app Android sur telephone cable"
-        Write-Host "Appareil USB detecte: $($usbTarget.Serial)"
-        Invoke-CapRun -HostName 'localhost' -TargetSerial $usbTarget.Serial -ForwardPorts
-        return
-    }
 
-    $wifiTarget = Find-OrConnectWifiTarget -LocalWifiHost $WifiHost
-    if ($wifiTarget -and $WifiHost) {
-        Write-Step "Lancement de l'app Android sur appareil Wi-Fi ADB"
-        Write-Host "Appareil Wi-Fi detecte: $($wifiTarget.Serial)"
-        Save-WifiTarget -Serial $wifiTarget.Serial
-        Invoke-CapRun -HostName $WifiHost -TargetSerial $wifiTarget.Serial
-        return
-    }
+    $options.Add([pscustomobject]@{
+        Key = 'web-local'
+        Label = 'Navigateur web local'
+        Action = 'web-local'
+        Target = $null
+    })
 
-    $emulatorTarget = Start-AndroidEmulatorIfPossible
-    if ($emulatorTarget) {
-        Write-Step "Lancement de l'app Android sur emulateur"
-        Write-Host "Cible emulateur: $($emulatorTarget.Serial)"
-        Invoke-CapRun -HostName '10.0.2.2' -TargetSerial $emulatorTarget.Serial
-        return
-    }
-
-    Write-Step "Aucune cible Android lancable automatiquement"
-    Write-Host "Navigateur local ouvert sur $devServerUrl"
     if ($WifiHost) {
-        Write-Host "Pour un telephone en Wi-Fi, ouvre $($WifiHost):$devServerPort dans le navigateur"
-        Write-Host "Pour l'app Android en Wi-Fi, le telephone doit deja etre connecte a ADB over Wi-Fi."
+        $options.Add([pscustomobject]@{
+            Key = 'web-network'
+            Label = "Navigateur web sur le reseau ($WifiHost`:$devServerPort)"
+            Action = 'web-network'
+            Target = $null
+        })
+    }
+
+    foreach ($target in ($targets | Where-Object { $_.Kind -eq 'usb' })) {
+        $options.Add([pscustomobject]@{
+            Key = "usb:$($target.Serial)"
+            Label = "Telephone USB ($($target.Serial))"
+            Action = 'android-usb'
+            Target = $target
+        })
+    }
+
+    foreach ($target in ($targets | Where-Object { $_.Kind -eq 'wifi' })) {
+        $options.Add([pscustomobject]@{
+            Key = "wifi:$($target.Serial)"
+            Label = "Appareil Android Wi-Fi ADB ($($target.Serial))"
+            Action = 'android-wifi'
+            Target = $target
+        })
+    }
+
+    foreach ($target in ($targets | Where-Object { $_.Kind -eq 'emulator' })) {
+        $options.Add([pscustomobject]@{
+            Key = "emulator:$($target.Serial)"
+            Label = "Emulateur Android ($($target.Serial))"
+            Action = 'android-emulator'
+            Target = $target
+        })
+    }
+
+    $avds = Get-AvailableAvd
+    if ($avds.Count -gt 0 -and -not ($targets | Where-Object { $_.Kind -eq 'emulator' })) {
+        $selectedAvd = $avds[0]
+        $options.Add([pscustomobject]@{
+            Key = "start-emulator:$selectedAvd"
+            Label = "Demarrer l'emulateur Android ($selectedAvd)"
+            Action = 'android-start-emulator'
+            Target = $selectedAvd
+        })
+    }
+
+    return $options
+}
+
+function Select-LaunchOption {
+    param(
+        [object[]]$Options,
+        [string]$WifiHost
+    )
+
+    Write-Step "Choix de la cible"
+    Write-Host "URL locale: $devServerUrl"
+    if ($WifiHost) {
+        Write-Host "URL reseau: http://$WifiHost`:$devServerPort/"
     } else {
-        Write-Host "Aucune IP reseau utilisable n'a ete detectee pour le mode Wi-Fi."
+        Write-Host "Aucune IP IPv4 reseau detectee."
+    }
+    Write-Host ""
+
+    for ($index = 0; $index -lt $Options.Count; $index++) {
+        Write-Host ("[{0}] {1}" -f ($index + 1), $Options[$index].Label)
+    }
+
+    if ($DryRun) {
+        Write-Host "[dry-run] selection automatique: 1"
+        return $Options[0]
+    }
+
+    while ($true) {
+        $choice = Read-Host "Choisis une cible (1-$($Options.Count))"
+        $selectedIndex = 0
+        if ([int]::TryParse($choice, [ref]$selectedIndex) -and $selectedIndex -ge 1 -and $selectedIndex -le $Options.Count) {
+            return $Options[$selectedIndex - 1]
+        }
+
+        Write-Host "Choix invalide. Entre un nombre entre 1 et $($Options.Count)." -ForegroundColor Yellow
     }
 }
 
-Write-Step "Preparation du live-reload Sharp Eleven"
+function Invoke-LaunchOption {
+    param(
+        [object]$SelectedOption,
+        [string]$WifiHost
+    )
 
-if (-not (Test-CommandAvailable -CommandName 'npm')) {
-    throw 'npm est introuvable dans cette session.'
+    switch ($SelectedOption.Action) {
+        'web-local' {
+            Open-LocalBrowser
+            return
+        }
+        'web-network' {
+            Write-Step "Ouverture du navigateur sur l'URL reseau"
+            $networkUrl = "http://$WifiHost`:$devServerPort/"
+            Write-Host "URL reseau: $networkUrl"
+            if ($DryRun) {
+                Write-Host "[dry-run] Start-Process $networkUrl"
+                return
+            }
+            Start-Process $networkUrl | Out-Null
+            return
+        }
+        'android-usb' {
+            Write-Step "Lancement de l'app Android sur telephone cable"
+            Write-Host "Appareil USB detecte: $($SelectedOption.Target.Serial)"
+            Invoke-CapRun -HostName 'localhost' -TargetSerial $SelectedOption.Target.Serial -ForwardPorts
+            return
+        }
+        'android-wifi' {
+            if (-not $WifiHost) {
+                throw "Impossible de lancer en Wi-Fi ADB sans IP reseau locale."
+            }
+
+            Write-Step "Lancement de l'app Android sur appareil Wi-Fi ADB"
+            Write-Host "Appareil Wi-Fi detecte: $($SelectedOption.Target.Serial)"
+            Save-WifiTarget -Serial $SelectedOption.Target.Serial
+            Invoke-CapRun -HostName $WifiHost -TargetSerial $SelectedOption.Target.Serial
+            return
+        }
+        'android-emulator' {
+            Write-Step "Lancement de l'app Android sur emulateur"
+            Write-Host "Cible emulateur: $($SelectedOption.Target.Serial)"
+            Invoke-CapRun -HostName '10.0.2.2' -TargetSerial $SelectedOption.Target.Serial
+            return
+        }
+        'android-start-emulator' {
+            $emulatorTarget = Start-AndroidEmulatorIfPossible
+            if (-not $emulatorTarget) {
+                throw "L'emulateur Android n'a pas pu etre demarre."
+            }
+
+            Write-Step "Lancement de l'app Android sur emulateur"
+            Write-Host "Cible emulateur: $($emulatorTarget.Serial)"
+            Invoke-CapRun -HostName '10.0.2.2' -TargetSerial $emulatorTarget.Serial
+            return
+        }
+        default {
+            throw "Action de lancement inconnue: $($SelectedOption.Action)"
+        }
+    }
 }
 
-Start-DevServer
-Open-LocalBrowser
+try {
+    Write-Step "Preparation du live-reload Sharp Eleven"
 
-$wifiIp = Get-PreferredIPv4Address
-if ($wifiIp) {
-    Write-Host "URL reseau: http://$wifiIp`:$devServerPort/"
-} else {
-    Write-Host "Aucune IP IPv4 reseau detectee."
+    if (-not (Test-CommandAvailable -CommandName 'npm')) {
+        throw 'npm est introuvable dans cette session.'
+    }
+
+    Start-DevServer
+
+    $wifiIp = Get-PreferredIPv4Address
+    if (-not $wifiIp) {
+        Write-Host "Aucune IP IPv4 reseau detectee."
+    }
+
+    $launchOptions = Get-LaunchOptions -WifiHost $wifiIp
+    if (-not $launchOptions.Count) {
+        throw "Aucune cible de lancement disponible."
+    }
+
+    $selectedOption = Select-LaunchOption -Options $launchOptions -WifiHost $wifiIp
+    Invoke-LaunchOption -SelectedOption $selectedOption -WifiHost $wifiIp
+
+    Write-Host ""
+    Write-Host "Live-reload pret. Laisse cette fenetre ouverte pendant le developpement." -ForegroundColor Green
+} catch {
+    Write-Host ""
+    Write-Host "Echec du lancement: $($_.Exception.Message)" -ForegroundColor Red
+
+    $details = $_ | Out-String
+    if ($details.Trim()) {
+        Write-Host $details.Trim()
+    }
+
+    if (-not $DryRun) {
+        Write-Host ""
+        Read-Host "Appuie sur Entree pour fermer"
+    }
+
+    exit 1
 }
-
-Start-AndroidLiveReload -WifiHost $wifiIp
-
-Write-Host ""
-Write-Host "Live-reload pret. Laisse cette fenetre ouverte pendant le developpement." -ForegroundColor Green

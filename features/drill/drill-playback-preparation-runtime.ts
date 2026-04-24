@@ -1,4 +1,30 @@
-﻿// @ts-nocheck
+
+type DrillPlaybackPreparationRuntimeOptions = {
+  getPlayedChordQuality?: (chord: any, isMinor: boolean, nextChord?: any | null) => string;
+  getVoicingPlanForProgression?: (chords: any[], key: number, isMinor: boolean) => any[] | null | undefined;
+  getVoicing?: (key: number, chord: any, isMinor: boolean, nextChord?: any | null) => any;
+  getNextKeyValue?: () => number | null;
+  getNextPaddedChords?: () => any[] | null;
+  getNextVoicingPlan?: () => any[] | null;
+  getNextCompingPlan?: () => unknown;
+  getIsMinorMode?: () => boolean;
+  setCurrentCompingPlan?: (value: unknown) => void;
+  setNextCompingPlan?: (value: unknown) => void;
+  getPaddedChords?: () => any[];
+  getCurrentKey?: () => number;
+  getCurrentVoicingPlan?: () => any[];
+  getBeatsPerChord?: () => number;
+  getCompingStyle?: () => string;
+  getTempoBpm?: () => number;
+  isWalkingBassEnabled?: () => boolean;
+  getSwingRatio?: () => number;
+  getCurrentBassPlan?: () => any[];
+  setCurrentBassPlan?: (value: any[]) => void;
+  getNextPaddedChordsForBass?: () => any[];
+  getNextKeyForBass?: () => number | null;
+  compingEngine?: { buildPreparedPlans: (options: Record<string, any>) => { currentPlan: unknown; nextPlan: unknown } };
+  walkingBassGenerator?: { buildLine: (options: Record<string, any>) => any[] } | null;
+};
 
 /**
  * @param {object} [options]
@@ -52,8 +78,8 @@ export function createDrillPlaybackPreparationRuntime({
   getNextKeyForBass = () => null,
   compingEngine,
   walkingBassGenerator = null
-} = {}) {
-  function getNextDifferentChord(chords, startIdx) {
+}: DrillPlaybackPreparationRuntimeOptions = {}) {
+  function getNextDifferentChord(chords: any[], startIdx: number) {
     const chord = chords[startIdx];
     if (!chord) return null;
     const playedMajor = getPlayedChordQuality(chord, false, chords[startIdx + 1] || null);
@@ -74,7 +100,7 @@ export function createDrillPlaybackPreparationRuntime({
     return null;
   }
 
-  function getVoicingAtIndex(chords, key, chordIdx, isMinor) {
+  function getVoicingAtIndex(chords: any[], key: number, chordIdx: number, isMinor: boolean) {
     const chord = chords[chordIdx];
     if (!chord) return null;
     const plannedVoicing = getVoicingPlanForProgression(chords, key, isMinor)?.[chordIdx];
@@ -95,10 +121,14 @@ export function createDrillPlaybackPreparationRuntime({
     };
   }
 
-  function rebuildPreparedCompingPlans(previousKey = getCurrentKey(), currentHasIncomingAnticipation = false, currentPreviousTailBeats = null) {
+  function rebuildPreparedCompingPlans(
+    previousKey = getCurrentKey(),
+    currentHasIncomingAnticipation = false,
+    currentPreviousTailBeats: number | null = null
+  ) {
     const beatsPerChord = getBeatsPerChord();
     const isMinor = getIsMinorMode();
-    const { currentPlan, nextPlan } = compingEngine.buildPreparedPlans({
+    const { currentPlan, nextPlan } = compingEngine?.buildPreparedPlans({
       style: getCompingStyle(),
       previousKey,
       currentHasIncomingAnticipation,
@@ -117,7 +147,7 @@ export function createDrillPlaybackPreparationRuntime({
         voicingPlan: getNextVoicingPlan(),
         beatsPerChord
       }
-    });
+    }) || { currentPlan: null, nextPlan: null };
     setCurrentCompingPlan(currentPlan);
     setNextCompingPlan(nextPlan);
   }

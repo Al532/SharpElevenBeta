@@ -1,20 +1,60 @@
-﻿// @ts-nocheck
 import { createStringsComping } from './drill-comping-strings.js';
 import { createPianoComping } from './drill-comping-piano.js';
 
-export function createCompingEngine({ constants, helpers }) {
+type DrillCompingPlan = {
+  style?: string;
+  events?: Array<{ timeBeats?: number } & Record<string, unknown>>;
+  anticipatesNextStart?: boolean;
+};
+
+type DrillCompingProgressionState = {
+  chords: any[];
+  key?: number | null;
+  isMinor?: boolean;
+  beatsPerChord: number;
+  voicingPlan?: any[] | null;
+};
+
+type DrillCompingPreparedPlansOptions = {
+  style: string;
+  previousKey?: number | null;
+  currentHasIncomingAnticipation?: boolean;
+  currentPreviousTailBeats?: number | null;
+  current: DrillCompingProgressionState;
+  next: DrillCompingProgressionState;
+};
+
+type DrillCompingScheduleWindowOptions = {
+  style: string;
+  progression: DrillCompingProgressionState;
+  plan: DrillCompingPlan | null | undefined;
+  nextProgression?: DrillCompingProgressionState;
+  nextPlan?: DrillCompingPlan | null;
+  slotDuration: number;
+  windowStartBeats: number;
+  windowEndBeats: number;
+  beatStartTime: number;
+  secondsPerBeat: number;
+};
+
+type DrillCompingEngineOptions = {
+  constants?: Record<string, any>;
+  helpers?: Record<string, any>;
+};
+
+export function createCompingEngine({ constants, helpers }: DrillCompingEngineOptions = {}) {
   const stringsComping = createStringsComping({ constants, helpers });
   const pianoComping = createPianoComping({ constants, helpers });
 
-  function isPianoStyle(style) {
+  function isPianoStyle(style: string) {
     return style === 'piano';
   }
 
-  function getStyleModule(style) {
+  function getStyleModule(style: string): any {
     return isPianoStyle(style) ? pianoComping : stringsComping;
   }
 
-  function getLastEventTailBeats(plan, totalBeats) {
+  function getLastEventTailBeats(plan: DrillCompingPlan | null, totalBeats: number) {
     const events = plan?.events || [];
     if (events.length === 0 || !Number.isFinite(totalBeats)) return null;
     const lastTimeBeats = events[events.length - 1]?.timeBeats;
@@ -29,7 +69,7 @@ export function createCompingEngine({ constants, helpers }) {
     currentPreviousTailBeats = null,
     current,
     next,
-  }) {
+  }: DrillCompingPreparedPlansOptions) {
     if (style === 'off') {
       return {
         currentPlan: { style: 'off', events: [], anticipatesNextStart: false },
@@ -76,7 +116,11 @@ export function createCompingEngine({ constants, helpers }) {
     };
   }
 
-  function collectSampleNotes(style, voicing, sets) {
+  function collectSampleNotes(
+    style: string,
+    voicing: any,
+    sets: { celloNotes?: Set<number>; violinNotes?: Set<number>; pianoNotes?: Set<number> }
+  ) {
     if (style === 'off') return;
     getStyleModule(style).collectSampleNotes(voicing, sets);
   }
@@ -92,7 +136,7 @@ export function createCompingEngine({ constants, helpers }) {
     windowEndBeats,
     beatStartTime,
     secondsPerBeat,
-  }) {
+  }: DrillCompingScheduleWindowOptions) {
     if (!plan?.events?.length) return;
 
     const styleModule = getStyleModule(style);
@@ -112,9 +156,9 @@ export function createCompingEngine({ constants, helpers }) {
     }
   }
 
-  function stopActiveComping(stopTime, fadeDuration) {
-    stringsComping.stopAll(stopTime, fadeDuration);
-    pianoComping.stopAll(stopTime, fadeDuration);
+  function stopActiveComping(stopTime: number, fadeDuration: number) {
+    stringsComping.stopAll?.(stopTime, fadeDuration);
+    (pianoComping as any).stopAll?.(stopTime, fadeDuration);
   }
 
   function clear() {

@@ -1,10 +1,25 @@
-﻿// @ts-nocheck
 
 import { createDrillSharedPlaybackAppAssembly } from './drill-shared-playback-app-assembly.js';
 import { createDrillSharedPlaybackAppBindings } from './drill-shared-playback-app-bindings.js';
 import { createDrillSharedPlaybackAppContextOptions } from './drill-shared-playback-app-context.js';
 import { createDrillSharedPlaybackRootAppContext } from './drill-shared-playback-root-app-context.js';
 import { createDrillSharedPlaybackStateAppContext } from './drill-shared-playback-state-app-context.js';
+import type { DrillSharedPlaybackAppAssembly, DrillSharedPlaybackHostBindings, DrillSharedPlaybackNormalizationBindings, DrillSharedPlaybackPatternUiBindings, DrillSharedPlaybackRuntimeBindings, DrillSharedPlaybackSettingsBindings, DrillSharedPlaybackStateBindings, DrillSharedPlaybackTransportBindings } from './drill-shared-playback-types.js';
+
+type CreateDrillSharedPlaybackRootAppAssemblyOptions = {
+  dom?: Record<string, unknown>;
+  host?: DrillSharedPlaybackHostBindings;
+  patternUi?: DrillSharedPlaybackPatternUiBindings;
+  normalization?: DrillSharedPlaybackNormalizationBindings;
+  playbackSettings?: DrillSharedPlaybackSettingsBindings;
+  embeddedPlaybackState?: DrillSharedPlaybackStateBindings;
+  embeddedPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  embeddedTransportActions?: DrillSharedPlaybackTransportBindings;
+  directPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  directPlaybackState?: DrillSharedPlaybackStateBindings;
+  directTransportActions?: DrillSharedPlaybackTransportBindings;
+  publishDirectGlobals?: boolean;
+};
 
 /**
  * Creates the shared drill playback assembly from live root-app bindings.
@@ -38,7 +53,7 @@ export function createDrillSharedPlaybackRootAppAssembly({
   directPlaybackState = {},
   directTransportActions = {},
   publishDirectGlobals
-} = {}) {
+}: CreateDrillSharedPlaybackRootAppAssemblyOptions = {}) {
   const rootAppContext = createDrillSharedPlaybackRootAppContext({
     host,
     patternUi,

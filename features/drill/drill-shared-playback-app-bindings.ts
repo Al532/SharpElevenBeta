@@ -1,12 +1,14 @@
+import type { DrillSharedPlaybackAppBindings } from './drill-shared-playback-types.js';
+
 export function createDrillSharedPlaybackAppBindings({
   embedded = {},
   direct = {},
   publishDirectGlobals
 }: {
-  embedded?: Record<string, any>;
-  direct?: Record<string, any>;
+  embedded?: DrillSharedPlaybackAppBindings['embedded'];
+  direct?: DrillSharedPlaybackAppBindings['direct'];
   publishDirectGlobals?: boolean;
-} = {}) {
+} = {}): DrillSharedPlaybackAppBindings {
   return {
     embedded,
     direct,

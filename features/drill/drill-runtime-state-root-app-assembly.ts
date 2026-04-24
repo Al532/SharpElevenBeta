@@ -1,8 +1,16 @@
-﻿// @ts-nocheck
 
 import { createDrillRuntimeStateAppAssembly } from './drill-runtime-state-app-assembly.js';
 import { createDrillRuntimeStateAppBindings } from './drill-runtime-state-app-bindings.js';
 import { createDrillRuntimeStateAppContextOptions } from './drill-runtime-state-app-context.js';
+
+type CreateDrillRuntimeStateRootAppAssemblyOptions = {
+  keyPoolState?: Record<string, unknown>;
+  sessionAnalyticsDom?: Record<string, unknown>;
+  sessionAnalyticsState?: Record<string, unknown>;
+  sessionAnalyticsHelpers?: Record<string, unknown>;
+  sessionAnalyticsConstants?: Record<string, unknown>;
+  sessionAnalyticsNow?: () => number;
+};
 
 /**
  * Creates the runtime-state assembly from live root-app bindings.
@@ -24,7 +32,7 @@ export function createDrillRuntimeStateRootAppAssembly({
   sessionAnalyticsHelpers = {},
   sessionAnalyticsConstants = {},
   sessionAnalyticsNow
-} = {}) {
+}: CreateDrillRuntimeStateRootAppAssemblyOptions = {}) {
   return createDrillRuntimeStateAppAssembly(
     createDrillRuntimeStateAppBindings(
       createDrillRuntimeStateAppContextOptions({

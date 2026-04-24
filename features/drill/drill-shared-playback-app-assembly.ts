@@ -6,6 +6,7 @@ import type {
   PlaybackSessionController,
   PlaybackSettings
 } from '../../core/types/contracts';
+import type { DrillSharedPlaybackAppAssembly, DrillSharedPlaybackDirectBindings, DrillSharedPlaybackEmbeddedBindings } from './drill-shared-playback-types.js';
 
 import { publishDirectPlaybackGlobals } from '../../core/playback/direct-playback-globals.js';
 import { createDrillDirectRuntimeAppAssembly } from './drill-direct-runtime-app-assembly.js';
@@ -17,29 +18,10 @@ export function createDrillSharedPlaybackAppAssembly({
   direct = {},
   publishDirectGlobals = true
 }: {
-  embedded?: {
-    dom?: Record<string, any>;
-    host?: Record<string, any>;
-    patternUi?: Record<string, any>;
-    normalization?: Record<string, any>;
-    playbackSettings?: Record<string, any>;
-    playbackState?: Record<string, any>;
-    playbackRuntime?: Record<string, any>;
-    transportActions?: Record<string, any>;
-  };
-  direct?: {
-    playbackRuntime?: Record<string, any>;
-    playbackState?: Record<string, any>;
-    transportActions?: Record<string, any>;
-  };
+  embedded?: DrillSharedPlaybackEmbeddedBindings;
+  direct?: DrillSharedPlaybackDirectBindings;
   publishDirectGlobals?: boolean;
-} = {}): {
-  playbackController: PlaybackSessionController;
-  applyEmbeddedPattern: (payload: EmbeddedPatternPayload) => PlaybackOperationResult;
-  applyEmbeddedPlaybackSettings: (settings: PlaybackSettings) => unknown;
-  getEmbeddedPlaybackState: () => Partial<PlaybackRuntimeState> | null | undefined;
-  directPlaybackControllerOptions: DirectPlaybackControllerOptions;
-} {
+} = {}): DrillSharedPlaybackAppAssembly {
   const {
     playbackController,
     applyEmbeddedPattern,

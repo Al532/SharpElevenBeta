@@ -1,4 +1,29 @@
-﻿// @ts-nocheck
+
+type DrillPlaybackSettingsRuntimeOptions = {
+  dom?: Record<string, any>;
+  mixer?: {
+    getMixerNodes?: () => Record<string, unknown> | null;
+    getAudioContext?: () => BaseAudioContext | null;
+    applyAudioMixerSettings?: (options: {
+      dom: Record<string, any>;
+      mixerNodes: Record<string, unknown> | null;
+      audioCtx: BaseAudioContext | null;
+      sliderValueToGain: (slider: { value?: unknown } | null | undefined) => number;
+      mixerChannelCalibration: Record<string, number>;
+    }) => unknown;
+  };
+  helpers?: {
+    normalizeCompingStyle?: (style: unknown) => string;
+  };
+  constants?: {
+    compingStyleOff?: string;
+    mixerChannelCalibration?: Record<string, number>;
+    drumModeOff?: string;
+    bassLow?: number;
+    noteNamesFlat?: string[];
+    walkingBassDebugEnabled?: boolean;
+  };
+};
 
 /**
  * Creates the small playback/settings helpers that still depend on app DOM and
@@ -31,12 +56,12 @@ export function createDrillPlaybackSettingsRuntime({
   mixer = {},
   helpers = {},
   constants = {}
-} = {}) {
+}: DrillPlaybackSettingsRuntimeOptions = {}) {
   const noteNamesFlat = Array.isArray(constants.noteNamesFlat)
     ? constants.noteNamesFlat
     : ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-  function sliderValueToGain(slider) {
+  function sliderValueToGain(slider: { value?: unknown } | null | undefined) {
     const percent = Number(slider?.value ?? 100);
     return Math.max(0, Math.min(1, percent / 100));
   }
@@ -57,17 +82,20 @@ export function createDrillPlaybackSettingsRuntime({
     return constants.walkingBassDebugEnabled !== false;
   }
 
-  function bassMidiToNoteName(midi) {
+  function bassMidiToNoteName(midi: number) {
     if (!Number.isFinite(midi)) return String(midi);
     const pitchClass = ((midi % 12) + 12) % 12;
     const octave = Math.floor(midi / 12) - 1;
     return `${noteNamesFlat[pitchClass]}${octave}`;
   }
 
-  function updateMixerValueLabel(slider, output) {
+  function updateMixerValueLabel(slider: { value?: string | number } | null | undefined, output: HTMLOutputElement | HTMLElement | null | undefined) {
     if (!slider || !output) return;
-    output.value = `${slider.value}%`;
-    output.textContent = `${slider.value}%`;
+    const label = `${slider.value}%`;
+    if ('value' in output) {
+      output.value = label;
+    }
+    output.textContent = label;
   }
 
   function applyMixerSettings() {

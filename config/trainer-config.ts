@@ -60,64 +60,106 @@ export const DRUM_MODES = Object.freeze({
 });
 
 export const CHART_DISPLAY_CONFIG = Object.freeze({
-  // Main sheet layout knobs for how many bars appear per row and how rows breathe vertically.
+  // Le layout controle la forme globale de la grille avant tout ajustement de taille du texte.
   layout: Object.freeze({
+    // Nombre de mesures par ligne par defaut quand le chart ne definit pas deja ses propres systemes.
     barsPerRow: 4,
+    // Si la grille a au plus ce nombre de lignes, elle peut s'etirer verticalement pour remplir l'espace.
     fillHeightMaxRowCount: 4,
+    // Ecart vertical minimum autorise entre deux lignes du chart.
     rowGapMinPx: 12,
+    // Ecart vertical maximum autorise entre deux lignes du chart dans le layout normal.
     rowGapMaxPx: 80,
+    // Ecart special utilise quand il n'y a qu'une seule ligne et qu'elle est etiree.
     stretchSingleRowGapPx: 10,
+    // Plafond de l'espacement des lignes etirees quand le chart est court et remplit la hauteur.
     stretchRowGapMaxPx: 24
   }),
-  // Runtime text compensation used to normalize perceived chart size across font rendering contexts.
+  // La compensation d'echelle du texte normalise la taille percue selon le contexte de rendu des polices.
   textScaleCompensation: Object.freeze({
+    // Variable CSS utilisee par la sonde de mesure qui estime la taille de rendu du texte.
     cssVarName: '--chart-text-scale-compensation',
+    // Mot de test utilise pour mesurer la taille du texte a l'execution.
     probeText: 'Chart',
+    // Taille de police de reference utilisee pour calculer le ratio de compensation.
     referenceFontSizePx: 100,
+    // Valeur minimale de compensation autorisee, pour eviter de trop ecraser le texte.
     minCompensation: 0.4,
+    // Valeur maximale de compensation autorisee, pour que la sonde ne grossisse jamais au-dela de la base.
     maxCompensation: 1
   }),
-  // Compression controls that decide when a chart or a row should shrink to stay legible.
+  // La compression decide quand il faut reduire tout le chart, une ligne, ou une mesure surchargee.
   compression: Object.freeze({
-    targetFillRatio: 0.8,
+    // Seuil global d'occupation. Au-dela de ce ratio de remplissage, tout le chart commence a reduire.
+    targetFillRatio: 1.2,
+    // Seuil d'occupation par ligne applique apres le passage global pour les lignes qui restent trop denses.
     rowTargetFillRatio: 0.78,
+    // Seuil local d'occupation utilise pour la reduction basee sur les collisions dans une meme mesure.
     collisionTargetFillRatio: 0.94,
+    // Valeur plancher pour l'echelle globale afin que tout le chart ne descende jamais sous ce niveau.
     minGlobalScale: 0.42,
+    // Valeur plancher pour la compression supplementaire au niveau d'une ligne apres le passage global.
     minRowScale: 0.36,
+    // Valeur plancher pour le passage local de reduction des collisions.
     minCollisionScale: 0.34,
+    // Adoucit le ratio de compression calcule pour que les changements d'echelle soient moins brusques.
     easingFactor: 0.98,
+    // Penalite de densite supplementaire quand l'estimation de chevauchement dit qu'un groupe est tres serre.
     overlapPenaltyMultiplier: 1.45,
+    // Premier seuil de densite a partir duquel un symbole d'accord est considere comme visuellement dense.
     denseChordThreshold: 12,
+    // Deuxieme seuil de densite a partir duquel un symbole d'accord est considere comme tres dense.
     veryDenseChordThreshold: 15,
+    // Seuil de densite a partir duquel le renderer passe a un comportement de compactage plus agressif.
     aggressiveDensityThreshold: 28,
+    // Seuil de densite extreme pour le chemin de compactage le plus agressif.
     aggressiveExtremeDensityThreshold: 32
   }),
-  // Horizontal placement adjustments used after layout to improve optical centering and avoid collisions.
+  // L'alignement affine le placement horizontal une fois que le renderer connait la geometrie reelle du DOM.
   alignment: Object.freeze({
+    // Marge horizontale retiree de la largeur utile de la mesure pendant les calculs d'occupation.
     barBodyHorizontalInsetPx: 4,
+    // Marge de securite conservee sur les deux bords de la mesure pour que les symboles ne touchent pas visuellement les limites.
     symbolBoundaryInsetPx: 1,
+    // Ecart minimum preserve entre symboles voisins apres resolution des collisions.
     collisionMinGapPx: 1,
+    // Marge supplementaire ajoutee quand la gestion des chevauchements a encore besoin d'un peu plus d'air.
     collisionOverlapPaddingPx: 2,
+    // Point d'ancrage prefere vers la gauche pour un accord seul dans une mesure, exprime en fraction de la largeur.
     singleChordLeftBias: 0.2
   }),
-  // Symbol scoring weights used to estimate visual density before applying compression.
+  // Les metriques des tokens estiment le poids visuel avant que le renderer mesure les vraies largeurs dans le DOM.
   tokenMetrics: Object.freeze({
+    // Poids ajoute pour un prefixe visible attache au symbole d'accord.
     displayPrefixWeight: 0.35,
+    // Poids ajoute par alteration comme b ou #.
     accidentalWeight: 0.18,
+    // Poids ajoute par slash, qui rend souvent les symboles plus larges et plus charges.
     slashWeight: 1.1,
+    // Poids ajoute pour les parentheses, qui alourdissent visuellement le symbole.
     parentheticalWeight: 0.45,
+    // Poids ajoute pour les extensions numeriques comme 9, 11, ou 13.
     extensionWeight: 0.25,
+    // Poids ajoute pour les mots de qualite plus longs comme maj, sus, dim, alt, aug, add.
     longQualityWeight: 0.55
   }),
-  // Optional extra scaling for subdivided cells with long chord symbols.
+  // Mise a l'echelle supplementaire pour les mesures subdivisees ou plusieurs symboles longs partagent la meme case.
   subdividedTokenScale: Object.freeze({
+    // Les symboles de cette longueur ou plus courts sont consideres comme courts et gardent leur taille normale.
     shortSymbolMaxLength: 3,
+    // Seuil de poids visuel pour la reduction la plus forte.
     heavyWeightThreshold: 11,
+    // Seuil de poids visuel pour la reduction moyenne.
     mediumWeightThreshold: 9.5,
+    // Seuil de poids visuel pour la reduction legere.
     lightWeightThreshold: 7.5,
+    // Echelle appliquee aux symboles subdivises les plus lourds.
     heavyScale: 0.82,
+    // Echelle appliquee aux symboles subdivises de poids moyen-fort.
     mediumScale: 0.88,
+    // Echelle appliquee aux symboles subdivises legerement lourds.
     lightScale: 0.94,
+    // Echelle de repli douce pour les symboles longs qui ne franchissent pas les seuils plus lourds.
     defaultLongScale: 0.97
   })
 });

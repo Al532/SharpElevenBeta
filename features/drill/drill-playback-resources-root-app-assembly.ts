@@ -16,12 +16,8 @@ import { createDrillPlaybackResourcesStateAppContext } from './drill-playback-re
  * This keeps the playback-preparation/resources contract out of `app.js`
  * while preserving the existing app-context and bindings layers.
  *
- * @param {object} [options]
- * @param {Record<string, any>} [options.harmony]
- * @param {Record<string, any>} [options.progressionState]
- * @param {Record<string, any>} [options.playbackSettings]
- * @param {Record<string, any>} [options.runtime]
- * @param {Record<string, any>} [options.audioFacade]
+ * @param {Parameters<typeof createDrillPlaybackResourcesAppBindings>[0]} [options]
+ * @returns {ReturnType<typeof createDrillPlaybackResourcesAppAssembly>}
  */
 export function createDrillPlaybackResourcesRootAppAssembly({
   harmony = {},

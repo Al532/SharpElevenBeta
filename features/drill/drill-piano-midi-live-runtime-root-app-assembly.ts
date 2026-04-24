@@ -1,4 +1,21 @@
-﻿// @ts-nocheck
+
+type DrillMidiVoice = {
+  midi: number;
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+  volume: number;
+};
+
+type DrillPianoMidiLiveRuntimeRootAppAssemblyOptions = {
+  runtimeState?: Record<string, any>;
+  collections?: {
+    pendingMidiNoteTokens?: Map<number, number>;
+    activeMidiPianoVoices?: Map<number, DrillMidiVoice>;
+    sustainedMidiNotes?: Set<number>;
+  };
+  runtimeHelpers?: Record<string, any>;
+  constants?: Record<string, any>;
+};
 
 /**
  * Creates the live piano MIDI runtime from root-app bindings. This keeps the
@@ -16,7 +33,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
   collections = {},
   runtimeHelpers = {},
   constants = {}
-} = {}) {
+}: DrillPianoMidiLiveRuntimeRootAppAssemblyOptions = {}) {
   const {
     getAudioContext = () => null,
     getPianoMidiSettings = () => ({}),
@@ -28,9 +45,9 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
   } = runtimeState;
 
   const {
-    pendingMidiNoteTokens = new Map(),
-    activeMidiPianoVoices = new Map(),
-    sustainedMidiNotes = new Set()
+    pendingMidiNoteTokens = new Map<number, number>(),
+    activeMidiPianoVoices = new Map<number, DrillMidiVoice>(),
+    sustainedMidiNotes = new Set<number>()
   } = collections;
 
   const {
@@ -59,23 +76,23 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     pianoVolumeMultiplier = 0.3
   } = constants;
 
-  function dbToGain(db) {
+  function dbToGain(db: number) {
     return Math.pow(10, Number(db || 0) / 20);
   }
 
-  function getPianoSampleLayerForVolume(finalVolume) {
+  function getPianoSampleLayerForVolume(finalVolume: number) {
     const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
     if (finalVolume >= (thresholds.f ?? Number.POSITIVE_INFINITY)) return 'f';
     if (finalVolume >= (thresholds.mf ?? Number.POSITIVE_INFINITY)) return 'mf';
     return 'p';
   }
 
-  function smoothstep01(value) {
+  function smoothstep01(value: number) {
     const clamped = clamp01(value);
     return clamped * clamped * (3 - (2 * clamped));
   }
 
-  function getPianoSampleLayerBoundaryLiftDb(finalVolume, layer) {
+  function getPianoSampleLayerBoundaryLiftDb(finalVolume: number, layer: string) {
     const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
     const smoothing = pianoRhythmConfig.pianoSampleLayerSmoothing || {};
     const boundaryWindow = clampRange(smoothing.boundaryWindow, 0.001, 0.2, 0.045);
@@ -108,7 +125,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     return 0;
   }
 
-  function getPianoSampleLayerGainForVolume(finalVolume) {
+  function getPianoSampleLayerGainForVolume(finalVolume: number) {
     const layer = getPianoSampleLayerForVolume(finalVolume);
     const layerGainDb = pianoRhythmConfig.pianoSampleLayerGainDb || {};
     const boundaryLiftDb = getPianoSampleLayerBoundaryLiftDb(finalVolume, layer);
@@ -118,7 +135,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     };
   }
 
-  function getMidiVelocityProfile(velocity) {
+  function getMidiVelocityProfile(velocity: number) {
     const midiVelocityConfig = pianoRhythmConfig.pianoMidiVelocity || {};
     const thresholds = pianoRhythmConfig.pianoSampleLayerThresholds || {};
     const normalizedVelocity = clamp01((Number(velocity) || 0) / 127);
@@ -145,11 +162,11 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     };
   }
 
-  function getNearestPianoSourceMidi(targetMidi) {
+  function getNearestPianoSourceMidi(targetMidi: number) {
     return Math.round(clampRange(targetMidi, pianoSampleLow, pianoSampleHigh, 60));
   }
 
-  async function ensurePianoSampleAvailable(midi, layer) {
+  async function ensurePianoSampleAvailable(midi: number, layer: string) {
     const sourceMidi = getNearestPianoSourceMidi(midi);
     const sampleKey = `${layer}:${sourceMidi}`;
     const existingBuffer = getSampleBuffer(sampleKey);
@@ -172,7 +189,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     const currentPromise = getMidiPianoRangePreloadPromise();
     if (currentPromise) return currentPromise;
 
-    const midiValues = [];
+    const midiValues: number[] = [];
     for (let midi = pianoSampleLow; midi <= pianoSampleHigh; midi++) {
       midiValues.push(midi);
     }
@@ -187,7 +204,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     return preloadPromise;
   }
 
-  function stopMidiPianoVoice(midi, releaseImmediately = false) {
+  function stopMidiPianoVoice(midi: number, releaseImmediately = false) {
     const voice = activeMidiPianoVoices.get(midi);
     const audioContext = getAudioContext();
     if (!voice || !audioContext) return;
@@ -224,7 +241,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     setMidiSustainPedalDown(false);
   }
 
-  async function playMidiPianoNote(midi, velocity = 96) {
+  async function playMidiPianoNote(midi: number, velocity = 96) {
     if (!getPianoMidiSettings()?.enabled) return;
 
     const noteToken = (pendingMidiNoteTokens.get(midi) || 0) + 1;
@@ -276,7 +293,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     );
   }
 
-  function handleMidiNoteOff(midi) {
+  function handleMidiNoteOff(midi: number) {
     if (!getPianoMidiSettings()?.enabled) return;
     pendingMidiNoteTokens.set(midi, (pendingMidiNoteTokens.get(midi) || 0) + 1);
     if (getPianoMidiSettings()?.sustainPedalEnabled && getMidiSustainPedalDown()) {
@@ -286,7 +303,7 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     stopMidiPianoVoice(midi);
   }
 
-  function handleMidiSustainChange(value) {
+  function handleMidiSustainChange(value: number) {
     if (!getPianoMidiSettings()?.sustainPedalEnabled) return;
     const isDown = Number(value) >= 64;
     setMidiSustainPedalDown(isDown);
@@ -297,8 +314,8 @@ export function createDrillPianoMidiLiveRuntimeRootAppAssembly({
     sustainedMidiNotes.clear();
   }
 
-  function handleMidiMessage(event) {
-    const [status = 0, data1 = 0, data2 = 0] = event.data || [];
+  function handleMidiMessage(event: { data?: ArrayLike<number> | null }) {
+    const [status = 0, data1 = 0, data2 = 0] = event.data ? Array.from(event.data) : [];
     const command = status & 0xf0;
 
     if (command === 0x90 && data2 > 0) {

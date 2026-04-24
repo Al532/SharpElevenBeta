@@ -1,4 +1,8 @@
-﻿// @ts-nocheck
+
+type DrillPlaybackResourcesAppFacadeOptions = {
+  audioFacade?: Record<string, any>;
+  playbackPreparation?: Record<string, any>;
+};
 
 /**
  * Creates an app-facing facade around playback preparation and audio-preload
@@ -12,7 +16,7 @@
 export function createDrillPlaybackResourcesAppFacade({
   audioFacade = {},
   playbackPreparation = {}
-} = {}) {
+}: DrillPlaybackResourcesAppFacadeOptions = {}) {
   return {
     rebuildPreparedCompingPlans: playbackPreparation.rebuildPreparedCompingPlans,
     ensureWalkingBassGenerator: playbackPreparation.ensureWalkingBassGenerator,

@@ -1,7 +1,6 @@
-﻿// @ts-nocheck
-import rhythmConfig from '../../core/music/piano-rhythm-config.js';
-import voicingConfig from '../../core/music/voicing-config.js';
-import pianoVoicingConfig from '../../core/music/piano-voicing-config.js';
+import rawRhythmConfig from '../../core/music/piano-rhythm-config.js';
+import rawVoicingConfig from '../../core/music/voicing-config.js';
+import rawPianoVoicingConfig from '../../core/music/piano-voicing-config.js';
 import { applyContextualQualityRules } from '../../core/music/harmony-context.js';
 import {
   DEFAULT_SWING_RATIO,
@@ -35,6 +34,9 @@ const INTERVAL_SEMITONES = {
   '13': 9,
 };
 const NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const rhythmConfig: Record<string, any> = rawRhythmConfig as Record<string, any>;
+const voicingConfig: Record<string, any> = rawVoicingConfig as Record<string, any>;
+const pianoVoicingConfig: Record<string, any> = rawPianoVoicingConfig as Record<string, any>;
 
 function chordsMatch(left, right) {
   return Boolean(left && right
@@ -623,7 +625,12 @@ function createPianoPlan({
   };
 }
 
-export function createPianoComping({ constants, helpers }) {
+type DrillPianoCompingOptions = {
+  constants?: Record<string, any>;
+  helpers?: Record<string, any>;
+};
+
+export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoCompingOptions = {}) {
   const {
     CHORD_FADE_BEFORE,
     PIANO_COMP_DURATION_RATIO,
@@ -643,12 +650,20 @@ export function createPianoComping({ constants, helpers }) {
     DOMINANT_DEFAULT_QUALITY_MAJOR = {},
     DOMINANT_DEFAULT_QUALITY_MINOR = {},
     QUALITY_CATEGORY_ALIASES = {},
-  } = voicingConfig;
+  } = voicingConfig as {
+    DOMINANT_DEFAULT_QUALITY_MAJOR?: Record<string, string>;
+    DOMINANT_DEFAULT_QUALITY_MINOR?: Record<string, string>;
+    QUALITY_CATEGORY_ALIASES?: Record<string, string[]>;
+  };
   const {
     defaultMode: defaultPianoMode = 'piano',
     modes: pianoModes = {},
     ranges: pianoRanges = {},
-  } = pianoVoicingConfig;
+  } = pianoVoicingConfig as {
+    defaultMode?: string;
+    modes?: Record<string, any>;
+    ranges?: Record<string, number>;
+  };
   function dbToGain(db) {
     return Math.pow(10, db / 20);
   }
@@ -1017,7 +1032,7 @@ export function createPianoComping({ constants, helpers }) {
     const shapeSpec = getShapeSpecForQuality(activeMode, playedQuality);
     if (!shapeSpec?.A) return [];
 
-    const pitchClasses = new Set();
+    const pitchClasses = new Set<number>();
     const rootPitchClass = getChordRootPitchClass(chord, key);
     const shapeIntervals = [
       ...(shapeSpec.A || []),
@@ -2128,6 +2143,7 @@ export function createPianoComping({ constants, helpers }) {
         oneStepRunLength: null,
         oneStepRunPosition: null,
         targetsNextProgression: true,
+        slotIndex: Number.POSITIVE_INFINITY,
         isSentinel: true,
       });
     }

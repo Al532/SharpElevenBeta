@@ -1,14 +1,24 @@
+import type {
+  DrillSharedPlaybackHostBindings,
+  DrillSharedPlaybackNormalizationBindings,
+  DrillSharedPlaybackPatternUiBindings,
+  DrillSharedPlaybackRuntimeBindings,
+  DrillSharedPlaybackSettingsBindings,
+  DrillSharedPlaybackStateBindings,
+  DrillSharedPlaybackTransportBindings
+} from './drill-shared-playback-types.js';
+
 type DrillSharedPlaybackStateAppContextOptions = {
-  host?: Record<string, any>;
-  patternUi?: Record<string, any>;
-  normalization?: Record<string, any>;
-  playbackSettings?: Record<string, any>;
-  embeddedPlaybackState?: Record<string, any>;
-  embeddedPlaybackRuntime?: Record<string, any>;
-  embeddedTransportActions?: Record<string, any>;
-  directPlaybackRuntime?: Record<string, any>;
-  directPlaybackState?: Record<string, any>;
-  directTransportActions?: Record<string, any>;
+  host?: DrillSharedPlaybackHostBindings;
+  patternUi?: DrillSharedPlaybackPatternUiBindings;
+  normalization?: DrillSharedPlaybackNormalizationBindings;
+  playbackSettings?: DrillSharedPlaybackSettingsBindings;
+  embeddedPlaybackState?: DrillSharedPlaybackStateBindings;
+  embeddedPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  embeddedTransportActions?: DrillSharedPlaybackTransportBindings;
+  directPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  directPlaybackState?: DrillSharedPlaybackStateBindings;
+  directTransportActions?: DrillSharedPlaybackTransportBindings;
 };
 
 export function createDrillSharedPlaybackStateAppContext({

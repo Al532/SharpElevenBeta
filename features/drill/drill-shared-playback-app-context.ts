@@ -1,72 +1,83 @@
+import type {
+  DrillSharedPlaybackDirectBindings,
+  DrillSharedPlaybackHostBindings,
+  DrillSharedPlaybackNormalizationBindings,
+  DrillSharedPlaybackPatternUiBindings,
+  DrillSharedPlaybackRuntimeBindings,
+  DrillSharedPlaybackSettingsBindings,
+  DrillSharedPlaybackStateBindings,
+  DrillSharedPlaybackTransportBindings
+} from './drill-shared-playback-types.js';
+
 type SharedPlaybackAppContextOptions = {
-  dom?: Record<string, any>;
-  host?: Record<string, any>;
-  patternUi?: Record<string, any>;
-  normalization?: Record<string, any>;
-  playbackSettings?: Record<string, any>;
-  embeddedPlaybackState?: Record<string, any>;
-  embeddedPlaybackRuntime?: Record<string, any>;
-  embeddedTransportActions?: Record<string, any>;
-  directPlaybackRuntime?: Record<string, any>;
-  directPlaybackState?: Record<string, any>;
-  directTransportActions?: Record<string, any>;
+  dom?: Record<string, unknown>;
+  host?: DrillSharedPlaybackHostBindings;
+  patternUi?: DrillSharedPlaybackPatternUiBindings;
+  normalization?: DrillSharedPlaybackNormalizationBindings;
+  playbackSettings?: DrillSharedPlaybackSettingsBindings;
+  embeddedPlaybackState?: DrillSharedPlaybackStateBindings;
+  embeddedPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  embeddedTransportActions?: DrillSharedPlaybackTransportBindings;
+  directPlaybackRuntime?: DrillSharedPlaybackRuntimeBindings;
+  directPlaybackState?: DrillSharedPlaybackStateBindings;
+  directTransportActions?: DrillSharedPlaybackTransportBindings;
   publishDirectGlobals?: boolean;
 };
 
-function cloneOptions(options: Record<string, any> = {}) {
+function cloneOptions<T extends Record<string, unknown>>(options: T): T {
   return { ...options };
 }
 
 export function createDrillSharedPlaybackHostAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackHostBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackPatternUiAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackPatternUiBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackNormalizationAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackNormalizationBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackSettingsAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackSettingsBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackDirectRuntimeAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackRuntimeBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackDirectStateAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackStateBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackDirectTransportAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackTransportBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackEmbeddedRuntimeAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackRuntimeBindings = {}
 ) {
   return cloneOptions(options);
 }
 
 export function createDrillSharedPlaybackEmbeddedStateAppContext(
-  options: Record<string, any> = {}
+  options: DrillSharedPlaybackStateBindings = {}
 ) {
   return cloneOptions(options);
 }
@@ -100,7 +111,7 @@ export function createDrillSharedPlaybackAppContextOptions({
       playbackRuntime: directPlaybackRuntime,
       playbackState: directPlaybackState,
       transportActions: directTransportActions
-    },
+    } satisfies DrillSharedPlaybackDirectBindings,
     publishDirectGlobals
   };
 }

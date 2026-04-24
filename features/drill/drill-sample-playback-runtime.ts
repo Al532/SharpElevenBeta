@@ -1,12 +1,65 @@
-﻿// @ts-nocheck
+
+type DrillLoadedSampleBuffers = Record<string, Record<string | number, AudioBuffer | undefined>>;
+
+type DrillTrackedAudioSource = AudioBufferSourceNode & {
+  detune?: AudioParam;
+  playbackRate: AudioParam;
+  loop?: boolean;
+  loopStart?: number;
+  loopEnd?: number;
+};
+
+type DrillPlayableVoice = {
+  detuneParams: AudioParam[];
+  gain: GainNode;
+  volume: number;
+  audibleUntil: number;
+  endAnchor: AudioScheduledSourceNode;
+  stop: (stopTime: number) => void;
+  midi?: number;
+  category?: string;
+  key?: string;
+};
+
+type DrillSamplePlaybackRuntimeOptions = {
+  getAudioContext?: () => AudioContext | null;
+  sampleBuffers?: DrillLoadedSampleBuffers;
+  getMixerDestination?: (channel: string) => AudioNode | null;
+  trackScheduledSource?: (source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown;
+  loadSample?: (category: string, folder: string, midi: number) => Promise<any>;
+  getActiveNoteGain?: () => GainNode | null;
+  setActiveNoteGain?: (value: GainNode | null) => void;
+  setActiveNoteFadeOut?: (value: number) => void;
+  getPianoFadeProfile?: (
+    midi: number,
+    volume: number,
+    maxDuration: number
+  ) => { fadeBefore: number; timeConstant: number };
+  noteFadeout?: number;
+  bassNoteAttack?: number;
+  bassNoteOverlap?: number;
+  bassNoteRelease?: number;
+  bassGainReleaseTimeConstant?: number;
+  chordFadeBefore?: number;
+  chordFadeDuration?: number;
+  bassGain?: number;
+  stringLoopStart?: number;
+  stringLoopEnd?: number;
+  stringLoopCrossfade?: number;
+};
+
+type DrillPlaySampleOptions = {
+  layer?: string;
+  legato?: boolean;
+};
 
 /**
  * @param {AudioScheduledSourceNode} source
  */
-function stopAudioSourceSafely(source, stopTime) {
+function stopAudioSourceSafely(source: AudioScheduledSourceNode, stopTime: number) {
   try {
     source.stop(stopTime);
-  } catch (err) {
+  } catch {
     // Source may already be stopped; ignore duplicate stop scheduling.
   }
 }
@@ -55,8 +108,8 @@ export function createDrillSamplePlaybackRuntime({
   stringLoopStart = 2,
   stringLoopEnd = 9,
   stringLoopCrossfade = 0.12
-} = {}) {
-  function getNearestLoadedBassSampleMidi(targetMidi) {
+}: DrillSamplePlaybackRuntimeOptions = {}) {
+  function getNearestLoadedBassSampleMidi(targetMidi: number) {
     const loadedMidis = Object.keys(sampleBuffers.bass || {})
       .map((value) => Number(value))
       .filter((value) => Number.isFinite(value) && sampleBuffers.bass[value]);
@@ -70,11 +123,12 @@ export function createDrillSamplePlaybackRuntime({
     return loadedMidis[0];
   }
 
-  function getAdaptiveBassFadeDuration() {
+  function getAdaptiveBassFadeDuration(maxDuration?: number) {
+    void maxDuration;
     return bassNoteRelease;
   }
 
-  function scheduleBassGainRelease(gainNode, fadeStart, fadeEnd) {
+  function scheduleBassGainRelease(gainNode: GainNode | null, fadeStart: number, fadeEnd: number) {
     if (!gainNode) return;
 
     if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') {
@@ -89,7 +143,7 @@ export function createDrillSamplePlaybackRuntime({
     gainNode.gain.setValueAtTime(0, fadeEnd);
   }
 
-  function playNote(midi, time, maxDuration, velocity = 127) {
+  function playNote(midi: number, time: number, maxDuration: number, velocity = 127) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('bass');
     if (!audioCtx || !destination) return;
@@ -116,7 +170,7 @@ export function createDrillSamplePlaybackRuntime({
       scheduleBassGainRelease(activeNoteGain, fadeStart, fadeEnd);
     }
 
-    const src = audioCtx.createBufferSource();
+    const src = audioCtx.createBufferSource() as DrillTrackedAudioSource;
     src.buffer = buffer;
     if (sourceMidi !== midi) {
       src.playbackRate.value = Math.pow(2, (midi - sourceMidi) / 12);
@@ -140,11 +194,19 @@ export function createDrillSamplePlaybackRuntime({
     setActiveNoteFadeOut(currentNoteFadeOut);
   }
 
-  function scheduleSampleSegment(buffer, destination, startTime, offset, duration, fadeInDuration = 0, fadeOutDuration = 0) {
+  function scheduleSampleSegment(
+    buffer: AudioBuffer,
+    destination: AudioNode,
+    startTime: number,
+    offset: number,
+    duration: number,
+    fadeInDuration = 0,
+    fadeOutDuration = 0
+  ) {
     const audioCtx = getAudioContext();
     if (!audioCtx) return null;
 
-    const src = audioCtx.createBufferSource();
+    const src = audioCtx.createBufferSource() as DrillTrackedAudioSource;
     src.buffer = buffer;
 
     const segmentGain = audioCtx.createGain();
@@ -168,25 +230,30 @@ export function createDrillSamplePlaybackRuntime({
     return src;
   }
 
-  function playLoopedStringSample(buffer, time, fadeEnd, volume) {
+  function playLoopedStringSample(
+    buffer: AudioBuffer,
+    time: number,
+    fadeEnd: number,
+    volume: number
+  ): DrillPlayableVoice | null {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('strings');
     if (!audioCtx || !destination) return null;
 
     const gain = audioCtx.createGain();
     gain.gain.setValueAtTime(volume, time);
-    const detuneParams = [];
+    const detuneParams: AudioParam[] = [];
 
     const loopEnd = Math.min(stringLoopEnd, buffer.duration);
     const loopLength = loopEnd - stringLoopStart;
     const crossfade = Math.min(stringLoopCrossfade, loopLength / 2);
-    const loopStarts = [];
+    const loopStarts: number[] = [];
 
     for (let start = time + loopEnd - crossfade; start < fadeEnd; start += loopLength - crossfade) {
       loopStarts.push(start);
     }
 
-    const sources = [];
+    const sources: DrillTrackedAudioSource[] = [];
     const hasLoopSegments = loopStarts.length > 0;
     const firstSource = scheduleSampleSegment(
       buffer,
@@ -217,7 +284,7 @@ export function createDrillSamplePlaybackRuntime({
       detuneParams.push(loopSource.detune);
     });
 
-    const stop = (stopTime) => {
+    const stop = (stopTime: number) => {
       for (const source of sources) {
         stopAudioSourceSafely(source, stopTime);
       }
@@ -235,7 +302,14 @@ export function createDrillSamplePlaybackRuntime({
     };
   }
 
-  function playSample(category, midi, time, maxDuration, volume, options = {}) {
+  function playSample(
+    category: string,
+    midi: number,
+    time: number,
+    maxDuration: number,
+    volume: number,
+    options: DrillPlaySampleOptions = {}
+  ): DrillPlayableVoice | null {
     const audioCtx = getAudioContext();
     if (!audioCtx) return null;
 
@@ -257,7 +331,7 @@ export function createDrillSamplePlaybackRuntime({
         const fadeStart = isLegato ? (time + maxDuration) : Math.max(time, time + maxDuration - fadeBefore);
         const fadeEnd = isLegato ? (fadeStart + Math.max(0.03, timeConstant * 3.5)) : (time + maxDuration);
 
-        const src = audioCtx.createBufferSource();
+        const src = audioCtx.createBufferSource() as DrillTrackedAudioSource;
         src.buffer = buffer;
         const gain = audioCtx.createGain();
         gain.gain.setValueAtTime(volume, time);
@@ -275,7 +349,7 @@ export function createDrillSamplePlaybackRuntime({
           volume,
           audibleUntil: Math.min(naturalEndTime, fadeEnd),
           endAnchor: src,
-          stop: (stopTime) => stopAudioSourceSafely(src, stopTime)
+          stop: (stopTime: number) => stopAudioSourceSafely(src, stopTime)
         };
       }
 
@@ -294,7 +368,7 @@ export function createDrillSamplePlaybackRuntime({
         return activeVoice;
       }
 
-      const src = audioCtx.createBufferSource();
+      const src = audioCtx.createBufferSource() as DrillTrackedAudioSource;
       src.buffer = buffer;
       const gain = audioCtx.createGain();
       gain.gain.setValueAtTime(volume, time);
@@ -312,11 +386,11 @@ export function createDrillSamplePlaybackRuntime({
         volume,
         audibleUntil: Math.min(naturalEndTime, fadeEnd),
         endAnchor: src,
-        stop: (stopTime) => stopAudioSourceSafely(src, stopTime)
+        stop: (stopTime: number) => stopAudioSourceSafely(src, stopTime)
       };
     }
 
-    const src = audioCtx.createBufferSource();
+    const src = audioCtx.createBufferSource() as DrillTrackedAudioSource;
     src.buffer = buffer;
     const gain = audioCtx.createGain();
     gain.gain.setValueAtTime(volume, time);
@@ -332,7 +406,7 @@ export function createDrillSamplePlaybackRuntime({
       volume,
       audibleUntil: naturalEndTime,
       endAnchor: src,
-      stop: (stopTime) => stopAudioSourceSafely(src, stopTime)
+      stop: (stopTime: number) => stopAudioSourceSafely(src, stopTime)
     };
   }
 

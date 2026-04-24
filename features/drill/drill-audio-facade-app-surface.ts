@@ -1,13 +1,16 @@
-﻿// @ts-nocheck
+
+import type { DrillAudioFacadeLike } from './drill-audio-types.js';
 
 /**
  * Materializes the app-local audio facade aliases consumed throughout
  * `app.js` while keeping the underlying audio facade unchanged.
  *
- * @param {Record<string, any>} [drillAudioFacade]
- * @returns {Record<string, any>}
+ * @param {DrillAudioFacadeLike} [drillAudioFacade]
+ * @returns {Record<string, unknown>}
  */
-export function createDrillAudioFacadeAppSurface(drillAudioFacade = {}) {
+export function createDrillAudioFacadeAppSurface(
+  drillAudioFacade: DrillAudioFacadeLike = {}
+) {
   return {
     applyDrillAudioMixerSettings: drillAudioFacade.applyMixerSettings,
     loadDrillAudioSample: drillAudioFacade.loadSample,

@@ -5,14 +5,13 @@ import { createDrillAudioStackAppAssembly } from './drill-audio-stack-app-assemb
 import { createDrillAudioStackAppBindings } from './drill-audio-stack-app-bindings.js';
 import { createDrillAudioStackAppFacade } from './drill-audio-stack-app-facade.js';
 import { createDrillAudioStackFacadeAppBindings } from './drill-audio-stack-facade-app-bindings.js';
+/** @import { DrillAudioFacadeLike, DrillAudioStackLike } from './drill-audio-types.js' */
 
 /**
  * Materializes the drill audio stack, facade, and app-facing surface from grouped
  * app concerns so `app.js` can keep moving toward orchestration-only wiring.
  *
- * @param {object} [options]
- * @param {object} [options.audioStack]
- * @param {object} [options.audioFacade]
+ * @param {{ audioStack?: DrillAudioStackLike, audioFacade?: Partial<Pick<import('./drill-audio-stack-app-facade.js'), never>> & { getCurrentTime?: () => number, defaultFadeDuration?: number } }} [options]
  */
 export function createDrillAudioRuntimeAppAssembly({
   audioStack = {},

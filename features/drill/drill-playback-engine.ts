@@ -1,6 +1,15 @@
-﻿// @ts-nocheck
 import { createPlaybackScheduler } from './drill-playback-scheduler.js';
 import { createPlaybackTransport } from './drill-playback-transport.js';
+
+type InitializeDrillPlaybackEngineOptions = {
+  dom?: Record<string, unknown>;
+  schedulerState?: Record<string, unknown>;
+  transportState?: Record<string, unknown>;
+  schedulerConstants?: Record<string, unknown>;
+  transportConstants?: Record<string, unknown>;
+  schedulerHelpers?: Record<string, unknown>;
+  transportHelpers?: Record<string, unknown>;
+};
 
 export function initializeDrillPlaybackEngine({
   dom,
@@ -10,7 +19,7 @@ export function initializeDrillPlaybackEngine({
   transportConstants,
   schedulerHelpers,
   transportHelpers
-} = {}) {
+}: InitializeDrillPlaybackEngineOptions = {}) {
   const {
     prepareNextProgression: prepareNextProgressionPlayback,
     scheduleBeat: scheduleBeatPlayback,

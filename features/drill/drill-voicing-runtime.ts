@@ -1,4 +1,27 @@
-﻿// @ts-nocheck
+
+type DrillVoicingRuntimeOptions = {
+  qualityCategoryAliases?: Record<string, string[]>;
+  dominantDefaultQualityMajor?: Record<string, string>;
+  dominantDefaultQualityMinor?: Record<string, string>;
+  colorTones?: Record<string, any>;
+  dominantColorTones?: Record<string, any>;
+  guideTones?: Record<string, any>;
+  dominantGuideTones?: Record<string, any>;
+  intervalSemitones?: Record<string, number>;
+  violinLow?: number;
+  violinHigh?: number;
+  celloLow?: number;
+  guideToneLow?: number;
+  guideToneHigh?: number;
+  applyContextualQualityRules?: (chord: any, quality: string) => string;
+  applyPriorityDominantResolutionRules?: (payload: Record<string, any>) => string;
+  getCurrentPaddedChords?: () => any[] | null;
+  getCurrentKey?: () => number | null;
+  getCurrentVoicingPlan?: () => any[] | null;
+  getNextPaddedChords?: () => any[] | null;
+  getNextKeyValue?: () => number | null;
+  getNextVoicingPlan?: () => any[] | null;
+};
 
 /**
  * @param {object} [options]
@@ -52,7 +75,7 @@ export function createDrillVoicingRuntime({
   getNextPaddedChords = () => null,
   getNextKeyValue = () => null,
   getNextVoicingPlan = () => null
-} = {}) {
+}: DrillVoicingRuntimeOptions = {}) {
   const VOICING_RANDOMIZATION_CHANCE = 0.3;
   const VOICING_BOUNDARY_RANDOMIZATION_CHANCE = 0.3;
   const VOICING_RANDOM_TOP_SLACK = 1;
@@ -61,7 +84,7 @@ export function createDrillVoicingRuntime({
   const VOICING_RANDOM_SUM_SLACK = 10;
   const VOICING_RANDOM_INNER_SLACK = 6;
 
-  function classifyQuality(quality) {
+  function classifyQuality(quality: string) {
     for (const [category, aliases] of Object.entries(qualityCategoryAliases)) {
       if (quality === category) return category;
       if ((aliases || []).includes(quality)) return category;
@@ -106,15 +129,15 @@ export function createDrillVoicingRuntime({
     return resolveDominantQuality(chord, contextualQuality, isMinor);
   }
 
-  function resolveIntervalValue(interval) {
+  function resolveIntervalValue(interval: string | number) {
     if (typeof interval === 'number') return interval;
     if (typeof interval === 'string' && interval in intervalSemitones) {
-      return intervalSemitones[interval];
+      return intervalSemitones[interval] as number;
     }
     throw new Error(`Unknown interval in voicing config: ${interval}`);
   }
 
-  function resolveIntervalList(intervals) {
+  function resolveIntervalList(intervals: Array<string | number> | null | undefined) {
     return (intervals || []).map(resolveIntervalValue);
   }
 

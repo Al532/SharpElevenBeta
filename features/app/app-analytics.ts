@@ -6,6 +6,14 @@ const ANALYTICS_VISITOR_LAST_RETURN_TRACKED_STORAGE_KEY = 'jazzTrainerVisitorLas
 const ANALYTICS_FLAG_QUERY_PARAM = 'internal';
 const GOATCOUNTER_SCRIPT_SRC = '//gc.zgo.at/count.js';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const LOCAL_HOST_SUFFIXES = ['.local'];
+const RESERVED_TEST_HOSTS = new Set(['10.0.2.2', '10.0.3.2']);
+const PRIVATE_IPV4_PATTERNS = [
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^169\.254\./
+];
 const GOATCOUNTER_CONFIG_KEY = 'JAZZ_TRAINER_GOATCOUNTER_ENDPOINT';
 const TRACKING_KEY_PRIORITY = [
   'progression_id',
@@ -63,8 +71,24 @@ function getHostname() {
   return window.location.hostname || '';
 }
 
+function getProtocol() {
+  if (!isBrowser()) return '';
+  return window.location.protocol || '';
+}
+
+function isPrivateNetworkHost(hostname: string) {
+  const normalized = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (!normalized) return false;
+  if (PRIVATE_IPV4_PATTERNS.some(pattern => pattern.test(normalized))) return true;
+  return normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:');
+}
+
 function shouldDisableForLocalHost() {
-  return LOCAL_HOSTS.has(getHostname());
+  const hostname = getHostname().trim().toLowerCase();
+  if (getProtocol() === 'file:') return true;
+  if (LOCAL_HOSTS.has(hostname) || RESERVED_TEST_HOSTS.has(hostname)) return true;
+  if (LOCAL_HOST_SUFFIXES.some(suffix => hostname.endsWith(suffix))) return true;
+  return isPrivateNetworkHost(hostname);
 }
 
 function persistDisabledState(disabled: boolean) {

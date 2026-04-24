@@ -1,4 +1,26 @@
-﻿// @ts-nocheck
+
+type DrillMixerNodes = Record<string, GainNode>;
+
+type DrillAudioPlaybackRuntimeOptions = {
+  getAudioContext?: () => AudioContext | null;
+  setAudioContext?: (value: AudioContext | null) => void;
+  getMixerNodes?: () => DrillMixerNodes | null;
+  setMixerNodes?: (value: DrillMixerNodes | null) => void;
+  createAudioContext?: () => AudioContext;
+  applyMixerSettings?: () => void;
+  sampleBuffers?: Record<string, Record<string, AudioBuffer | undefined>>;
+  trackScheduledSource?: (source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown;
+  metronomeGainMultiplier?: number;
+  drumsGainMultiplier?: number;
+  drumModeOff?: string;
+  drumModeMetronome24?: string;
+  drumModeHihats24?: string;
+  drumModeFullSwing?: string;
+  drumRideSampleUrls?: string[];
+  getDrumsMode?: () => string;
+  getSwingRatio?: () => number;
+  initialRideSampleCursor?: number;
+};
 
 /**
  * @param {object} [options]
@@ -40,7 +62,7 @@ export function createDrillAudioPlaybackRuntime({
   getDrumsMode = () => drumModeOff,
   getSwingRatio = () => 0,
   initialRideSampleCursor = Math.floor(Math.random() * Math.max(1, drumRideSampleUrls.length))
-} = {}) {
+}: DrillAudioPlaybackRuntimeOptions = {}) {
   let rideSampleCursor = initialRideSampleCursor;
 
   function initAudio() {
@@ -98,11 +120,11 @@ export function createDrillAudioPlaybackRuntime({
     applyMixerSettings();
   }
 
-  function getMixerDestination(channel) {
+  function getMixerDestination(channel: string) {
     return getMixerNodes()?.[channel] || getAudioContext()?.destination || null;
   }
 
-  function playClick(time, accent) {
+  function playClick(time: number, accent: boolean) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('drums');
     if (!audioCtx || !destination) return;
@@ -119,7 +141,7 @@ export function createDrillAudioPlaybackRuntime({
     trackScheduledSource(osc, [gain]);
   }
 
-  function playDrumSample(name, time, gainValue = 1, playbackRate = 1) {
+  function playDrumSample(name: string, time: number, gainValue = 1, playbackRate = 1) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('drums');
     const buffer = sampleBuffers?.drums?.[name];
@@ -137,7 +159,7 @@ export function createDrillAudioPlaybackRuntime({
     trackScheduledSource(src, [gain]);
   }
 
-  function playHiHat(time, accent = false) {
+  function playHiHat(time: number, accent = false) {
     playDrumSample('hihat', time, (accent ? 0.45 : 0.33) * drumsGainMultiplier, accent ? 1.01 : 0.98);
   }
 
@@ -155,11 +177,11 @@ export function createDrillAudioPlaybackRuntime({
     return 'ride_0';
   }
 
-  function playRide(time, gainValue = 0.3, playbackRate = 1) {
+  function playRide(time: number, gainValue = 0.3, playbackRate = 1) {
     playDrumSample(getNextRideSampleName(), time, gainValue * drumsGainMultiplier, playbackRate);
   }
 
-  function scheduleDrumsForBeat(time, beatIndex, spb) {
+  function scheduleDrumsForBeat(time: number, beatIndex: number, spb: number) {
     const mode = getDrumsMode();
     if (mode === drumModeOff) return;
 

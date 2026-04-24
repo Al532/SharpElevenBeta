@@ -1,6 +1,12 @@
-﻿// @ts-nocheck
 
 import { createDrillSamplePlaybackRuntime } from './drill-sample-playback-runtime.js';
+
+type DrillSamplePlaybackAppContextOptions = {
+  audioState?: Record<string, any>;
+  audioHelpers?: Record<string, any>;
+  playbackState?: Record<string, any>;
+  constants?: Record<string, any>;
+};
 
 /**
  * Creates the note/sample playback runtime from grouped app concerns so
@@ -17,7 +23,7 @@ export function createDrillSamplePlaybackAppContext({
   audioHelpers = {},
   playbackState = {},
   constants = {}
-} = {}) {
+}: DrillSamplePlaybackAppContextOptions = {}) {
   return createDrillSamplePlaybackRuntime({
     getAudioContext: audioState.getAudioContext,
     sampleBuffers: audioState.sampleBuffers,
@@ -39,7 +45,7 @@ export function createDrillSamplePlaybackAppContext({
     stringLoopStart: constants.stringLoopStart,
     stringLoopEnd: constants.stringLoopEnd,
     stringLoopCrossfade: constants.stringLoopCrossfade
-  });
+  } as any);
 }
 
 

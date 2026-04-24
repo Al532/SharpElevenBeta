@@ -1,4 +1,8 @@
-﻿// @ts-nocheck
+
+type DrillPianoSettingsRuntimeRootAppAssemblyOptions = {
+  runtimeState?: Record<string, any>;
+  constants?: Record<string, any>;
+};
 
 /**
  * Creates the small piano fade/MIDI-settings helpers from live root-app
@@ -12,7 +16,7 @@
 export function createDrillPianoSettingsRuntimeRootAppAssembly({
   runtimeState = {},
   constants = {}
-} = {}) {
+}: DrillPianoSettingsRuntimeRootAppAssemblyOptions = {}) {
   const {
     getPianoFadeSettings = () => ({ timeConstantLow: 0.1, timeConstantHigh: 0.12 })
   } = runtimeState;
@@ -22,24 +26,24 @@ export function createDrillPianoSettingsRuntimeRootAppAssembly({
     defaultPianoMidiSettings = { enabled: false, inputId: '', sustainPedalEnabled: true }
   } = constants;
 
-  function clamp01(value) {
+  function clamp01(value: number) {
     return Math.min(1, Math.max(0, value));
   }
 
-  function clampRange(value, min, max, fallback) {
+  function clampRange(value: unknown, min: number, max: number, fallback: number) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return Math.min(max, Math.max(min, parsed));
   }
 
-  function createDefaultPianoFadeSettings(overrides = {}) {
+  function createDefaultPianoFadeSettings(overrides: Record<string, any> = {}) {
     return {
       ...defaultPianoFadeSettings,
       ...overrides
     };
   }
 
-  function normalizePianoFadeSettings(candidate = {}) {
+  function normalizePianoFadeSettings(candidate: Record<string, any> = {}) {
     return {
       timeConstantLow: clampRange(
         candidate.timeConstantLow,
@@ -56,7 +60,7 @@ export function createDrillPianoSettingsRuntimeRootAppAssembly({
     };
   }
 
-  function normalizePianoMidiSettings(candidate = {}) {
+  function normalizePianoMidiSettings(candidate: Record<string, any> = {}) {
     return {
       enabled: Boolean(candidate.enabled),
       inputId: typeof candidate.inputId === 'string'
@@ -68,7 +72,7 @@ export function createDrillPianoSettingsRuntimeRootAppAssembly({
     };
   }
 
-  function getPianoFadeProfile(midi, volume, maxDuration) {
+  function getPianoFadeProfile(midi: number, volume: number, maxDuration: number) {
     const pianoFadeSettings = getPianoFadeSettings();
     const midiNorm = clamp01(((Number(midi) || 60) - 45) / 44);
     const volumeNorm = clamp01((Number(volume) || 0) / 0.42);

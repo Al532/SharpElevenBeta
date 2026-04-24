@@ -1,4 +1,9 @@
-﻿// @ts-nocheck
+
+type DrillPianoMidiRuntimeRootAppAssemblyOptions = {
+  dom?: Record<string, any>;
+  runtimeState?: Record<string, any>;
+  runtimeHelpers?: Record<string, any>;
+};
 
 /**
  * Creates the drill piano MIDI runtime assembly from live root-app bindings.
@@ -14,7 +19,7 @@ export function createDrillPianoMidiRuntimeRootAppAssembly({
   dom = {},
   runtimeState = {},
   runtimeHelpers = {}
-} = {}) {
+}: DrillPianoMidiRuntimeRootAppAssemblyOptions = {}) {
   const {
     getMidiAccess = () => null,
     setMidiAccess = () => {},
@@ -122,7 +127,7 @@ export function createDrillPianoMidiRuntimeRootAppAssembly({
           };
           return access;
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           setMidiAccessPromise(null);
           setPianoMidiStatus('Acces MIDI refuse');
           throw err;

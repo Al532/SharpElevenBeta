@@ -1,4 +1,11 @@
-﻿// @ts-nocheck
+
+import type { DrillAudioStackLike } from './drill-audio-types.js';
+
+type DrillAudioStackAppFacadeOptions = {
+  audioStack?: DrillAudioStackLike;
+  getCurrentTime?: () => number;
+  defaultFadeDuration?: number;
+};
 
 /**
  * Creates a thin app-facing facade around the composed drill audio stack so
@@ -20,7 +27,7 @@ export function createDrillAudioStackAppFacade({
   audioStack = {},
   getCurrentTime = () => 0,
   defaultFadeDuration = 0.25
-} = {}) {
+}: DrillAudioStackAppFacadeOptions = {}) {
   const audioRuntime = audioStack.audioRuntime || {};
   const samplePreload = audioStack.samplePreload || {};
   const scheduledAudio = audioStack.scheduledAudio || {};
@@ -65,7 +72,7 @@ export function createDrillAudioStackAppFacade({
     scheduleSampleSegment: samplePlayback.scheduleSampleSegment,
     playLoopedStringSample: samplePlayback.playLoopedStringSample,
     playSample: samplePlayback.playSample,
-    trackScheduledSource(source, gainNodes = []) {
+    trackScheduledSource(source: AudioScheduledSourceNode, gainNodes: GainNode[] = []) {
       return scheduledAudio.trackScheduledSource?.(source, gainNodes);
     },
     clearScheduledDisplays() {

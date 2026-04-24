@@ -1,3 +1,3 @@
-export function createDrillSharedPlaybackRuntimeAppBindings(options: Record<string, any> = {}) {
+export function createDrillSharedPlaybackRuntimeAppBindings<T extends Record<string, unknown>>(options: T) {
   return { ...options };
 }

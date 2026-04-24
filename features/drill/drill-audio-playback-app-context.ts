@@ -1,6 +1,18 @@
-﻿// @ts-nocheck
 
 import { createDrillAudioPlaybackRuntime } from './drill-audio-playback-runtime.js';
+import type {
+  DrillAudioConstantsContext,
+  DrillAudioHelpersContext,
+  DrillAudioStateContext,
+  DrillPlaybackSettingsContext
+} from './drill-audio-types.js';
+
+type DrillAudioPlaybackAppContextOptions = {
+  audioState?: DrillAudioStateContext;
+  audioHelpers?: DrillAudioHelpersContext;
+  playbackSettings?: DrillPlaybackSettingsContext;
+  constants?: DrillAudioConstantsContext;
+};
 
 /**
  * Creates the audio-playback runtime from grouped app concerns so `app.js`
@@ -17,7 +29,7 @@ export function createDrillAudioPlaybackAppContext({
   audioHelpers = {},
   playbackSettings = {},
   constants = {}
-} = {}) {
+}: DrillAudioPlaybackAppContextOptions = {}) {
   return createDrillAudioPlaybackRuntime({
     getAudioContext: audioState.getAudioContext,
     setAudioContext: audioState.setAudioContext,

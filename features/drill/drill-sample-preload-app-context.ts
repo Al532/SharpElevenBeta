@@ -1,6 +1,12 @@
-﻿// @ts-nocheck
 
 import { createDrillSamplePreloadRuntime } from './drill-sample-preload-runtime.js';
+
+type DrillSamplePreloadAppContextOptions = {
+  playbackSettings?: Record<string, any>;
+  progressionState?: Record<string, any>;
+  sampleLoading?: Record<string, any>;
+  constants?: Record<string, any>;
+};
 
 /**
  * Creates the sample-preload runtime from grouped app concerns so `app.js`
@@ -17,7 +23,7 @@ export function createDrillSamplePreloadAppContext({
   progressionState = {},
   sampleLoading = {},
   constants = {}
-} = {}) {
+}: DrillSamplePreloadAppContextOptions = {}) {
   return createDrillSamplePreloadRuntime({
     getBassPreloadRange: playbackSettings.getBassPreloadRange,
     getBassMidi: playbackSettings.getBassMidi,
@@ -47,7 +53,7 @@ export function createDrillSamplePreloadAppContext({
     drumModeHihats24: constants.drumModeHihats24,
     drumModeFullSwing: constants.drumModeFullSwing,
     safePreloadMeasures: constants.safePreloadMeasures
-  });
+  } as any);
 }
 
 

@@ -176,7 +176,7 @@ export function createDrillProgressionRootAppAssembly({
   });
   const progressionManager = createProgressionManager({
     dom,
-    state: createLiveStateProxy(managerState),
+    state: createLiveStateProxy(managerState) as any,
     constants: managerConstants,
     helpers: {
       ...progressionEditor,

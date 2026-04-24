@@ -8,8 +8,8 @@ import { createDrillVoicingRuntime } from './drill-voicing-runtime.js';
  * This keeps the remaining voicing runtime contract out of `app.js` while
  * preserving the existing runtime factory and app-binding seam.
  *
- * @param {object} [options]
- * @returns {Record<string, any>}
+ * @param {Parameters<typeof createDrillVoicingRuntime>[0]} [options]
+ * @returns {ReturnType<typeof createDrillVoicingRuntime>}
  */
 export function createDrillVoicingRuntimeRootAppAssembly(options = {}) {
   return createDrillVoicingRuntime(

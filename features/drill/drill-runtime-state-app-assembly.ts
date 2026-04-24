@@ -1,7 +1,21 @@
-﻿// @ts-nocheck
 
 import { createDrillKeyPoolRuntime } from './drill-key-pool-runtime.js';
 import { createDrillSessionAnalytics } from './drill-session-analytics.js';
+
+type CreateDrillRuntimeStateAppAssemblyOptions = {
+  keyPool?: {
+    getEnabledKeys?: () => boolean[];
+    getKeyPool?: () => number[];
+    setKeyPool?: (value: number[]) => void;
+  };
+  sessionAnalytics?: {
+    dom?: Record<string, unknown>;
+    state?: Record<string, unknown>;
+    helpers?: Record<string, unknown>;
+    constants?: Record<string, unknown>;
+    now?: () => number;
+  };
+};
 
 /**
  * Creates small runtime-state assemblies used by the drill app from grouped
@@ -30,7 +44,7 @@ import { createDrillSessionAnalytics } from './drill-session-analytics.js';
 export function createDrillRuntimeStateAppAssembly({
   keyPool = {},
   sessionAnalytics = {}
-} = {}) {
+}: CreateDrillRuntimeStateAppAssemblyOptions = {}) {
   return {
     keyPoolRuntime: createDrillKeyPoolRuntime(keyPool),
     sessionAnalytics: createDrillSessionAnalytics({

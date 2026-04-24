@@ -1,7 +1,19 @@
-﻿// @ts-nocheck
 
 import { bindDrillWelcomeControls } from './drill-welcome.js';
 import { createDrillMobileLifecycle } from './drill-mobile-lifecycle.js';
+
+type CreateDrillUiEventBindingsRootAppAssemblyOptions = {
+  welcomeControls?: Record<string, unknown>;
+  analyticsLink?: {
+    element?: HTMLElement | null;
+    trackEvent?: (eventName: string, props?: Record<string, unknown>) => void;
+  };
+  settingsControls?: Record<string, any>;
+  pianoPresetControls?: Record<string, any>;
+  lifecycleControls?: Record<string, any>;
+  lifecycleTarget?: EventTarget | { addEventListener?: (...args: unknown[]) => void };
+  trackSessionDuration?: () => void;
+};
 
 /**
  * Creates the drill UI event-binding assembly from live root-app bindings.
@@ -25,7 +37,7 @@ export function createDrillUiEventBindingsRootAppAssembly({
   lifecycleControls = {},
   lifecycleTarget = globalThis.window,
   trackSessionDuration
-} = {}) {
+}: CreateDrillUiEventBindingsRootAppAssemblyOptions = {}) {
   function bindAnalyticsLink() {
     analyticsLink.element?.addEventListener('click', () => {
       analyticsLink.trackEvent?.('demo_link_clicked', {
@@ -188,7 +200,8 @@ export function createDrillUiEventBindingsRootAppAssembly({
         }
         setPianoMidiStatus?.('Preset piano applique');
       } catch (err) {
-        alert?.(`Preset piano invalide: ${err.message}`);
+        const message = err instanceof Error ? err.message : String(err || 'Unknown error');
+        alert?.(`Preset piano invalide: ${message}`);
       }
     });
 
@@ -205,7 +218,7 @@ export function createDrillUiEventBindingsRootAppAssembly({
 
   function bindLifecycleEvents() {
     const mobileLifecycle = createDrillMobileLifecycle({
-      lifecycleTarget,
+      lifecycleTarget: lifecycleTarget as any,
       visibilityTarget: lifecycleControls.visibilityTarget,
       userGestureTarget: lifecycleControls.userGestureTarget,
       getIsPlaying: lifecycleControls.getIsPlaying,

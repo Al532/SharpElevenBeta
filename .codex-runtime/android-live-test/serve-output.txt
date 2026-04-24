@@ -1,0 +1,28 @@
+
+==> Preparation du live-reload Sharp Eleven
+Le serveur Vite est deja a l'ecoute sur le port 5173.
+
+==> Choix de la cible
+URL locale: http://localhost:5173/
+URL reseau: http://192.168.1.51:5173/
+
+[1] Navigateur web local
+[2] Navigateur web sur le reseau (192.168.1.51:5173)
+[3] Demarrer l'emulateur Android (Pixel_7)
+3
+
+==> Demarrage de l'emulateur Android Pixel_7
+
+==> Lancement de l'app Android sur emulateur
+Cible emulateur: emulator-5554
+C:\Users\Alcibiade\Documents\GitHub\SharpElevenApp\mobile\node_modules\.bin\cap.cmd run android --target emulator-5554 --live-reload --host 10.0.2.2 --port 5173
+× Copying web assets from www to android\app\src\main\assets\public - failed!
+× copy android - failed!
+[error] Error: EBUSY: resource busy or locked, unlink 'C:\Users\Alcibiade\Documents\GitHub\SharpElevenApp\mobile\android\app\src\main\assets\public\assets\MP3\Violins\82.mp3'
+√ Updating Android plugins in 899.80μs
+[info] Found 1 Capacitor plugin for android:
+       @capacitor/app@8.1.0
+√ update android in 81.44ms
+√ Running Gradle build in 2.64s
+√ Deploying app-debug.apk to emulator-5554 in 5.19s
+[info] App running with live reload listing for: http://10.0.2.2:5173. Press Ctrl+C to quit.
