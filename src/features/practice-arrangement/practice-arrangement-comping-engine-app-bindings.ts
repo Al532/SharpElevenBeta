@@ -1,0 +1,20 @@
+// @ts-check
+/** @typedef {{ constants?: Record<string, unknown>, helpers?: Record<string, unknown> }} PracticeArrangementCompingEngineBindings */
+
+/**
+ * Groups the app-owned constants and helpers passed into the shared comping
+ * engine while `app.js` keeps the live runtime state.
+ *
+ * @param {object} [options]
+ * @param {PracticeArrangementCompingEngineBindings} [options]
+ * @returns {{ constants: Record<string, unknown>, helpers: Record<string, unknown> }}
+ */
+export function createPracticeArrangementCompingEngineAppBindings({
+  constants = {},
+  helpers = {}
+} = {}) {
+  return {
+    constants,
+    helpers
+  };
+}

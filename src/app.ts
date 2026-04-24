@@ -1,4 +1,4 @@
-﻿import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './features/app/app-analytics.js';
+import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './features/app/app-analytics.js';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
@@ -36,15 +36,15 @@ import {
   DEFAULT_SWING_RATIO,
 } from './core/music/swing-utils.js';
 import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
-import { createDrillAudioRuntimeRootAppAssembly } from './features/drill/drill-audio-runtime-root-app-assembly.js';
-import { createDrillCompingEngineRootAppAssembly } from './features/drill/drill-comping-engine-root-app-assembly.js';
+import { createPlaybackAudioRuntimeRootAppAssembly } from './features/playback-audio/playback-audio-runtime-root-app-assembly.js';
+import { createPracticeArrangementCompingEngineRootAppAssembly } from './features/practice-arrangement/practice-arrangement-comping-engine-root-app-assembly.js';
 import { createDrillDefaultProgressionsRootAppAssembly } from './features/drill/drill-default-progressions-root-app-assembly.js';
-import { loadDrillPatternHelp } from './features/drill/drill-pattern-help.js';
-import { validateDrillCustomPattern } from './features/drill/drill-pattern-validation.js';
-import { createDrillPlaybackResourcesRootAppAssembly } from './features/drill/drill-playback-resources-root-app-assembly.js';
-import { createDrillVoicingRuntimeRootAppAssembly } from './features/drill/drill-voicing-runtime-root-app-assembly.js';
-import { createDrillWalkingBassRootAppAssembly } from './features/drill/drill-walking-bass-root-app-assembly.js';
-import { createDrillPatternRuntimeRootAppAssembly } from './features/drill/drill-pattern-runtime-root-app-assembly.js';
+import { loadPracticePatternHelp } from './features/practice-patterns/practice-pattern-help.js';
+import { validatePracticeCustomPattern } from './features/practice-patterns/practice-pattern-validation.js';
+import { createPracticePlaybackResourcesRootAppAssembly } from './features/practice-playback/practice-playback-resources-root-app-assembly.js';
+import { createPracticeArrangementVoicingRuntimeRootAppAssembly } from './features/practice-arrangement/practice-arrangement-voicing-runtime-root-app-assembly.js';
+import { createPracticeArrangementWalkingBassRootAppAssembly } from './features/practice-arrangement/practice-arrangement-walking-bass-root-app-assembly.js';
+import { createPracticePatternRuntimeRootAppAssembly } from './features/practice-patterns/practice-pattern-runtime-root-app-assembly.js';
 import { createDrillNormalizationRootAppContext } from './features/drill/drill-normalization-root-app-context.js';
 import { createDrillDisplayRuntimeRootAppAssembly } from './features/drill/drill-display-runtime-root-app-assembly.js';
 import { createDrillDisplaySupportRootAppAssembly } from './features/drill/drill-display-support-root-app-assembly.js';
@@ -62,12 +62,12 @@ import {
   createDrillNextPreviewDrillRootAppFacade,
   createDrillPianoMidiRuntimeDrillRootAppAssembly,
   createDrillPianoToolsDrillRootAppFacade,
-  createDrillPlaybackRuntimeHostDrillRootAppAssembly,
+  createPracticePlaybackRuntimeHostDrillRootAppAssembly,
   createDrillProgressionDrillRootAppAssembly,
   createDrillRuntimeStateDrillRootAppAssembly,
   createDrillSettingsDrillRootAppAssembly,
   createDrillSettingsPersistenceDrillRootAppAssembly,
-  createDrillSharedPlaybackDrillRootAppAssembly,
+  createPracticePlaybackDrillRootAppAssembly,
   createDrillStartupDataDrillRootAppAssembly,
   createDrillUiBootstrapDrillRootAppAssembly,
   createDrillUiEventBindingsDrillRootAppAssembly,
@@ -811,7 +811,7 @@ const {
   padProgression,
   canLoopTrimProgression,
   buildLoopRepVoicings
-} = createDrillPatternRuntimeRootAppAssembly({
+} = createPracticePatternRuntimeRootAppAssembly({
   dom,
   runtimeState: {
     getOneChordQualityPool: () => oneChordQualityPool,
@@ -864,7 +864,7 @@ const MIXER_CHANNEL_CALIBRATION = AUDIO_MIXER_CONFIG.mixerChannelCalibration;
 const SAFE_PRELOAD_MEASURES = AUDIO_MIXER_CONFIG.safePreloadMeasures;
 const DRUM_HIHAT_SAMPLE_URL = SAMPLE_LIBRARY_CONFIG.drumHiHatSampleUrl;
 const DRUM_RIDE_SAMPLE_URLS = SAMPLE_LIBRARY_CONFIG.drumRideSampleUrls;
-let applyDrillAudioMixerSettingsDelegate = null;
+let applyPlaybackAudioMixerSettingsDelegate = null;
 const {
   playbackSettingsRuntime: drillPlaybackSettingsRuntime
 } = createDrillRuntimePrimitivesRootAppAssembly({
@@ -872,7 +872,7 @@ const {
   playbackSettingsMixer: {
     getMixerNodes: () => mixerNodes,
     getAudioContext: () => audioCtx,
-    applyAudioMixerSettings: (options) => applyDrillAudioMixerSettingsDelegate?.(options)
+    applyAudioMixerSettings: (options) => applyPlaybackAudioMixerSettingsDelegate?.(options)
   },
   playbackSettingsHelpers: {
     normalizeCompingStyle
@@ -955,7 +955,7 @@ const activeMidiPianoVoices = new Map<number, {
   volume: number;
 }>();
 const sustainedMidiNotes = new Set<number>();
-const drillAudioRuntimeAssembly = createDrillAudioRuntimeRootAppAssembly({
+const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
   audioRuntime: {
     audioState: {
       getAudioContext: () => audioCtx
@@ -992,10 +992,10 @@ const drillAudioRuntimeAssembly = createDrillAudioRuntimeRootAppAssembly({
       collectCompingSampleNotes: (style, voicing, noteSets) => {
         compingEngine.collectSampleNotes(style, voicing, noteSets);
       },
-      loadSample: (category, folder, midi) => loadDrillAudioSample(category, folder, midi),
+      loadSample: (category, folder, midi) => loadPlaybackAudioSample(category, folder, midi),
       loadPianoSampleList: (midiValues) => loadDrillPianoSampleList(midiValues),
       loadFileSample: (category, key, baseUrl) => loadDrillFileSample(category, key, baseUrl),
-      fetchArrayBufferFromUrl: (baseUrl) => fetchDrillSampleArrayBuffer(baseUrl)
+      fetchArrayBufferFromUrl: (baseUrl) => fetchPlaybackSampleArrayBuffer(baseUrl)
     },
     constants: {
       drumHihatSampleUrl: DRUM_HIHAT_SAMPLE_URL,
@@ -1053,7 +1053,7 @@ const drillAudioRuntimeAssembly = createDrillAudioRuntimeRootAppAssembly({
     audioHelpers: {
       getMixerDestination: (channel) => drillAudioRuntimeAssembly.audioStack.audioPlayback.getMixerDestination(channel),
       trackScheduledSource: (source, gainNodes) => drillAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
-      loadSample: (category, folder, midi) => loadDrillAudioSample(category, folder, midi),
+      loadSample: (category, folder, midi) => loadPlaybackAudioSample(category, folder, midi),
       getPianoFadeProfile
     },
     playbackState: {
@@ -1086,16 +1086,16 @@ const {
   audioSurface: drillAudioSurface
 } = drillAudioRuntimeAssembly;
 const {
-  applyDrillAudioMixerSettings,
-  loadDrillAudioSample,
+  applyPlaybackAudioMixerSettings,
+  loadPlaybackAudioSample,
   loadDrillPianoSample,
   loadDrillPianoSampleList,
   loadDrillFileSample,
-  fetchDrillSampleArrayBuffer,
+  fetchPlaybackSampleArrayBuffer,
   loadDrillBufferFromUrl,
-  resumeDrillAudioContext,
-  suspendDrillAudioContext,
-  preloadAllDrillSamples,
+  resumePlaybackAudioContext,
+  suspendPlaybackAudioContext,
+  preloadAllPlaybackSamples,
   preloadDrillStartupSamples,
   preloadDrillNearTermSamples,
   ensureDrillNearTermSamplePreload,
@@ -1107,10 +1107,10 @@ const {
   setDrillStartupSamplePreloadInProgress,
   trackDrillScheduledSource,
   clearDrillScheduledDisplays,
-  stopDrillScheduledAudio,
+  stopPlaybackScheduledAudio,
   stopDrillActiveChordVoices,
   getDrillPendingDisplayTimeouts,
-  initDrillAudioPlayback,
+  initPlaybackAudioPlayback,
   initDrillMixerNodes,
   getDrillMixerDestination,
   playDrillClick,
@@ -1123,28 +1123,28 @@ const {
   getDrillAdaptiveBassFadeDuration,
   scheduleDrillBassGainRelease,
   playDrillNote,
-  scheduleDrillSampleSegment,
+  schedulePlaybackSampleSegment,
   playDrillLoopedStringSample,
-  playDrillSample
+  playPlaybackSample
 } = drillAudioSurface;
-applyDrillAudioMixerSettingsDelegate = applyDrillAudioMixerSettings;
+applyPlaybackAudioMixerSettingsDelegate = applyPlaybackAudioMixerSettings;
 const trackScheduledSource = trackDrillScheduledSource;
 const clearScheduledDisplays = clearDrillScheduledDisplays;
-const stopScheduledAudio = stopDrillScheduledAudio;
+const stopScheduledAudio = stopPlaybackScheduledAudio;
 const stopActiveChordVoices = stopDrillActiveChordVoices;
-const initAudio = initDrillAudioPlayback;
+const initAudio = initPlaybackAudioPlayback;
 const initMixerNodes = initDrillMixerNodes;
 const getMixerDestination = getDrillMixerDestination;
-const preloadSamples = preloadAllDrillSamples;
-const loadSample = loadDrillAudioSample;
+const preloadSamples = preloadAllPlaybackSamples;
+const loadSample = loadPlaybackAudioSample;
 const loadPianoSample = loadDrillPianoSample;
 const loadPianoSampleList = loadDrillPianoSampleList;
 const loadFileSample = loadDrillFileSample;
-const fetchArrayBufferFromUrl = fetchDrillSampleArrayBuffer;
+const fetchArrayBufferFromUrl = fetchPlaybackSampleArrayBuffer;
 const loadBufferFromUrl = loadDrillBufferFromUrl;
 
 const CHORD_ANTICIPATION = PIANO_COMPING_CONFIG.chordAnticipationSeconds; // seconds - strings start before the beat
-const playSample = playDrillSample;
+const playSample = playPlaybackSample;
 const playNote = playDrillNote;
 const PIANO_COMP_DURATION_RATIO = PIANO_COMPING_CONFIG.durationRatio;
 const PIANO_COMP_MIN_DURATION = PIANO_COMPING_CONFIG.minDurationSeconds;
@@ -1158,9 +1158,9 @@ function getNextDifferentChord(
 }
 
 function getVoicingAtIndex(
-  ...args: Parameters<typeof getDrillVoicingAtIndex>
+  ...args: Parameters<typeof getPracticeArrangementVoicingAtIndex>
 ) {
-  return getDrillVoicingAtIndex(...args);
+  return getPracticeArrangementVoicingAtIndex(...args);
 }
 
 function getPreparedNextProgression(
@@ -1169,7 +1169,7 @@ function getPreparedNextProgression(
   return getDrillPreparedNextProgression(...args);
 }
 
-const compingEngine = createDrillCompingEngineRootAppAssembly({
+const compingEngine = createPracticeArrangementCompingEngineRootAppAssembly({
   constants: {
     AUTOMATION_CURVE_STEPS,
     CHORD_ANTICIPATION,
@@ -1216,7 +1216,7 @@ const {
   buildVoicingPlan: buildSharedVoicingPlan,
   getVoicing: getSharedVoicing,
   getVoicingPlanForProgression: getSharedVoicingPlanForProgression
-} = createDrillVoicingRuntimeRootAppAssembly({
+} = createPracticeArrangementVoicingRuntimeRootAppAssembly({
   qualityCategoryAliases: QUALITY_CATEGORY_ALIASES,
   dominantDefaultQualityMajor: DOMINANT_DEFAULT_QUALITY_MAJOR,
   dominantDefaultQualityMinor: DOMINANT_DEFAULT_QUALITY_MINOR,
@@ -1264,7 +1264,7 @@ function getBassPreloadRange() {
   return { low: BASS_LOW, high: BASS_HIGH };
 }
 
-const walkingBassGenerator = createDrillWalkingBassRootAppAssembly({
+const walkingBassGenerator = createPracticeArrangementWalkingBassRootAppAssembly({
   constants: {
     BASS_LOW,
     BASS_HIGH
@@ -1274,14 +1274,14 @@ const walkingBassGenerator = createDrillWalkingBassRootAppAssembly({
 const {
   playbackPreparation: {
     getNextDifferentChord: getNextDifferentDrillChord,
-    getVoicingAtIndex: getDrillVoicingAtIndex,
+    getVoicingAtIndex: getPracticeArrangementVoicingAtIndex,
     getPreparedNextProgression: getDrillPreparedNextProgression,
     rebuildPreparedCompingPlans: rebuildDrillPreparedCompingPlans,
-    ensureWalkingBassGenerator: ensureDrillWalkingBassGenerator,
+    ensureWalkingBassGenerator: ensurePracticeArrangementWalkingBassGenerator,
     buildPreparedBassPlan: buildDrillPreparedBassPlan
   },
-  playbackResourcesFacade: drillPlaybackResourcesFacade
-} = createDrillPlaybackResourcesRootAppAssembly({
+  playbackResourcesFacade: PracticePlaybackResourcesFacade
+} = createPracticePlaybackResourcesRootAppAssembly({
   harmony: {
     getPlayedChordQuality: getSharedPlayedChordQuality,
     getVoicingPlanForProgression: getSharedVoicingPlanForProgression,
@@ -1326,7 +1326,7 @@ const {
   ensureNearTermSamplePreload,
   ensurePageSampleWarmup,
   ensureBackgroundSamplePreload
-} = drillPlaybackResourcesFacade;
+} = PracticePlaybackResourcesFacade;
 
 const VOICING_RANDOMIZATION_CHANCE = VOICING_RANDOMIZATION_CONFIG.randomizationChance;
 const VOICING_BOUNDARY_RANDOMIZATION_CHANCE = VOICING_RANDOMIZATION_CONFIG.boundaryRandomizationChance;
@@ -1992,7 +1992,7 @@ const {
   start: playbackStart,
   stop,
   togglePause
-} = createDrillPlaybackRuntimeHostDrillRootAppAssembly({
+} = createPracticePlaybackRuntimeHostDrillRootAppAssembly({
   dom,
   runtimeStateRefs: {
     audioContext: createStateRef(() => audioCtx),
@@ -2092,8 +2092,8 @@ const {
     getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
     initAudio,
-    resumeAudioContext: resumeDrillAudioContext,
-    suspendAudioContext: suspendDrillAudioContext,
+    resumeAudioContext: resumePlaybackAudioContext,
+    suspendAudioContext: suspendPlaybackAudioContext,
     preloadStartupSamples,
     registerSessionAction,
     setDisplayPlaceholderMessage,
@@ -2416,7 +2416,7 @@ const {
     getPianoFadeProfile,
     bassMidiToNoteName,
     initAudio,
-    resumeAudioContext: resumeDrillAudioContext,
+    resumeAudioContext: resumePlaybackAudioContext,
     loadPianoSample,
     loadPianoSampleList,
     getSampleBuffer: (sampleKey) => sampleBuffers.piano[sampleKey] || null,
@@ -2473,7 +2473,7 @@ const {
     progressions: createStateRef(() => progressions, (value) => { progressions = value; })
   },
   patternHelp: {
-    loadDrillPatternHelp,
+    loadPracticePatternHelp,
     dom,
     url: PATTERN_HELP_URL,
     version: PATTERN_HELP_VERSION
@@ -2688,7 +2688,7 @@ const drillUiEventBindings = createDrillUiEventBindingsDrillRootAppAssembly({
   lifecycleControls: {
     visibilityTarget: document,
     userGestureTarget: window,
-    resumeAudioContext: resumeDrillAudioContext,
+    resumeAudioContext: resumePlaybackAudioContext,
     togglePausePlayback: () => togglePause()
   },
   lifecycleStateRefs: {
@@ -2716,7 +2716,7 @@ const {
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState
-} = createDrillSharedPlaybackDrillRootAppAssembly({
+} = createPracticePlaybackDrillRootAppAssembly({
   dom,
   host: {
     dom,

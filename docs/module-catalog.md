@@ -105,14 +105,79 @@ Keep here:
 Current structural pressure:
 
 - Some files are still named `drill` because the drill screen was the original app center, not because the responsibility is drill-specific.
-- `shared-playback`, embedded/direct playback, audio resource preparation, and practice-session handoff are candidates for eventual `practice`, `playback`, or `audio` ownership.
+- Embedded/direct runtime adapters still live here because they translate between practice playback contracts and the drill UI/runtime.
 - Thin `*-assembly`, `*-bindings`, and `*-context` files should be consolidated when they only copy options or rename fields.
 
 Refactor signals:
 
-- A module is used by chart and drill, or by direct/embedded playback, without depending on drill UI.
-- A file describes shared playback, practice sessions, or audio infrastructure but lives under `features/drill`.
+- A module is used by chart and drill, or by direct/embedded playback, without depending on drill UI or drill runtime state.
 - Tests import drill files only to exercise shared contracts.
+
+### `src/features/practice-arrangement`
+
+Responsibility: practice arrangement generation and voicing support independent of the drill screen UI.
+
+Keep here:
+
+- Comping engine, piano comping, and string comping.
+- Practice voicing runtime and its root-app assembly.
+- Walking bass generation and root-app assembly.
+
+Refactor signals:
+
+- A file starts reading drill DOM or trainer display state directly.
+- Pure music-domain algorithms become reusable enough to move into `src/core/music` or a future `src/core/accompaniment`.
+- Root-app assembly wrappers become pass-through layers after `app.ts` wiring shrinks.
+
+### `src/features/practice-patterns`
+
+Responsibility: practice pattern parsing, analysis, validation, and help text loading.
+
+Keep here:
+
+- Pattern analysis and normalization helpers.
+- Custom pattern validation.
+- Pattern help loading.
+- Root-app pattern runtime wiring that groups analysis, validation, and help behavior for the trainer.
+
+Refactor signals:
+
+- Pattern code starts owning drill UI state instead of returning domain results.
+- Chart-side pattern import needs the same parser, making a lower-level `core` owner more appropriate.
+
+### `src/features/practice-playback`
+
+Responsibility: app-level practice playback composition shared by chart handoff, direct playback, embedded playback, and the drill trainer host.
+
+Keep here:
+
+- Practice playback root assembly and root context wiring.
+- Practice playback resources, preparation, and resource facade.
+- Runtime host assembly that groups app state, audio, preload, constants, and helper bindings before delegating to an injected runtime adapter.
+- App-level embedded/direct playback composition through injected adapters supplied by the drill trainer while those adapters still depend on drill UI/runtime details.
+
+Refactor signals:
+
+- A file imports drill UI modules directly instead of going through a narrow adapter.
+- Runtime-host code becomes DOM-free and can move further down into `src/core/playback`.
+- Resource preparation becomes pure audio infrastructure and can move toward a future audio owner.
+
+### `src/features/playback-audio`
+
+Responsibility: app-level audio runtime, sample loading/playback, scheduled audio tracking, and audio facade composition for practice playback.
+
+Keep here:
+
+- Audio runtime helpers that own Web Audio context setup, mixer routing, sample fetching/decoding, and active source tracking.
+- Sample playback and preload runtimes.
+- Scheduled audio bookkeeping and fade/stop behavior.
+- Audio stack and facade assembly used by the app and practice playback runtime.
+
+Refactor signals:
+
+- A file starts depending on drill UI state or trainer display details.
+- Pure sample cache, decoding, or scheduling helpers become independent enough to move into `src/core/audio`.
+- Playback settings or practice-session logic leaks into low-level audio helpers.
 
 ### `src/features/progression`
 

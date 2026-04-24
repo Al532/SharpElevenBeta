@@ -1,5 +1,6 @@
 
-import { createDrillPlaybackRuntimeHost } from './drill-playback-runtime-host.js';
+import { createDrillPlaybackRuntimeAppAssembly } from './drill-playback-runtime-app-assembly.js';
+import { createPracticePlaybackRuntimeHost } from '../practice-playback/practice-playback-runtime-host.js';
 
 type CreateDrillPlaybackRuntimeAppHostAssemblyOptions = {
   dom?: Record<string, unknown>;
@@ -40,13 +41,14 @@ export function createDrillPlaybackRuntimeAppHostAssembly({
   constants = {},
   helpers = {}
 }: CreateDrillPlaybackRuntimeAppHostAssemblyOptions = {}) {
-  return createDrillPlaybackRuntimeHost({
+  return createPracticePlaybackRuntimeHost({
     dom,
     state,
     audio,
     preload,
     constants,
-    helpers
+    helpers,
+    createRuntimeAppAssembly: createDrillPlaybackRuntimeAppAssembly
   });
 }
 

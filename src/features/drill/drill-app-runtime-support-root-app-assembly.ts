@@ -1,5 +1,5 @@
 
-import { validateDrillCustomPattern } from './drill-pattern-validation.js';
+import { validatePracticeCustomPattern } from '../practice-patterns/practice-pattern-validation.js';
 
 type StateRef<T> = {
   get: () => T;
@@ -139,7 +139,7 @@ export function createDrillAppRuntimeSupportRootAppAssembly({
   }
 
   function validateCustomPattern() {
-    return validateDrillCustomPattern({
+    return validatePracticeCustomPattern({
       isCustomPatternSelected,
       getCustomPatternValue: () => String(getElementValue(dom.customPattern) || ''),
       normalizePatternString,

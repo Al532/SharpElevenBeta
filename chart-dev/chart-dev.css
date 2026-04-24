@@ -10,6 +10,14 @@
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
   --chart-config-row-gap-min: 40px;
+  --chart-config-mobile-sheet-header-padding-top-portrait: 2px;
+  --chart-config-mobile-sheet-header-padding-top-landscape: 2px;
+  --chart-config-mobile-cutout-side-padding: 16px;
+  --chart-config-mobile-sheet-title-offset-x: 0px;
+  --chart-runtime-cutout-padding-top: 0px;
+  --chart-runtime-cutout-padding-right: 0px;
+  --chart-runtime-cutout-padding-bottom: 0px;
+  --chart-runtime-cutout-padding-left: 0px;
   --chart-config-bar-cell-padding-top: 10px;
   --chart-config-bar-cell-padding-x: 16px;
   --chart-config-bar-cell-padding-bottom: 10px;
@@ -1090,8 +1098,10 @@ select {
   }
 
   .chart-sheet-header-row {
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
   }
 
   .chart-sheet-title-row {
@@ -1099,7 +1109,7 @@ select {
   }
 
   .chart-sheet-subtitle {
-    text-align: left;
+    text-align: right;
   }
 
   .chart-top-bar {
@@ -1204,28 +1214,43 @@ select {
   .chart-workspace {
     position: relative;
     z-index: 1;
-    padding: 2px 4px 20px;
+    padding:
+      env(safe-area-inset-top)
+      max(4px, calc(env(safe-area-inset-right) + var(--chart-runtime-cutout-padding-right)))
+      max(20px, calc(env(safe-area-inset-bottom) + var(--chart-runtime-cutout-padding-bottom)))
+      max(4px, calc(env(safe-area-inset-left) + var(--chart-runtime-cutout-padding-left)));
   }
 
   .chart-app.overlay-open .chart-workspace {
     padding:
       calc(var(--chart-mobile-top-overlay-height) + 10px)
-      4px
+      max(4px, calc(env(safe-area-inset-right) + var(--chart-runtime-cutout-padding-right)))
       calc(20px + (var(--chart-mobile-bottom-overlay-height) * 0.34))
-      4px;
+      max(4px, calc(env(safe-area-inset-left) + var(--chart-runtime-cutout-padding-left)));
   }
 
   .chart-sheet-header {
     padding:
-      8px
+      var(--chart-config-mobile-sheet-header-padding-top-portrait)
       6px
       8px;
     margin-bottom: 8px;
   }
 
+  @media (orientation: landscape) {
+    .chart-workspace {
+      padding-top: 0;
+    }
+
+    .chart-sheet-header {
+      padding-top: var(--chart-config-mobile-sheet-header-padding-top-landscape);
+    }
+  }
+
   .chart-sheet-title {
     font-size: calc(clamp(1.7rem, 5.5vw, 2.6rem) * var(--chart-text-scale-compensation));
     line-height: 0.98;
+    transform: translateX(var(--chart-config-mobile-sheet-title-offset-x));
   }
 
   .chart-sheet-style,

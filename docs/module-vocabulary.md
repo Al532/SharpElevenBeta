@@ -6,7 +6,7 @@ This repository now follows a simple naming rule:
 
 - `chart` means the lead-sheet domain: import, interpretation, rendering, selection, and chart-side playback controls.
 - `drill` means the dedicated practice module shown in `index.html`.
-- `practice session` means the shared contract that travels between modules, especially from `chart` to `drill`.
+- `practice session` means the shared contract that travels between modules, especially from `chart` to practice playback and the drill trainer.
 
 Practical consequences:
 

@@ -1,16 +1,20 @@
 
 import { createDrillDisplayRootAppFacade } from './drill-display-root-app-facade.js';
+import { createDrillDirectRuntimeAppAssembly } from './drill-direct-runtime-app-assembly.js';
+import { createDrillEmbeddedRuntimeAppAssembly } from './drill-embedded-runtime-app-assembly.js';
+import { initializeEmbeddedDrillRuntime } from './drill-embedded-runtime.js';
 import { createDrillKeysRootAppAssembly } from './drill-keys-root-app-assembly.js';
 import { createDrillNextPreviewRootAppFacade } from './drill-next-preview-root-app-facade.js';
 import { createDrillPianoMidiRuntimeRootAppAssembly } from './drill-piano-midi-runtime-root-app-assembly.js';
 import { createDrillPianoToolsRootAppFacade } from './drill-piano-tools-root-app-facade.js';
-import { createDrillPlaybackRuntimeHostRootAppAssembly } from './drill-playback-runtime-host-root-app-assembly.js';
+import { createDrillPlaybackRuntimeAppAssembly } from './drill-playback-runtime-app-assembly.js';
+import { createPracticePlaybackRuntimeHostRootAppAssembly } from '../practice-playback/practice-playback-runtime-host-root-app-assembly.js';
 import { createDrillProgressionRootAppAssembly } from './drill-progression-root-app-assembly.js';
 import { createDrillRuntimeStateRootAppAssembly } from './drill-runtime-state-root-app-assembly.js';
 import { createDrillSettingsRootAppAssembly } from './drill-settings-root-app-assembly.js';
 import { createDrillSettingsPersistenceRootAppAssembly } from './drill-settings-persistence-root-app-assembly.js';
-import { createDrillSharedPlaybackRootAppAssembly } from './drill-shared-playback-root-app-assembly.js';
-import { createDrillSharedPlaybackRootAppContext } from './drill-shared-playback-root-app-context.js';
+import { createPracticePlaybackRootAppAssembly } from '../practice-playback/practice-playback-root-app-assembly.js';
+import { createPracticePlaybackRootAppContext } from '../practice-playback/practice-playback-root-app-context.js';
 import { createDrillStartupDataRootAppAssembly } from './drill-startup-data-root-app-assembly.js';
 import { createDrillUiBootstrapRootAppAssembly } from './drill-ui-bootstrap-root-app-assembly.js';
 import { createDrillUiEventBindingsRootAppAssembly } from './drill-ui-event-bindings-root-app-assembly.js';
@@ -24,8 +28,8 @@ type StateRef<T = unknown> = {
 type StateRefs = Record<string, StateRef>;
 type AdapterOptions = Record<string, unknown>;
 type RuntimeStateRootAppAssemblyOptions = Parameters<typeof createDrillRuntimeStateRootAppAssembly>[0];
-type SharedPlaybackRootAppContextOptions = Parameters<typeof createDrillSharedPlaybackRootAppContext>[0];
-type SharedPlaybackRootAppAssemblyOptions = Parameters<typeof createDrillSharedPlaybackRootAppAssembly>[0];
+type SharedPlaybackRootAppContextOptions = Parameters<typeof createPracticePlaybackRootAppContext>[0];
+type SharedPlaybackRootAppAssemblyOptions = Parameters<typeof createPracticePlaybackRootAppAssembly>[0];
 type UiBootstrapRootAppAssemblyOptions = Parameters<typeof createDrillUiBootstrapRootAppAssembly>[0];
 type UiEventBindingsRootAppAssemblyOptions = Parameters<typeof createDrillUiEventBindingsRootAppAssembly>[0];
 type WelcomeRootAppFacadeOptions = Parameters<typeof createDrillWelcomeRootAppFacade>[0];
@@ -155,7 +159,7 @@ export function createDrillPianoToolsDrillRootAppFacade({
   });
 }
 
-export function createDrillPlaybackRuntimeHostDrillRootAppAssembly({
+export function createPracticePlaybackRuntimeHostDrillRootAppAssembly({
   dom = {},
   runtimeStateRefs = {},
   audioStateRefs = {},
@@ -165,7 +169,7 @@ export function createDrillPlaybackRuntimeHostDrillRootAppAssembly({
   playbackConstants = {},
   runtimeHelpers = {}
 }: AdapterOptions = {}) {
-  return createDrillPlaybackRuntimeHostRootAppAssembly({
+  return createPracticePlaybackRuntimeHostRootAppAssembly({
     dom: asRecord(dom),
     runtimeState: {
       ...createBindingsFromRefs(asStateRefs(runtimeStateRefs)),
@@ -177,7 +181,8 @@ export function createDrillPlaybackRuntimeHostDrillRootAppAssembly({
     },
     preloadState: asRecord(preloadState),
     playbackConstants: asRecord(playbackConstants),
-    runtimeHelpers: asRecord(runtimeHelpers)
+    runtimeHelpers: asRecord(runtimeHelpers),
+    createRuntimeAppAssembly: createDrillPlaybackRuntimeAppAssembly
   });
 }
 
@@ -320,14 +325,14 @@ export function createDrillSettingsPersistenceDrillRootAppAssembly({
   });
 }
 
-export function createDrillSharedPlaybackDrillRootAppAssembly({
+export function createPracticePlaybackDrillRootAppAssembly({
   dom = {},
   hostStateRefs = {},
   directPlaybackRuntimeStateRefs = {},
   directPlaybackStateRefs = {},
   ...rootBindings
 }: AdapterOptions = {}) {
-  const rootAppContext = createDrillSharedPlaybackRootAppContext({
+  const rootAppContext = createPracticePlaybackRootAppContext({
     ...rootBindings,
     host: {
       ...asRecord(rootBindings.host),
@@ -351,9 +356,14 @@ export function createDrillSharedPlaybackDrillRootAppAssembly({
 
   return {
     rootAppContext,
-    ...createDrillSharedPlaybackRootAppAssembly({
+    ...createPracticePlaybackRootAppAssembly({
       dom,
-      ...rootAppContext
+      ...rootAppContext,
+      adapters: {
+        createEmbeddedRuntimeAssembly: createDrillEmbeddedRuntimeAppAssembly,
+        initializeEmbeddedRuntime: initializeEmbeddedDrillRuntime,
+        createDirectRuntimeAssembly: createDrillDirectRuntimeAppAssembly
+      }
     } as SharedPlaybackRootAppAssemblyOptions)
   };
 }

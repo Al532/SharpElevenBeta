@@ -237,15 +237,55 @@ const state: ExtendedChartScreenState = {
 
 let chartTextScaleCompensation = 1;
 
+function readSafeAreaInsets() {
+  const probe = document.createElement('div');
+  probe.style.position = 'fixed';
+  probe.style.inset = '0';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.paddingTop = 'env(safe-area-inset-top)';
+  probe.style.paddingRight = 'env(safe-area-inset-right)';
+  probe.style.paddingBottom = 'env(safe-area-inset-bottom)';
+  probe.style.paddingLeft = 'env(safe-area-inset-left)';
+  document.body.appendChild(probe);
+  const computed = getComputedStyle(probe);
+  const insets = {
+    top: parseFloat(computed.paddingTop) || 0,
+    right: parseFloat(computed.paddingRight) || 0,
+    bottom: parseFloat(computed.paddingBottom) || 0,
+    left: parseFloat(computed.paddingLeft) || 0
+  };
+  probe.remove();
+  return insets;
+}
+
+function syncChartCutoutPadding() {
+  const extraPadding = CHART_DISPLAY_CONFIG.sheetHeader.mobile.cutoutSidePaddingPx;
+  const insets = readSafeAreaInsets();
+  const maxInset = Math.max(insets.top, insets.right, insets.bottom, insets.left);
+  const rootStyle = document.documentElement.style;
+  const isCutoutSide = (side: keyof typeof insets) => maxInset > 0 && insets[side] === maxInset;
+  (['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
+    rootStyle.setProperty(
+      `--chart-runtime-cutout-padding-${side}`,
+      side !== 'top' && isCutoutSide(side) ? `${extraPadding}px` : '0px'
+    );
+  });
+}
+
 function applyChartDisplayCssVariables() {
   const rootStyle = document.documentElement.style;
-  const { rowSpacing, barGeometry, chordSizing } = CHART_DISPLAY_CONFIG;
+  const { rowSpacing, sheetHeader, barGeometry, chordSizing } = CHART_DISPLAY_CONFIG;
 
   const setCssVar = (name: string, value: string | number) => {
     rootStyle.setProperty(name, String(value));
   };
 
   setCssVar('--chart-config-row-gap-min', `${rowSpacing.minPx}px`);
+  setCssVar('--chart-config-mobile-sheet-header-padding-top-portrait', `${sheetHeader.mobile.portraitTopPaddingPx}px`);
+  setCssVar('--chart-config-mobile-sheet-header-padding-top-landscape', `${sheetHeader.mobile.landscapeTopPaddingPx}px`);
+  setCssVar('--chart-config-mobile-cutout-side-padding', `${sheetHeader.mobile.cutoutSidePaddingPx}px`);
+  setCssVar('--chart-config-mobile-sheet-title-offset-x', `${sheetHeader.mobile.titleOffsetXPx}px`);
 
   setCssVar('--chart-config-bar-cell-padding-top', `${barGeometry.desktop.cellPadding.topPx}px`);
   setCssVar('--chart-config-bar-cell-padding-x', `${barGeometry.desktop.cellPadding.horizontalPx}px`);
@@ -285,6 +325,7 @@ function applyChartDisplayCssVariables() {
   setCssVar('--chart-config-mobile-bar-row-3-min-height-max', `${barGeometry.mobile.rowHeights.three.maxPx}px`);
   setCssVar('--chart-config-mobile-bar-body-size', `${chordSizing.mobile.baseRem}rem`);
   setCssVar('--chart-config-mobile-bar-body-size-small', `${chordSizing.mobile.smallScreenRem}rem`);
+  syncChartCutoutPadding();
 }
 
 function measureChartTextScaleCompensation() {
@@ -953,13 +994,20 @@ function syncMobileOverlayDrawerLayout() {
 }
 
 function bindMobileOverlayDrawerLayout() {
-  syncMobileOverlayDrawerLayout();
-  window.addEventListener('resize', syncMobileOverlayDrawerLayout);
+  const syncMobileSafeLayout = () => {
+    syncChartCutoutPadding();
+    syncMobileOverlayDrawerLayout();
+  };
+
+  syncMobileSafeLayout();
+  window.addEventListener('resize', syncMobileSafeLayout);
+  window.addEventListener('orientationchange', syncMobileSafeLayout);
+  window.visualViewport?.addEventListener('resize', syncMobileSafeLayout);
 
   if (typeof ResizeObserver === 'undefined') return;
 
   const overlayLayoutObserver = new ResizeObserver(() => {
-    syncMobileOverlayDrawerLayout();
+    syncMobileSafeLayout();
   });
 
   const topBar = dom.chartTopOverlay?.querySelector('.chart-top-bar');

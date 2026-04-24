@@ -1,6 +1,6 @@
 // @ts-check
 
-import { createDrillPatternAnalysis } from './drill-pattern-analysis.js';
+import { createPracticePatternAnalysis } from '../practice-patterns/practice-pattern-analysis.js';
 import { createDrillPlaybackSettingsRuntime } from './drill-playback-settings-runtime.js';
 
 /**
@@ -20,7 +20,7 @@ import { createDrillPlaybackSettingsRuntime } from './drill-playback-settings-ru
  *   }
  * }} [options]
  * @returns {{
- *   patternAnalysis: ReturnType<typeof createDrillPatternAnalysis>,
+ *   patternAnalysis: ReturnType<typeof createPracticePatternAnalysis>,
  *   playbackSettingsRuntime: ReturnType<typeof createDrillPlaybackSettingsRuntime>
  * }}
  */
@@ -29,7 +29,7 @@ export function createDrillRuntimePrimitivesAppAssembly({
   playbackSettings = {}
 } = {}) {
   return {
-    patternAnalysis: createDrillPatternAnalysis(patternAnalysis),
+    patternAnalysis: createPracticePatternAnalysis(patternAnalysis),
     playbackSettingsRuntime: createDrillPlaybackSettingsRuntime(playbackSettings)
   };
 }

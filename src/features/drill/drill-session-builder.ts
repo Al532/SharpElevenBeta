@@ -5,7 +5,7 @@ import type {
   PracticeSessionSpec
 } from '../../core/types/contracts';
 
-export function createPracticeSessionFromDrillPattern({
+export function createPracticeSessionFromPracticePattern({
   patternName = 'Custom drill',
   patternString = '',
   tempo = 120,
@@ -31,7 +31,7 @@ export function createPracticeSessionFromDrillPattern({
     display: {},
     selection: null,
     origin: {
-      mode: 'drill-pattern'
+      mode: 'practice-pattern'
     }
   };
 }

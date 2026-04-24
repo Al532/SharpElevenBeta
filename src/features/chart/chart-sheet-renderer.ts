@@ -697,11 +697,7 @@ export function createChartSheetRenderer({
 
     const rowCount = rows.length;
     sheetGrid.dataset.rowCount = String(rowCount);
-    if (rowCount > 0 && rowCount <= CHART_LAYOUT_CONFIG.fillHeightMaxRowCount) {
-      sheetGrid.dataset.fillHeight = 'true';
-    } else {
-      delete sheetGrid.dataset.fillHeight;
-    }
+    delete sheetGrid.dataset.fillHeight;
     sheetGrid.innerHTML = rows.join('');
   }
 
@@ -709,17 +705,10 @@ export function createChartSheetRenderer({
     if (!sheetGrid) return;
     const rowElements = sheetGrid.querySelectorAll<HTMLElement>('.chart-row');
     const rowCount = rowElements.length;
-    const shouldStretchRows = rowCount > 0 && rowCount <= CHART_LAYOUT_CONFIG.fillHeightMaxRowCount;
     sheetGrid.dataset.rowCount = String(rowCount);
-    if (shouldStretchRows) {
-      sheetGrid.dataset.fillHeight = 'true';
-    } else {
-      delete sheetGrid.dataset.fillHeight;
-    }
+    delete sheetGrid.dataset.fillHeight;
     if (rowCount < 2) {
-      sheetGrid.style.rowGap = shouldStretchRows
-        ? `${CHART_ROW_SPACING_CONFIG.singleRowPx}px`
-        : `${CHART_ROW_SPACING_CONFIG.minPx}px`;
+      sheetGrid.style.rowGap = '0px';
       return;
     }
 
@@ -734,10 +723,10 @@ export function createChartSheetRenderer({
     });
     const availableForGaps = availableForGrid - totalRowHeight;
     const idealGap = Math.floor(availableForGaps / (rowCount - 1));
-    const maxGap = shouldStretchRows
-      ? CHART_ROW_SPACING_CONFIG.stretchMaxPx
-      : CHART_ROW_SPACING_CONFIG.maxPx;
-    const clampedGap = Math.max(CHART_ROW_SPACING_CONFIG.minPx, Math.min(maxGap, idealGap));
+    const clampedGap = Math.max(
+      CHART_ROW_SPACING_CONFIG.minPx,
+      Math.min(CHART_ROW_SPACING_CONFIG.maxPx, idealGap)
+    );
     sheetGrid.style.rowGap = `${clampedGap}px`;
   }
 

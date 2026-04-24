@@ -62,21 +62,28 @@ export const DRUM_MODES = Object.freeze({
 export const CHART_DISPLAY_CONFIG = Object.freeze({
   // Reglages de structure globale du chart.
   layout: Object.freeze({
-    // Nombre de mesures par ligne par defaut quand le chart ne definit pas deja ses propres systemes.
-    barsPerRow: 4,
-    // Si la grille a au plus ce nombre de lignes, elle peut s'etirer verticalement pour remplir l'espace.
-    fillHeightMaxRowCount: 4,
+    // Fallback seulement: les formats importes, comme iReal, peuvent deja definir leurs propres systemes.
+    barsPerRow: 4
+  }),
+  // Reglages a effet direct sur le titre et les informations au-dessus de la grille.
+  sheetHeader: Object.freeze({
+    mobile: Object.freeze({
+      // Marge de confort au-dessus du titre en portrait, hors safe area systeme.
+      portraitTopPaddingPx: 0,
+      // Marge de confort au-dessus du titre en paysage. La safe area du haut est rognee en interne.
+      landscapeTopPaddingPx: 2,
+      // Marge ajoutee du cote expose aux safe areas quand l'objectif / encoche tombe sur un bord.
+      cutoutSidePaddingPx: 16,
+      // Decale horizontalement le titre mobile si un appareil masque le centre exact.
+      titleOffsetXPx: 0
+    })
   }),
   // Reglages a effet direct sur l'air entre les lignes.
   rowSpacing: Object.freeze({
     // Ecart vertical minimum autorise entre deux lignes du chart.
-    minPx: 40,
+    minPx: 60,
     // Ecart vertical maximum autorise entre deux lignes du chart dans le layout normal.
-    maxPx: 80,
-    // Ecart special utilise quand il n'y a qu'une seule ligne et qu'elle est etiree.
-    singleRowPx: 10,
-    // Plafond de l'espacement des lignes etirees quand le chart est court et remplit la hauteur.
-    stretchMaxPx: 24
+    maxPx: 60
   }),
   // Reglages a effet direct sur la hauteur des mesures et les marges verticales internes.
   barGeometry: Object.freeze({

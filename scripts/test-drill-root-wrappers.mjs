@@ -31,7 +31,7 @@ import {
   WELCOME_PROGRESSIONS,
   WELCOME_STANDARDS_FALLBACK
 } from '../src/config/trainer-config.ts';
-import { createCompingEngine } from '../src/features/drill/drill-comping-engine.ts';
+import { createCompingEngine } from '../src/features/practice-arrangement/practice-arrangement-comping-engine.ts';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
@@ -39,8 +39,8 @@ import {
   normalizeProgressionsMap as normalizeProgressionsMapBase,
   parseDefaultProgressionsText as parseDefaultProgressionsTextBase
 } from '../src/features/progression/progression-library.ts';
-import { createDrillCompingEngineAppBindings } from '../src/features/drill/drill-comping-engine-app-bindings.ts';
-import { createDrillCompingEngineRootAppAssembly } from '../src/features/drill/drill-comping-engine-root-app-assembly.ts';
+import { createPracticeArrangementCompingEngineAppBindings } from '../src/features/practice-arrangement/practice-arrangement-comping-engine-app-bindings.ts';
+import { createPracticeArrangementCompingEngineRootAppAssembly } from '../src/features/practice-arrangement/practice-arrangement-comping-engine-root-app-assembly.ts';
 import { createDrillDisplayRootAppFacade } from '../src/features/drill/drill-display-root-app-facade.ts';
 import { createDrillKeysRootAppAssembly } from '../src/features/drill/drill-keys-root-app-assembly.ts';
 import { createDrillPianoMidiRuntimeRootAppAssembly } from '../src/features/drill/drill-piano-midi-runtime-root-app-assembly.ts';
@@ -53,28 +53,28 @@ import { createDrillNextPreviewRootAppFacade } from '../src/features/drill/drill
 import { createDrillProgressionRootAppAssembly } from '../src/features/drill/drill-progression-root-app-assembly.ts';
 import { createDrillSettingsPersistenceRootAppAssembly } from '../src/features/drill/drill-settings-persistence-root-app-assembly.ts';
 import { createDrillStartupDataRootAppAssembly } from '../src/features/drill/drill-startup-data-root-app-assembly.ts';
-import { createDrillPlaybackRuntimeHostAppBindings } from '../src/features/drill/drill-playback-runtime-host-app-bindings.ts';
+import { createPracticePlaybackRuntimeHostAppBindings } from '../src/features/practice-playback/practice-playback-runtime-host-app-bindings.ts';
 import { createDrillUiEventBindingsRootAppAssembly } from '../src/features/drill/drill-ui-event-bindings-root-app-assembly.ts';
 import { createDrillWelcomeRootAppFacade } from '../src/features/drill/drill-welcome-root-app-facade.ts';
 import {
-  createDrillSharedPlaybackDirectRuntimeAppContext,
-  createDrillSharedPlaybackDirectStateAppContext,
-  createDrillSharedPlaybackDirectTransportAppContext,
-  createDrillSharedPlaybackEmbeddedRuntimeAppContext,
-  createDrillSharedPlaybackEmbeddedStateAppContext,
-  createDrillSharedPlaybackHostAppContext,
-  createDrillSharedPlaybackNormalizationAppContext,
-  createDrillSharedPlaybackPatternUiAppContext,
-  createDrillSharedPlaybackSettingsAppContext
-} from '../src/features/drill/drill-shared-playback-app-context.ts';
-import { createDrillSharedPlaybackRootAppContext } from '../src/features/drill/drill-shared-playback-root-app-context.ts';
+  createPracticePlaybackDirectRuntimeAppContext,
+  createPracticePlaybackDirectStateAppContext,
+  createPracticePlaybackDirectTransportAppContext,
+  createPracticePlaybackEmbeddedRuntimeAppContext,
+  createPracticePlaybackEmbeddedStateAppContext,
+  createPracticePlaybackHostAppContext,
+  createPracticePlaybackNormalizationAppContext,
+  createPracticePlaybackPatternUiAppContext,
+  createPracticePlaybackSettingsAppContext
+} from '../src/features/practice-playback/practice-playback-app-context.ts';
+import { createPracticePlaybackRootAppContext } from '../src/features/practice-playback/practice-playback-root-app-context.ts';
 import { createDrillUiBootstrapRootAppAssembly } from '../src/features/drill/drill-ui-bootstrap-root-app-assembly.ts';
-import { createDrillVoicingRuntimeAppBindings } from '../src/features/drill/drill-voicing-runtime-app-bindings.ts';
-import { createDrillVoicingRuntimeRootAppAssembly } from '../src/features/drill/drill-voicing-runtime-root-app-assembly.ts';
-import { createDrillVoicingRuntime } from '../src/features/drill/drill-voicing-runtime.ts';
-import { createDrillWalkingBassAppBindings } from '../src/features/drill/drill-walking-bass-app-bindings.ts';
-import { createDrillWalkingBassRootAppAssembly } from '../src/features/drill/drill-walking-bass-root-app-assembly.ts';
-import { createWalkingBassGenerator } from '../src/features/drill/drill-walking-bass.ts';
+import { createPracticeArrangementVoicingRuntimeAppBindings } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-app-bindings.ts';
+import { createPracticeArrangementVoicingRuntimeRootAppAssembly } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-root-app-assembly.ts';
+import { createPracticeArrangementVoicingRuntime } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime.ts';
+import { createPracticeArrangementWalkingBassAppBindings } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-app-bindings.ts';
+import { createPracticeArrangementWalkingBassRootAppAssembly } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-root-app-assembly.ts';
+import { createWalkingBassGenerator } from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
 
 function withMockedRandom(sequence, callback) {
   const originalRandom = Math.random;
@@ -260,9 +260,9 @@ function createEventTarget(initialState = {}) {
 function testCompingEngineRootWrapper() {
   const options = createCompingOptions();
   const directCompingEngine = createCompingEngine(
-    createDrillCompingEngineAppBindings(options)
+    createPracticeArrangementCompingEngineAppBindings(options)
   );
-  const rootCompingEngine = createDrillCompingEngineRootAppAssembly(options);
+  const rootCompingEngine = createPracticeArrangementCompingEngineRootAppAssembly(options);
   const preparedInput = {
     style: 'off',
     previousKey: null,
@@ -294,10 +294,10 @@ function testCompingEngineRootWrapper() {
 
 function testVoicingRuntimeRootWrapper() {
   const options = createVoicingOptions();
-  const directVoicingRuntime = createDrillVoicingRuntime(
-    createDrillVoicingRuntimeAppBindings(options)
+  const directVoicingRuntime = createPracticeArrangementVoicingRuntime(
+    createPracticeArrangementVoicingRuntimeAppBindings(options)
   );
-  const rootVoicingRuntime = createDrillVoicingRuntimeRootAppAssembly(options);
+  const rootVoicingRuntime = createPracticeArrangementVoicingRuntimeRootAppAssembly(options);
   const currentChord = options.getCurrentPaddedChords()[0];
   const nextChord = options.getNextPaddedChords()[0];
 
@@ -483,9 +483,9 @@ function testWalkingBassRootWrapper() {
     }
   };
   const directWalkingBassGenerator = createWalkingBassGenerator(
-    createDrillWalkingBassAppBindings(options)
+    createPracticeArrangementWalkingBassAppBindings(options)
   );
-  const rootWalkingBassGenerator = createDrillWalkingBassRootAppAssembly(options);
+  const rootWalkingBassGenerator = createPracticeArrangementWalkingBassRootAppAssembly(options);
   const buildLineInput = {
     chords: Array.from({ length: 4 }, () => ({
       semitones: 5,
@@ -514,7 +514,7 @@ function testPlaybackRuntimeHostBindingsPreserveDom() {
     walkingBass: { checked: true },
     startStop: { textContent: 'Start' }
   };
-  const bindings = createDrillPlaybackRuntimeHostAppBindings({
+  const bindings = createPracticePlaybackRuntimeHostAppBindings({
     dom,
     state: { isPlaying: false }
   });
@@ -539,46 +539,46 @@ function testSharedPlaybackRootContextBuildsSubcontexts() {
     directPlaybackState: { getIsPlaying: () => false },
     directTransportActions: { startPlayback: () => 'started' }
   };
-  const rootContext = createDrillSharedPlaybackRootAppContext(options);
+  const rootContext = createPracticePlaybackRootAppContext(options);
 
   assert.deepEqual(
     rootContext.host,
-    createDrillSharedPlaybackHostAppContext(options.host),
+    createPracticePlaybackHostAppContext(options.host),
     'Shared playback root app context preserves host sub-context construction.'
   );
   assert.deepEqual(
     rootContext.patternUi,
-    createDrillSharedPlaybackPatternUiAppContext(options.patternUi),
+    createPracticePlaybackPatternUiAppContext(options.patternUi),
     'Shared playback root app context preserves pattern UI sub-context construction.'
   );
   assert.deepEqual(
     rootContext.normalization,
-    createDrillSharedPlaybackNormalizationAppContext(options.normalization),
+    createPracticePlaybackNormalizationAppContext(options.normalization),
     'Shared playback root app context preserves normalization sub-context construction.'
   );
   assert.deepEqual(
     rootContext.playbackSettings,
-    createDrillSharedPlaybackSettingsAppContext(options.playbackSettings),
+    createPracticePlaybackSettingsAppContext(options.playbackSettings),
     'Shared playback root app context preserves playback-settings sub-context construction.'
   );
   assert.deepEqual(
     rootContext.embeddedPlaybackState,
-    createDrillSharedPlaybackEmbeddedStateAppContext(options.embeddedPlaybackState),
+    createPracticePlaybackEmbeddedStateAppContext(options.embeddedPlaybackState),
     'Shared playback root app context preserves embedded-state sub-context construction.'
   );
   assert.deepEqual(
     rootContext.embeddedPlaybackRuntime,
-    createDrillSharedPlaybackEmbeddedRuntimeAppContext(options.embeddedPlaybackRuntime),
+    createPracticePlaybackEmbeddedRuntimeAppContext(options.embeddedPlaybackRuntime),
     'Shared playback root app context preserves embedded-runtime sub-context construction.'
   );
   assert.deepEqual(
     rootContext.directPlaybackState,
-    createDrillSharedPlaybackDirectStateAppContext(options.directPlaybackState),
+    createPracticePlaybackDirectStateAppContext(options.directPlaybackState),
     'Shared playback root app context preserves direct-state sub-context construction.'
   );
   assert.deepEqual(
     rootContext.directTransportActions,
-    createDrillSharedPlaybackDirectTransportAppContext(options.directTransportActions),
+    createPracticePlaybackDirectTransportAppContext(options.directTransportActions),
     'Shared playback root app context preserves direct-transport sub-context construction.'
   );
   assert.equal(
@@ -591,7 +591,7 @@ function testSharedPlaybackRootContextBuildsSubcontexts() {
 function testSharedPlaybackRootSubcontextsPreserveGlue() {
   let suppressPatternSelectChange = false;
   let lastPatternSelectValue = '';
-  const rootContext = createDrillSharedPlaybackRootAppContext({
+  const rootContext = createPracticePlaybackRootAppContext({
     host: {
       dom: { tempoSlider: { value: '132' } },
       state: {
@@ -2261,7 +2261,7 @@ async function testStartupDataRootAssemblyPreservesLoaderBehavior() {
         normalizePatternMode: (value) => value === 'minor' ? 'minor' : 'major'
       },
       patternHelp: {
-        loadDrillPatternHelp: async ({ dom, url, version }) => {
+        loadPracticePatternHelp: async ({ dom, url, version }) => {
           patternHelpCalls += 1;
           assert.equal(dom.marker, 'pattern-help');
           assert.equal(url, 'pattern-url');

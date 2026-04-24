@@ -101,25 +101,25 @@ import {
 } from '../src/features/chart/chart-playback-runtime.ts';
 import { createAppShellBindings } from '../src/features/app/app-shell-bindings.ts';
 import { initializeEmbeddedDrillRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
-import { createDrillAudioRuntime } from '../src/features/drill/drill-audio-runtime.ts';
+import { createPlaybackAudioRuntime } from '../src/features/playback-audio/playback-audio-runtime.ts';
 import { createEmbeddedDrillRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
-import { createDrillPatternAnalysis } from '../src/features/drill/drill-pattern-analysis.ts';
-import { loadDrillPatternHelp } from '../src/features/drill/drill-pattern-help.ts';
-import { validateDrillCustomPattern } from '../src/features/drill/drill-pattern-validation.ts';
+import { createPracticePatternAnalysis } from '../src/features/practice-patterns/practice-pattern-analysis.ts';
+import { loadPracticePatternHelp } from '../src/features/practice-patterns/practice-pattern-help.ts';
+import { validatePracticeCustomPattern } from '../src/features/practice-patterns/practice-pattern-validation.ts';
 import { createDrillHarmonyDisplayHelpers } from '../src/features/drill/drill-display-runtime.ts';
 import { createDrillHarmonyLayoutHelpers } from '../src/features/drill/drill-display-runtime.ts';
 import { createDrillPreviewTimingHelpers } from '../src/features/drill/drill-display-runtime.ts';
 import { createDirectDrillRuntimeAppContextOptions } from '../src/features/drill/drill-direct-runtime-app-context.ts';
 import { createDirectPlaybackSessionHandlers, createDirectPlaybackSessionHost } from '../src/features/drill/drill-direct-session.ts';
 import { createDrillDirectRuntimeAppAssembly } from '../src/features/drill/drill-direct-runtime-app-assembly.ts';
-import { createDrillPlaybackPreparationRuntime } from '../src/features/drill/drill-playback-preparation-runtime.ts';
-import { createDrillPlaybackPreparationAppContext } from '../src/features/drill/drill-playback-preparation-app-context.ts';
-import { createDrillPlaybackResourcesAppFacade } from '../src/features/drill/drill-playback-resources-app-facade.ts';
+import { createPracticePlaybackPreparationRuntime } from '../src/features/practice-playback/practice-playback-preparation-runtime.ts';
+import { createPracticePlaybackPreparationAppContext } from '../src/features/practice-playback/practice-playback-preparation-app-context.ts';
+import { createPracticePlaybackResourcesAppFacade } from '../src/features/practice-playback/practice-playback-resources-app-facade.ts';
 import { createDrillPlaybackSettingsRuntime } from '../src/features/drill/drill-playback-settings-runtime.ts';
 import { createDrillSessionAnalytics } from '../src/features/drill/drill-session-analytics.ts';
 import { createDrillKeyPoolRuntime } from '../src/features/drill/drill-key-pool-runtime.ts';
-import { createDrillPlaybackRuntimeHost } from '../src/features/drill/drill-playback-runtime-host.ts';
-import { createDrillVoicingRuntime } from '../src/features/drill/drill-voicing-runtime.ts';
+import { createPracticePlaybackRuntimeHost } from '../src/features/practice-playback/practice-playback-runtime-host.ts';
+import { createPracticeArrangementVoicingRuntime } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime.ts';
 import {
   createDefaultDrillAppSettingsFactory,
   createDrillLoadedSettingsApplier,
@@ -132,41 +132,41 @@ import { createDrillSettingsRuntimeAppBindings } from '../src/features/drill/dri
 import {
   createDrillEmbeddedRuntimeContextBindings,
   createDrillNormalizationBindings,
-  createDrillPatternUiBindings,
+  createPracticePatternUiBindings,
   createDrillPlaybackSettingsBindings,
   createDrillPlaybackRuntimeBindings,
   createDrillPlaybackStateBindings,
   createDrillTransportActionBindings
 } from '../src/features/drill/drill-runtime-app-bindings.ts';
-import { createDrillAudioRuntimeAppContext } from '../src/features/drill/drill-audio-runtime-app-context.ts';
-import { createDrillAudioRuntimeAppAssembly } from '../src/features/drill/drill-audio-runtime-app-assembly.ts';
-import { createDrillAudioRuntimeAppBindings } from '../src/features/drill/drill-audio-runtime-app-bindings.ts';
-import { createDrillAudioFacadeAppSurface } from '../src/features/drill/drill-audio-facade-app-surface.ts';
-import { createDrillAudioStackAppAssembly } from '../src/features/drill/drill-audio-stack-app-assembly.ts';
-import { createDrillAudioStackAppBindings } from '../src/features/drill/drill-audio-stack-app-bindings.ts';
-import { createDrillAudioStackAppFacade } from '../src/features/drill/drill-audio-stack-app-facade.ts';
-import { createDrillAudioStackFacadeAppBindings } from '../src/features/drill/drill-audio-stack-facade-app-bindings.ts';
-import { createDrillAudioPlaybackRuntime } from '../src/features/drill/drill-audio-playback-runtime.ts';
-import { createDrillAudioPlaybackAppContext } from '../src/features/drill/drill-audio-playback-app-context.ts';
-import { createDrillCompingEngineAppBindings } from '../src/features/drill/drill-comping-engine-app-bindings.ts';
+import { createPlaybackAudioRuntimeAppContext } from '../src/features/playback-audio/playback-audio-runtime-app-context.ts';
+import { createPlaybackAudioRuntimeAppAssembly } from '../src/features/playback-audio/playback-audio-runtime-app-assembly.ts';
+import { createPlaybackAudioRuntimeAppBindings } from '../src/features/playback-audio/playback-audio-runtime-app-bindings.ts';
+import { createPlaybackAudioFacadeAppSurface } from '../src/features/playback-audio/playback-audio-facade-app-surface.ts';
+import { createPlaybackAudioStackAppAssembly } from '../src/features/playback-audio/playback-audio-stack-app-assembly.ts';
+import { createPlaybackAudioStackAppBindings } from '../src/features/playback-audio/playback-audio-stack-app-bindings.ts';
+import { createPlaybackAudioStackAppFacade } from '../src/features/playback-audio/playback-audio-stack-app-facade.ts';
+import { createPlaybackAudioStackFacadeAppBindings } from '../src/features/playback-audio/playback-audio-stack-facade-app-bindings.ts';
+import { createPlaybackAudioPlaybackRuntime } from '../src/features/playback-audio/playback-audio-playback-runtime.ts';
+import { createPlaybackAudioPlaybackAppContext } from '../src/features/playback-audio/playback-audio-playback-app-context.ts';
+import { createPracticeArrangementCompingEngineAppBindings } from '../src/features/practice-arrangement/practice-arrangement-comping-engine-app-bindings.ts';
 import { createDrillEmbeddedRuntimeAppAssembly } from '../src/features/drill/drill-embedded-runtime-app-assembly.ts';
 import { createDrillEmbeddedRuntimeHostBindings } from '../src/features/drill/drill-embedded-runtime-host.ts';
 import { createDrillPianoToolsAppBindings } from '../src/features/drill/drill-piano-tools-app-bindings.ts';
 import { createDrillPianoToolsAppFacade } from '../src/features/drill/drill-piano-tools.ts';
 import {
-  createDrillPlaybackResourcesAppBindings,
-  createDrillPlaybackResourcesRuntimeAppBindings
-} from '../src/features/drill/drill-playback-resources-app-context.ts';
-import { createDrillSamplePlaybackRuntime } from '../src/features/drill/drill-sample-playback-runtime.ts';
-import { createDrillSamplePlaybackAppContext } from '../src/features/drill/drill-sample-playback-app-context.ts';
-import { createDrillSamplePreloadAppContext } from '../src/features/drill/drill-sample-preload-app-context.ts';
-import { createDrillSamplePreloadRuntime } from '../src/features/drill/drill-sample-preload-runtime.ts';
-import { createDrillScheduledAudioRuntime } from '../src/features/drill/drill-scheduled-audio-runtime.ts';
-import { createDrillScheduledAudioAppContext } from '../src/features/drill/drill-scheduled-audio-app-context.ts';
+  createPracticePlaybackResourcesAppBindings,
+  createPracticePlaybackResourcesRuntimeAppBindings
+} from '../src/features/practice-playback/practice-playback-resources-app-context.ts';
+import { createPlaybackSamplePlaybackRuntime } from '../src/features/playback-audio/playback-sample-playback-runtime.ts';
+import { createPlaybackSamplePlaybackAppContext } from '../src/features/playback-audio/playback-sample-playback-app-context.ts';
+import { createPlaybackSamplePreloadAppContext } from '../src/features/playback-audio/playback-sample-preload-app-context.ts';
+import { createPlaybackSamplePreloadRuntime } from '../src/features/playback-audio/playback-sample-preload-runtime.ts';
+import { createPlaybackScheduledAudioRuntime } from '../src/features/playback-audio/playback-scheduled-audio-runtime.ts';
+import { createPlaybackScheduledAudioAppContext } from '../src/features/playback-audio/playback-scheduled-audio-app-context.ts';
 import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createDrillPlaybackRuntime } from '../src/features/drill/drill-playback-controller.ts';
 import { createDrillPlaybackEngineAppContext } from '../src/features/drill/drill-playback-engine-app-context.ts';
 import { createDrillPlaybackRuntimeAppAssembly } from '../src/features/drill/drill-playback-runtime-app-assembly.ts';
-import { createDrillPlaybackRuntimeHostAppBindings } from '../src/features/drill/drill-playback-runtime-host-app-bindings.ts';
+import { createPracticePlaybackRuntimeHostAppBindings } from '../src/features/practice-playback/practice-playback-runtime-host-app-bindings.ts';
 import { createDrillPlaybackStateAppContext } from '../src/features/drill/drill-playback-state-app-context.ts';
 import { createDrillRuntimePrimitivesAppBindings } from '../src/features/drill/drill-runtime-primitives-app-bindings.ts';
 import { createDrillRuntimePrimitivesRuntimeAppBindings } from '../src/features/drill/drill-runtime-primitives-runtime-app-bindings.ts';
@@ -176,13 +176,13 @@ import {
   createDrillPlaybackTransportState
 } from '../src/features/drill/drill-playback-runtime-engine.ts';
 import {
-  createDrillSharedPlaybackAppBindings,
-  createDrillSharedPlaybackRuntimeAppBindings
-} from '../src/features/drill/drill-shared-playback-app-context.ts';
+  createPracticePlaybackAppBindings,
+  createPracticePlaybackRuntimeAppBindings
+} from '../src/features/practice-playback/practice-playback-app-context.ts';
 import { createDrillPlaybackRuntimeAppBindings } from '../src/features/drill/drill-playback-runtime-app-bindings.ts';
-import { createDrillVoicingRuntimeAppBindings } from '../src/features/drill/drill-voicing-runtime-app-bindings.ts';
-import { createDrillWalkingBassAppBindings } from '../src/features/drill/drill-walking-bass-app-bindings.ts';
-import { createWalkingBassGenerator } from '../src/features/drill/drill-walking-bass.ts';
+import { createPracticeArrangementVoicingRuntimeAppBindings } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-app-bindings.ts';
+import { createPracticeArrangementWalkingBassAppBindings } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-app-bindings.ts';
+import { createWalkingBassGenerator } from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -299,7 +299,7 @@ const sourcePath = path.join(projectRoot, 'parsing-projects', 'ireal', 'sources'
   );
 }
 
-const drillPatternAnalysis = createDrillPatternAnalysis({
+const drillPatternAnalysis = createPracticePatternAnalysis({
   romanToSemitones: { I: 0, II: 2, III: 4, IV: 5, V: 7, VI: 9, VII: 11 },
   noteLetterToSemitone: { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 },
   semitoneToRomanTokenMap: {
@@ -354,7 +354,7 @@ const currentProgressionVoicingPlan = [{ id: 'current-voicing' }];
 const nextProgressionVoicingPlan = [{ id: 'next-voicing' }];
 const currentPaddedChordsRef = [{ semitones: 0, qualityMajor: '7', qualityMinor: '7', roman: 'V' }];
 const nextPaddedChordsRef = [{ semitones: 5, qualityMajor: 'maj7', qualityMinor: 'm7', roman: 'I' }];
-const drillVoicingRuntime = createDrillVoicingRuntime({
+const drillVoicingRuntime = createPracticeArrangementVoicingRuntime({
   qualityCategoryAliases: { maj7: ['maj'], m7: ['m'], dom: ['13'] },
   dominantDefaultQualityMajor: { V: '13' },
   dominantDefaultQualityMinor: { V: '13' },
@@ -511,7 +511,7 @@ assert.equal(
   'Drill harmony layout helpers schedule harmony fitting work through the injected animation-frame hook.'
 );
 const patternHelpDom = { patternHelp: { innerHTML: '' } };
-await loadDrillPatternHelp({
+await loadPracticePatternHelp({
   dom: patternHelpDom,
   url: 'https://example.test/progression-suffixes.txt',
   version: '1',
@@ -545,7 +545,7 @@ const patternErrorElement = {
   }
 };
 assert.equal(
-  validateDrillCustomPattern({
+  validatePracticeCustomPattern({
     isCustomPatternSelected: () => true,
     getCustomPatternValue: () => 'bad pattern',
     normalizePatternString: (value) => value,
@@ -561,7 +561,7 @@ assert.equal(
   'Drill pattern validation mirrors parser errors into the shared error element.'
 );
 assert.equal(
-  validateDrillCustomPattern({
+  validatePracticeCustomPattern({
     isCustomPatternSelected: () => false,
     getCustomPatternValue: () => '',
     normalizePatternString: (value) => value,
@@ -1093,7 +1093,8 @@ assert.equal(
   'preset_autumn_leaves',
   'Drill session analytics preserves progression identifiers for preset playback telemetry.'
 );
-const drillPlaybackRuntimeHost = createDrillPlaybackRuntimeHost({
+let capturedPracticePlaybackRuntimeHostOptions = null;
+const PracticePlaybackRuntimeHost = createPracticePlaybackRuntimeHost({
   dom: {},
   state: {
     getCurrentBassPlan: () => [],
@@ -1225,12 +1226,28 @@ const drillPlaybackRuntimeHost = createDrillPlaybackRuntimeHost({
     stopScheduledAudio: () => {},
     trackEvent: () => {},
     trackProgressionEvent: () => {}
+  },
+  createRuntimeAppAssembly: (options) => {
+    capturedPracticePlaybackRuntimeHostOptions = options;
+    return {
+      prepareNextProgressionPlayback: () => {},
+      scheduleBeatPlayback: () => {},
+      scheduleDisplayPlayback: () => {},
+      start: () => {},
+      stop: () => {},
+      togglePause: () => {}
+    };
   }
 });
 assert.equal(
-  typeof drillPlaybackRuntimeHost.start,
+  typeof PracticePlaybackRuntimeHost.start,
   'function',
   'Drill playback runtime host exposes transport controls through the extracted host boundary.'
+);
+assert.equal(
+  typeof capturedPracticePlaybackRuntimeHostOptions?.schedulerBindings?.getCurrentBeat,
+  'function',
+  'Practice playback runtime host forwards grouped state into the injected runtime adapter.'
 );
 let pianoFacadeSaved = false;
 let pianoFacadeAttachCount = 0;
@@ -1300,7 +1317,7 @@ assert.equal(
   'Drill runtime app bindings preserve embedded-mode state flags.'
 );
 assert.equal(
-  typeof createDrillPatternUiBindings({
+  typeof createPracticePatternUiBindings({
     validateCustomPattern: () => true
   }).validateCustomPattern,
   'function',
@@ -1452,7 +1469,7 @@ assert.equal(
 );
 const capturedMixerCalls = [];
 const audioRuntimeSampleBuffers = { bass: {}, cello: {}, violin: {}, piano: {}, drums: {} };
-const audioRuntime = createDrillAudioRuntime({
+const audioRuntime = createPlaybackAudioRuntime({
   sampleBuffers: audioRuntimeSampleBuffers,
   sampleLoadPromises: {
     bass: new Map(),
@@ -1521,7 +1538,7 @@ assert.equal(
   4,
   'Drill audio runtime stores decoded sample buffers by category and midi.'
 );
-const audioRuntimeAppContext = createDrillAudioRuntimeAppContext({
+const audioRuntimeAppContext = createPlaybackAudioRuntimeAppContext({
   audioState: {
     getAudioContext: () => audioRuntimeContext
   },
@@ -1546,7 +1563,7 @@ assert.equal(
   'function',
   'Drill audio runtime app context materializes the shared sample-loading runtime from grouped app concerns.'
 );
-const audioStackAssembly = createDrillAudioStackAppAssembly({
+const audioStackAssembly = createPlaybackAudioStackAppAssembly({
   audioRuntime: {
     audioState: {
       getAudioContext: () => audioRuntimeContext
@@ -1690,7 +1707,7 @@ assert.equal(
   'function',
   'Drill audio stack app assembly materializes the shared runtime layers from grouped app concerns.'
 );
-const audioStackFacade = createDrillAudioStackAppFacade({
+const audioStackFacade = createPlaybackAudioStackAppFacade({
   audioStack: {
     audioRuntime: { loadSample: () => 'loaded' },
     samplePreload: {
@@ -1729,34 +1746,34 @@ assert.equal(
   'Drill audio stack app facade applies default fade behavior for active chord voices.'
 );
 assert.equal(
-  createDrillAudioStackAppBindings({
+  createPlaybackAudioStackAppBindings({
     audioRuntime: { test: true }
   }).audioRuntime.test,
   true,
   'Drill audio-stack app bindings preserve grouped audio-runtime concerns for the shared stack assembly.'
 );
 assert.equal(
-  createDrillAudioStackFacadeAppBindings({
+  createPlaybackAudioStackFacadeAppBindings({
     defaultFadeDuration: 0.26
   }).defaultFadeDuration,
   0.26,
   'Drill audio-stack facade app bindings preserve facade timing defaults.'
 );
 assert.equal(
-  createDrillAudioRuntimeAppBindings({
+  createPlaybackAudioRuntimeAppBindings({
     audioFacade: { defaultFadeDuration: 0.25 }
   }).audioFacade.defaultFadeDuration,
   0.25,
   'Drill audio runtime app bindings preserve grouped runtime concerns for the shared audio seam.'
 );
 assert.equal(
-  createDrillAudioFacadeAppSurface({
+  createPlaybackAudioFacadeAppSurface({
     loadSample: () => 'sample-loaded'
-  }).loadDrillAudioSample(),
+  }).loadPlaybackAudioSample(),
   'sample-loaded',
   'Drill audio facade app surface materializes stable app-local aliases over the shared audio facade.'
 );
-const drillAudioRuntimeAssembly = createDrillAudioRuntimeAppAssembly({
+const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeAppAssembly({
   audioStack: {
     audioRuntime: {
       audioState: { getAudioContext: () => null },
@@ -1774,26 +1791,26 @@ const drillAudioRuntimeAssembly = createDrillAudioRuntimeAppAssembly({
   }
 });
 assert.equal(
-  typeof drillAudioRuntimeAssembly.audioSurface.stopDrillScheduledAudio,
+  typeof drillAudioRuntimeAssembly.audioSurface.stopPlaybackScheduledAudio,
   'function',
   'Drill audio runtime app assembly materializes the shared audio stack, facade, and app-facing surface through one boundary.'
 );
 assert.equal(
-  createDrillCompingEngineAppBindings({
+  createPracticeArrangementCompingEngineAppBindings({
     helpers: { getSwingRatio: () => 0.5 }
   }).helpers.getSwingRatio(),
   0.5,
   'Drill comping-engine app bindings preserve shared helper callbacks for the playback engine.'
 );
 assert.equal(
-  createDrillPlaybackResourcesAppBindings({
+  createPracticePlaybackResourcesAppBindings({
     runtime: { compingEngine: { id: 'comping' } }
   }).runtime.compingEngine.id,
   'comping',
   'Drill playback-resources app bindings preserve grouped runtime resources consumed by the shared preparation layer.'
 );
 assert.equal(
-  createDrillPlaybackRuntimeHostAppBindings({
+  createPracticePlaybackRuntimeHostAppBindings({
     constants: { noteFadeout: 0.26 }
   }).constants.noteFadeout,
   0.26,
@@ -1807,14 +1824,14 @@ assert.equal(
   'Drill runtime-primitives app bindings preserve grouped pattern-analysis constants.'
 );
 assert.equal(
-  createDrillSharedPlaybackAppBindings({
+  createPracticePlaybackAppBindings({
     direct: { playbackState: { getIsPlaying: () => true } }
   }).direct.playbackState.getIsPlaying(),
   true,
   'Drill shared-playback app bindings preserve grouped direct-runtime concerns for the shared playback assembly.'
 );
 assert.equal(
-  createDrillSharedPlaybackRuntimeAppBindings({
+  createPracticePlaybackRuntimeAppBindings({
     embedded: { playbackState: { isEmbeddedMode: true } }
   }).embedded.playbackState.isEmbeddedMode,
   true,
@@ -1828,7 +1845,7 @@ assert.equal(
   'Drill playback-runtime app bindings preserve grouped runtime-host concerns before the shared host boundary.'
 );
 assert.equal(
-  createDrillPlaybackResourcesRuntimeAppBindings({
+  createPracticePlaybackResourcesRuntimeAppBindings({
     runtime: { compingEngine: { id: 'comping' } }
   }).runtime.compingEngine.id,
   'comping',
@@ -1856,21 +1873,21 @@ assert.equal(
   'Drill settings runtime app bindings preserve grouped settings concerns before the shared settings boundary.'
 );
 assert.equal(
-  createDrillVoicingRuntimeAppBindings({
+  createPracticeArrangementVoicingRuntimeAppBindings({
     violinHigh: 84
   }).violinHigh,
   84,
   'Drill voicing-runtime app bindings preserve voicing-range constants for the shared harmony runtime.'
 );
 assert.equal(
-  createDrillWalkingBassAppBindings({
+  createPracticeArrangementWalkingBassAppBindings({
     constants: { BASS_LOW: 28 }
   }).constants.BASS_LOW,
   28,
   'Drill walking-bass app bindings preserve grouped bass-range constants for the walking-bass runtime.'
 );
 const samplePreloadEvents = [];
-const samplePreloadRuntime = createDrillSamplePreloadRuntime({
+const samplePreloadRuntime = createPlaybackSamplePreloadRuntime({
   getBassPreloadRange: () => ({ low: 36, high: 37 }),
   getBassMidi: (key, semitoneOffset) => 36 + key + semitoneOffset,
   getBeatsPerChord: () => 2,
@@ -1950,7 +1967,7 @@ assert.ok(
   samplePreloadEvents.includes('fetch:assets/Piano/p/72.mp3'),
   'Drill sample preload runtime can warm the page cache with piano sample descriptors.'
 );
-const samplePreloadAppContext = createDrillSamplePreloadAppContext({
+const samplePreloadAppContext = createPlaybackSamplePreloadAppContext({
   playbackSettings: {
     getBassPreloadRange: () => ({ low: 36, high: 36 }),
     getBassMidi: (key, semitoneOffset) => 36 + key + semitoneOffset,
@@ -2034,7 +2051,7 @@ const fakeAudioContext = {
     });
   }
 };
-const audioPlaybackRuntime = createDrillAudioPlaybackRuntime({
+const audioPlaybackRuntime = createPlaybackAudioPlaybackRuntime({
   getAudioContext: () => audioPlaybackContext,
   setAudioContext: (value) => { audioPlaybackContext = value; },
   getMixerNodes: () => audioPlaybackMixerNodes,
@@ -2073,7 +2090,7 @@ assert.ok(
 );
 let audioPlaybackAppContextMixerNodes = null;
 let audioPlaybackAppContextContext = null;
-const audioPlaybackAppContext = createDrillAudioPlaybackAppContext({
+const audioPlaybackAppContext = createPlaybackAudioPlaybackAppContext({
   audioState: {
     getAudioContext: () => audioPlaybackAppContextContext,
     setAudioContext: (value) => { audioPlaybackAppContextContext = value; },
@@ -2113,7 +2130,7 @@ assert.ok(
   'Drill audio playback app context materializes the shared audio runtime from grouped app concerns.'
 );
 const scheduledAudioEvents = [];
-const scheduledAudioRuntime = createDrillScheduledAudioRuntime({
+const scheduledAudioRuntime = createPlaybackScheduledAudioRuntime({
   getAudioContext: () => ({ currentTime: 4 }),
   stopActiveComping: (stopTime, fadeDuration) => {
     scheduledAudioEvents.push(`comping:${stopTime}:${fadeDuration}`);
@@ -2174,7 +2191,7 @@ assert.ok(
   scheduledAudioEvents.includes('comping:4:0.33'),
   'Drill scheduled audio runtime forwards chord-voice shutdown through the shared comping boundary.'
 );
-const scheduledAudioAppContext = createDrillScheduledAudioAppContext({
+const scheduledAudioAppContext = createPlaybackScheduledAudioAppContext({
   audioState: {
     getAudioContext: () => ({ currentTime: 9 })
   },
@@ -2239,7 +2256,7 @@ const samplePlaybackAudioContext = {
     };
   }
 };
-const samplePlaybackRuntime = createDrillSamplePlaybackRuntime({
+const samplePlaybackRuntime = createPlaybackSamplePlaybackRuntime({
   getAudioContext: () => samplePlaybackAudioContext,
   sampleBuffers: {
     bass: { 36: { duration: 1.2 } },
@@ -2300,7 +2317,7 @@ assert.ok(
 );
 let samplePlaybackAppContextActiveGain = null;
 let samplePlaybackAppContextFadeOut = 0;
-const samplePlaybackAppContext = createDrillSamplePlaybackAppContext({
+const samplePlaybackAppContext = createPlaybackSamplePlaybackAppContext({
   audioState: {
     getAudioContext: () => samplePlaybackAudioContext,
     sampleBuffers: {
@@ -2350,7 +2367,7 @@ let preparedCurrentCompingPlan = null;
 let preparedNextCompingPlan = null;
 let preparedCurrentBassPlan = [];
 const walkingBassBuilds = [];
-const playbackPreparationRuntime = createDrillPlaybackPreparationRuntime({
+const playbackPreparationRuntime = createPracticePlaybackPreparationRuntime({
   getPlayedChordQuality: (chord, isMinor) => `${chord.quality}:${isMinor ? 'm' : 'M'}`,
   getVoicingPlanForProgression: (chords) => chords.map((_, index) => (index === 0 ? { planned: true } : null)),
   getVoicing: (_key, chord) => ({ fallback: chord.semitones }),
@@ -2431,7 +2448,7 @@ assert.equal(
 let preparationCurrentCompingPlan = null;
 let preparationNextCompingPlan = null;
 let preparationCurrentBassPlan = [];
-const playbackPreparationAppContext = createDrillPlaybackPreparationAppContext({
+const playbackPreparationAppContext = createPracticePlaybackPreparationAppContext({
   harmony: {
     getPlayedChordQuality: (chord, isMinor) => `${chord.quality}:${isMinor ? 'm' : 'M'}`,
     getVoicingPlanForProgression: (chords) => chords.map((_, index) => (index === 0 ? { planned: true } : null)),
@@ -2488,7 +2505,7 @@ assert.equal(
   'ctx-next-plan',
   'Drill playback preparation app context preserves next-progression comping writes.'
 );
-const playbackResourcesFacade = createDrillPlaybackResourcesAppFacade({
+const playbackResourcesFacade = createPracticePlaybackResourcesAppFacade({
   audioFacade: {
     preloadStartupSamples: () => 'startup',
     preloadNearTermSamples: () => 'near-term',

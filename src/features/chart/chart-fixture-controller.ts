@@ -118,9 +118,9 @@ export async function renderSelectedFixture({
   state.currentSelectionPracticeSession = null;
   persistChartId?.(chartDocument.metadata.id);
 
-  if (sheetStyle) sheetStyle.textContent = viewModel.metadata.composer || '';
+  if (sheetStyle) sheetStyle.textContent = viewModel.metadata.styleReference || viewModel.metadata.style || '';
   if (sheetTitle) sheetTitle.textContent = viewModel.metadata.title || '';
-  if (sheetSubtitle) sheetSubtitle.textContent = viewModel.metadata.styleReference || viewModel.metadata.style || '';
+  if (sheetSubtitle) sheetSubtitle.textContent = viewModel.metadata.composer || '';
   if (sheetTimeSignature) sheetTimeSignature.textContent = viewModel.metadata.primaryTimeSignature || '';
   if (sheetKey) sheetKey.textContent = viewModel.metadata.displayKey || viewModel.metadata.sourceKey || '';
   if (tempoInput) {

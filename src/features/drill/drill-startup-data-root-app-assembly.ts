@@ -1,4 +1,4 @@
-﻿
+
 /**
  * Creates the drill startup-data assembly from live root-app bindings.
  * This keeps the welcome standards, pattern-help, and default-progressions
@@ -46,7 +46,7 @@ type StartupDataAssemblyOptions = {
     welcomeStandardsFallback?: Record<string, WelcomeStandardEntry>
   },
   patternHelp?: {
-    loadDrillPatternHelp?: (options: { dom?: unknown, url?: string, version?: string }) => Promise<void>,
+    loadPracticePatternHelp?: (options: { dom?: unknown, url?: string, version?: string }) => Promise<void>,
     dom?: unknown,
     url?: string,
     version?: string
@@ -255,13 +255,13 @@ export function createDrillStartupDataRootAppAssembly({
 
   async function loadPatternHelp() {
     const {
-      loadDrillPatternHelp = async () => {},
+      loadPracticePatternHelp = async () => {},
       dom,
       url = '',
       version = ''
     } = patternHelp;
 
-    await loadDrillPatternHelp({
+    await loadPracticePatternHelp({
       dom,
       url,
       version

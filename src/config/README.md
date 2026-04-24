@@ -14,9 +14,11 @@ Quick guide:
 - `CHART_DISPLAY_CONFIG`
   Chart sheet display tuning.
   The most directly useful sections are:
-  `rowSpacing`, `barGeometry`, `chordSizing`, `withinBar`,
+  `sheetHeader`, `rowSpacing`, `barGeometry`, `chordSizing`, `withinBar`,
   `compressionHomogenization`, and `alignment`.
-  Start with `rowSpacing.minPx`, `barGeometry.mobile.rowHeights`,
+  Start with `sheetHeader.mobile.portraitTopPaddingPx`,
+  `sheetHeader.mobile.landscapeTopPaddingPx`, `rowSpacing.minPx`,
+  `barGeometry.mobile.rowHeights`,
   `chordSizing.desktop.maxRem`, `withinBar.compressionTriggerFillRatio`,
   and `compressionHomogenization.rowTargetFillRatio`.
 - `TRAINER_RESOURCE_PATHS`

@@ -76,7 +76,7 @@ export function createDrillPlaybackStateBindings(
   } as Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown>;
 }
 
-export function createDrillPatternUiBindings(
+export function createPracticePatternUiBindings(
   bindings: Record<string, unknown> = {}
 ): DrillEmbeddedPatternUiBindings {
   return {
@@ -160,7 +160,7 @@ export function createDrillTransportActionBindings(
 export function createDrillEmbeddedRuntimeContextBindings(bindings: Record<string, unknown> = {}) {
   return {
     dom: getBindingRecord(bindings.dom),
-    patternUi: createDrillPatternUiBindings(getBindingRecord(bindings.patternUi)),
+    patternUi: createPracticePatternUiBindings(getBindingRecord(bindings.patternUi)),
     normalization: createDrillNormalizationBindings(getBindingRecord(bindings.normalization)),
     playbackSettings: createDrillPlaybackSettingsBindings(getBindingRecord(bindings.playbackSettings)),
     playbackState: createDrillPlaybackStateBindings(getBindingRecord(bindings.playbackState)),
