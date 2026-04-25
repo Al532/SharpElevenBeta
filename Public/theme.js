@@ -1,7 +1,7 @@
 (function initializeSharpElevenTheme(globalScope) {
   var storageKey = 'sharp-eleven-theme';
   var defaultPalette = 'current';
-  var paletteNames = ['current', 'light', 'contrast'];
+  var paletteNames = ['current'];
   var root = document.documentElement;
 
   function isPaletteName(value) {

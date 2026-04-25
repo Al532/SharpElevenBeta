@@ -8,26 +8,19 @@
   <link rel="stylesheet" href="./theme.css">
   <style>
     :root {
-      --utility-bg: var(--theme-bg);
-      --utility-bg-start: var(--theme-glow-accent-subtle);
-      --utility-bg-elevated: var(--theme-bg-elevated);
-      --utility-panel: var(--theme-surface-strong);
-      --utility-line: var(--theme-border);
-      --utility-text: var(--theme-text);
-      --utility-muted: var(--theme-text-muted);
-      --utility-accent: var(--theme-accent);
-      --utility-accent-contrast: var(--theme-text-inverse);
-      --utility-accent-soft: var(--theme-warning-bg);
-      --utility-secondary: var(--theme-chip-bg-hover);
-      --utility-status-text: var(--theme-warning-text);
-      --utility-shadow: var(--theme-shadow-color-soft);
-      --bg: var(--utility-bg);
-      --panel: var(--utility-panel);
-      --line: var(--utility-line);
-      --text: var(--utility-text);
-      --muted: var(--utility-muted);
-      --accent: var(--utility-accent);
-      --accent-soft: var(--utility-accent-soft);
+      --utility-bg: var(--ui-bg);
+      --utility-bg-start: var(--ui-glow-accent-subtle);
+      --utility-bg-elevated: var(--ui-bg-elevated);
+      --utility-panel: var(--ui-surface-strong);
+      --utility-line: var(--ui-border);
+      --utility-text: var(--ui-text);
+      --utility-muted: var(--ui-text-muted);
+      --utility-accent: var(--ui-accent);
+      --utility-accent-contrast: var(--ui-text-inverse);
+      --utility-accent-soft: var(--ui-warning-bg);
+      --utility-secondary: var(--ui-chip-bg-hover);
+      --utility-status-text: var(--ui-warning-text);
+      --utility-shadow: var(--ui-shadow-color-soft);
     }
 
     * {
@@ -39,8 +32,8 @@
       font-family: Georgia, "Times New Roman", serif;
       background:
         radial-gradient(circle at top left, var(--utility-bg-start) 0, transparent 26%),
-        linear-gradient(180deg, var(--utility-bg-elevated) 0%, var(--bg) 100%);
-      color: var(--text);
+        linear-gradient(180deg, var(--utility-bg-elevated) 0%, var(--utility-bg) 100%);
+      color: var(--utility-text);
     }
 
     main {
@@ -58,7 +51,7 @@
 
     p {
       margin: 0;
-      color: var(--muted);
+      color: var(--utility-muted);
       line-height: 1.45;
     }
 
@@ -70,7 +63,7 @@
     }
 
     .panel {
-      background: color-mix(in srgb, var(--panel) 92%, var(--utility-accent-contrast));
+      background: color-mix(in srgb, var(--utility-panel) 92%, var(--utility-accent-contrast));
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 18px;
@@ -95,7 +88,7 @@
     label,
     .field-title {
       font-size: 0.9rem;
-      color: var(--muted);
+      color: var(--utility-muted);
     }
 
     select,
@@ -105,20 +98,20 @@
       border-radius: 12px;
       padding: 10px 12px;
       background: var(--utility-panel);
-      color: var(--text);
+      color: var(--utility-text);
       font: inherit;
     }
 
     input[type="range"] {
       width: 100%;
-      accent-color: var(--accent);
+      accent-color: var(--utility-accent);
     }
 
     button {
       border: 0;
       border-radius: 999px;
       padding: 10px 14px;
-      background: var(--accent);
+      background: var(--utility-accent);
       color: var(--utility-accent-contrast);
       cursor: pointer;
       font: inherit;
@@ -132,7 +125,7 @@
 
     button.ghost {
       background: transparent;
-      color: var(--accent);
+      color: var(--utility-accent);
       border: 1px solid var(--line);
     }
 
@@ -164,7 +157,7 @@
     .db-readout {
       min-width: 56px;
       text-align: right;
-      color: var(--muted);
+      color: var(--utility-muted);
       font-variant-numeric: tabular-nums;
     }
 
@@ -172,7 +165,7 @@
       margin-top: 12px;
       padding: 12px 14px;
       border-radius: 12px;
-      background: var(--accent-soft);
+      background: var(--utility-accent-soft);
       color: var(--utility-status-text);
       font-size: 0.92rem;
       line-height: 1.4;
@@ -194,7 +187,7 @@
     }
 
     th {
-      color: var(--muted);
+      color: var(--utility-muted);
       font-weight: 600;
     }
 
@@ -206,7 +199,7 @@
     .hint {
       margin-top: 12px;
       font-size: 0.88rem;
-      color: var(--muted);
+      color: var(--utility-muted);
     }
 
     .mono {
@@ -287,3 +280,4 @@
   <script type="module" src="./piano-sample-calibrator.js"></script>
 </body>
 </html>
+

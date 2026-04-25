@@ -1,6 +1,6 @@
 const THEME_STORAGE_KEY = 'sharp-eleven-theme';
 const DEFAULT_PALETTE = 'current';
-const PALETTE_NAMES = ['current', 'light', 'contrast'] as const;
+const PALETTE_NAMES = ['current'] as const;
 
 type SharpElevenPaletteName = typeof PALETTE_NAMES[number];
 

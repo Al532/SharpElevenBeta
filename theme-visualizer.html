@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visualisation charte de couleurs - Sharp Eleven</title>
+    <link rel="stylesheet" href="./theme.css" />
+    <link rel="stylesheet" href="./chart/chart.css" />
+    <script src="./theme.js" defer></script>
+    <style>
+      :root {
+        color: var(--ui-text);
+        background: var(--ui-bg);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: linear-gradient(135deg, var(--ui-bg), var(--ui-bg-elevated));
+        color: var(--ui-text);
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior-y: auto;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.45rem;
+      }
+
+      .toolbar {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        align-items: end;
+        margin: 12px 0 18px;
+        padding: 14px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--ui-bg) 85%, var(--ui-surface) 15%);
+        border: 1px solid var(--ui-border);
+      }
+
+      .control {
+        display: grid;
+        gap: 6px;
+      }
+
+      label {
+        color: var(--ui-text-muted);
+        font-size: 0.82rem;
+      }
+
+      select,
+      input,
+      button {
+        width: 100%;
+        min-height: 36px;
+        background: var(--ui-surface-input);
+        border: 1px solid var(--ui-border);
+        color: var(--ui-text);
+        border-radius: 10px;
+        padding: 0 10px;
+      }
+
+      button {
+        background: var(--ui-accent);
+        border-color: var(--ui-accent);
+        color: var(--ui-text-inverse);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .panel {
+        border-radius: 12px;
+        border: 1px solid var(--ui-border);
+        background: var(--ui-surface);
+        padding: 12px;
+      }
+
+      .token-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .token-row {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 2fr auto;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid var(--ui-border);
+        border-radius: 10px;
+        padding: 8px;
+        background: var(--ui-surface-muted);
+      }
+
+      .token-name {
+        font-size: 0.82rem;
+        word-break: break-word;
+      }
+
+      .token-name code {
+        color: var(--ui-accent-cool);
+      }
+
+      .token-value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.8rem;
+        color: var(--ui-text-muted);
+        word-break: break-all;
+      }
+
+      .token-desc {
+        color: var(--ui-text-soft);
+        font-size: 0.78rem;
+        line-height: 1.2;
+        word-break: break-word;
+      }
+
+      .swatch {
+        width: 42px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid var(--ui-white-border);
+        box-shadow: var(--ui-shadow-soft);
+      }
+
+      .section-title {
+        margin: 16px 0 8px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: baseline;
+        font-weight: 700;
+        color: var(--ui-text);
+      }
+
+      .section-title .muted {
+        font-size: 0.85rem;
+        color: var(--ui-text-muted);
+        font-weight: 500;
+      }
+
+      .empty {
+        padding: 16px;
+        border: 1px dashed var(--ui-border);
+        color: var(--ui-text-muted);
+        border-radius: 10px;
+      }
+
+      .note {
+        color: var(--ui-text-muted);
+        margin-bottom: 10px;
+        font-size: 0.88rem;
+      }
+
+      .tag {
+        display: inline-flex;
+        gap: 8px;
+      }
+
+      .tag input {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+      }
+
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 0 0 12px;
+        color: var(--ui-text-muted);
+        font-size: 0.85rem;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        border: 1px solid var(--ui-accent-border);
+        color: var(--ui-text-soft);
+        padding: 4px 10px;
+        background: var(--ui-chip-bg-subtle);
+        font-size: 0.76rem;
+      }
+
+      .chip.active {
+        background: var(--ui-warning-bg);
+        color: var(--ui-text);
+        border-color: var(--ui-warning-border);
+      }
+
+      @media (max-width: 800px) {
+        .token-row {
+          grid-template-columns: 1fr 1fr auto;
+          align-items: start;
+        }
+        .token-value {
+          grid-column: 1;
+        }
+        .token-desc {
+          grid-column: 1 / span 2;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>Visualisation de la charte de couleurs</h1>
+        <p class="note">
+          Cette page lit les variables CSS actives (`--c-*`, `--ui-*`, `--chart-*`, etc.) et
+          affiche les valeurs utiles pour chaque thème.
+        </p>
+      </header>
+
+      <section class="toolbar">
+        <div class="control">
+          <label for="themeSelect">Thème actif</label>
+          <select id="themeSelect" aria-label="Sélectionner un thème"></select>
+        </div>
+
+        <div class="control">
+          <label for="categorySelect">Groupe</label>
+          <select id="categorySelect" aria-label="Filtrer par groupe">
+            <option value="all">Tous</option>
+            <option value="--c-">--c- (source)</option>
+            <option value="--ui-">--ui- (sémantique UI)</option>
+            <option value="--chart-">--chart- (chart)</option>
+            <option value="--sheet-">--sheet- (chart)</option>
+            <option value="--key-">--key- (piano)</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="searchInput">Recherche</label>
+          <input id="searchInput" type="search" placeholder="ex: chart, warning, accent..." />
+        </div>
+
+        <div class="control">
+          <label for="sortSelect">Tri</label>
+          <select id="sortSelect" aria-label="Trier">
+            <option value="name">Nom</option>
+            <option value="nameDesc">Nom inversé</option>
+            <option value="value">Valeur</option>
+            <option value="category">Groupe</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="onlyColors">Uniquement couleurs</label>
+          <div class="tag"><input id="onlyColors" type="checkbox" checked /> <span>Afficher les
+          tokens colorimétriques</span></div>
+        </div>
+
+        <div class="control">
+          <button id="refreshBtn" type="button">Actualiser</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div id="meta" class="meta"></div>
+        <div class="chips" id="chips"></div>
+      </section>
+
+      <section class="grid">
+        <section>
+          <div class="section-title">
+            <span>Jeu de variables</span>
+            <span class="muted" id="countLabel"></span>
+          </div>
+          <div id="tokenList" class="panel"></div>
+          <div id="emptyState" class="empty" hidden>Aucun token ne correspond aux filtres.</div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const themeSelect = document.getElementById('themeSelect');
+      const categorySelect = document.getElementById('categorySelect');
+      const searchInput = document.getElementById('searchInput');
+      const sortSelect = document.getElementById('sortSelect');
+      const onlyColors = document.getElementById('onlyColors');
+      const refreshBtn = document.getElementById('refreshBtn');
+      const tokenList = document.getElementById('tokenList');
+      const emptyState = document.getElementById('emptyState');
+      const meta = document.getElementById('meta');
+      const countLabel = document.getElementById('countLabel');
+      const chips = document.getElementById('chips');
+      const fallbackThemes = ['current'];
+      const tokenDescriptions = {
+        '--c-bg': 'Couleur de fond principale de l application.',
+        '--c-surface': 'Surface principale des panneaux et cartes.',
+        '--c-text': 'Couleur de texte principal.',
+        '--c-text-weak': 'Couleur de texte secondaire ou discret.',
+        '--c-border': 'Couleur bordure standard.',
+        '--c-accent': 'Couleur d accent principal (calls-to-action, links importants).',
+        '--c-accent-strong': 'Variante plus soutenue de l accent.',
+        '--c-danger': 'Couleur d alerte/erreur.',
+        '--c-success': 'Couleur d etat de succes.',
+        '--c-shadow': 'Couleur de base des ombres globales.',
+        '--c-overlay': 'Fond d overlay global.',
+        '--c-focus': 'Couleur visuelle de focus clavier.',
+        '--c-chart-stage': 'Fond global de la zone chart.',
+        '--c-chart-paper': 'Fond de la feuille de chart (papier).',
+        '--c-chart-paper-line': 'Couleur des lignes du papier chart (groupage, barres, marges).',
+        '--c-chart-paper-text': 'Couleur de texte principal dans la feuille de chart.',
+        '--ui-bg': 'Alias sémantique: fond application.',
+        '--ui-bg-elevated': 'Fond de surface elevee (barres, dialogs).',
+        '--ui-bg-gradient-end': 'Point d arret secondaire pour degradé de fond.',
+        '--ui-surface': 'Surface standard de UI.',
+        '--ui-surface-strong': 'Surface plus foncee pour blocs mis en avant.',
+        '--ui-surface-control': 'Fond des controles.',
+        '--ui-surface-input': 'Fond des champs de saisie.',
+        '--ui-surface-muted': 'Surface plus douce et atténuee.',
+        '--ui-text': 'Texte standard.',
+        '--ui-text-muted': 'Texte secondaire.',
+        '--ui-text-soft': 'Texte doux pour notes et details.',
+        '--ui-text-faint': 'Texte tres discret.',
+        '--ui-text-inverse': 'Texte contraste sur fonds clairs.',
+        '--ui-border': 'Bordure standard.',
+        '--ui-border-strong': 'Bordure plus visible.',
+        '--ui-accent': 'Accent UI principal.',
+        '--ui-accent-strong': 'Accent UI plus fort.',
+        '--ui-accent-warm': 'Accent chaud (teinte chaude).',
+        '--ui-accent-cool': 'Accent frais pour texte/icone.',
+        '--ui-danger': 'Etat erreur reutilisable UI.',
+        '--ui-success': 'Etat positif reutilisable UI.',
+        '--ui-focus-ring': 'Anneau de focus accesibilite.',
+        '--ui-shadow-color-soft': 'Couleur d ombre douce.',
+        '--ui-shadow-color-strong': 'Couleur d ombre forte.',
+        '--ui-shadow-soft': 'Ombre douce pour cartes et panneaux.',
+        '--ui-shadow-strong': 'Ombre plus prononcee.',
+        '--ui-glow-accent-subtle': 'Lueur accent tres douce.',
+        '--ui-glow-accent': 'Lueur accent standard.',
+        '--ui-glow-cool': 'Lueur froide.',
+        '--ui-overlay-backdrop': 'Filtre overlay standard.',
+        '--ui-overlay-panel': 'Fond de panneau overlay.',
+        '--ui-overlay-card': 'Fond de carte overlay.',
+        '--ui-welcome-card': 'Fond hero / carte accueil.',
+        '--ui-chip-bg': 'Fond d enveloppe chip standard.',
+        '--ui-chip-bg-hover': 'Fond de chip hover.',
+        '--ui-chip-bg-subtle': 'Fond de chip tres discret.',
+        '--ui-chip-bg-strong': 'Fond de chip marque forte.',
+        '--ui-chip-border': 'Bordure de chip.',
+        '--ui-chip-border-hover': 'Bordure de chip hover.',
+        '--ui-chip-border-strong': 'Bordure de chip plus forte.',
+        '--ui-field-focus': 'Fond d accent sur focus champ.',
+        '--ui-danger-bg': 'Fond alerte danger.',
+        '--ui-danger-bg-hover': 'Fond danger hover.',
+        '--ui-danger-bg-soft': 'Fond danger tres discret.',
+        '--ui-danger-border': 'Bordure danger.',
+        '--ui-danger-border-hover': 'Bordure danger hover.',
+        '--ui-danger-text': 'Texte danger.',
+        '--ui-warning-bg': 'Fond avertissement.',
+        '--ui-warning-bg-hover': 'Fond avertissement hover.',
+        '--ui-warning-border': 'Bordure avertissement.',
+        '--ui-warning-border-hover': 'Bordure avertissement hover.',
+        '--ui-warning-text': 'Texte avertissement.',
+        '--ui-white-border': 'Contour blanc subtil.',
+        '--ui-white-border-hover': 'Contour blanc au survol.',
+        '--ui-white-surface': 'Surface blanche tres discrète.',
+        '--ui-white-surface-hover': 'Surface blanche accentuee hover.',
+        '--ui-text-decoration': 'Trait decoratif faible.',
+        '--ui-text-decoration-hover': 'Trait decoratif hover.',
+        '--key-white-text': 'Texte touches blanches au clavier.',
+        '--key-white-selected-text': 'Texte touche blanche selectionnee.',
+        '--key-white-bg': 'Fond touche blanche.',
+        '--key-white-selected-bg': 'Fond touche blanche selectionnee.',
+        '--key-black-text': 'Texte touche noire.',
+        '--key-black-bg': 'Fond touche noire.',
+        '--key-black-selected-bg': 'Fond touche noire selectionnee.',
+        '--ui-chart-stage-bg': 'Couleur de fond stage chart (alias source).',
+        '--ui-chart-sheet-bg': 'Couleur de fond feuille chart (alias source).',
+        '--ui-chart-sheet-line': 'Couleur des traits feuille chart (alias source).',
+        '--ui-chart-sheet-text': 'Couleur texte feuille chart (alias source).',
+        '--chart-stage-bg': 'Fond du stage chart.',
+        '--chart-sheet-bg': 'Fond de feuille chart.',
+        '--chart-sheet-line': 'Lignes horizontales et verticales de la feuille.',
+        '--chart-sheet-text': 'Texte principal de la feuille.',
+        '--chart-sheet-title': 'Couleur des titres sur la feuille.',
+        '--chart-sheet-text-alt': 'Texte alternatif/accords alternatifs (derivé plus clair).',
+        '--chart-sheet-muted': 'Texte atténué dans la feuille.',
+        '--chart-sheet-active': 'Etat actif ligne/selec.',
+        '--chart-sheet-selected': 'Etat selection.',
+        '--chart-sheet-active-selected': 'Fond hybride actif + selection.',
+        '--chart-sheet-playback': 'Couleur d etat playback.',
+        '--chart-sheet-pill': 'Couleur de pill (badge/marker) feuille.',
+        '--chart-sheet-pill-text': 'Couleur de texte des pills.',
+        '--sheet-bg': 'Alias feuille chart (compat legacy).',
+        '--sheet-line': 'Alias lignes feuille chart (compat legacy).',
+        '--sheet-muted': 'Alias texte muté feuille (compat legacy).',
+        '--paper-shadow': 'Ombre de feuille chart.'
+      };
+
+      const descriptionPrefixes = [
+        { prefix: '--c-', label: 'Couleur source de theme de base.' },
+        { prefix: '--ui-', label: 'Token sémantique UI derive depuis les tokens source.' },
+        { prefix: '--chart-', label: 'Token specifique chart.' },
+        { prefix: '--sheet-', label: 'Alias feuille chart (legacy).' },
+        { prefix: '--key-', label: 'Token piano (blanc/noir).' }
+      ];
+
+      function ensureCssVarsLoaded() {
+        return new Promise((resolve) => {
+          if (document.styleSheets && document.styleSheets.length > 0) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(resolve);
+        });
+      }
+
+      function getTokenRowsFromRoot(root) {
+        const styles = getComputedStyle(root);
+        const names = [];
+        for (const name of styles) {
+          if (!name.startsWith('--')) continue;
+          const value = styles.getPropertyValue(name).trim();
+          names.push({ name, value });
+        }
+        return names;
+      }
+
+      function hexFromRgb(value) {
+        const rgb = value.match(/rgba?\(([^)]+)\)/i);
+        if (!rgb) return null;
+        const parts = rgb[1].split(',').map((part) => part.trim());
+        if (parts.length < 3) return null;
+        const r = clamp255(Math.round(Number(parts[0])));
+        const g = clamp255(Math.round(Number(parts[1])));
+        const b = clamp255(Math.round(Number(parts[2])));
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+
+      function toHex(byte) {
+        return byte.toString(16).padStart(2, '0');
+      }
+
+      function clamp255(v) {
+        if (!Number.isFinite(v)) return 0;
+        return Math.max(0, Math.min(255, v));
+      }
+
+      function detectColorFromValue(value) {
+        if (!value) return null;
+        if (value.startsWith('#')) return value;
+        const hex = hexFromRgb(value);
+        if (hex) return hex;
+        return null;
+      }
+
+      function setTheme(name) {
+        if (window.SharpElevenTheme?.setPalette) {
+          window.SharpElevenTheme.setPalette(name);
+        } else {
+          document.documentElement.dataset.theme = name;
+        }
+      }
+
+      function getThemePaletteNames() {
+        const names = window.SharpElevenTheme?.listPalettes
+          ? window.SharpElevenTheme.listPalettes()
+          : [];
+        return names && names.length ? names : fallbackThemes;
+      }
+
+      function categorize(tokenName) {
+        if (tokenName.startsWith('--c-')) return '--c-';
+        if (tokenName.startsWith('--ui-')) return '--ui-';
+        if (tokenName.startsWith('--chart-')) return '--chart-';
+        if (tokenName.startsWith('--sheet-')) return '--sheet-';
+        if (tokenName.startsWith('--key-')) return '--key-';
+        return 'other';
+      }
+
+      function resolveThemeList() {
+        const names = getThemePaletteNames();
+        themeSelect.innerHTML = '';
+        names.forEach((name) => {
+          const option = document.createElement('option');
+          option.value = name;
+          option.textContent = name;
+          themeSelect.appendChild(option);
+        });
+        themeSelect.value = window.SharpElevenTheme?.getPalette
+          ? window.SharpElevenTheme.getPalette()
+          : names[0];
+      }
+
+      function renderThemeSummary(tokens) {
+        const groups = new Map();
+        const colorTokens = [];
+
+        tokens.forEach((token) => {
+          const group = categorize(token.name);
+          if (!groups.has(group)) groups.set(group, 0);
+          groups.set(group, groups.get(group) + 1);
+          if (detectColorFromValue(token.value)) {
+            colorTokens.push(token.name);
+          }
+        });
+
+        meta.textContent = '';
+        meta.appendChild(
+          createText(`Total variables: ${tokens.length} • Variables de couleur détectées: ${colorTokens.length}`)
+        );
+
+        chips.innerHTML = '';
+        groups.forEach((count, group) => {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = `${group}: ${count}`;
+          chips.appendChild(chip);
+        });
+      }
+
+      function createText(text) {
+        const span = document.createElement('span');
+        span.textContent = text;
+        return span;
+      }
+
+      function matchesCategory(token) {
+        const category = categorySelect.value;
+        if (category === 'all') return true;
+        return token.category === category;
+      }
+
+      function matchesSearch(token) {
+        const query = searchInput.value.trim().toLowerCase();
+        if (!query) return true;
+        return token.name.toLowerCase().includes(query) || token.value.toLowerCase().includes(query);
+      }
+
+      function matchesColorOnly(token) {
+        if (!onlyColors.checked) return true;
+        return token.isColor;
+      }
+
+      function sortTokens(items) {
+        const mode = sortSelect.value;
+        if (mode === 'nameDesc') {
+          return items.sort((a, b) => b.name.localeCompare(a.name));
+        }
+        if (mode === 'value') {
+          return items.sort((a, b) => a.value.localeCompare(b.value));
+        }
+        if (mode === 'category') {
+          return items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+        }
+        return items.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      function describeToken(tokenName) {
+        if (tokenDescriptions[tokenName]) return tokenDescriptions[tokenName];
+        const prefixMatch = descriptionPrefixes.find((entry) => tokenName.startsWith(entry.prefix));
+        return `${prefixMatch ? prefixMatch.label : 'Token de couleur de charte.'} (derive automatiquement via var())`;
+      }
+
+      function renderTokenRows(tokens) {
+        const prepared = tokens.map((token) => ({
+          ...token,
+          category: categorize(token.name),
+          isColor: detectColorFromValue(token.value) !== null
+        }));
+
+        renderThemeSummary(prepared);
+
+        const visible = sortTokens(prepared.filter((token) =>
+          matchesCategory(token) && matchesSearch(token) && matchesColorOnly(token)
+        ));
+
+        if (visible.length === 0) {
+          tokenList.hidden = true;
+          emptyState.hidden = false;
+        } else {
+          tokenList.hidden = false;
+          emptyState.hidden = true;
+          tokenList.innerHTML = '';
+          tokenList.className = 'token-grid';
+
+          visible.forEach((token) => {
+            const row = document.createElement('div');
+            row.className = 'token-row';
+
+            const name = document.createElement('div');
+            name.className = 'token-name';
+            name.innerHTML = `<code>${token.name}</code>`;
+
+            const value = document.createElement('div');
+            value.className = 'token-value';
+            value.textContent = token.value || '(vide)';
+
+            const description = document.createElement('div');
+            description.className = 'token-desc';
+            description.textContent = describeToken(token.name);
+
+            const swatch = document.createElement('div');
+            swatch.className = 'swatch';
+            const color = detectColorFromValue(token.value);
+            if (color) {
+              swatch.style.background = color;
+            } else {
+              swatch.style.background = 'transparent';
+              swatch.style.opacity = '0.25';
+            }
+            row.appendChild(name);
+            row.appendChild(value);
+            row.appendChild(description);
+            row.appendChild(swatch);
+            tokenList.appendChild(row);
+          });
+        }
+
+        countLabel.textContent = `${visible.length} visible(s) / ${prepared.length} variable(s)`;
+      }
+
+      async function render() {
+        await ensureCssVarsLoaded();
+        const themeName = themeSelect.value || getThemePaletteNames()[0] || 'current';
+        setTheme(themeName);
+        requestAnimationFrame(() => {
+          const tokens = getTokenRowsFromRoot(document.documentElement);
+          renderTokenRows(tokens);
+        });
+      }
+
+      refreshBtn.addEventListener('click', () => {
+        render();
+      });
+
+      themeSelect.addEventListener('change', () => {
+        render();
+      });
+
+      categorySelect.addEventListener('change', render);
+      searchInput.addEventListener('input', render);
+      sortSelect.addEventListener('change', render);
+      onlyColors.addEventListener('change', render);
+
+      async function initialize() {
+        await ensureCssVarsLoaded();
+        await new Promise((resolve) => {
+          const timeoutId = setTimeout(resolve, 400);
+          const waitForThemeApi = () => {
+            if (typeof window.SharpElevenTheme === 'object' && typeof window.SharpElevenTheme.listPalettes === 'function') {
+              clearTimeout(timeoutId);
+              resolve();
+            } else {
+              requestAnimationFrame(waitForThemeApi);
+            }
+          };
+          requestAnimationFrame(waitForThemeApi);
+        });
+
+        resolveThemeList();
+        render();
+      }
+
+      initialize();
+    </script>
+  </body>
+</html>
