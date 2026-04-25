@@ -17,7 +17,7 @@ Useful commands:
 
 Entrypoints:
 
-- `chart/index.js`: browser-safe API for `chart-dev`
+- `chart/index.js`: browser-safe API for the chart screen
 - `chart/node-index.mjs`: Node-only API including raw iReal source import helpers
 
 Stable internal contracts exposed from `chart/index.js`:

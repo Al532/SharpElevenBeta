@@ -156,7 +156,7 @@ Checks obligatoires a chaque etape structurante:
 - `npm run test:chart`
 - `npm run test:drill-wrappers`
 - `node --check app.js`
-- `node --check chart-dev/main.js`
+- `node --check chart/main.js`
 
 Scenarios obligatoires:
 - chart playback nominal en direct

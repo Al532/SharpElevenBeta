@@ -1,6 +1,6 @@
 # Visual Theme
 
-Sharp Eleven uses CSS custom properties as the source of truth for visual colors.
+Sharp Eleven uses `public/theme.css` as the source of truth for visual colors.
 
 ## Palettes
 
@@ -24,8 +24,8 @@ The selected palette is stored in `localStorage` under `sharp-eleven-theme`.
 ## Token Rules
 
 - Add new visual colors as semantic tokens before using them in component CSS.
-- Keep `public/style.css` as the source for app-wide tokens; `style.css` is generated from it.
-- Keep chart colors in `chart-dev/chart-dev.css`, split between `--chart-ui-*` and `--chart-sheet-*` tokens.
+- Keep `public/theme.css` for palettes and shared aliases; `public/style.css` is for app/drill components.
+- Keep chart sheet colors in `chart/chart.css` under `--chart-sheet-*`; chart menus and overlays use shared `--theme-*` tokens.
 - Preserve temporary legacy aliases such as `--bg`, `--panel`, `--text`, and `--accent` until the redesign removes old selectors.
 
 ## Accepted Exceptions

@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: 'chart-dev',
+  root: 'chart',
   base: './',
   publicDir: false,
   build: {
-    outDir: '../mobile/www/chart-dev',
+    outDir: '../mobile/www/chart',
     emptyOutDir: true,
     sourcemap: false
   }

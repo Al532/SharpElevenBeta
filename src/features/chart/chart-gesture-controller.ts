@@ -41,7 +41,7 @@ function getBarCellFromPoint(x: number, y: number): HTMLElement | null {
 function isChartTapTarget(target: EventTarget | null): boolean {
   const element = getTargetElement(target);
   if (!(element instanceof Element)) return false;
-  return Boolean(element.closest('#sheet-grid, .chart-sheet-grid, .chart-sheet-panel, .chart-bar-cell'));
+  return Boolean(element.closest('.chart-workspace, #sheet-grid, .chart-sheet-grid, .chart-sheet-panel, .chart-bar-cell'));
 }
 
 export function createChartGestureController({

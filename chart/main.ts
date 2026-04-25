@@ -15,10 +15,8 @@
 import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
 import {
   createChartDocumentsFromIRealText,
-} from '../chart/index.js';
+} from './index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
-
-initializeSharpElevenTheme();
 import {
   loadPersistedChartId as loadPersistedChartIdFromStorage,
   persistChartLibrary,
@@ -113,8 +111,8 @@ const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = '../parsing-projects/ireal/sources/jazz-1460.txt';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
-const LAST_CHART_STORAGE_KEY = 'jpt-chart-dev-last-chart-id';
-const PLAYBACK_SETTINGS_STORAGE_KEY = 'jpt-chart-dev-playback-settings';
+const LAST_CHART_STORAGE_KEY = 'sharp-eleven-chart-last-chart-id';
+const PLAYBACK_SETTINGS_STORAGE_KEY = 'sharp-eleven-chart-playback-settings';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
@@ -125,6 +123,8 @@ const {
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
   RICH_DISPLAY_QUALITY_ALIASES = {}
 } = voicingConfig;
+
+initializeSharpElevenTheme();
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error || 'Unknown error');
@@ -1137,7 +1137,7 @@ function syncMobileOverlayDrawerLayout() {
   if (!dom.chartApp) return;
   const topHeight = Math.ceil(dom.chartTopOverlay?.querySelector('.chart-top-bar')?.getBoundingClientRect().height || 0);
   const bottomHeight = Math.ceil(dom.chartBottomOverlay?.getBoundingClientRect().height || 0);
-  const pushY = Math.max(0, topHeight - 34);
+  const pushY = topHeight > 0 ? topHeight + 10 : 0;
 
   if (
     topHeight === lastMobileOverlayTopHeight

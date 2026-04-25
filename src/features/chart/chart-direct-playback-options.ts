@@ -36,6 +36,9 @@ export function createChartDirectPlaybackControllerOptions({
   });
 
   return {
+    isPlaying() {
+      return Boolean(directPlaybackHost.getDirectHostOptions()?.getDirectPlaybackState?.()?.isPlaying);
+    },
     async loadDirectSession(sessionSpec, playbackSettings = {}) {
       const directHostOptions = await directPlaybackHost.ensureDirectHostOptions();
       if (typeof directHostOptions?.loadDirectSession === 'function') {

@@ -19,7 +19,6 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "node scripts/sync-public-files.mjs root",
     "build": "vite build --config config/vite/vite.web.config.js && node scripts/sync-public-files.mjs build",
-    "build:demo": "vite build --config config/vite/vite.demo.config.js && node scripts/sync-public-files.mjs demo",
     "prebuild:mobile": "node scripts/sync-public-files.mjs root",
     "build:mobile:app": "vite build --config config/vite/vite.mobile.config.js && node scripts/sync-public-files.mjs mobile",
     "build:mobile:assets": "node scripts/sync-mobile-shell-assets.mjs",

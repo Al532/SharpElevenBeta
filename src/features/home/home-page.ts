@@ -45,7 +45,7 @@ function renderRecentCharts(
   for (const chartDocument of recentDocuments) {
     const item = document.createElement('li');
     const link = document.createElement('a');
-    const targetUrl = new URL('./chart-dev/index.html', window.location.href);
+    const targetUrl = new URL('./chart/index.html', window.location.href);
     targetUrl.searchParams.set('chart', chartDocument.metadata.id);
     link.href = targetUrl.toString();
     link.className = 'home-list-link';
@@ -84,7 +84,7 @@ function renderPlaylists(
   for (const [playlistName, count] of playlists) {
     const item = document.createElement('li');
     const link = document.createElement('a');
-    const targetUrl = new URL('./chart-dev/index.html', window.location.href);
+    const targetUrl = new URL('./chart/index.html', window.location.href);
     targetUrl.searchParams.set('playlist', playlistName);
     link.href = targetUrl.toString();
     link.className = 'home-list-link';

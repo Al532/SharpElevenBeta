@@ -15,14 +15,12 @@
 - Do not run a build unless the user explicitly asks for it.
 - Interpret build requests with these exact defaults:
   - `fais un build` = run the local web app build for this repository
-  - `fais un build demo` = run the external demo build targeting `..\JazzProgressionTrainerDemo`
   - `fais un build Android` = run the Android build workflow
 - If the user explicitly asks `builde` or requests a build, run the requested build target and increment the application version.
 - When incrementing the application version, update `package.json` and keep `package-lock.json` aligned if needed.
 - After a requested build, commit the current repository locally without pushing it online.
 - When a build is requested for the local app, use the application version number in the local repository commit message.
 - For a local web build request, use `npm run build`.
-- For an external demo build request, use `npm run build:demo`.
 
 #### Android Build Procedure
 
@@ -39,7 +37,7 @@
 - `npm run build:mobile` now has to produce the full mobile web shell, not only the drill entrypoint:
   - main app bundle in `mobile/www`
   - runtime sample assets under `mobile/www/assets`
-  - chart bundle under `mobile/www/chart-dev`
+  - chart bundle under `mobile/www/chart`
 - Then build the native Android app from `mobile/android` with Gradle.
 - On this machine, Android Studio is installed and the working Java and SDK locations are:
   - `JAVA_HOME=C:\Program Files\Android\Android Studio\jbr`
@@ -64,11 +62,6 @@
 - If no device is listed, report that clearly and stop at the built APK without blocking the local build/commit workflow.
 - After the requested Android build completes, commit the repository locally with the application version as the commit message.
 
-### External Demo Repository
-
-- Do not update, commit, or push the external demo repository at `..\JazzProgressionTrainerDemo` unless the user explicitly asks for that repository to be updated.
-- Android/mobile builds remain local to this repository and do not require any external demo-repository update.
-
 ### Synced Static Assets
 
 - Files in `public/` are the source of truth for synced static assets.
@@ -79,7 +72,6 @@ Synced static assets:
 
 - `public/chord-symbol.css` -> `chord-symbol.css`
 - `public/default-progressions.txt` -> `default-progressions.txt`
-- `public/demo.html` -> `demo.html`
 - `public/favicon.svg` -> `favicon.svg`
 - `public/parsing-projects/review-standard-conversions.txt` -> `parsing-projects/review-standard-conversions.txt`
 - `public/piano-sample-calibrator.html` -> `piano-sample-calibrator.html`

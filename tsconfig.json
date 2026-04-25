@@ -13,7 +13,6 @@
   "include": [
     "src/**/*.ts",
     "chart/**/*.ts",
-    "chart-dev/**/*.ts",
     "src/**/*.d.ts"
   ]
 }

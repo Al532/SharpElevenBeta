@@ -112,7 +112,7 @@ export function persistChartId(
     }
     window.localStorage.setItem(legacyStorageKey, normalizedChartId);
   } catch {
-    // Ignore storage failures so chart-dev still works in restricted contexts.
+    // Ignore storage failures so charts still work in restricted contexts.
   }
 }
 
@@ -182,7 +182,7 @@ export function persistPlaybackSettings({
       useDiminishedSymbol
     }));
   } catch {
-    // Ignore storage failures so chart-dev still works in restricted contexts.
+    // Ignore storage failures so charts still work in restricted contexts.
   }
 }
 

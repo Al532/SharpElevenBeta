@@ -79,18 +79,18 @@ Refactor signals:
 - UI assumptions appear in chart domain code.
 - Practice-session contracts are duplicated in `src/features/chart`.
 
-### `chart-dev`
+### `chart`
 
-Responsibility: standalone chart development entrypoint.
+Responsibility: chart domain module and standalone chart screen.
 
 Keep here:
 
-- Dev-only chart bootstrapping.
-- Styles and harness code for chart iteration.
+- Chart import/decoding, interpretation, harmony, contextual qualities, and practice-session export.
+- The standalone chart screen entrypoint, chart sheet CSS, and chart fixtures.
 
 Refactor signals:
 
-- Production chart behavior is fixed only in the dev harness.
+- UI assumptions leak into pure chart domain helpers.
 
 ### `src/features/drill`
 

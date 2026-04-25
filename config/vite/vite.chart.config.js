@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: 'chart-dev',
+  root: 'chart',
   publicDir: false,
   server: {
     host: true,

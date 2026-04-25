@@ -1,34 +1,35 @@
 :root {
-  --chart-ui-bg: #f4f7fb;
-  --chart-ui-bg-start: #eef2f8;
-  --chart-ui-bg-end: #eef3f9;
-  --chart-ui-text: #0f1720;
-  --chart-ui-text-strong: #14202c;
-  --chart-ui-text-inverse: #ffffff;
-  --chart-ui-accent: #1976c9;
-  --chart-ui-accent-strong: #0d5fba;
-  --chart-ui-accent-surface: rgba(25, 118, 201, 0.12);
-  --chart-ui-accent-surface-hover: rgba(25, 118, 201, 0.18);
-  --chart-ui-overlay: rgba(244, 247, 251, 0.97);
-  --chart-ui-overlay-solid: #e7ecf4;
-  --chart-ui-accent-soft: #dceeff;
-  --chart-ui-control: #ffffff;
-  --chart-ui-control-translucent: rgba(255, 255, 255, 0.22);
-  --chart-ui-control-translucent-hover: rgba(255, 255, 255, 0.16);
-  --chart-ui-field-on-accent: rgba(255, 255, 255, 0.14);
-  --chart-ui-border: rgba(17, 17, 17, 0.12);
-  --chart-ui-accent-border: rgba(25, 118, 201, 0.18);
-  --chart-ui-accent-border-soft: rgba(25, 118, 201, 0.16);
-  --chart-ui-inverse-border: rgba(255, 255, 255, 0.24);
-  --chart-ui-muted-on-accent: rgba(255, 255, 255, 0.78);
-  --chart-ui-faint-on-accent: rgba(255, 255, 255, 0.72);
-  --chart-ui-bottom-overlay: rgba(15, 100, 191, 0.96);
-  --chart-ui-menu: rgba(15, 23, 32, 0.9);
-  --chart-ui-shadow-soft: rgba(15, 23, 32, 0.14);
-  --chart-ui-shadow-medium: rgba(15, 23, 32, 0.16);
-  --chart-ui-shadow-popover: rgba(15, 23, 32, 0.18);
-  --chart-ui-shadow-menu: rgba(15, 23, 32, 0.22);
-  --chart-status-error: #9f1239;
+  --chart-ui-bg: var(--theme-bg);
+  --chart-ui-bg-start: var(--theme-bg-elevated);
+  --chart-ui-bg-end: var(--theme-bg-gradient-end);
+  --chart-ui-text: var(--theme-text);
+  --chart-ui-text-strong: var(--theme-text);
+  --chart-ui-text-inverse: var(--theme-text-inverse);
+  --chart-ui-accent: var(--theme-accent);
+  --chart-ui-accent-strong: var(--theme-accent-strong);
+  --chart-ui-accent-surface: var(--theme-warning-bg);
+  --chart-ui-accent-surface-hover: var(--theme-warning-bg-hover);
+  --chart-ui-overlay: var(--theme-overlay-panel);
+  --chart-ui-overlay-solid: var(--theme-surface-strong);
+  --chart-ui-accent-soft: var(--theme-chip-bg);
+  --chart-ui-control: var(--theme-surface-input);
+  --chart-ui-control-translucent: var(--theme-chip-bg-hover);
+  --chart-ui-control-translucent-hover: var(--theme-chip-bg);
+  --chart-ui-field-on-accent: var(--theme-white-surface-hover);
+  --chart-ui-border: var(--theme-border);
+  --chart-ui-accent-border: var(--theme-warning-border);
+  --chart-ui-accent-border-soft: var(--theme-warning-border);
+  --chart-ui-inverse-border: var(--theme-white-border-hover);
+  --chart-ui-muted-on-accent: var(--theme-text-muted);
+  --chart-ui-faint-on-accent: var(--theme-text-faint);
+  --chart-ui-bottom-overlay: var(--theme-surface-control);
+  --chart-ui-menu: var(--theme-overlay-panel);
+  --chart-ui-shadow-soft: var(--theme-shadow-color-soft);
+  --chart-ui-shadow-medium: var(--theme-shadow-color-soft);
+  --chart-ui-shadow-popover: var(--theme-shadow-color-soft);
+  --chart-ui-shadow-menu: var(--theme-shadow-color-strong);
+  --chart-status-error: var(--theme-danger);
+  --chart-stage-bg: #f8f3e6;
   --chart-sheet-bg: #ffffff;
   --chart-sheet-line: #111111;
   --chart-sheet-text: #111111;
@@ -73,68 +74,11 @@
 }
 
 :root[data-theme="light"] {
-  --chart-ui-bg: #faf7f1;
-  --chart-ui-bg-start: #fffaf2;
-  --chart-ui-bg-end: #eef3f1;
-  --chart-ui-text: #211b15;
-  --chart-ui-text-strong: #2f261d;
-  --chart-ui-accent: #b76d16;
-  --chart-ui-accent-strong: #8d4e0f;
-  --chart-ui-accent-surface: rgba(183, 109, 22, 0.11);
-  --chart-ui-accent-surface-hover: rgba(183, 109, 22, 0.18);
-  --chart-ui-overlay: rgba(255, 250, 242, 0.97);
-  --chart-ui-overlay-solid: #f1e7d8;
-  --chart-ui-accent-soft: #ffe5bc;
-  --chart-ui-accent-border: rgba(183, 109, 22, 0.2);
-  --chart-ui-accent-border-soft: rgba(183, 109, 22, 0.16);
-  --chart-ui-bottom-overlay: rgba(141, 78, 15, 0.96);
-  --chart-ui-menu: rgba(33, 27, 21, 0.92);
-  --chart-ui-shadow-soft: rgba(64, 48, 30, 0.12);
-  --chart-ui-shadow-medium: rgba(64, 48, 30, 0.14);
-  --chart-ui-shadow-popover: rgba(64, 48, 30, 0.14);
-  --chart-ui-shadow-menu: rgba(64, 48, 30, 0.18);
-  --chart-status-error: #a33a2b;
-  --chart-sheet-muted: #6e6255;
-  --chart-sheet-active: rgba(255, 230, 145, 0.44);
-  --chart-sheet-selected: rgba(176, 220, 218, 0.5);
-  --chart-sheet-active-selected: linear-gradient(180deg, rgba(255, 230, 145, 0.52), rgba(176, 220, 218, 0.5));
-  --chart-sheet-playback: rgba(244, 238, 227, 0.62);
-  --chart-sheet-paper-shadow: 0 18px 40px rgba(64, 48, 30, 0.12);
+  --chart-stage-bg: #f8f3e6;
 }
 
 :root[data-theme="contrast"] {
-  --chart-ui-bg: #000000;
-  --chart-ui-bg-start: #071017;
-  --chart-ui-bg-end: #000000;
-  --chart-ui-text: #ffffff;
-  --chart-ui-text-strong: #ffffff;
-  --chart-ui-accent: #ffb627;
-  --chart-ui-accent-strong: #ffd166;
-  --chart-ui-accent-surface: rgba(255, 182, 39, 0.2);
-  --chart-ui-accent-surface-hover: rgba(255, 182, 39, 0.32);
-  --chart-ui-overlay: rgba(4, 10, 14, 0.98);
-  --chart-ui-overlay-solid: #071017;
-  --chart-ui-accent-soft: #18394a;
-  --chart-ui-control: #0f1b24;
-  --chart-ui-control-translucent: rgba(255, 255, 255, 0.16);
-  --chart-ui-control-translucent-hover: rgba(255, 255, 255, 0.24);
-  --chart-ui-field-on-accent: rgba(0, 0, 0, 0.26);
-  --chart-ui-border: rgba(255, 255, 255, 0.24);
-  --chart-ui-accent-border: rgba(255, 182, 39, 0.36);
-  --chart-ui-accent-border-soft: rgba(255, 182, 39, 0.28);
-  --chart-ui-bottom-overlay: rgba(21, 78, 97, 0.98);
-  --chart-ui-menu: rgba(4, 10, 14, 0.96);
-  --chart-ui-shadow-soft: rgba(0, 0, 0, 0.48);
-  --chart-ui-shadow-medium: rgba(0, 0, 0, 0.54);
-  --chart-ui-shadow-popover: rgba(0, 0, 0, 0.5);
-  --chart-ui-shadow-menu: rgba(0, 0, 0, 0.62);
-  --chart-status-error: #ff8aa0;
-  --chart-sheet-muted: #52636d;
-  --chart-sheet-active: rgba(255, 214, 102, 0.46);
-  --chart-sheet-selected: rgba(110, 231, 245, 0.42);
-  --chart-sheet-active-selected: linear-gradient(180deg, rgba(255, 214, 102, 0.48), rgba(110, 231, 245, 0.42));
-  --chart-sheet-playback: rgba(110, 231, 245, 0.18);
-  --chart-sheet-paper-shadow: 0 18px 40px rgba(0, 0, 0, 0.58);
+  --chart-stage-bg: #050607;
 }
 
 * {
@@ -149,8 +93,7 @@ body {
   color: var(--chart-ui-text);
   text-size-adjust: none;
   -webkit-text-size-adjust: none;
-  background:
-    linear-gradient(180deg, var(--chart-ui-bg-start) 0%, var(--chart-ui-bg) 32%, var(--chart-ui-bg-end) 100%);
+  background: var(--chart-stage-bg);
   overflow: hidden;
 }
 
@@ -591,13 +534,14 @@ select {
 
 .chart-sheet-panel,
 .chart-card {
-  background: var(--chart-ui-faint-on-accent);
+  background: var(--sheet-bg);
   border-radius: 24px;
   box-shadow: var(--paper-shadow);
 }
 
 .chart-sheet-panel {
   padding: 22px;
+  color: var(--chart-sheet-text);
 }
 
 .chart-sheet-header {
@@ -612,6 +556,7 @@ select {
 
 .chart-sheet-title {
   margin: 0 0 6px;
+  color: var(--chart-sheet-title);
   font-size: calc(clamp(1.25rem, 2.4vw, 2rem) * var(--chart-text-scale-compensation));
   font-weight: 600;
   letter-spacing: -0.04em;
@@ -697,7 +642,7 @@ select {
   padding: 0 8px;
   border-radius: 6px;
   background: var(--chart-sheet-line);
-  color: var(--chart-ui-text-inverse);
+  color: var(--sheet-bg);
   font-weight: 700;
   font-size: 1.75rem;
   line-height: 1;

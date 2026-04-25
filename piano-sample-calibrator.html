@@ -5,21 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Piano Sample Calibrator</title>
   <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./theme.css">
   <style>
     :root {
-      --utility-bg: #f4f0e8;
-      --utility-bg-start: #fff7ea;
-      --utility-bg-elevated: #f8f2e7;
-      --utility-panel: #fffaf2;
-      --utility-line: #d8c8ae;
-      --utility-text: #2d2418;
-      --utility-muted: #72634f;
-      --utility-accent: #a5572b;
-      --utility-accent-contrast: #ffffff;
-      --utility-accent-soft: #f0dcc9;
-      --utility-secondary: #d7b796;
-      --utility-status-text: #5c3417;
-      --utility-shadow: rgba(93, 66, 39, 0.08);
+      --utility-bg: var(--theme-bg);
+      --utility-bg-start: var(--theme-glow-accent-subtle);
+      --utility-bg-elevated: var(--theme-bg-elevated);
+      --utility-panel: var(--theme-surface-strong);
+      --utility-line: var(--theme-border);
+      --utility-text: var(--theme-text);
+      --utility-muted: var(--theme-text-muted);
+      --utility-accent: var(--theme-accent);
+      --utility-accent-contrast: var(--theme-text-inverse);
+      --utility-accent-soft: var(--theme-warning-bg);
+      --utility-secondary: var(--theme-chip-bg-hover);
+      --utility-status-text: var(--theme-warning-text);
+      --utility-shadow: var(--theme-shadow-color-soft);
       --bg: var(--utility-bg);
       --panel: var(--utility-panel);
       --line: var(--utility-line);
@@ -27,37 +28,6 @@
       --muted: var(--utility-muted);
       --accent: var(--utility-accent);
       --accent-soft: var(--utility-accent-soft);
-    }
-
-    :root[data-theme="light"] {
-      --utility-bg: #f7f2ea;
-      --utility-bg-start: #fffaf2;
-      --utility-bg-elevated: #f8f4ee;
-      --utility-panel: #ffffff;
-      --utility-line: #d8cfc2;
-      --utility-text: #201b16;
-      --utility-muted: #5f554a;
-      --utility-accent: #b76d16;
-      --utility-accent-soft: #f2dfc3;
-      --utility-secondary: #dfc39f;
-      --utility-status-text: #7a470f;
-      --utility-shadow: rgba(64, 48, 30, 0.12);
-    }
-
-    :root[data-theme="contrast"] {
-      --utility-bg: #000000;
-      --utility-bg-start: #101820;
-      --utility-bg-elevated: #071017;
-      --utility-panel: #101820;
-      --utility-line: #52636d;
-      --utility-text: #ffffff;
-      --utility-muted: #c8d7df;
-      --utility-accent: #ffb627;
-      --utility-accent-contrast: #000000;
-      --utility-accent-soft: rgba(255, 182, 39, 0.18);
-      --utility-secondary: #6ee7f5;
-      --utility-status-text: #ffe7ad;
-      --utility-shadow: rgba(0, 0, 0, 0.58);
     }
 
     * {
