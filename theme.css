@@ -86,3 +86,41 @@
   --chart-sheet-active-selected: linear-gradient(180deg, var(--chart-sheet-active), var(--chart-sheet-selected)) !important;
   --chart-sheet-playback: color-mix(in srgb, var(--ui-highlight) 86%, transparent 14%) !important;
 }
+
+.app-back-button {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ui-accent);
+  background: transparent;
+  box-shadow: none;
+  text-decoration: none;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.app-back-button span {
+  width: 21px;
+  height: 21px;
+  display: block;
+  margin-left: 6px;
+  transform: rotate(45deg);
+  border-left: 4px solid currentColor;
+  border-bottom: 4px solid currentColor;
+}
+
+.app-back-button-floating {
+  position: fixed;
+  top: calc(0.5rem + env(safe-area-inset-top));
+  left: max(0px, env(safe-area-inset-left));
+  z-index: 10;
+  margin: 0;
+}

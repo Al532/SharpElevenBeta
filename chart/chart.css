@@ -1475,32 +1475,14 @@ select {
     overflow: visible;
   }
 
-  .chart-top-bar > :not(.chart-home-button) {
+  .chart-top-bar > :not(.app-back-button) {
     display: none !important;
   }
 
-  .chart-home-button {
+  .chart-top-bar .app-back-button {
     width: 46px;
     height: 46px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    border-radius: 999px;
     color: var(--chart-ui-accent);
-    text-decoration: none;
-  }
-
-  .chart-home-button span {
-    width: 21px;
-    height: 21px;
-    display: block;
-    margin-left: 6px;
-    transform: rotate(45deg);
-    border-left: 4px solid currentColor;
-    border-bottom: 4px solid currentColor;
-    border-left-width: 4px;
-    border-bottom-width: 4px;
   }
 
   .chart-bottom-overlay {

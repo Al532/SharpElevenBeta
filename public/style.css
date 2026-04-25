@@ -570,36 +570,6 @@ summary {
   margin-bottom: var(--app-header-margin-bottom);
 }
 
-.drill-home-button {
-  position: fixed;
-  top: calc(0.5rem + env(safe-area-inset-top));
-  left: max(0px, env(safe-area-inset-left));
-  margin: 0;
-  z-index: 10;
-  width: 46px;
-  height: 46px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  border-radius: 999px;
-  color: var(--ui-accent);
-  text-decoration: none;
-}
-
-.drill-home-button span {
-  width: 21px;
-  height: 21px;
-  display: block;
-  margin-left: 6px;
-  transform: rotate(45deg);
-  border-left: 4px solid currentColor;
-  border-bottom: 4px solid currentColor;
-}
-
 .app-mode-shell {
   display: flex;
   align-items: center;

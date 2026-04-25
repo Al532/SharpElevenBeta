@@ -18,17 +18,18 @@
         android:paddingEnd="16dp"
         android:paddingBottom="8dp">
 
-        <Button
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/ireal_browser_close_button"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:backgroundTint="#DCEEFF"
-            android:minWidth="0dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:text="@string/ireal_browser_close"
-            android:textAllCaps="false"
-            android:textColor="#0D5FBA" />
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_margin="0dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/ireal_browser_back"
+            android:focusable="true"
+            android:padding="0dp"
+            android:scaleType="center"
+            android:src="@drawable/ireal_browser_back_arrow"
+            android:tint="#0D5FBA" />
 
         <TextView
             android:id="@+id/ireal_browser_banner_title"

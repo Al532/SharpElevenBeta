@@ -3,6 +3,7 @@
     <string name="app_name">Sharp Eleven</string>
     <string name="title_activity_main">Sharp Eleven</string>
     <string name="ireal_browser_title">Click on a link to import</string>
+    <string name="ireal_browser_back">Back</string>
     <string name="ireal_browser_close">Close</string>
     <string name="package_name">io.github.al532.sharpelevenapp</string>
     <string name="custom_url_scheme">io.github.al532.sharpelevenapp</string>
