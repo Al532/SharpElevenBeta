@@ -7,6 +7,7 @@
   --c-accent: #0061a4;
   --c-secondary: #b3d4ff;
   --c-danger: #d06b7c;
+  --c-highlight: #fff14d; /* highlighter yellow for chart selection and playback */
   --c-chart-paper: #ffffff;
   --c-chart-ink: #000000;
 
@@ -72,6 +73,7 @@
   --ui-warning-border: color-mix(in srgb, var(--c-accent) 42%, var(--c-secondary) 58%);
   --ui-warning-border-hover: color-mix(in srgb, var(--c-accent) 56%, var(--c-secondary) 44%);
   --ui-warning-text: var(--c-accent);
+  --ui-highlight: var(--c-highlight);
   --ui-white-border: color-mix(in srgb, white 12%, transparent 88%);
   --ui-white-border-hover: color-mix(in srgb, white 22%, transparent 78%);
   --ui-white-surface: color-mix(in srgb, white 4%, transparent 96%);
@@ -91,4 +93,10 @@
   --ui-chart-sheet-bg: var(--c-chart-paper);
   --ui-chart-sheet-line: var(--c-chart-ink);
   --ui-chart-sheet-text: var(--c-chart-ink);
+
+  /* Chart selection and playback states */
+  --chart-sheet-active: color-mix(in srgb, var(--ui-highlight) 94%, transparent 6%) !important;
+  --chart-sheet-selected: color-mix(in srgb, var(--ui-highlight) 92%, transparent 8%) !important;
+  --chart-sheet-active-selected: linear-gradient(180deg, var(--chart-sheet-active), var(--chart-sheet-selected)) !important;
+  --chart-sheet-playback: color-mix(in srgb, var(--ui-highlight) 86%, transparent 14%) !important;
 }

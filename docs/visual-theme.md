@@ -21,9 +21,10 @@ The selected palette is stored in `localStorage` under `sharp-eleven-theme`.
 
 ### Current base palette scope
 
-The base palette is intentionally minimal: 7 source tokens in `theme.css`:
+The base palette is intentionally minimal: 8 source tokens in `theme.css`:
 
 - Core UI: `--c-bg`, `--c-text`, `--c-accent`, `--c-secondary`
+- State: `--c-highlight` (highlighter yellow used for chart selection and playback highlights)
 - Status UI: `--c-danger`
 - Chart sheet: `--c-chart-paper`, `--c-chart-ink`
 

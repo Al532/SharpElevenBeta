@@ -2685,3 +2685,244 @@ body.welcome-open {
   }
 }
 
+/* ---- Flat Layout ---- */
+
+:root {
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --app-max-width: none;
+  --app-padding-x: 0;
+  --app-layout-gap: 0;
+  --surface-padding: clamp(1rem, 4vw, 2rem);
+  --home-flat-padding: clamp(1rem, 4vw, 2rem);
+  --mode-toggle-track-max-width: none;
+}
+
+@media (min-width: 721px) {
+  :root {
+    --app-max-width: none;
+    --app-padding-x: 0;
+    --app-layout-gap: 0;
+    --surface-padding: clamp(1.15rem, 3vw, 2rem);
+    --home-flat-padding: clamp(1rem, 4vw, 2rem);
+    --mode-toggle-track-max-width: none;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --app-padding-x: 0;
+    --surface-padding: 1rem;
+  }
+}
+
+.home-shell {
+  width: 100%;
+  margin: 0;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.home-header {
+  padding-right: var(--home-flat-padding);
+  padding-left: var(--home-flat-padding);
+}
+
+.home-main {
+  display: block;
+}
+
+.home-section {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--home-flat-padding);
+}
+
+.home-section + .home-section {
+  margin-top: 0;
+}
+
+.home-list-link,
+.home-drill-link,
+.home-primary-action {
+  width: 100vw;
+  margin-inline: calc(-1 * var(--home-flat-padding));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.home-primary-action {
+  align-self: stretch;
+  background: var(--ui-accent);
+}
+
+.home-list-link {
+  background: var(--ui-surface-strong);
+}
+
+.home-list-link:hover,
+.home-drill-link:hover,
+.home-primary-action:hover,
+.home-icon-link:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.home-icon-link {
+  border: 0;
+  border-radius: 0;
+}
+
+#app {
+  max-width: none;
+}
+
+.surface-block,
+.control-panel {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+#controls {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.app-mode-badge,
+.app-mode-nav,
+.app-mode-link,
+.social-share-link,
+.display-key-picker-panel,
+.display-key-picker-close,
+select,
+input[type="text"],
+input[type="number"],
+.pattern-preview-field,
+.progression-feedback-action,
+.modal-card,
+.modal-button,
+.welcome-card,
+.welcome-skip-button,
+.welcome-choice-card::before,
+.welcome-pill::before,
+.welcome-standard-select,
+.welcome-pill span,
+.welcome-apply-button,
+#save-progression,
+#cancel-progression-edit,
+#new-progression,
+#edit-progression,
+#delete-progression,
+#manage-progressions,
+#restore-default-progressions,
+#clear-all-progressions,
+.progression-manager-panel,
+.progression-manager-back-button,
+.progression-manager-item,
+.progression-manager-item-delete,
+.progression-manager-item-edit,
+.progression-manager-item-copy,
+.progression-manager-undo-placeholder,
+.progression-manager-undo-button,
+.pattern-help,
+#key-picker,
+#mixer-panel,
+.mode-toggle-track,
+.mode-toggle-track::before,
+#start-stop,
+#pause,
+.key-picker-action,
+.reset-settings-button,
+.key-checkbox-label {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-mode-nav,
+.mode-toggle-track,
+.pattern-help summary,
+.key-picker-summary,
+.home-drill-link,
+.key-picker-action,
+.reset-settings-button,
+.progression-feedback-action,
+.progression-manager-back-button,
+.progression-manager-item,
+.progression-manager-undo-placeholder,
+.modal-button-secondary,
+.modal-button-tertiary,
+.welcome-skip-button,
+.welcome-choice-card::before,
+.welcome-pill::before {
+  background: var(--ui-surface-strong);
+}
+
+.app-mode-link.is-active,
+.modal-button-primary,
+.welcome-apply-button {
+  background: var(--ui-accent);
+}
+
+.welcome-overlay {
+  background: var(--ui-overlay-panel);
+}
+
+.modal-card,
+.welcome-card {
+  background: var(--ui-overlay-panel);
+}
+
+.welcome-choice-card:has(input:checked)::before,
+.welcome-pill:has(input:checked)::before {
+  background: var(--ui-chip-bg-strong);
+  box-shadow: none;
+}
+
+.progression-manager-item.is-selected,
+.progression-manager-item.drop-before,
+.progression-manager-item.drop-after {
+  box-shadow: none;
+  background: var(--ui-chip-bg-strong);
+}
+
+.home-list-link:hover,
+.home-drill-link:hover,
+.home-primary-action:hover,
+.app-mode-link:hover,
+.app-mode-link:focus-visible,
+.social-share-link:hover,
+.social-share-link:focus-visible,
+.modal-button:hover,
+.welcome-choice-card:hover::before,
+.welcome-pill:hover::before,
+.welcome-apply-button:hover,
+.key-checkbox-label:hover,
+.key-checkbox-black:hover {
+  transform: none;
+}
+
+.key-checkbox-black {
+  transform: translateX(50%);
+}
+
+select:focus,
+input[type="text"]:focus,
+input[type="number"]:focus {
+  box-shadow: none;
+}
+
+.transport-tempo,
+#key-checkboxes,
+.key-picker-actions {
+  width: 100%;
+}
+
