@@ -626,6 +626,10 @@ export interface ChartSheetRenderer {
   updateSheetGridGap(): void;
   applyOpticalPlacements(): void;
   renderDiagnostics(playbackPlan: ChartPlaybackPlan | null): void;
+  getLayoutDebugSnapshot?(): unknown;
+  getLayoutDebugBypasses?(): Record<string, boolean>;
+  setLayoutDebugBypasses?(nextBypasses: Record<string, boolean>): Record<string, boolean>;
+  clearLayoutDebugBypasses?(): Record<string, boolean>;
 }
 
 export interface PracticeSessionExport {

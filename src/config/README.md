@@ -26,7 +26,7 @@ Quick guide:
   `displacement.symbolVisualPaddingPx`, `barResizing.minDeltaRatio`,
   `barResizing.maxDeltaRatio`, `compression.triggerFillRatio`,
   `compression.mode`, `compression.rowMaxScaleGap`, `compression.pageMaxScaleGap`,
-  and `debug.showChordCollisionBoxes`.
+  `debug.showChordCollisionBoxes`, and `debug.layoutPipelineBypasses`.
 - `TRAINER_RESOURCE_PATHS`
   Relative resource paths that `src/app.ts` turns into runtime URLs.
 - `PATTERN_MODES`, `DISPLAY_MODES`, `HARMONY_DISPLAY_MODES`,

@@ -238,6 +238,26 @@ const state: ExtendedChartScreenState = {
 
 let chartTextScaleCompensation = 1;
 
+declare global {
+  interface Window {
+    __sharpElevenChartDebug?: {
+      snapshot: () => unknown,
+      inspectBar: (barOrRow?: number | { bar?: number, measure?: number, row?: number, line?: number, column?: number }, column?: number) => unknown,
+      logBar: (barOrRow?: number | { bar?: number, measure?: number, row?: number, line?: number, column?: number }, column?: number) => unknown,
+      layout: () => unknown
+    },
+    __sharpElevenChartLayoutDebug?: {
+      getBypasses: () => Record<string, boolean>,
+      setBypasses: (nextBypasses?: Record<string, boolean>) => Record<string, boolean>,
+      clearBypasses: () => Record<string, boolean>,
+      refresh: () => void,
+      snapshot: () => unknown,
+      inspectBar: (barOrRow?: number | { bar?: number, measure?: number, row?: number, line?: number, column?: number }, column?: number) => unknown,
+      logBar: (barOrRow?: number | { bar?: number, measure?: number, row?: number, line?: number, column?: number }, column?: number) => unknown
+    }
+  }
+}
+
 function readSafeAreaInsets() {
   const probe = document.createElement('div');
   probe.style.position = 'fixed';
@@ -818,6 +838,131 @@ function getChartSheetRenderer(): ChartSheetRenderer {
   return state.chartSheetRenderer;
 }
 
+function getCurrentChartDebugSnapshot() {
+  const renderer = getChartSheetRenderer();
+  const layout = renderer.getLayoutDebugSnapshot?.() as { bars?: any[] } | null | undefined;
+  return {
+    generatedAt: new Date().toISOString(),
+    chart: {
+      id: state.currentChartDocument?.metadata?.id || null,
+      title: state.currentChartDocument?.metadata?.title || null,
+      composer: state.currentChartDocument?.metadata?.composer || null,
+      sourceKey: state.currentChartDocument?.metadata?.sourceKey || null,
+      displayKey: state.currentViewModel?.metadata?.displayKey || null,
+      timeSignature: state.currentViewModel?.metadata?.primaryTimeSignature || null,
+      librarySource: state.currentLibrarySourceLabel,
+      selectedId: dom.fixtureSelect?.value || null,
+      transpose: Number(dom.transposeSelect?.value || 0)
+    },
+    renderOptions: {
+      harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+      chordSymbols: getChordSymbolRenderOptions(),
+      textScaleCompensation: chartTextScaleCompensation
+    },
+    document: state.currentChartDocument,
+    viewModel: state.currentViewModel,
+    playbackDiagnostics: state.currentPlaybackPlan?.diagnostics || [],
+    layout
+  };
+}
+
+function resolveDebugBarTarget(
+  layoutBars: any[],
+  barOrRow?: number | { bar?: number, measure?: number, row?: number, line?: number, column?: number },
+  column?: number
+) {
+  if (typeof barOrRow === 'object' && barOrRow) {
+    const barIndex = Number(barOrRow.bar ?? barOrRow.measure);
+    const rowIndex = Number(barOrRow.row ?? barOrRow.line);
+    const columnIndex = Number(barOrRow.column ?? column);
+    if (Number.isFinite(barIndex)) return layoutBars.find((bar) => Number(bar.barIndex) === barIndex) || null;
+    if (Number.isFinite(rowIndex) && Number.isFinite(columnIndex)) {
+      return layoutBars.find((bar) => Number(bar.rowIndex) === rowIndex && Number(bar.columnIndex) === columnIndex) || null;
+    }
+    return null;
+  }
+
+  if (Number.isFinite(Number(barOrRow)) && Number.isFinite(Number(column))) {
+    return layoutBars.find((bar) => Number(bar.rowIndex) === Number(barOrRow) && Number(bar.columnIndex) === Number(column)) || null;
+  }
+
+  if (Number.isFinite(Number(barOrRow))) {
+    return layoutBars.find((bar) => Number(bar.barIndex) === Number(barOrRow)) || null;
+  }
+
+  return null;
+}
+
+function inspectCurrentChartDebugBar(
+  barOrRow?: number | { bar?: number, measure?: number, row?: number, line?: number, column?: number },
+  column?: number
+) {
+  const snapshot = getCurrentChartDebugSnapshot() as { layout?: { bars?: any[] }, viewModel?: { bars?: any[] } };
+  const layoutBars = snapshot.layout?.bars || [];
+  const layoutBar = resolveDebugBarTarget(layoutBars, barOrRow, column);
+  const documentBar = layoutBar
+    ? (snapshot.viewModel?.bars || []).find((bar) => bar.id === layoutBar.barId || Number(bar.index) === Number(layoutBar.barIndex))
+    : null;
+  return {
+    chart: (snapshot as any).chart,
+    bar: documentBar,
+    layout: layoutBar,
+    nearby: layoutBar
+      ? layoutBars.filter((bar) => bar.rowIndex === layoutBar.rowIndex)
+      : []
+  };
+}
+
+function refreshChartLayoutDebug() {
+  applyOpticalPlacements();
+  updateSheetGridGap();
+}
+
+function installChartDebugApi() {
+  const logBar = (barOrRow, column) => {
+    const result = inspectCurrentChartDebugBar(barOrRow, column) as { layout?: { tokens?: any[] } };
+    console.log('[SharpEleven chart debug]', result);
+    if (result.layout?.tokens) {
+      console.table(result.layout.tokens.map((token) => ({
+        slot: token.slotIndex,
+        symbol: token.symbol,
+        offsetPx: Number(token.offsetPx).toFixed(2),
+        anchorDeltaPx: Number(token.anchorDeltaPx).toFixed(2),
+        overlapNextPx: Number(token.overlapWithNextPx).toFixed(2),
+        tokenScaleX: token.tokenScaleX,
+        rootScaleX: token.rootScaleX
+      })));
+    }
+    return result;
+  };
+
+  const layoutDebugApi = {
+    getBypasses: () => getChartSheetRenderer().getLayoutDebugBypasses?.() || {},
+    setBypasses: (nextBypasses: Record<string, boolean> = {}) => {
+      const updated = getChartSheetRenderer().setLayoutDebugBypasses?.(nextBypasses) || {};
+      refreshChartLayoutDebug();
+      return updated;
+    },
+    clearBypasses: () => {
+      const updated = getChartSheetRenderer().clearLayoutDebugBypasses?.() || {};
+      refreshChartLayoutDebug();
+      return updated;
+    },
+    refresh: refreshChartLayoutDebug,
+    snapshot: getCurrentChartDebugSnapshot,
+    inspectBar: inspectCurrentChartDebugBar,
+    logBar
+  };
+
+  window.__sharpElevenChartLayoutDebug = layoutDebugApi;
+  window.__sharpElevenChartDebug = {
+    snapshot: getCurrentChartDebugSnapshot,
+    inspectBar: inspectCurrentChartDebugBar,
+    logBar,
+    layout: () => window.__sharpElevenChartLayoutDebug
+  };
+}
+
 function renderMeta(viewModel: ChartViewModel) {
   renderChartMeta(...Object.values(createChartMetaBindings({
     chartMeta: dom.chartMeta,
@@ -1219,6 +1364,7 @@ async function loadFixtures() {
 
 applyChartDisplayCssVariables();
 measureChartTextScaleCompensation();
+installChartDebugApi();
 
 loadFixtures().catch((error) => {
   if (dom.transportStatus) {

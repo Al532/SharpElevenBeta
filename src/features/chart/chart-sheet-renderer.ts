@@ -15,6 +15,20 @@ const {
 
 const OPTICAL_PIPELINE_MAX_PASSES = 3;
 const OPTICAL_PIPELINE_RESIZE_EPSILON = 0.005;
+const LAYOUT_PIPELINE_STEP_NAMES = Object.freeze([
+  'barLinePlacement',
+  'displacement',
+  'rowResizing',
+  'compression',
+  'postCompressionDisplacement',
+  'rowGap',
+  'firstRowHeaderShift',
+  'endingMargins',
+  'annotationPlacement',
+  'collisionOverlay'
+]);
+
+type LayoutPipelineStepName = typeof LAYOUT_PIPELINE_STEP_NAMES[number];
 
 type CreateChartSheetRendererOptions = {
   sheetGrid?: HTMLElement | null,
@@ -44,6 +58,113 @@ type CollisionDebugBox = {
   },
   label?: string
 };
+
+type ChartLayoutDebugRect = {
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  width: number,
+  height: number
+};
+
+type ChartLayoutDebugToken = {
+  slotIndex: number,
+  symbol: string,
+  offsetEm: number,
+  offsetPx: number,
+  tokenScaleX: number,
+  rootScaleX: number,
+  slotRect: ChartLayoutDebugRect,
+  symbolRect: ChartLayoutDebugRect | null,
+  anchorX: number,
+  beatTargetX: number,
+  anchorDeltaPx: number,
+  overlapWithNextPx: number
+};
+
+type ChartLayoutDebugBar = {
+  barId: string,
+  barIndex: number | null,
+  rowIndex: number,
+  columnIndex: number,
+  parts: number,
+  localScale: number,
+  rowScale: number,
+  pageScale: number,
+  rowScaleLimit: number,
+  pageScaleLimit: number,
+  finalScale: number,
+  fontSizePx: number,
+  measureRect: ChartLayoutDebugRect,
+  bodyRect: ChartLayoutDebugRect,
+  tokens: ChartLayoutDebugToken[]
+};
+
+type ChartLayoutDebugSnapshot = {
+  generatedAt: string,
+  viewport: { width: number, height: number },
+  activeBypasses: Record<string, boolean>,
+  pipelineStepsRun: string[],
+  config: {
+    displacement: typeof CHART_DISPLACEMENT_CONFIG,
+    barResizing: typeof CHART_BAR_RESIZING_CONFIG,
+    compression: typeof CHART_COMPRESSION_CONFIG
+  },
+  bars: ChartLayoutDebugBar[]
+};
+
+const layoutDebugRuntimeBypasses: Record<string, boolean> = {};
+let lastLayoutPipelineStepsRun: string[] = [];
+
+function getDefaultLayoutPipelineBypasses() {
+  return { ...(CHART_DEBUG_CONFIG?.layoutPipelineBypasses || {}) };
+}
+
+export function getChartLayoutDebugBypasses() {
+  return {
+    ...getDefaultLayoutPipelineBypasses(),
+    ...layoutDebugRuntimeBypasses
+  };
+}
+
+/**
+ * @param {Record<string, boolean>} nextBypasses
+ * @returns {Record<string, boolean>}
+ */
+export function setChartLayoutDebugBypasses(nextBypasses = {}) {
+  Object.entries(nextBypasses).forEach(([name, value]) => {
+    if (!LAYOUT_PIPELINE_STEP_NAMES.includes(name as LayoutPipelineStepName)) return;
+    layoutDebugRuntimeBypasses[name] = Boolean(value);
+  });
+  return getChartLayoutDebugBypasses();
+}
+
+export function clearChartLayoutDebugBypasses() {
+  Object.keys(layoutDebugRuntimeBypasses).forEach((name) => {
+    delete layoutDebugRuntimeBypasses[name];
+  });
+  return getChartLayoutDebugBypasses();
+}
+
+/**
+ * @param {string} stepName
+ * @returns {boolean}
+ */
+function isLayoutPipelineStepBypassed(stepName) {
+  return Boolean(getChartLayoutDebugBypasses()[stepName]);
+}
+
+/**
+ * @param {string} stepName
+ * @param {() => void | number} callback
+ * @returns {void | number}
+ */
+function runLayoutPipelineStep(stepName, callback) {
+  if (isLayoutPipelineStepBypassed(stepName)) return undefined;
+  lastLayoutPipelineStepsRun.push(stepName);
+  return callback();
+}
 
 /**
  * @param {{ bars?: any[], layout?: any }} viewModel
@@ -657,6 +778,39 @@ function getBarBodyMeasureRect(barBodyEl) {
 }
 
 /**
+ * @param {{ left: number, top: number, right: number, bottom: number, width?: number, height?: number }} rect
+ * @returns {ChartLayoutDebugRect}
+ */
+function toDebugRect(rect) {
+  const left = Number(rect.left || 0);
+  const top = Number(rect.top || 0);
+  const right = Number(rect.right || 0);
+  const bottom = Number(rect.bottom || 0);
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: Number(rect.width ?? Math.max(0, right - left)),
+    height: Number(rect.height ?? Math.max(0, bottom - top))
+  };
+}
+
+/**
+ * @param {Element | null} element
+ * @param {string} propertyName
+ * @param {number} fallback
+ * @returns {number}
+ */
+function readCssNumber(element, propertyName, fallback = 0) {
+  if (!element) return fallback;
+  const rawValue = getComputedStyle(element).getPropertyValue(propertyName).trim();
+  if (!rawValue) return fallback;
+  const value = parseFiniteNumber(rawValue);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+/**
  * @param {number} rawLeft
  * @param {number} rawRight
  * @param {number} offset
@@ -1205,6 +1359,12 @@ function applyBarBodyCompression(textScaleCompensation) {
     );
     barCompressionData.forEach(({ barBodyEl, localScale }) => {
       const finalScale = Math.min(localScale, rowScaleLimit, pageScaleLimit);
+      barBodyEl.dataset.chartLocalScale = localScale.toFixed(4);
+      barBodyEl.dataset.chartRowScale = rowScale.toFixed(4);
+      barBodyEl.dataset.chartPageScale = pageScale.toFixed(4);
+      barBodyEl.dataset.chartRowScaleLimit = rowScaleLimit.toFixed(4);
+      barBodyEl.dataset.chartPageScaleLimit = pageScaleLimit.toFixed(4);
+      barBodyEl.dataset.chartFinalScale = finalScale.toFixed(4);
       applyBarBodyCompressionScale(barBodyEl, finalScale, textScaleCompensation);
     });
   });
@@ -1222,6 +1382,12 @@ function resetOpticalPlacementStyles() {
   });
   Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
     barBodyEl.style.removeProperty('font-size');
+    delete barBodyEl.dataset.chartLocalScale;
+    delete barBodyEl.dataset.chartRowScale;
+    delete barBodyEl.dataset.chartPageScale;
+    delete barBodyEl.dataset.chartRowScaleLimit;
+    delete barBodyEl.dataset.chartPageScaleLimit;
+    delete barBodyEl.dataset.chartFinalScale;
     barBodyEl.querySelectorAll<HTMLElement>('.chart-token').forEach((tokenEl) => {
       tokenEl.style.removeProperty('--chart-token-offset-x');
       tokenEl.style.removeProperty('--chart-token-scale-x');
@@ -1358,12 +1524,100 @@ function syncBarLinePlacements() {
 }
 
 /**
+ * @param {HTMLElement} sheetGrid
+ * @returns {ChartLayoutDebugSnapshot}
+ */
+function collectLayoutDebugSnapshot(sheetGrid) {
+  const bars: ChartLayoutDebugBar[] = [];
+  const rowElements = Array.from(sheetGrid.querySelectorAll('.chart-row')) as HTMLElement[];
+
+  rowElements.forEach((rowEl, rowIndex) => {
+    const barCells = getRowBarCells(rowEl).filter((cellEl) => !cellEl.classList.contains('is-empty'));
+    barCells.forEach((barCellEl, columnIndex) => {
+      const barBodyEl = barCellEl.querySelector('.chart-bar-body') as HTMLElement | null;
+      if (!barBodyEl) return;
+
+      const measureRect = toDebugRect(getBarBodyMeasureRect(barBodyEl));
+      const bodyRect = toDebugRect(barBodyEl.getBoundingClientRect());
+      const fontSizePx = parseFloat(getComputedStyle(barBodyEl).fontSize) || 16;
+      const tokenSlots = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
+      const tokenGeometries = tokenSlots.map((slotEl) => measureTokenGeometry(slotEl));
+      const tokenSymbolRects = tokenGeometries.map((geometry) => geometry.symbolRect);
+      const tokens = tokenGeometries.map((geometry, slotIndex) => {
+        const tokenEl = geometry.tokenEl as HTMLElement | null;
+        const offsetEm = readCssNumber(tokenEl, '--chart-token-offset-x', 0);
+        const tokenScaleX = readCssNumber(tokenEl, '--chart-token-scale-x', 1);
+        const rootScaleX = readCssNumber(tokenEl, '--chart-chord-root-scale-x', 1);
+        const symbolRect = geometry.symbolRect ? toDebugRect(geometry.symbolRect) : null;
+        const nextSymbolRect = tokenSymbolRects[slotIndex + 1] || null;
+        const overlapWithNextPx = symbolRect && nextSymbolRect
+          ? Math.max(0, symbolRect.right - nextSymbolRect.left + CHART_DISPLACEMENT_CONFIG.antiCollisionGapPx)
+          : 0;
+
+        return {
+          slotIndex,
+          symbol: (tokenEl?.textContent || '').replace(/\s+/g, ' ').trim(),
+          offsetEm,
+          offsetPx: offsetEm * fontSizePx,
+          tokenScaleX,
+          rootScaleX,
+          slotRect: toDebugRect(geometry.slotRect),
+          symbolRect,
+          anchorX: geometry.anchorX,
+          beatTargetX: geometry.beatTargetX,
+          anchorDeltaPx: geometry.anchorX - geometry.beatTargetX,
+          overlapWithNextPx
+        };
+      });
+
+      bars.push({
+        barId: barCellEl.dataset.barId || '',
+        barIndex: Number.isFinite(Number(barCellEl.dataset.barIndex)) ? Number(barCellEl.dataset.barIndex) : null,
+        rowIndex: rowIndex + 1,
+        columnIndex: columnIndex + 1,
+        parts: Math.max(1, readCssNumber(barBodyEl, '--chart-bar-parts', 1)),
+        localScale: Number(barBodyEl.dataset.chartLocalScale || 1),
+        rowScale: Number(barBodyEl.dataset.chartRowScale || 1),
+        pageScale: Number(barBodyEl.dataset.chartPageScale || 1),
+        rowScaleLimit: Number(barBodyEl.dataset.chartRowScaleLimit || 1),
+        pageScaleLimit: Number(barBodyEl.dataset.chartPageScaleLimit || 1),
+        finalScale: Number(barBodyEl.dataset.chartFinalScale || 1),
+        fontSizePx,
+        measureRect,
+        bodyRect,
+        tokens
+      });
+    });
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight
+    },
+    activeBypasses: getChartLayoutDebugBypasses(),
+    pipelineStepsRun: [...lastLayoutPipelineStepsRun],
+    config: {
+      displacement: CHART_DISPLACEMENT_CONFIG,
+      barResizing: CHART_BAR_RESIZING_CONFIG,
+      compression: CHART_COMPRESSION_CONFIG
+    },
+    bars
+  };
+}
+
+/**
  * @param {CreateChartSheetRendererOptions} [options]
  * @returns {{
  *   renderSheet: (viewModel: any) => void,
  *   updateSheetGridGap: () => void,
  *   applyOpticalPlacements: () => void,
- *   renderDiagnostics: (playbackPlan: any) => void
+ *   renderDiagnostics: (playbackPlan: any) => void,
+ *   getLayoutDebugSnapshot: () => ChartLayoutDebugSnapshot | null,
+ *   getLayoutDebugBypasses: () => Record<string, boolean>,
+ *   setLayoutDebugBypasses: (nextBypasses: Record<string, boolean>) => Record<string, boolean>,
+ *   clearLayoutDebugBypasses: () => Record<string, boolean>
  * }}
  */
 export function createChartSheetRenderer({
@@ -1390,7 +1644,7 @@ export function createChartSheetRenderer({
     const harmonyDisplayMode = getHarmonyDisplayMode?.() || 'default';
 
     return `
-      <article class="${classes.join(' ')}" data-bar-id="${bar.id}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
+      <article class="${classes.join(' ')}" data-bar-id="${bar.id}" data-bar-index="${bar.index}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
         <span class="chart-bar-cell-highlight" aria-hidden="true"></span>
         ${renderEndingMarkup(bar.endings)}
         ${renderBarCornerMarkers(bar)}
@@ -1452,17 +1706,24 @@ export function createChartSheetRenderer({
     rowElements.forEach((element) => {
       element.style.marginTop = '';
     });
+    if (isLayoutPipelineStepBypassed('rowGap')) {
+      sheetGrid.style.rowGap = '0px';
+      runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));
+      return;
+    }
     if (rowCount < 2) {
       sheetGrid.style.rowGap = '0px';
       return;
     }
 
+    lastLayoutPipelineStepsRun.push('rowGap');
     sheetGrid.style.rowGap = '0px';
     void sheetGrid.offsetHeight;
     const bottomBound = getSheetGridVisualBottomBound(sheetGrid);
 
     const firstRow = rowElements[0];
-    if (firstRow) {
+    if (firstRow && !isLayoutPipelineStepBypassed('firstRowHeaderShift')) {
+      lastLayoutPipelineStepsRun.push('firstRowHeaderShift');
       const firstRowShift = getFirstRowHeaderCollisionShift(firstRow, getRowChordVisualBounds(firstRow));
       if (firstRowShift > 0) {
         firstRow.style.marginTop = `${Math.ceil(firstRowShift)}px`;
@@ -1493,13 +1754,14 @@ export function createChartSheetRenderer({
     }
 
     const rowElementList = Array.from(rowElements);
-    applyEndingCollisionMargins(rowElementList);
+    runLayoutPipelineStep('endingMargins', () => applyEndingCollisionMargins(rowElementList));
     const rowChordBounds = rowElementList.map((element) => getRowChordVisualBounds(element));
-    applyRowAnnotationPlacements(rowElementList, rowChordBounds);
-    renderCollisionDebugOverlay(sheetGrid);
+    runLayoutPipelineStep('annotationPlacement', () => applyRowAnnotationPlacements(rowElementList, rowChordBounds));
+    runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));
   }
 
   function applyOpticalPlacements() {
+    lastLayoutPipelineStepsRun = [];
     const textScaleCompensation = Math.max(
       CHART_DISPLAY_CONFIG.textScaleCompensation.minCompensation,
       Math.min(CHART_DISPLAY_CONFIG.textScaleCompensation.maxCompensation, Number(getTextScaleCompensation?.() || 1))
@@ -1507,20 +1769,21 @@ export function createChartSheetRenderer({
 
     resetOpticalPlacementStyles();
     void document.documentElement.offsetHeight;
-    syncBarLinePlacements();
+    runLayoutPipelineStep('barLinePlacement', syncBarLinePlacements);
 
     for (let pass = 0; pass < OPTICAL_PIPELINE_MAX_PASSES; pass += 1) {
-      applyBarBodyDisplacements();
-      const resizeChange = applyRowBarResizing();
+      runLayoutPipelineStep('displacement', applyBarBodyDisplacements);
+      const resizeChange = runLayoutPipelineStep('rowResizing', applyRowBarResizing);
+      if (resizeChange === undefined) break;
       if (resizeChange <= OPTICAL_PIPELINE_RESIZE_EPSILON) break;
       void document.documentElement.offsetHeight;
     }
 
-    applyBarBodyDisplacements();
-    applyBarBodyCompression(textScaleCompensation);
+    runLayoutPipelineStep('displacement', applyBarBodyDisplacements);
+    runLayoutPipelineStep('compression', () => applyBarBodyCompression(textScaleCompensation));
     void document.documentElement.offsetHeight;
-    applyBarBodyDisplacements();
-    if (sheetGrid) renderCollisionDebugOverlay(sheetGrid);
+    runLayoutPipelineStep('postCompressionDisplacement', applyBarBodyDisplacements);
+    if (sheetGrid) runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));
   }
 
   function renderDiagnostics(playbackPlan) {
@@ -1531,10 +1794,18 @@ export function createChartSheetRenderer({
       : '<li>No diagnostics.</li>';
   }
 
+  function getLayoutDebugSnapshot() {
+    return sheetGrid ? collectLayoutDebugSnapshot(sheetGrid) : null;
+  }
+
   return {
     renderSheet,
     updateSheetGridGap,
     applyOpticalPlacements,
-    renderDiagnostics
+    renderDiagnostics,
+    getLayoutDebugSnapshot,
+    getLayoutDebugBypasses: getChartLayoutDebugBypasses,
+    setLayoutDebugBypasses: setChartLayoutDebugBypasses,
+    clearLayoutDebugBypasses: clearChartLayoutDebugBypasses
   };
 }

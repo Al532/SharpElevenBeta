@@ -63,7 +63,20 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
   // Reglages de debug visuel du chart.
   debug: Object.freeze({
     // Affiche les rectangles utilises pour verifier les collisions entre accords.
-    showChordCollisionBoxes: false
+    showChordCollisionBoxes: false,
+    // Bypass par defaut des etapes du pipeline optique. Garder a false hors debug ponctuel.
+    layoutPipelineBypasses: Object.freeze({
+      barLinePlacement: false,
+      displacement: false,
+      rowResizing: false,
+      compression: false,
+      postCompressionDisplacement: false,
+      rowGap: false,
+      firstRowHeaderShift: false,
+      endingMargins: false,
+      annotationPlacement: false,
+      collisionOverlay: false
+    })
   }),
   // Reglages de structure globale du chart.
   layout: Object.freeze({
@@ -170,9 +183,9 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
     // Mesure: valeur plancher pour la compression locale des accords dans une mesure.
     minScale: 0.1,
     // Ligne: ecart maximal autorise avec la mesure la plus compressee de la ligne.
-    rowMaxScaleGap: 0.2,
+    rowMaxScaleGap: 1,
     // Page: ecart maximal autorise avec la mesure la plus compressee de la page.
-    pageMaxScaleGap: 0.35
+    pageMaxScaleGap: 0.5
   }),
   // Seuils de densite qui pilotent les changements de comportement dans les mesures chargees.
   density: Object.freeze({
