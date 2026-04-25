@@ -6,7 +6,7 @@ Sharp Eleven uses `public/theme.css` as the source of truth for visual colors.
 
 The available palette names are:
 
-- `current`: the base dark visual language used by the app (default).
+- `current`: the base visual language used by the app (default).
 
 Use the browser console to test palettes:
 
@@ -21,19 +21,20 @@ The selected palette is stored in `localStorage` under `sharp-eleven-theme`.
 
 ### Current base palette scope
 
-The base palette is intentionally minimal: 16 source tokens in `theme.css`:
+The base palette is intentionally minimal: 7 source tokens in `theme.css`:
 
-- Core UI: `--c-bg`, `--c-surface`, `--c-text`, `--c-text-weak`, `--c-border`, `--c-accent`, `--c-accent-strong`, `--c-danger`, `--c-success`, `--c-shadow`, `--c-overlay`, `--c-focus`
-- Chart sheet: `--c-chart-stage`, `--c-chart-paper`, `--c-chart-paper-line`, `--c-chart-paper-text`
+- Core UI: `--c-bg`, `--c-text`, `--c-accent`, `--c-secondary`
+- Status UI: `--c-danger`
+- Chart sheet: `--c-chart-paper`, `--c-chart-ink`
 
-All other variables are aliases or derived via `color-mix`.
+`--c-surface` is intentionally derived from the theme background and accent rather than maintained as an independent source. The remaining `--c-*` names are compatibility aliases derived from source colors. All other variables are aliases or derived via `color-mix`.
 
 ## Token Rules
 
 - Add new visual colors as semantic tokens before using them in component CSS.
 - Keep `public/theme.css` for source tokens and computed token values; `public/style.css` and component styles reuse `--ui-*` tokens only.
 - Keep chart sheet colors in `chart/chart.css` under `--chart-sheet-*`; chart menus and overlays use shared `--ui-*` tokens.
-- No compatibility aliases are kept for selector migration.
+- Avoid adding selector-migration aliases; source-level `--c-*` aliases may stay when they document derived theme semantics.
 
 ## Accepted Exceptions
 

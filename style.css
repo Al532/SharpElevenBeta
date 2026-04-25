@@ -272,9 +272,7 @@ html {
 
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(circle at top, var(--ui-glow-accent-subtle), transparent 28%),
-    linear-gradient(180deg, var(--ui-bg-elevated), var(--ui-bg));
+  background: var(--ui-bg);
   color: var(--ui-text);
   min-height: 100vh;
   min-height: 100dvh;
@@ -295,9 +293,7 @@ body {
 .home-body {
   display: block;
   color: var(--ui-text);
-  background:
-    radial-gradient(circle at top left, var(--ui-glow-accent), transparent 28rem),
-    linear-gradient(135deg, var(--ui-bg) 0%, var(--ui-surface-strong) 48%, var(--ui-bg-gradient-end) 100%);
+  background: var(--ui-bg);
 }
 
 .home-shell {
@@ -420,15 +416,17 @@ body {
   display: grid;
   gap: 0.18rem;
   padding: 0.8rem 0.9rem;
-  border: 1px solid var(--ui-white-border);
+  border: 1px solid var(--ui-border);
   color: var(--ui-text);
-  background: var(--ui-white-surface);
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  background: color-mix(in srgb, var(--ui-surface) 86%, var(--ui-text) 14%);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--ui-surface) 78%, white 22%);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .home-list-link:hover {
-  border-color: var(--ui-warning-border);
-  background: var(--ui-warning-bg);
+  border-color: var(--ui-warning-border-hover);
+  background: color-mix(in srgb, var(--ui-accent) 12%, var(--ui-surface) 88%);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--ui-surface) 72%, white 28%), 0 6px 16px var(--ui-shadow-color-soft);
   transform: translateY(-1px);
 }
 
@@ -538,8 +536,6 @@ summary {
   transform: rotate(45deg);
   border-left: 4px solid currentColor;
   border-bottom: 4px solid currentColor;
-  border-left-width: 4px;
-  border-bottom-width: 4px;
 }
 
 .app-mode-shell {
@@ -2408,12 +2404,12 @@ body.welcome-open {
   border-color: var(--ui-chip-border-hover);
 }
 #pause.paused {
-  background: var(--ui-success);
-  color: var(--ui-bg);
-  border-color: var(--ui-success);
+  background: var(--ui-accent-strong);
+  color: var(--ui-text-inverse);
+  border-color: var(--ui-accent-strong);
 }
 #pause.paused:hover {
-  background: var(--ui-success);
+  background: var(--ui-accent-cool);
 }
 #pause.hidden {
   display: none;

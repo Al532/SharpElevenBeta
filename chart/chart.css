@@ -11,6 +11,7 @@
   --chart-ui-accent-surface-hover: var(--ui-warning-bg-hover);
   --chart-ui-overlay: var(--chart-ui-overlay-solid);
   --chart-ui-overlay-solid: var(--ui-bg);
+  --chart-ui-overlay-muted: var(--chart-ui-accent);
   --chart-ui-accent-soft: var(--ui-chip-bg);
   --chart-ui-control: var(--ui-surface-input);
   --chart-ui-control-translucent: var(--ui-chip-bg-hover);
@@ -20,7 +21,7 @@
   --chart-ui-accent-border: var(--ui-warning-border);
   --chart-ui-accent-border-soft: var(--ui-warning-border);
   --chart-ui-inverse-border: var(--ui-white-border-hover);
-  --chart-ui-muted-on-accent: var(--ui-text-muted);
+  --chart-ui-muted-on-accent: var(--chart-ui-accent);
   --chart-ui-faint-on-accent: var(--ui-text-faint);
   --chart-ui-bottom-overlay: var(--chart-ui-overlay-solid);
   --chart-ui-menu: var(--ui-overlay-panel);
@@ -55,6 +56,8 @@
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
   --chart-overlay-push-y: 0px;
+  --chart-overlay-duration: 180ms;
+  --chart-overlay-easing: linear;
   --chart-config-row-gap-min: 60px;
   --chart-config-sheet-bottom-margin: 20px;
   --chart-config-sheet-header-padding-top-portrait: 0px;
@@ -139,11 +142,12 @@ select {
   inset: 0 0 auto;
   z-index: 310;
   background: var(--chart-ui-overlay);
+  color: var(--chart-ui-accent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px var(--chart-ui-shadow-soft);
   transform: translateY(-100%);
-  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--chart-overlay-duration) var(--chart-overlay-easing);
   overflow: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -173,6 +177,22 @@ select {
   margin-left: auto;
 }
 
+.chart-top-overlay .chart-select-field span,
+.chart-top-overlay .chart-library-count,
+.chart-top-overlay .chart-import-copy span,
+.chart-top-overlay .chart-import-status,
+.chart-top-overlay .chart-settings-section h3 {
+  color: var(--chart-ui-overlay-muted);
+}
+
+.chart-top-overlay .chart-select-field select,
+.chart-top-overlay .chart-select-field input[type="search"],
+.chart-top-overlay .chart-select-field input[type="number"],
+.chart-top-overlay .chart-select-field input[type="text"],
+.chart-top-overlay .chart-import-inputs input {
+  color: var(--chart-ui-accent);
+}
+
 /* --- Bottom overlay ---------------------------------------------- */
 
 .chart-bottom-overlay {
@@ -186,7 +206,7 @@ select {
   padding: 12px;
   border-top: 1px solid var(--chart-ui-accent-border-soft);
   background: var(--chart-ui-bottom-overlay);
-  color: var(--chart-ui-text-inverse);
+  color: var(--chart-ui-accent);
   border-radius: 16px;
   box-shadow: 0 12px 28px var(--chart-ui-shadow-medium);
 }
@@ -206,11 +226,11 @@ select {
 .chart-bottom-overlay .chart-select-field input {
   border-color: var(--chart-ui-inverse-border);
   background: var(--chart-ui-field-on-accent);
-  color: var(--chart-ui-text-inverse);
+  color: var(--chart-ui-accent);
 }
 
 .chart-bottom-overlay .chart-select-field select option {
-  color: var(--chart-ui-text);
+  color: var(--chart-ui-accent);
   background: var(--chart-ui-text-inverse);
 }
 
@@ -244,7 +264,7 @@ select {
   border: 0;
   border-radius: 12px;
   background: var(--chart-ui-control-translucent);
-  color: var(--chart-ui-text-inverse);
+  color: var(--chart-ui-accent);
   font-weight: 700;
   cursor: pointer;
 }
@@ -1102,13 +1122,9 @@ select {
     box-shadow: none;
     overflow: visible;
     pointer-events: none;
-    opacity: 0;
-    transform: none;
-    transition: opacity 220ms ease;
-  }
-
-  .chart-app.overlay-open .chart-top-overlay {
     opacity: 1;
+    transform: none;
+    transition: none;
   }
 
   .chart-import-inputs {
@@ -1149,7 +1165,7 @@ select {
     overscroll-behavior: contain;
     pointer-events: auto;
     transform: translateY(calc(-100% - 16px));
-    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform var(--chart-overlay-duration) var(--chart-overlay-easing);
   }
 
   .chart-app.overlay-open .chart-top-bar {
@@ -1204,13 +1220,13 @@ select {
     margin: 0;
     border-radius: 14px;
     padding: 12px;
-    background: linear-gradient(180deg, var(--chart-ui-accent), var(--chart-ui-accent-strong));
+    background: var(--chart-ui-bottom-overlay);
     max-height: calc(100dvh - var(--chart-mobile-top-overlay-height) - max(28px, env(safe-area-inset-top) + 18px));
     overflow: auto;
     overscroll-behavior: contain;
     pointer-events: auto;
     transform: translateY(calc(100% + 16px));
-    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform var(--chart-overlay-duration) var(--chart-overlay-easing);
   }
 
   .chart-app.overlay-open .chart-bottom-overlay {
@@ -1464,7 +1480,7 @@ select {
     justify-content: center;
     flex: 0 0 auto;
     border-radius: 999px;
-    color: var(--blue-ui-dark);
+    color: var(--chart-ui-accent);
     text-decoration: none;
   }
 
@@ -1496,7 +1512,7 @@ select {
     border: 0;
     border-radius: 0;
     background: var(--chart-overlay-bg);
-    color: var(--blue-ui-dark);
+    color: var(--chart-ui-accent);
     box-shadow: none;
     overflow: visible;
   }
@@ -1532,7 +1548,7 @@ select {
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: var(--blue-ui-dark);
+    color: var(--chart-ui-accent);
     font-size: clamp(2.45rem, 8.9vw, 3.85rem);
     line-height: 1;
     text-align: center;
@@ -1557,7 +1573,7 @@ select {
 
   .chart-tempo-field::after {
     content: " bpm";
-    color: var(--blue-ui-dark);
+    color: var(--chart-ui-accent);
     font-size: clamp(2.45rem, 8.9vw, 3.85rem);
     line-height: 1;
     pointer-events: none;
@@ -1596,7 +1612,7 @@ select {
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: var(--blue-ui-dark);
+    color: var(--chart-ui-accent);
     padding: 0;
     font-size: 0;
     display: inline-flex;
@@ -1665,7 +1681,7 @@ select {
       max(4px, calc(env(safe-area-inset-right) + var(--chart-runtime-cutout-padding-right)))
       max(20px, calc(env(safe-area-inset-bottom) + var(--chart-runtime-cutout-padding-bottom)))
       max(4px, calc(env(safe-area-inset-left) + var(--chart-runtime-cutout-padding-left))) !important;
-    transition: transform 240ms ease;
+    transition: transform var(--chart-overlay-duration) var(--chart-overlay-easing);
     will-change: transform;
   }
 

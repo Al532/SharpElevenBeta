@@ -1216,12 +1216,12 @@ function bindDesktopAndroidBackShortcut() {
 }
 
 function openOverlay() {
+  syncMobileOverlayDrawerLayout();
   openChartOverlay(createChartOverlayShellBindings({
     chartApp: dom.chartApp,
     chartTopOverlay: dom.chartTopOverlay,
     chartBottomOverlay: dom.chartBottomOverlay
   }));
-  syncMobileOverlayDrawerLayout();
 }
 
 function closeOverlay() {

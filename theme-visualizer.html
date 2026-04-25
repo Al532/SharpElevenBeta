@@ -234,22 +234,22 @@
         <h1>Visualisation de la charte de couleurs</h1>
         <p class="note">
           Cette page lit les variables CSS actives (`--c-*`, `--ui-*`, `--chart-*`, etc.) et
-          affiche les valeurs utiles pour chaque thème.
+          affiche les valeurs utiles pour chaque theme.
         </p>
       </header>
 
       <section class="toolbar">
         <div class="control">
-          <label for="themeSelect">Thème actif</label>
-          <select id="themeSelect" aria-label="Sélectionner un thème"></select>
+          <label for="themeSelect">Theme actif</label>
+          <select id="themeSelect" aria-label="Selectionner un theme"></select>
         </div>
 
         <div class="control">
           <label for="categorySelect">Groupe</label>
           <select id="categorySelect" aria-label="Filtrer par groupe">
             <option value="all">Tous</option>
-            <option value="--c-">--c- (source)</option>
-            <option value="--ui-">--ui- (sémantique UI)</option>
+            <option value="--c-">--c- (base + aliases)</option>
+            <option value="--ui-">--ui- (semantique UI)</option>
             <option value="--chart-">--chart- (chart)</option>
             <option value="--sheet-">--sheet- (chart)</option>
             <option value="--key-">--key- (piano)</option>
@@ -265,7 +265,7 @@
           <label for="sortSelect">Tri</label>
           <select id="sortSelect" aria-label="Trier">
             <option value="name">Nom</option>
-            <option value="nameDesc">Nom inversé</option>
+            <option value="nameDesc">Nom inverse</option>
             <option value="value">Valeur</option>
             <option value="category">Groupe</option>
           </select>
@@ -274,7 +274,7 @@
         <div class="control">
           <label for="onlyColors">Uniquement couleurs</label>
           <div class="tag"><input id="onlyColors" type="checkbox" checked /> <span>Afficher les
-          tokens colorimétriques</span></div>
+          tokens colorimetriques</span></div>
         </div>
 
         <div class="control">
@@ -282,10 +282,10 @@
         </div>
       </section>
 
-      <section class="panel">
-        <div id="meta" class="meta"></div>
-        <div class="chips" id="chips"></div>
-      </section>
+        <section class="panel">
+          <div id="meta" class="meta"></div>
+          <div class="chips" id="chips"></div>
+        </section>
 
       <section class="grid">
         <section>
@@ -314,29 +314,25 @@
       const fallbackThemes = ['current'];
       const tokenDescriptions = {
         '--c-bg': 'Couleur de fond principale de l application.',
-        '--c-surface': 'Surface principale des panneaux et cartes.',
+        '--c-surface': 'Alias derive: surface principale des panneaux et cartes.',
         '--c-text': 'Couleur de texte principal.',
-        '--c-text-weak': 'Couleur de texte secondaire ou discret.',
-        '--c-border': 'Couleur bordure standard.',
+        '--c-text-weak': 'Alias derive: texte secondaire ou discret.',
+        '--c-border': 'Alias derive: bordure standard.',
         '--c-accent': 'Couleur d accent principal (calls-to-action, links importants).',
-        '--c-accent-strong': 'Variante plus soutenue de l accent.',
+        '--c-secondary': 'Couleur secondaire de theme, reservee aux usages complementaires.',
         '--c-danger': 'Couleur d alerte/erreur.',
-        '--c-success': 'Couleur d etat de succes.',
-        '--c-shadow': 'Couleur de base des ombres globales.',
-        '--c-overlay': 'Fond d overlay global.',
-        '--c-focus': 'Couleur visuelle de focus clavier.',
-        '--c-chart-stage': 'Fond global de la zone chart.',
-        '--c-chart-paper': 'Fond de la feuille de chart (papier).',
-        '--c-chart-paper-line': 'Couleur des lignes du papier chart (groupage, barres, marges).',
-        '--c-chart-paper-text': 'Couleur de texte principal dans la feuille de chart.',
-        '--ui-bg': 'Alias sémantique: fond application.',
+        '--c-shadow': 'Alias derive: couleur des ombres globales.',
+        '--c-overlay': 'Alias derive: fond d overlay global.',
+        '--c-chart-paper': 'Couleur source du papier chart, quasi-blanc type gravure.',
+        '--c-chart-ink': 'Couleur source de l encre chart, quasi-noir type gravure.',
+        '--ui-bg': 'Alias semantique: fond application.',
         '--ui-bg-elevated': 'Fond de surface elevee (barres, dialogs).',
-        '--ui-bg-gradient-end': 'Point d arret secondaire pour degradé de fond.',
+        '--ui-bg-gradient-end': 'Point d arret secondaire pour degrade de fond.',
         '--ui-surface': 'Surface standard de UI.',
         '--ui-surface-strong': 'Surface plus foncee pour blocs mis en avant.',
         '--ui-surface-control': 'Fond des controles.',
         '--ui-surface-input': 'Fond des champs de saisie.',
-        '--ui-surface-muted': 'Surface plus douce et atténuee.',
+        '--ui-surface-muted': 'Surface plus douce et attenuee.',
         '--ui-text': 'Texte standard.',
         '--ui-text-muted': 'Texte secondaire.',
         '--ui-text-soft': 'Texte doux pour notes et details.',
@@ -348,8 +344,10 @@
         '--ui-accent-strong': 'Accent UI plus fort.',
         '--ui-accent-warm': 'Accent chaud (teinte chaude).',
         '--ui-accent-cool': 'Accent frais pour texte/icone.',
+        '--ui-secondary': 'Secondaire UI principal.',
+        '--ui-secondary-strong': 'Secondaire UI plus soutenu.',
+        '--ui-secondary-soft': 'Secondaire UI discret.',
         '--ui-danger': 'Etat erreur reutilisable UI.',
-        '--ui-success': 'Etat positif reutilisable UI.',
         '--ui-focus-ring': 'Anneau de focus accesibilite.',
         '--ui-shadow-color-soft': 'Couleur d ombre douce.',
         '--ui-shadow-color-strong': 'Couleur d ombre forte.',
@@ -383,7 +381,7 @@
         '--ui-warning-text': 'Texte avertissement.',
         '--ui-white-border': 'Contour blanc subtil.',
         '--ui-white-border-hover': 'Contour blanc au survol.',
-        '--ui-white-surface': 'Surface blanche tres discrète.',
+        '--ui-white-surface': 'Surface blanche tres discrte.',
         '--ui-white-surface-hover': 'Surface blanche accentuee hover.',
         '--ui-text-decoration': 'Trait decoratif faible.',
         '--ui-text-decoration-hover': 'Trait decoratif hover.',
@@ -394,17 +392,17 @@
         '--key-black-text': 'Texte touche noire.',
         '--key-black-bg': 'Fond touche noire.',
         '--key-black-selected-bg': 'Fond touche noire selectionnee.',
-        '--ui-chart-stage-bg': 'Couleur de fond stage chart (alias source).',
-        '--ui-chart-sheet-bg': 'Couleur de fond feuille chart (alias source).',
-        '--ui-chart-sheet-line': 'Couleur des traits feuille chart (alias source).',
-        '--ui-chart-sheet-text': 'Couleur texte feuille chart (alias source).',
+        '--ui-chart-stage-bg': 'Couleur de fond stage chart (alias de --c-chart-paper).',
+        '--ui-chart-sheet-bg': 'Couleur de fond feuille chart (alias de --c-chart-paper).',
+        '--ui-chart-sheet-line': 'Couleur des traits feuille chart (alias de --c-chart-ink).',
+        '--ui-chart-sheet-text': 'Couleur texte feuille chart (alias de --c-chart-ink).',
         '--chart-stage-bg': 'Fond du stage chart.',
         '--chart-sheet-bg': 'Fond de feuille chart.',
         '--chart-sheet-line': 'Lignes horizontales et verticales de la feuille.',
         '--chart-sheet-text': 'Texte principal de la feuille.',
         '--chart-sheet-title': 'Couleur des titres sur la feuille.',
-        '--chart-sheet-text-alt': 'Texte alternatif/accords alternatifs (derivé plus clair).',
-        '--chart-sheet-muted': 'Texte atténué dans la feuille.',
+        '--chart-sheet-text-alt': 'Texte alternatif/accords alternatifs (derive plus clair).',
+        '--chart-sheet-muted': 'Texte attenue dans la feuille.',
         '--chart-sheet-active': 'Etat actif ligne/selec.',
         '--chart-sheet-selected': 'Etat selection.',
         '--chart-sheet-active-selected': 'Fond hybride actif + selection.',
@@ -413,13 +411,13 @@
         '--chart-sheet-pill-text': 'Couleur de texte des pills.',
         '--sheet-bg': 'Alias feuille chart (compat legacy).',
         '--sheet-line': 'Alias lignes feuille chart (compat legacy).',
-        '--sheet-muted': 'Alias texte muté feuille (compat legacy).',
+        '--sheet-muted': 'Alias texte mute feuille (compat legacy).',
         '--paper-shadow': 'Ombre de feuille chart.'
       };
 
       const descriptionPrefixes = [
-        { prefix: '--c-', label: 'Couleur source de theme de base.' },
-        { prefix: '--ui-', label: 'Token sémantique UI derive depuis les tokens source.' },
+        { prefix: '--c-', label: 'Couleur de base ou alias derive.' },
+        { prefix: '--ui-', label: 'Token semantique UI derive depuis les tokens source.' },
         { prefix: '--chart-', label: 'Token specifique chart.' },
         { prefix: '--sheet-', label: 'Alias feuille chart (legacy).' },
         { prefix: '--key-', label: 'Token piano (blanc/noir).' }
@@ -433,6 +431,26 @@
           }
           requestAnimationFrame(resolve);
         });
+      }
+
+      const colorResolveProbe = (() => {
+        const probe = document.createElement('div');
+        probe.style.position = 'fixed';
+        probe.style.left = '-9999px';
+        probe.style.top = '0';
+        probe.style.width = '1px';
+        probe.style.height = '1px';
+        probe.style.opacity = '0';
+        probe.style.pointerEvents = 'none';
+        document.body.appendChild(probe);
+        return probe;
+      })();
+
+      function resolveToColorHex(tokenName) {
+        if (!tokenName) return null;
+        colorResolveProbe.style.color = `var(${tokenName})`;
+        const resolved = getComputedStyle(colorResolveProbe).color;
+        return detectColorFromValue(resolved);
       }
 
       function getTokenRowsFromRoot(root) {
@@ -520,14 +538,14 @@
           const group = categorize(token.name);
           if (!groups.has(group)) groups.set(group, 0);
           groups.set(group, groups.get(group) + 1);
-          if (detectColorFromValue(token.value)) {
+          if (detectColorFromValue(token.value) || resolveToColorHex(token.name)) {
             colorTokens.push(token.name);
           }
         });
 
         meta.textContent = '';
         meta.appendChild(
-          createText(`Total variables: ${tokens.length} • Variables de couleur détectées: ${colorTokens.length}`)
+          createText(`Total variables: ${tokens.length} - Variables de couleur detectees: ${colorTokens.length}`)
         );
 
         chips.innerHTML = '';
@@ -586,7 +604,7 @@
         const prepared = tokens.map((token) => ({
           ...token,
           category: categorize(token.name),
-          isColor: detectColorFromValue(token.value) !== null
+          isColor: detectColorFromValue(token.value) !== null || resolveToColorHex(token.name) !== null
         }));
 
         renderThemeSummary(prepared);
@@ -622,7 +640,7 @@
 
             const swatch = document.createElement('div');
             swatch.className = 'swatch';
-            const color = detectColorFromValue(token.value);
+            const color = detectColorFromValue(token.value) || resolveToColorHex(token.name);
             if (color) {
               swatch.style.background = color;
             } else {
