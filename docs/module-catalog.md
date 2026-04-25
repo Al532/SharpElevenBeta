@@ -9,7 +9,7 @@ Last reviewed: 2026-04-24.
 ## Naming Baseline
 
 - `chart` owns lead-sheet import, interpretation, rendering, selection, and chart-side playback controls.
-- `drill` owns the dedicated practice trainer experience shown by `index.html`.
+- `drill` owns the dedicated practice mode shown by `index.html`.
 - `practice session` names the shared payload/contract that travels between modules.
 - Shared contracts, storage handoff, playback bridges, and runtime infrastructure should avoid `drill` naming unless they are tied to the drill UI.
 

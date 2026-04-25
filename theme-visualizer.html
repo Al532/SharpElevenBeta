@@ -311,7 +311,7 @@
       const meta = document.getElementById('meta');
       const countLabel = document.getElementById('countLabel');
       const chips = document.getElementById('chips');
-      const fallbackThemes = ['iReal'];
+      const fallbackThemes = ['classic-paper', 'blue-note'];
       const tokenDescriptions = {
         '--c-bg': 'Couleur de fond principale de l application.',
         '--c-surface': 'Alias derive: surface principale des panneaux et cartes.',
@@ -661,7 +661,7 @@
 
       async function render() {
         await ensureCssVarsLoaded();
-        const themeName = themeSelect.value || getThemePaletteNames()[0] || 'iReal';
+        const themeName = themeSelect.value || getThemePaletteNames()[0] || 'classic-paper';
         setTheme(themeName);
         requestAnimationFrame(() => {
           const tokens = getTokenRowsFromRoot(document.documentElement);

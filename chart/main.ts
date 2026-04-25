@@ -409,9 +409,10 @@ function getRequestedPlaylist() {
   return new URLSearchParams(window.location.search).get('playlist') || '';
 }
 
-function persistChartId(chartId: string) {
+function persistChartId(chartId: string, chartDocument = state.currentChartDocument) {
   persistChartIdToStorage(chartId, {
-    legacyStorageKey: LAST_CHART_STORAGE_KEY
+    legacyStorageKey: LAST_CHART_STORAGE_KEY,
+    chartDocument
   });
 }
 

@@ -1,7 +1,9 @@
 const THEME_STORAGE_KEY = 'sharp-eleven-theme';
-const DEFAULT_PALETTE = 'iReal';
+const DEFAULT_PALETTE = 'classic-paper';
+const KNOWN_PALETTES = [DEFAULT_PALETTE, 'blue-note'];
 const LEGACY_PALETTE_NAMES = new Map<string, string>([
-  ['current', DEFAULT_PALETTE]
+  ['current', DEFAULT_PALETTE],
+  ['iReal', 'blue-note']
 ]);
 const THEME_DATA_SELECTOR_RE = /:root\s*\[[^\]]*data-theme\s*=\s*["']([^"']+)["']\]/i;
 const EXPLORATION_DEPTH_LIMIT = 12;
@@ -9,7 +11,7 @@ const EXPLORATION_DEPTH_LIMIT = 12;
 type SharpElevenPaletteName = string;
 
 function listThemeNamesFromStylesheets(): SharpElevenPaletteName[] {
-  const names = new Set<string>([DEFAULT_PALETTE]);
+  const names = new Set<string>(KNOWN_PALETTES);
   const styleSheets = Array.from(document.styleSheets ?? []);
   const visitedStyleSheets = new Set<CSSStyleSheet>();
 

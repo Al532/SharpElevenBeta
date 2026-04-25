@@ -3,6 +3,7 @@
 ## Default Behavior
 
 - Work autonomously by default.
+- Launch as many sub-agents as necessary, only when it genuinely accelerates the work or reduces a concrete risk.
 - Preserve existing behavior unless the user asks for a behavioral change.
 - Prefer finishing the requested task end-to-end over asking avoidable questions.
 - Make reasonable assumptions from repository context.

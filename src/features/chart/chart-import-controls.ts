@@ -160,10 +160,8 @@ export function bindChartImportControls({
   openIRealForumButton?.addEventListener('click', async () => {
     const openedInternally = await onOpenForumTracks?.();
     if (openedInternally) {
-      setImportStatus?.('Forum tracks opened in the in-app browser. Click on a link to import.');
       return;
     }
     window.open(forumTracksUrl, '_blank', 'noopener,noreferrer');
-    setImportStatus?.('Forum tracks opened in a new tab. Click on a link to import.');
   });
 }

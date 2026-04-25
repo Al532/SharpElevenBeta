@@ -78,7 +78,7 @@ export async function renderSelectedFixture({
   getAvailableDocuments?: () => ChartDocument[];
   stopPlayback?: (options?: { resetPosition?: boolean }) => Promise<unknown>;
   createPracticeSessionOptions?: (playbackPlan: ChartPlaybackPlan) => { playbackPlan?: ChartPlaybackPlan; tempo?: number };
-  persistChartId?: (chartId: string) => void;
+  persistChartId?: (chartId: string, chartDocument?: ChartDocument) => void;
   selectionController?: ChartSelectionController;
   sheetStyle?: HTMLElement | null;
   sheetTitle?: HTMLElement | null;
@@ -116,7 +116,7 @@ export async function renderSelectedFixture({
   selectionController?.setOrderedBarIds((chartDocument?.bars || []).map((bar) => bar.id));
   selectionController?.clear();
   state.currentSelectionPracticeSession = null;
-  persistChartId?.(chartDocument.metadata.id);
+  persistChartId?.(chartDocument.metadata.id, chartDocument);
 
   if (sheetStyle) sheetStyle.textContent = viewModel.metadata.styleReference || viewModel.metadata.style || '';
   if (sheetTitle) sheetTitle.textContent = viewModel.metadata.title || '';

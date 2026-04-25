@@ -19,16 +19,17 @@
   <meta name="twitter:image" content="https://al532.github.io/JazzProgressionTrainerDemo/social-preview-wide.png">
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="shortcut icon" href="./favicon.png">
+  <script src="./theme-bootstrap.js"></script>
   <link rel="stylesheet" href="./theme.css">
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./src/home.ts"></script>
 </head>
 <body class="home-body">
   <header class="home-header">
-    <a class="home-brand" href="./index.html" aria-label="Sharp Eleven home">
+    <div class="home-brand" aria-label="Sharp Eleven">
       <img class="home-brand-logo" src="./logo/classic-paper.png" alt="Logo Classic Paper" width="32" height="32">
       <span>Sharp Eleven</span>
-    </a>
+    </div>
     <nav class="home-header-links" aria-label="Project links">
       <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -60,7 +61,10 @@
   </main>
 
   <footer class="home-footer">
-    <select id="home-theme-select" class="home-theme-select" aria-label="Choose theme"></select>
+    <div class="home-theme-picker">
+      <button id="home-theme-button" class="home-theme-button" type="button" aria-haspopup="menu" aria-expanded="false"></button>
+      <div id="home-theme-menu" class="home-theme-menu hidden" role="menu" aria-label="Choose theme"></div>
+    </div>
   </footer>
 </body>
 </html>

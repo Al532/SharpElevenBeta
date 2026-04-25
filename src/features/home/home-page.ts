@@ -2,8 +2,11 @@ import type { ChartDocument } from '../../core/types/contracts';
 import type { SharpElevenThemeApi } from '../app/app-theme.js';
 
 import {
+  type HomeChartSummary,
   loadPersistedChartLibrary,
-  loadRecentChartIds
+  loadPersistedHomeChartSummary,
+  loadRecentChartIds,
+  saveHomeChartSummaryFromLibrary
 } from '../chart/chart-persistence.js';
 
 type HomePageDom = {
@@ -11,7 +14,8 @@ type HomePageDom = {
   recentChartsEmpty: HTMLElement | null;
   playlistsList: HTMLElement | null;
   playlistsEmpty: HTMLElement | null;
-  themeSelect: HTMLSelectElement | null;
+  themeButton: HTMLButtonElement | null;
+  themeMenu: HTMLElement | null;
 };
 
 function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
@@ -36,7 +40,7 @@ function getChartSubtitle(document: ChartDocument): string {
   };
 
   const parts: string[] = [];
-  const metadata = document.metadata || {};
+  const metadata = document.metadata;
   const source = document.source || {};
 
   pushIfDistinct(parts, metadata.composer);
@@ -63,37 +67,70 @@ type ThemeHost = Window & {
   SharpElevenTheme?: SharpElevenThemeApi;
 };
 
-function initializeThemeSelector(themeSelect: HomePageDom['themeSelect']): void {
-  if (!themeSelect) return;
+const THEME_LABELS = new Map<string, string>([
+  ['classic-paper', 'Classic Paper'],
+  ['blue-note', 'Blue Note']
+]);
 
+function getThemeLabel(paletteName: string): string {
+  return THEME_LABELS.get(paletteName) ?? paletteName;
+}
+
+function initializeThemeSelector(
+  themeButton: HomePageDom['themeButton'],
+  themeMenu: HomePageDom['themeMenu']
+): void {
+  if (!themeButton || !themeMenu) return;
   const themeApi = (window as ThemeHost).SharpElevenTheme;
   if (!themeApi) {
-    themeSelect.disabled = true;
+    themeButton.disabled = true;
     return;
   }
 
   const availableThemes = themeApi.listPalettes();
-  themeSelect.replaceChildren();
+  const setMenuOpen = (isOpen: boolean): void => {
+    themeMenu.classList.toggle('hidden', !isOpen);
+    themeButton.setAttribute('aria-expanded', String(isOpen));
+  };
+
+  const renderSelectedTheme = (): void => {
+    themeButton.textContent = `Theme: ${getThemeLabel(themeApi.getPalette())}`;
+  };
+
+  themeMenu.replaceChildren();
 
   for (const paletteName of availableThemes) {
-    const option = document.createElement('option');
-    option.value = paletteName;
-    option.textContent = paletteName;
-    themeSelect.append(option);
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'home-theme-menu-item';
+    option.setAttribute('role', 'menuitemradio');
+    option.dataset.theme = paletteName;
+    option.textContent = `Theme: ${getThemeLabel(paletteName)}`;
+    option.addEventListener('click', () => {
+      try {
+        themeApi.setPalette(paletteName);
+        renderSelectedTheme();
+        setMenuOpen(false);
+      } catch (error) {
+        console.error('Failed to change theme.', error);
+        renderSelectedTheme();
+      }
+    });
+    themeMenu.append(option);
   }
 
-  themeSelect.value = themeApi.getPalette();
-  themeSelect.disabled = false;
+  renderSelectedTheme();
+  themeButton.disabled = false;
 
-  themeSelect.addEventListener('change', () => {
-    const selectedTheme = themeSelect.value;
-    try {
-      const appliedTheme = themeApi.setPalette(selectedTheme);
-      themeSelect.value = appliedTheme;
-    } catch (error) {
-      console.error('Failed to change theme.', error);
-      themeSelect.value = themeApi.getPalette();
+  themeButton.addEventListener('click', () => {
+    setMenuOpen(themeMenu.classList.contains('hidden'));
+  });
+
+  document.addEventListener('click', (event) => {
+    if (event.target instanceof Node && (themeButton.contains(event.target) || themeMenu.contains(event.target))) {
+      return;
     }
+    setMenuOpen(false);
   });
 }
 
@@ -125,6 +162,29 @@ function renderRecentCharts(
   }
 }
 
+function renderRecentChartSummary(
+  recentCharts: HomeChartSummary['recentCharts'],
+  dom: Pick<HomePageDom, 'recentChartsList' | 'recentChartsEmpty'>
+): void {
+  if (!dom.recentChartsList) return;
+
+  dom.recentChartsList.replaceChildren();
+  dom.recentChartsEmpty?.classList.toggle('hidden', recentCharts.length > 0);
+
+  for (const chart of recentCharts) {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    const targetUrl = new URL('./chart/index.html', window.location.href);
+    targetUrl.searchParams.set('chart', chart.id);
+    link.href = targetUrl.toString();
+    link.className = 'home-list-link';
+    link.append(createTextElement('span', 'home-list-title', chart.title || 'Untitled chart'));
+
+    item.append(link);
+    dom.recentChartsList.append(item);
+  }
+}
+
 function renderPlaylists(
   documents: ChartDocument[],
   librarySource: string,
@@ -150,15 +210,49 @@ function renderPlaylists(
     const targetUrl = new URL('./chart/index.html', window.location.href);
     targetUrl.searchParams.set('playlist', playlistName);
     link.href = targetUrl.toString();
-    link.className = 'home-list-link';
+    link.className = 'home-list-link home-playlist-link';
     link.append(createTextElement('span', 'home-list-title', playlistName));
-    link.append(createTextElement('span', 'home-list-meta', `${count} chart${count === 1 ? '' : 's'}`));
+    link.append(createTextElement('span', 'home-list-meta', `(${count})`));
     item.append(link);
     dom.playlistsList.append(item);
   }
 }
 
+function renderPlaylistSummary(
+  playlists: HomeChartSummary['playlists'],
+  dom: Pick<HomePageDom, 'playlistsList' | 'playlistsEmpty'>
+): void {
+  if (!dom.playlistsList) return;
+
+  dom.playlistsList.replaceChildren();
+  dom.playlistsEmpty?.classList.toggle('hidden', playlists.length > 0);
+
+  for (const playlist of playlists) {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    const targetUrl = new URL('./chart/index.html', window.location.href);
+    targetUrl.searchParams.set('playlist', playlist.name);
+    link.href = targetUrl.toString();
+    link.className = 'home-list-link home-playlist-link';
+    link.append(createTextElement('span', 'home-list-title', playlist.name));
+    link.append(createTextElement('span', 'home-list-meta', `(${playlist.count})`));
+    item.append(link);
+    dom.playlistsList.append(item);
+  }
+}
+
+function renderHomeChartSummary(summary: HomeChartSummary, dom: HomePageDom): void {
+  renderRecentChartSummary(summary.recentCharts, dom);
+  renderPlaylistSummary(summary.playlists, dom);
+}
+
 export async function initializeHomePage(dom: HomePageDom): Promise<void> {
+  const cachedSummary = loadPersistedHomeChartSummary();
+  if (cachedSummary) {
+    renderHomeChartSummary(cachedSummary, dom);
+  }
+  initializeThemeSelector(dom.themeButton, dom.themeMenu);
+
   const persistedLibrary = await loadPersistedChartLibrary();
   const documents = persistedLibrary?.documents || [];
   const librarySource = String(persistedLibrary?.source || '').trim();
@@ -168,5 +262,5 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
 
   renderRecentCharts(documentsById, dom);
   renderPlaylists(documents, librarySource, dom);
-  initializeThemeSelector(dom.themeSelect);
+  saveHomeChartSummaryFromLibrary(persistedLibrary);
 }

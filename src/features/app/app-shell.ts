@@ -44,7 +44,7 @@ export function initializeAppShell({
   updateModeLinkState(chartLink, normalizedMode === 'chart');
 
   if (modeBadge) {
-    modeBadge.textContent = normalizedMode === 'chart' ? 'Chart Mode' : 'Drill Mode';
+    modeBadge.textContent = normalizedMode === 'chart' ? 'Chart mode' : 'Drill mode';
   }
 
   return {

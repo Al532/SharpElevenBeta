@@ -1,15 +1,19 @@
 (function initializeSharpElevenTheme(globalScope) {
   var storageKey = 'sharp-eleven-theme';
-  var defaultPalette = 'iReal';
-  var legacyPaletteNames = { current: defaultPalette };
+  var defaultPalette = 'classic-paper';
+  var knownPalettes = [defaultPalette, 'blue-note'];
+  var legacyPaletteNames = { current: defaultPalette, iReal: 'blue-note' };
   var themeDataSelector = /:root\s*\[[^\]]*data-theme\s*=\s*["']([^"']+)["']\]/i;
   var root = document.documentElement;
   function listThemeNamesFromStylesheets() {
-    var names = [defaultPalette];
+    var names = knownPalettes.slice();
     var encountered = {};
     var styleSheets = Array.prototype.slice.call(document.styleSheets || []);
     var visitedSheets = [];
-    encountered[defaultPalette] = true;
+    var paletteIndex;
+    for (paletteIndex = 0; paletteIndex < names.length; paletteIndex += 1) {
+      encountered[names[paletteIndex]] = true;
+    }
 
     function inspectStyleSheet(styleSheet, depth) {
       var currentDepth = depth || 0;

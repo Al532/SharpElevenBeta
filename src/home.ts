@@ -41,7 +41,8 @@ initializeHomePage({
   recentChartsEmpty: document.getElementById('home-recent-charts-empty'),
   playlistsList: document.getElementById('home-playlists'),
   playlistsEmpty: document.getElementById('home-playlists-empty'),
-  themeSelect: document.getElementById('home-theme-select') as HTMLSelectElement | null
+  themeButton: document.getElementById('home-theme-button') as HTMLButtonElement | null,
+  themeMenu: document.getElementById('home-theme-menu') as HTMLElement | null
 }).catch((error) => {
   console.error('Failed to initialize home page.', error);
 });

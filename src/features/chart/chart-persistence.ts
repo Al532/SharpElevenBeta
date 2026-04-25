@@ -19,6 +19,17 @@ type ChartLibraryPayload = {
   documents: ChartDocument[];
 };
 
+export type HomeChartSummary = {
+  recentCharts: Array<{
+    id: string;
+    title: string;
+  }>;
+  playlists: Array<{
+    name: string;
+    count: number;
+  }>;
+};
+
 function normalizeMixerVolume(value: unknown, fallbackValue: number): number {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
     return fallbackValue;
@@ -83,6 +94,118 @@ function normalizePersistedChartLibrary(
     source,
     documents
   };
+}
+
+function normalizeHomeChartSummary(value: unknown): HomeChartSummary | null {
+  if (!value || typeof value !== 'object') return null;
+  const recentChartsValue = (value as { recentCharts?: unknown }).recentCharts;
+  const playlistsValue = (value as { playlists?: unknown }).playlists;
+
+  const recentCharts = Array.isArray(recentChartsValue)
+    ? recentChartsValue
+        .map((chart) => {
+          if (!chart || typeof chart !== 'object') return null;
+          const id = String((chart as { id?: unknown }).id || '').trim();
+          const title = String((chart as { title?: unknown }).title || '').trim();
+          if (!id) return null;
+          return {
+            id,
+            title: title || 'Untitled chart'
+          };
+        })
+        .filter((chart): chart is HomeChartSummary['recentCharts'][number] => Boolean(chart))
+        .slice(0, 3)
+    : [];
+
+  const playlists = Array.isArray(playlistsValue)
+    ? playlistsValue
+        .map((playlist) => {
+          if (!playlist || typeof playlist !== 'object') return null;
+          const name = String((playlist as { name?: unknown }).name || '').trim();
+          const count = Number((playlist as { count?: unknown }).count || 0);
+          if (!name || !Number.isFinite(count) || count <= 0) return null;
+          return {
+            name,
+            count
+          };
+        })
+        .filter((playlist): playlist is HomeChartSummary['playlists'][number] => Boolean(playlist))
+    : [];
+
+  if (recentCharts.length === 0 && playlists.length === 0) return null;
+  return {
+    recentCharts,
+    playlists
+  };
+}
+
+function createHomeChartSummary(library: ChartLibraryPayload | null): HomeChartSummary | null {
+  const documents = library?.documents || [];
+  if (documents.length === 0) return null;
+
+  const documentsById = new Map(
+    documents.map((document) => [String(document.metadata?.id || ''), document])
+  );
+  const recentCharts = loadRecentChartIds()
+    .map((chartId) => documentsById.get(chartId))
+    .filter((document): document is ChartDocument => Boolean(document))
+    .map((document) => ({
+      id: String(document.metadata.id || ''),
+      title: String(document.metadata.title || '').trim() || 'Untitled chart'
+    }));
+
+  const playlistCounts = new Map<string, number>();
+  for (const document of documents) {
+    const playlistName = String(document.source?.playlistName || library?.source || '').trim();
+    if (!playlistName) continue;
+    playlistCounts.set(playlistName, (playlistCounts.get(playlistName) || 0) + 1);
+  }
+
+  const playlists = [...playlistCounts.entries()]
+    .sort(([leftName], [rightName]) => leftName.localeCompare(rightName, 'en', { sensitivity: 'base' }))
+    .map(([name, count]) => ({
+      name,
+      count
+    }));
+
+  if (recentCharts.length === 0 && playlists.length === 0) return null;
+  return {
+    recentCharts,
+    playlists
+  };
+}
+
+function saveHomeChartSummary(summary: HomeChartSummary | null): void {
+  saveChartUiSettings({
+    homeChartSummary: summary
+  });
+}
+
+export function loadPersistedHomeChartSummary(): HomeChartSummary | null {
+  const chartUiSettings = loadChartUiSettings();
+  return normalizeHomeChartSummary(chartUiSettings?.homeChartSummary);
+}
+
+export function saveHomeChartSummaryFromLibrary(library: ChartLibraryPayload | null): void {
+  saveHomeChartSummary(createHomeChartSummary(library));
+}
+
+function updateHomeChartSummaryRecentChart(chartDocument: ChartDocument | null | undefined): void {
+  if (!chartDocument?.metadata?.id) return;
+  const previousSummary = loadPersistedHomeChartSummary();
+  if (!previousSummary) return;
+
+  const id = String(chartDocument.metadata.id || '').trim();
+  const title = String(chartDocument.metadata.title || '').trim() || 'Untitled chart';
+  const recentCharts = [
+    { id, title },
+    ...previousSummary.recentCharts.filter((chart) => chart.id !== id)
+  ].slice(0, 3);
+
+  saveHomeChartSummary({
+    ...previousSummary,
+    recentCharts
+  });
 }
 
 function collectExistingPlaylistNameLookup(documents: ChartDocument[]): Set<string> {
@@ -168,8 +291,8 @@ export function loadPersistedChartId({
   legacyStorageKey?: string;
 } = {}): string {
   const chartUiSettings = loadChartUiSettings();
-  if (chartUiSettings?.lastChartId) {
-    return String(chartUiSettings.lastChartId);
+  if (chartUiSettings && Object.prototype.hasOwnProperty.call(chartUiSettings, 'lastChartId')) {
+    return String(chartUiSettings.lastChartId || '');
   }
   if (!legacyStorageKey) return '';
   try {
@@ -192,7 +315,7 @@ export function loadRecentChartIds(): string[] {
 
 export function persistChartId(
   chartId: string,
-  { legacyStorageKey = '' }: { legacyStorageKey?: string } = {}
+  { legacyStorageKey = '', chartDocument = null }: { legacyStorageKey?: string; chartDocument?: ChartDocument | null } = {}
 ): void {
   const normalizedChartId = String(chartId || '').trim();
   const nextRecentChartIds = normalizedChartId
@@ -216,6 +339,7 @@ export function persistChartId(
   } catch {
     // Ignore storage failures so charts still work in restricted contexts.
   }
+  updateHomeChartSummaryRecentChart(chartDocument);
 }
 
 export function loadPersistedPlaybackSettings({
@@ -348,7 +472,8 @@ export async function persistChartLibrary({
     if (!database) {
       saveChartUiSettings({
         importedChartLibrary: mergedLibrary,
-        importedChartLibrarySource: mergedLibrary.source
+        importedChartLibrarySource: mergedLibrary.source,
+        homeChartSummary: createHomeChartSummary(mergedLibrary)
       });
       return mergedLibrary;
     }
@@ -358,7 +483,8 @@ export async function persistChartLibrary({
       await waitForRequest(store.put(mergedLibrary, IMPORTED_CHART_LIBRARY_KEY));
       saveChartUiSettings({
         importedChartLibrary: null,
-        importedChartLibrarySource: mergedLibrary.source
+        importedChartLibrarySource: mergedLibrary.source,
+        homeChartSummary: createHomeChartSummary(mergedLibrary)
       });
     } finally {
       database.close();
@@ -366,7 +492,8 @@ export async function persistChartLibrary({
   } catch {
     saveChartUiSettings({
       importedChartLibrary: mergedLibrary,
-      importedChartLibrarySource: mergedLibrary.source
+      importedChartLibrarySource: mergedLibrary.source,
+      homeChartSummary: createHomeChartSummary(mergedLibrary)
     });
   }
 
@@ -376,7 +503,10 @@ export async function persistChartLibrary({
 export async function clearPersistedChartLibrary(): Promise<void> {
   saveChartUiSettings({
     importedChartLibrary: null,
-    importedChartLibrarySource: ''
+    importedChartLibrarySource: '',
+    homeChartSummary: null,
+    lastChartId: '',
+    recentChartIds: []
   });
 
   try {

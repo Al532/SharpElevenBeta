@@ -5,6 +5,7 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
@@ -39,6 +40,8 @@ public class IrealBrowserActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
         super.onCreate(savedInstanceState);
+        getWindow().setStatusBarColor(Color.parseColor("#F7F1E6"));
+        getWindow().setNavigationBarColor(Color.parseColor("#F7F1E6"));
         setContentView(R.layout.activity_ireal_browser);
 
         progressBar = findViewById(R.id.ireal_browser_progress);

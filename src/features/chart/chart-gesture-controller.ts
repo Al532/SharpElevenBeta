@@ -26,6 +26,12 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return Boolean(element.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="textbox"]'));
 }
 
+function isInteractiveControlTarget(target: EventTarget | null): boolean {
+  const element = getTargetElement(target);
+  if (!(element instanceof Element)) return false;
+  return Boolean(element.closest('button, a, input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="button"], [role="textbox"]'));
+}
+
 function getBarCellFromTarget(target: EventTarget | null): HTMLElement | null {
   const element = getTargetElement(target);
   if (!(element instanceof HTMLElement)) return null;
@@ -42,6 +48,15 @@ function isChartTapTarget(target: EventTarget | null): boolean {
   const element = getTargetElement(target);
   if (!(element instanceof Element)) return false;
   return Boolean(element.closest('.chart-workspace, #sheet-grid, .chart-sheet-grid, .chart-sheet-panel, .chart-bar-cell'));
+}
+
+function isOverlayOpenTarget(target: EventTarget | null): boolean {
+  const element = getTargetElement(target);
+  if (!(element instanceof Element)) return false;
+  return Boolean(
+    element.closest('.chart-app.overlay-open')
+    && element.closest('.chart-mobile-backdrop, .chart-top-overlay, .chart-bottom-overlay')
+  );
 }
 
 export function createChartGestureController({
@@ -77,6 +92,7 @@ export function createChartGestureController({
     touchStartY: number;
     touchMoved: boolean;
     touchStartedInChart: boolean;
+    touchStartedInOverlay: boolean;
   } = {
     pointerId: null,
     pointerType: '',
@@ -92,7 +108,8 @@ export function createChartGestureController({
     touchStartX: 0,
     touchStartY: 0,
     touchMoved: false,
-    touchStartedInChart: false
+    touchStartedInChart: false,
+    touchStartedInOverlay: false
   };
 
   function clearLongPressTimer() {
@@ -123,6 +140,7 @@ export function createChartGestureController({
     gesture.touchStartY = 0;
     gesture.touchMoved = false;
     gesture.touchStartedInChart = false;
+    gesture.touchStartedInOverlay = false;
   }
 
   function renderSelection() {
@@ -277,7 +295,9 @@ export function createChartGestureController({
     }, true);
 
     document.addEventListener('touchstart', (event) => {
-      gesture.touchStartedInChart = isChartTapTarget(event.target);
+      const startedInOverlay = isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target);
+      gesture.touchStartedInChart = isChartTapTarget(event.target) || startedInOverlay;
+      gesture.touchStartedInOverlay = startedInOverlay;
       if (!gesture.touchStartedInChart) return;
       const touch = getPrimaryTouch(event);
       if (!touch) return;
@@ -290,19 +310,37 @@ export function createChartGestureController({
       if (!gesture.touchStartedInChart) return;
       const touch = getPrimaryTouch(event);
       if (!touch) return;
-      if (Math.max(
-        Math.abs(touch.clientX - gesture.touchStartX),
-        Math.abs(touch.clientY - gesture.touchStartY)
-      ) > TAP_TRIGGER_DISTANCE_PX) {
+      const deltaX = touch.clientX - gesture.touchStartX;
+      const deltaY = touch.clientY - gesture.touchStartY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      if (Math.max(absX, absY) > TAP_TRIGGER_DISTANCE_PX) {
         gesture.touchMoved = true;
       }
-    }, { passive: true, capture: true });
+      if (gesture.touchStartedInOverlay && absX >= SWIPE_LOCK_DISTANCE_PX && absX > absY * SWIPE_DIRECTION_RATIO) {
+        event.preventDefault();
+      }
+    }, { passive: false, capture: true });
 
     document.addEventListener('touchend', (event) => {
       if (Date.now() < gesture.suppressClickUntil) return;
       if (Date.now() < gesture.suppressTapUntil) return;
       if (gesture.mode !== 'idle' && gesture.mode !== 'pending') return;
       if (!gesture.touchStartedInChart) return;
+      const touch = getPrimaryTouch(event);
+      const deltaX = touch ? touch.clientX - gesture.touchStartX : 0;
+      const deltaY = touch ? touch.clientY - gesture.touchStartY : 0;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      if (gesture.touchStartedInOverlay && absX >= SWIPE_TRIGGER_DISTANCE_PX && absX > absY * SWIPE_DIRECTION_RATIO) {
+        if (goToAdjacentChart?.(deltaX < 0 ? 1 : -1)) {
+          event.preventDefault();
+        }
+        suppressNextClick();
+        gesture.touchStartedInChart = false;
+        gesture.touchStartedInOverlay = false;
+        return;
+      }
       if (gesture.touchMoved) return;
       if (isEditableTarget(event.target)) return;
       if (hasActiveSelection?.()) {

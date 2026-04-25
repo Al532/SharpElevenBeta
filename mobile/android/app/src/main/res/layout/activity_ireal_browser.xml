@@ -2,26 +2,26 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F7FB"
+    android:background="#F7F1E6"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#F4F7FB"
-        android:elevation="4dp"
+        android:background="#F7F1E6"
+        android:elevation="0dp"
         android:gravity="center_vertical"
-        android:minHeight="56dp"
+        android:minHeight="68dp"
         android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingTop="8dp"
+        android:paddingStart="16dp"
+        android:paddingTop="9dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="8dp">
+        android:paddingBottom="9dp">
 
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/ireal_browser_close_button"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
             android:layout_margin="0dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/ireal_browser_back"
@@ -29,7 +29,7 @@
             android:padding="0dp"
             android:scaleType="center"
             android:src="@drawable/ireal_browser_back_arrow"
-            android:tint="#0D5FBA" />
+            android:tint="#C49A68" />
 
         <TextView
             android:id="@+id/ireal_browser_banner_title"
@@ -38,7 +38,7 @@
             android:layout_marginStart="12dp"
             android:layout_weight="1"
             android:text="@string/ireal_browser_title"
-            android:textColor="#0F1720"
+            android:textColor="#111111"
             android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -47,7 +47,9 @@
         android:id="@+id/ireal_browser_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="4dp"
+        android:layout_height="3dp"
+        android:progressTint="#C49A68"
+        android:progressBackgroundTint="#E6DFD1"
         android:max="100" />
 
     <WebView

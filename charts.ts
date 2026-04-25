@@ -13,7 +13,7 @@ import {
   setChartImportStatus
 } from './src/features/chart/chart-import-controls.js';
 
-const themeApi = initializeSharpElevenTheme();
+initializeSharpElevenTheme();
 
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com';
 
@@ -22,7 +22,6 @@ const dom = {
   openIRealForumButton: document.getElementById('open-ireal-forum-button') as HTMLButtonElement | null,
   irealBackupInput: document.getElementById('ireal-backup-input') as HTMLInputElement | null,
   clearAllChartsButton: document.getElementById('clear-all-charts-button') as HTMLButtonElement | null,
-  homeThemeSelect: document.getElementById('home-theme-select') as HTMLSelectElement | null,
   chartImportStatus: document.getElementById('chart-import-status')
 };
 
@@ -37,35 +36,6 @@ function getErrorMessage(error: unknown) {
 function pluralizeChartLabel(count: number) {
   return `chart${count === 1 ? '' : 's'}`;
 }
-
-function initializeThemeSelector(themeSelect: HTMLSelectElement | null) {
-  if (!themeSelect) return;
-
-  const availableThemes = themeApi.listPalettes();
-  themeSelect.replaceChildren();
-
-  for (const paletteName of availableThemes) {
-    const option = document.createElement('option');
-    option.value = paletteName;
-    option.textContent = paletteName;
-    themeSelect.append(option);
-  }
-
-  themeSelect.value = themeApi.getPalette();
-  themeSelect.disabled = false;
-
-  themeSelect.addEventListener('change', () => {
-    try {
-      const appliedTheme = themeApi.setPalette(themeSelect.value);
-      themeSelect.value = appliedTheme;
-    } catch (error) {
-      console.error('Failed to change theme.', error);
-      themeSelect.value = themeApi.getPalette();
-    }
-  });
-}
-
-initializeThemeSelector(dom.homeThemeSelect);
 
 async function importFromRawText(rawText: string, sourceFile: string) {
   const trimmedText = String(rawText || '').trim();

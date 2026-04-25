@@ -7,20 +7,21 @@ The base theme palettes (`--c-*` source values) live in `public/theme-palettes.c
 
 The available palette names include:
 
-- `iReal`: the base visual language used by the app (default).
+- `classic-paper`: the default visual language used by the app.
+- `blue-note`: the blue palette formerly named `iReal`.
 
 Use the browser console to test palettes:
 
 ```js
 SharpElevenTheme.listPalettes();
-SharpElevenTheme.setPalette('iReal');
+SharpElevenTheme.setPalette('blue-note');
 SharpElevenTheme.getPalette();
 SharpElevenTheme.resetPalette();
 ```
 
 The selected palette is stored in `localStorage` under `sharp-eleven-theme`.
 
-### iReal Base Palette Scope
+### Base Palette Scope
 
 The base palette is intentionally minimal: 6 source tokens in `theme-palettes.css`:
 
