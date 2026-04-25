@@ -269,6 +269,18 @@ function getSupAnchorCompressionClass(base: string | null | undefined) {
   }
 }
 
+function getSupReserveClass(sup: QualityDisplayPart) {
+  const value = sup.type === 'text' ? String(sup.text || '') : String(sup.symbolName || '');
+  if (!value) return '';
+  if (value.length >= 4 || value.includes('alt') || value.includes('11') || value.includes('13')) {
+    return ' chord-symbol-sup-reserve-long';
+  }
+  if (value.length >= 2 || sup.type === 'symbol') {
+    return ' chord-symbol-sup-reserve-medium';
+  }
+  return '';
+}
+
 export function renderChordSymbolHtml(
   rootName: string | null | undefined,
   quality: string | null | undefined,
@@ -291,10 +303,11 @@ export function renderChordSymbolHtml(
   const baseCompressionClass = base.type === 'text' ? getSegmentCompressionClass(base.text, 'base') : '';
   const supCompressionClass = sup.type === 'text' ? getSegmentCompressionClass(sup.text, 'sup') : '';
   const supAnchorCompressionClass = safeBase && base.type === 'text' ? getSupAnchorCompressionClass(base.text) : '';
+  const supReserveClass = safeSup ? getSupReserveClass(sup) : '';
   const baseSymbolClass = base.type === 'symbol' ? ` chord-symbol-base-symbol chord-symbol-base-symbol-${base.symbolName}` : '';
 
   return [
-    `<span class="chord-symbol${symbolContextClass}">`,
+    `<span class="chord-symbol${symbolContextClass}${supReserveClass}">`,
     '<span class="chord-symbol-topline">',
     '<span class="chord-symbol-head">',
     '<span class="chord-symbol-main">',
