@@ -276,25 +276,24 @@ function syncChartCutoutPadding() {
 
 function applyChartDisplayCssVariables() {
   const rootStyle = document.documentElement.style;
-  const { rowSpacing, sheetHeader, barGeometry, chordSizing } = CHART_DISPLAY_CONFIG;
+  const { rowSpacing, sheetHeader, barGeometry, chordSizing, displacement } = CHART_DISPLAY_CONFIG;
 
   const setCssVar = (name: string, value: string | number) => {
     rootStyle.setProperty(name, String(value));
   };
 
   setCssVar('--chart-config-row-gap-min', `${rowSpacing.minPx}px`);
+  setCssVar('--chart-config-sheet-bottom-margin', `${CHART_DISPLAY_CONFIG.layout.sheetBottomMarginPx}px`);
   setCssVar('--chart-config-sheet-header-padding-top-portrait', `${sheetHeader.portraitTopPaddingPx}px`);
   setCssVar('--chart-config-sheet-header-padding-top-landscape', `${sheetHeader.landscapeTopPaddingPx}px`);
   setCssVar('--chart-config-cutout-side-padding', `${sheetHeader.cutoutSidePaddingPx}px`);
   setCssVar('--chart-config-sheet-title-offset-x', `${sheetHeader.titleOffsetXPx}px`);
 
   setCssVar('--chart-config-bar-cell-min-height', `${barGeometry.cellMinHeightPx}px`);
-  setCssVar('--chart-config-bar-cell-padding-top', `${barGeometry.cellPadding.topPx}px`);
-  setCssVar('--chart-config-bar-cell-padding-x', `${barGeometry.cellPadding.horizontalPx}px`);
-  setCssVar('--chart-config-bar-cell-padding-bottom', `${barGeometry.cellPadding.bottomPx}px`);
-  setCssVar('--chart-config-bar-line-top', `${barGeometry.barLine.topPx}px`);
+  setCssVar('--chart-config-bar-cell-vertical-size', `${barGeometry.cellVerticalSizePx}px`);
+  setCssVar('--chart-config-bar-cell-bottom-margin', `${barGeometry.cellBottomMarginPx}px`);
+  setCssVar('--chart-config-bar-content-inset-x', `${displacement.contentHorizontalInsetPx}px`);
   setCssVar('--chart-config-bar-line-height', `${barGeometry.barLine.heightPx}px`);
-  setCssVar('--chart-config-bar-body-margin-top', `${barGeometry.bodyMarginTopPx}px`);
   setCssVar('--chart-config-bar-body-size', `${chordSizing.baseRem}rem`);
   syncChartCutoutPadding();
 }
