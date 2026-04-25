@@ -7,7 +7,7 @@ export function setChartImportStatus(
 ): void {
   if (!chartImportStatusElement) return;
   chartImportStatusElement.textContent = message || '';
-  chartImportStatusElement.style.color = isError ? '#9f1239' : '';
+  chartImportStatusElement.style.color = isError ? 'var(--chart-status-error)' : '';
 }
 
 export async function importDefaultFixtureLibrary({

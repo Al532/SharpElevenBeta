@@ -3,7 +3,7 @@ import {
   createDefaultDrillAppSettingsFactory,
   createDrillLoadedSettingsApplier,
   createDrillLoadedSettingsFinalizer,
-  createDrillPlaybackSettingsResetter,
+  createPracticePlaybackSettingsResetter,
   createDrillSettingsSnapshotBuilder
 } from './drill-settings.js';
 
@@ -64,7 +64,7 @@ type CreateDrillSettingsAppAssemblyOptions = {
  *   buildSettingsSnapshot: ReturnType<typeof createDrillSettingsSnapshotBuilder>,
  *   applyLoadedSettings: ReturnType<typeof createDrillLoadedSettingsApplier>,
  *   finalizeLoadedSettings: ReturnType<typeof createDrillLoadedSettingsFinalizer>,
- *   resetPlaybackSettings: ReturnType<typeof createDrillPlaybackSettingsResetter>
+ *   resetPlaybackSettings: ReturnType<typeof createPracticePlaybackSettingsResetter>
  * }}
  */
 export function createDrillSettingsAppAssembly({
@@ -96,7 +96,7 @@ export function createDrillSettingsAppAssembly({
       state: loadFinalizer.state,
       helpers: loadFinalizer.helpers
     }),
-    resetPlaybackSettings: createDrillPlaybackSettingsResetter({
+    resetPlaybackSettings: createPracticePlaybackSettingsResetter({
       dom: resetter.dom,
       state: resetter.state,
       helpers: {

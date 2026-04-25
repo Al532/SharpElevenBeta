@@ -4,23 +4,18 @@ import type {
 } from '../types/contracts';
 
 import { resolveEmbeddedPlaybackApi } from './embedded-playback-globals.js';
-import {
-  LEGACY_DRILL_API_READY_EVENT,
-  PLAYBACK_API_READY_EVENT
-} from './embedded-playback-identifiers.js';
+import { PLAYBACK_API_READY_EVENT } from './embedded-playback-identifiers.js';
 import { waitForEmbeddedPlaybackApi } from './embedded-playback-ready.js';
 
 export function createEmbeddedPlaybackApiClient({
   getTargetWindow,
   getHostFrame,
   readyEventName = PLAYBACK_API_READY_EVENT,
-  legacyReadyEventName = LEGACY_DRILL_API_READY_EVENT,
   timeoutMs = 10000
 }: {
   getTargetWindow?: () => Window | null;
   getHostFrame?: () => HTMLIFrameElement | null;
   readyEventName?: string;
-  legacyReadyEventName?: string | null;
   timeoutMs?: number;
 } = {}): EmbeddedPlaybackApiClient {
   let cachedApi: EmbeddedPlaybackApi | null = null;
@@ -45,7 +40,6 @@ export function createEmbeddedPlaybackApiClient({
       getHostFrame,
       getEmbeddedApi: getApi,
       readyEventName,
-      legacyReadyEventName,
       timeoutMs
     }).catch((error) => {
       pendingReadyPromise = null;

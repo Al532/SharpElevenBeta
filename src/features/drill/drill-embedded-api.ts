@@ -7,9 +7,9 @@ import type {
   PlaybackSessionController
 } from '../../core/types/contracts';
 
-import { createEmbeddedPlaybackApi } from '../../core/playback/embedded-playback-api.js';
+import { createEmbeddedPlaybackApi as createCoreEmbeddedPlaybackApi } from '../../core/playback/embedded-playback-api.js';
 
-export function createEmbeddedDrillApi({
+export function createEmbeddedPlaybackApi({
   playbackRuntime,
   playbackController,
   applyEmbeddedPattern,
@@ -22,12 +22,10 @@ export function createEmbeddedDrillApi({
   ) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
   getPlaybackState?: () => EmbeddedPlaybackRuntimeState;
 } = {}): EmbeddedPlaybackApi {
-  return createEmbeddedPlaybackApi({
+  return createCoreEmbeddedPlaybackApi({
     playbackRuntime,
     playbackController,
     applyEmbeddedPattern,
     getPlaybackState
   });
 }
-
-export const createEmbeddedPlaybackApiBridge = createEmbeddedDrillApi;

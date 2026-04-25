@@ -1,4 +1,5 @@
 import { getAnalyticsDebugEnabled, setAnalyticsDebugEnabled, trackEvent } from './features/app/app-analytics.js';
+import { initializeSharpElevenTheme } from './features/app/app-theme.js';
 import {
   createProgressionEntry as createProgressionEntryBase,
   isProgressionModeToken,
@@ -12,7 +13,7 @@ import {
   saveStoredKeySelectionPreset,
   saveStoredProgressionSettings
 } from './features/progression/progression-storage.js';
-import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './features/drill/drill-display-placeholder-messages.js';
+import { DEFAULT_DISPLAY_PLACEHOLDER_MESSAGE } from './features/practice-playback/practice-playback-placeholder-messages.js';
 import { renderAccidentalTextHtml, renderChordSymbolHtml } from './core/music/chord-symbol-display.js';
 import pianoRhythmConfig from './core/music/piano-rhythm-config.js';
 import voicingConfig from './core/music/voicing-config.js';
@@ -23,7 +24,7 @@ import {
   TRAINER_PRESET_CONFIG
 } from './config/trainer-config.js';
 import {
-  readEmbeddedDrillMode,
+  readEmbeddedPlaybackMode,
   resolveAppBaseUrl,
   resolveAppVersion
 } from './features/app/app-environment.js';
@@ -110,6 +111,8 @@ declare global {
    Sharp Eleven App app.js
    ============================================================ */
 
+initializeSharpElevenTheme();
+
 // ---- Constants ----
 
 const KEY_NAMES_MAJOR = ['C', 'D\u266D', 'D', 'E\u266D', 'E', 'F', 'G\u266D', 'G', 'A\u266D', 'A', 'B\u266D', 'B'];
@@ -187,7 +190,7 @@ const {
 } = TRAINER_PRESET_CONFIG;
 
 const APP_VERSION = resolveAppVersion();
-const IS_EMBEDDED_DRILL_MODE = readEmbeddedDrillMode();
+const IS_EMBEDDED_PLAYBACK_MODE = readEmbeddedPlaybackMode();
 const CUSTOM_PATTERN_OPTION_VALUE = '__custom__';
 const PIANO_SAMPLE_LOW = PIANO_SAMPLE_RANGE.low;
 const PIANO_SAMPLE_HIGH = PIANO_SAMPLE_RANGE.high;
@@ -866,7 +869,7 @@ const DRUM_HIHAT_SAMPLE_URL = SAMPLE_LIBRARY_CONFIG.drumHiHatSampleUrl;
 const DRUM_RIDE_SAMPLE_URLS = SAMPLE_LIBRARY_CONFIG.drumRideSampleUrls;
 let applyPlaybackAudioMixerSettingsDelegate = null;
 const {
-  playbackSettingsRuntime: drillPlaybackSettingsRuntime
+  playbackSettingsRuntime: PracticePlaybackSettingsRuntime
 } = createDrillRuntimePrimitivesRootAppAssembly({
   playbackSettingsDom: dom,
   playbackSettingsMixer: {
@@ -895,7 +898,7 @@ const {
   applyMixerSettings,
   getDrumsMode,
   getBassMidi
-} = drillPlaybackSettingsRuntime;
+} = PracticePlaybackSettingsRuntime;
 
 
 
@@ -1667,7 +1670,6 @@ const {
     CUSTOM_PATTERN_OPTION_VALUE,
     DEFAULT_CHORDS_PER_BAR,
     DRUM_MODE_FULL_SWING,
-    IS_EMBEDDED_DRILL_MODE,
     NEXT_PREVIEW_UNIT_BARS,
     PATTERN_MODE_BOTH,
     WELCOME_GOAL_ONE_CHORD,
@@ -1894,6 +1896,7 @@ const {
     getProgressionAnalyticsProps,
     isOneChordModeActive,
     normalizePatternString,
+    normalizeChordsPerBarForCurrentPattern,
     normalizePresetName,
     normalizePresetNameForInput,
     refreshDisplayedHarmony,
@@ -2783,7 +2786,7 @@ const {
     applyMixerSettings
   },
   embeddedPlaybackState: {
-    isEmbeddedMode: IS_EMBEDDED_DRILL_MODE
+    isEmbeddedMode: IS_EMBEDDED_PLAYBACK_MODE
   },
   embeddedPlaybackRuntime: {
     ensureWalkingBassGenerator,

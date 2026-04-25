@@ -1,6 +1,6 @@
 import type {
-  DrillPlaybackAssemblyProvider,
-  DrillPlaybackControllerOptions,
+  PracticePlaybackAssemblyProvider,
+  PracticePlaybackControllerOptions,
   EmbeddedPatternAdapterOptions,
   EmbeddedPlaybackSettingsAdapterOptions,
   EmbeddedPlaybackRuntimeState,
@@ -9,13 +9,13 @@ import type {
   PublishedEmbeddedPlaybackAssemblyProvider
 } from '../../core/types/contracts';
 
-import { createDrillPlaybackAssemblyProvider } from '../../core/playback/drill-playback-assembly-provider.js';
+import { createPracticePlaybackAssemblyProvider } from '../../core/playback/practice-playback-assembly-provider.js';
 import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../../core/playback/published-embedded-playback-assembly-provider.js';
 import {
   createEmbeddedPatternAdapter,
   createEmbeddedPlaybackSettingsAdapter
 } from './drill-embedded-session.js';
-import { bootstrapEmbeddedDrillApi } from './drill-embedded-bootstrap.js';
+import { bootstrapEmbeddedPlaybackBridge } from './drill-embedded-bootstrap.js';
 
 export function normalizeEmbeddedVolume(value: unknown): string | null {
   const parsed = Number(value);
@@ -74,7 +74,7 @@ export function createEmbeddedPlaybackStateGetter({
   };
 }
 
-export function initializeEmbeddedDrillRuntime({
+export function initializeEmbeddedPracticeRuntime({
   patternAdapterOptions,
   playbackSettingsAdapterOptions,
   playbackStateOptions,
@@ -87,16 +87,16 @@ export function initializeEmbeddedDrillRuntime({
   patternAdapterOptions?: EmbeddedPatternAdapterOptions;
   playbackSettingsAdapterOptions?: EmbeddedPlaybackSettingsAdapterOptions;
   playbackStateOptions?: EmbeddedPlaybackStateOptions;
-  playbackControllerOptions?: DrillPlaybackControllerOptions;
-  playbackAssemblyProvider?: DrillPlaybackAssemblyProvider | null;
+  playbackControllerOptions?: PracticePlaybackControllerOptions;
+  playbackAssemblyProvider?: PracticePlaybackAssemblyProvider | null;
   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null;
   createPlaybackAssemblyProvider?: ((bindings: {
     applyEmbeddedPattern: ReturnType<typeof createEmbeddedPatternAdapter>;
     applyEmbeddedPlaybackSettings: ReturnType<typeof createEmbeddedPlaybackSettingsAdapter>;
     getEmbeddedPlaybackState: ReturnType<typeof createEmbeddedPlaybackStateGetter>;
-  }) => DrillPlaybackAssemblyProvider) | null;
+  }) => PracticePlaybackAssemblyProvider) | null;
   createPublishedPlaybackAssemblyProvider?: ((bindings: {
-    playbackAssemblyProvider: DrillPlaybackAssemblyProvider;
+    playbackAssemblyProvider: PracticePlaybackAssemblyProvider;
     applyEmbeddedPattern: ReturnType<typeof createEmbeddedPatternAdapter>;
     getEmbeddedPlaybackState: ReturnType<typeof createEmbeddedPlaybackStateGetter>;
   }) => PublishedEmbeddedPlaybackAssemblyProvider) | null;
@@ -120,7 +120,7 @@ export function initializeEmbeddedDrillRuntime({
       applyEmbeddedPlaybackSettings,
       getEmbeddedPlaybackState
     })
-    || createDrillPlaybackAssemblyProvider({
+    || createPracticePlaybackAssemblyProvider({
       ...playbackControllerOptions,
       applyEmbeddedPattern,
       applyEmbeddedPlaybackSettings,
@@ -150,7 +150,7 @@ export function initializeEmbeddedDrillRuntime({
     playbackController
   } = resolvedPlaybackAssemblyProvider.getAssembly();
 
-  bootstrapEmbeddedDrillApi({
+  bootstrapEmbeddedPlaybackBridge({
     playbackRuntime,
     playbackController,
     applyEmbeddedPattern,

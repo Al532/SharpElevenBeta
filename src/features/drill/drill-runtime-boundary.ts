@@ -1,14 +1,14 @@
 import type {
-  DrillPlaybackControllerOptions,
-  EmbeddedDrillRuntimeOptions,
+  PracticePlaybackControllerOptions,
+  EmbeddedPracticeRuntimeOptions,
   EmbeddedPatternAdapterOptions,
   EmbeddedPlaybackSettingsAdapterOptions,
   EmbeddedPlaybackStateOptions
 } from '../../core/types/contracts';
 
-export function createDrillPlaybackControllerOptions(
-  options: DrillPlaybackControllerOptions = {}
-): DrillPlaybackControllerOptions {
+export function createPracticePlaybackControllerOptions(
+  options: PracticePlaybackControllerOptions = {}
+): PracticePlaybackControllerOptions {
   return {
     ensureWalkingBassGenerator: options.ensureWalkingBassGenerator,
     isPlaying: options.isPlaying,
@@ -26,7 +26,7 @@ export function createDrillPlaybackControllerOptions(
   };
 }
 
-export const createDirectPlaybackControllerOptions = createDrillPlaybackControllerOptions;
+export const createDirectPlaybackControllerOptions = createPracticePlaybackControllerOptions;
 
 export function createEmbeddedPlaybackStateOptions(
   options: EmbeddedPlaybackStateOptions = {}
@@ -105,18 +105,18 @@ export function createEmbeddedPlaybackSettingsAdapterOptions(
   };
 }
 
-export function createEmbeddedDrillRuntimeOptions(
-  options: EmbeddedDrillRuntimeOptions = {}
-): EmbeddedDrillRuntimeOptions {
+export function createEmbeddedPracticeRuntimeOptions(
+  options: EmbeddedPracticeRuntimeOptions = {}
+): EmbeddedPracticeRuntimeOptions {
   return {
     patternAdapterOptions: createEmbeddedPatternAdapterOptions(options.patternAdapterOptions || {}),
     playbackSettingsAdapterOptions: createEmbeddedPlaybackSettingsAdapterOptions(options.playbackSettingsAdapterOptions || {}),
     playbackStateOptions: createEmbeddedPlaybackStateOptions(options.playbackStateOptions || {}),
-    playbackControllerOptions: createDrillPlaybackControllerOptions(options.playbackControllerOptions || {})
+    playbackControllerOptions: createPracticePlaybackControllerOptions(options.playbackControllerOptions || {})
   };
 }
 
-type EmbeddedDrillRuntimeAppDom = Record<string, unknown> & {
+type EmbeddedPracticeRuntimeAppDom = Record<string, unknown> & {
   tempoSlider?: { value?: string | number };
   tempoValue?: { textContent?: string | null };
   transpositionSelect?: { value?: string | null };
@@ -138,7 +138,7 @@ type EmbeddedDrillRuntimeAppDom = Record<string, unknown> & {
   };
 };
 
-export function createEmbeddedDrillRuntimeAppOptions({
+export function createEmbeddedPracticeRuntimeAppOptions({
   dom,
   stopIfPlaying,
   clearProgressionEditingState,
@@ -196,7 +196,7 @@ export function createEmbeddedDrillRuntimeAppOptions({
   togglePausePlayback,
   applyMixerSettings
 }: {
-  dom: EmbeddedDrillRuntimeAppDom;
+  dom: EmbeddedPracticeRuntimeAppDom;
   stopIfPlaying: () => void;
   clearProgressionEditingState: () => void;
   closeProgressionManager: () => void;
@@ -252,8 +252,8 @@ export function createEmbeddedDrillRuntimeAppOptions({
   stopPlayback: () => void;
   togglePausePlayback: () => void;
   applyMixerSettings: () => void;
-}): EmbeddedDrillRuntimeOptions {
-  return createEmbeddedDrillRuntimeOptions({
+}): EmbeddedPracticeRuntimeOptions {
+  return createEmbeddedPracticeRuntimeOptions({
     patternAdapterOptions: {
       stopIfPlaying,
       clearProgressionEditingState,

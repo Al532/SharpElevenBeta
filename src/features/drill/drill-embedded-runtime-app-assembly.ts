@@ -1,7 +1,7 @@
-import { createEmbeddedDrillRuntimeAppContextOptions } from './drill-embedded-runtime-app-context.js';
+import { createEmbeddedPracticeRuntimeAppContextOptions } from './drill-embedded-runtime-app-context.js';
 import { createDrillEmbeddedRuntimeHostBindings } from './drill-embedded-runtime-host.js';
 import { createDrillEmbeddedRuntimeContextBindings } from './drill-runtime-app-bindings.js';
-import type { DrillPlaybackControllerOptions, EmbeddedDrillRuntimeOptions } from '../../core/types/contracts';
+import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
 
 type DrillEmbeddedRuntimeDom = Record<string, unknown>;
 type DrillEmbeddedPatternUiBindings = {
@@ -28,8 +28,8 @@ type DrillEmbeddedPatternUiBindings = {
   getCurrentPatternString?: () => string;
   getCurrentPatternMode?: () => string;
 };
-type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedDrillRuntimeOptions['playbackStateOptions']>;
-type DrillEmbeddedPlaybackControllerBindings = NonNullable<DrillPlaybackControllerOptions>;
+type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
+type DrillEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
 type DrillEmbeddedNormalizationBindings = {
   normalizePatternString?: (value: string) => string;
   normalizePresetName?: (value: string) => string;
@@ -77,7 +77,7 @@ export function createDrillEmbeddedRuntimeAppAssembly({
     ...host
   });
 
-  return createEmbeddedDrillRuntimeAppContextOptions(
+  return createEmbeddedPracticeRuntimeAppContextOptions(
     createDrillEmbeddedRuntimeContextBindings({
       dom,
       patternUi: {

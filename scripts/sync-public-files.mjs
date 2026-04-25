@@ -19,7 +19,8 @@ const mirroredFiles = [
   'piano-sample-calibrator.html',
   'piano-sample-calibrator.js',
   'progression-suffixes.txt',
-  'style.css'
+  'style.css',
+  'theme.js'
 ];
 
 const templatedFiles = new Set([

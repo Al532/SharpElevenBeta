@@ -52,15 +52,23 @@ function Get-PreferredIPv4Address {
 }
 
 function Get-AndroidTargets {
+    param([switch]$IncludeNonReady)
+
     if (-not (Test-Path $adbPath)) {
         return @()
     }
 
-    $lines = & $adbPath devices -l 2>$null
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $lines = & $adbPath devices -l 2>&1
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $targets = @()
 
     foreach ($line in $lines) {
-        if (-not $line -or $line -match '^List of devices attached') {
+        if (-not $line -or $line -match '^List of devices attached' -or $line -match '^\* daemon ') {
             continue
         }
 
@@ -71,7 +79,7 @@ function Get-AndroidTargets {
 
         $serial = ($trimmed -split '\s+')[0]
         $state = ($trimmed -split '\s+')[1]
-        if ($state -ne 'device') {
+        if ($state -ne 'device' -and -not $IncludeNonReady) {
             continue
         }
 
@@ -84,6 +92,7 @@ function Get-AndroidTargets {
 
         $targets += [pscustomobject]@{
             Serial = $serial
+            State = $state
             Kind = $kind
             Raw = $trimmed
         }
@@ -258,15 +267,15 @@ function Start-BackgroundPowerShell {
     $escapedRoot = $repoRoot.Replace("'", "''")
     $escapedTitle = $Title.Replace("'", "''")
     $escapedCommand = $Command.Replace("'", "''")
-    $psCommand = @"
-$host.UI.RawUI.WindowTitle = '$escapedTitle'
-Set-Location '$escapedRoot'
-$env:JAVA_HOME = '$javaHome'
-$env:ANDROID_HOME = '$androidHome'
-$env:ANDROID_SDK_ROOT = '$androidHome'
-$env:Path = '$javaHome\bin;$androidHome\platform-tools;' + $env:Path
-$escapedCommand
-"@
+    $psCommand = @(
+        "`$host.UI.RawUI.WindowTitle = '$escapedTitle'",
+        "Set-Location '$escapedRoot'",
+        "`$env:JAVA_HOME = '$javaHome'",
+        "`$env:ANDROID_HOME = '$androidHome'",
+        "`$env:ANDROID_SDK_ROOT = '$androidHome'",
+        "`$env:Path = '$javaHome\bin;$androidHome\platform-tools;' + `$env:Path",
+        $escapedCommand
+    ) -join [Environment]::NewLine
 
     if ($DryRun) {
         Write-Host "[dry-run] powershell -NoExit -Command $Command"
@@ -326,15 +335,67 @@ function Wait-ForAndroidTarget {
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastReconnectAttempt = Get-Date 0
     while ((Get-Date) -lt $deadline) {
         $target = Get-AndroidTargets | Where-Object { $_.Kind -eq $PreferredKind } | Select-Object -First 1
         if ($target) {
-            return $target
+            if ($PreferredKind -ne 'emulator' -or $DryRun) {
+                return $target
+            }
+
+            $bootCompleted = (& $adbPath -s $target.Serial shell getprop sys.boot_completed 2>$null | Select-Object -First 1).Trim()
+            if ($bootCompleted -eq '1') {
+                return $target
+            }
         }
+
+        $offlineTarget = Get-AndroidTargets -IncludeNonReady |
+            Where-Object { $_.Kind -eq $PreferredKind -and $_.State -eq 'offline' } |
+            Select-Object -First 1
+        if ($offlineTarget -and ((Get-Date) - $lastReconnectAttempt).TotalSeconds -ge 12) {
+            $lastReconnectAttempt = Get-Date
+            Write-Host "Emulateur ADB offline, tentative de reconnexion: $($offlineTarget.Serial)"
+            if (-not $DryRun) {
+                & $adbPath reconnect offline 2>$null | Out-Null
+            }
+        }
+
         Start-Sleep -Seconds 2
     }
 
     return $null
+}
+
+function Restart-AdbServer {
+    Write-Host "Redemarrage du serveur ADB"
+    if ($DryRun) {
+        Write-Host "[dry-run] adb kill-server; adb start-server"
+        return
+    }
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $adbPath kill-server *> $null
+        Start-Sleep -Seconds 2
+        & $adbPath start-server *> $null
+        Start-Sleep -Seconds 2
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+}
+
+function Stop-RunningAndroidEmulators {
+    Write-Host "Arret de l'emulateur Android bloque/offline"
+    if ($DryRun) {
+        Write-Host "[dry-run] Stop-Process emulator/qemu"
+        return
+    }
+
+    Get-Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.ProcessName -in @('emulator', 'qemu-system-x86_64') } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
 }
 
 function Start-AndroidEmulatorIfPossible {
@@ -342,6 +403,23 @@ function Start-AndroidEmulatorIfPossible {
     if ($existing) {
         Write-Host "Emulateur deja connecte: $($existing.Serial)"
         return $existing
+    }
+
+    $starting = Get-AndroidTargets -IncludeNonReady | Where-Object { $_.Kind -eq 'emulator' } | Select-Object -First 1
+    if ($starting) {
+        Write-Host "Emulateur detecte mais pas encore pret: $($starting.Serial) ($($starting.State))"
+        $readyTarget = Wait-ForAndroidTarget -PreferredKind 'emulator' -TimeoutSeconds 45
+        if ($readyTarget) {
+            return $readyTarget
+        }
+
+        Restart-AdbServer
+        $readyTarget = Wait-ForAndroidTarget -PreferredKind 'emulator' -TimeoutSeconds 30
+        if ($readyTarget) {
+            return $readyTarget
+        }
+
+        Stop-RunningAndroidEmulators
     }
 
     $avds = Get-AvailableAvd
@@ -353,8 +431,10 @@ function Start-AndroidEmulatorIfPossible {
     $selectedAvd = $avds[0]
     Write-Step "Demarrage de l'emulateur Android $selectedAvd"
 
+    $emulatorArgs = @('-avd', $selectedAvd, '-no-snapshot-load')
+
     if ($DryRun) {
-        Write-Host "[dry-run] $emulatorPath -avd $selectedAvd"
+        Write-Host "[dry-run] $emulatorPath $($emulatorArgs -join ' ')"
         return [pscustomobject]@{
             Serial = 'emulator-dry-run'
             Kind = 'emulator'
@@ -362,7 +442,7 @@ function Start-AndroidEmulatorIfPossible {
         }
     }
 
-    Start-Process $emulatorPath -ArgumentList @('-avd', $selectedAvd) | Out-Null
+    Start-Process $emulatorPath -ArgumentList $emulatorArgs | Out-Null
     return Wait-ForAndroidTarget -PreferredKind 'emulator' -TimeoutSeconds 120
 }
 
@@ -549,7 +629,7 @@ function Invoke-LaunchOption {
         'android-emulator' {
             Write-Step "Lancement de l'app Android sur emulateur"
             Write-Host "Cible emulateur: $($SelectedOption.Target.Serial)"
-            Invoke-CapRun -HostName '10.0.2.2' -TargetSerial $SelectedOption.Target.Serial
+            Invoke-CapRun -HostName 'localhost' -TargetSerial $SelectedOption.Target.Serial -ForwardPorts
             return
         }
         'android-start-emulator' {
@@ -560,7 +640,7 @@ function Invoke-LaunchOption {
 
             Write-Step "Lancement de l'app Android sur emulateur"
             Write-Host "Cible emulateur: $($emulatorTarget.Serial)"
-            Invoke-CapRun -HostName '10.0.2.2' -TargetSerial $emulatorTarget.Serial
+            Invoke-CapRun -HostName 'localhost' -TargetSerial $emulatorTarget.Serial -ForwardPorts
             return
         }
         default {

@@ -94,17 +94,16 @@ Refactor signals:
 
 ### `src/features/drill`
 
-Responsibility: the dedicated practice trainer UI and its local runtime orchestration.
+Responsibility: the dedicated practice trainer UI and drill-specific adapters.
 
 Keep here:
 
 - Drill screen UI, controls, display helpers, welcome flow, key picker, settings UI, and progression selection specific to the trainer.
-- Practice playback behavior that is only meaningful inside the drill screen.
+- Drill-specific adapters that translate trainer UI state into practice playback contracts.
 - Legacy root-app adapters while they still translate the old `app.ts` state shape into narrower modules.
 
 Current structural pressure:
 
-- Some files are still named `drill` because the drill screen was the original app center, not because the responsibility is drill-specific.
 - Embedded/direct runtime adapters still live here because they translate between practice playback contracts and the drill UI/runtime.
 - Thin `*-assembly`, `*-bindings`, and `*-context` files should be consolidated when they only copy options or rename fields.
 
@@ -153,7 +152,7 @@ Keep here:
 
 - Practice playback root assembly and root context wiring.
 - Practice playback resources, preparation, and resource facade.
-- Runtime host assembly that groups app state, audio, preload, constants, and helper bindings before delegating to an injected runtime adapter.
+- Runtime host, scheduler, transport, and runtime app assembly that group app state, audio, preload, constants, and helper bindings before delegating to an injected runtime adapter.
 - App-level embedded/direct playback composition through injected adapters supplied by the drill trainer while those adapters still depend on drill UI/runtime details.
 
 Refactor signals:
@@ -200,13 +199,12 @@ Responsibility: playback contracts and runtime infrastructure shared across app 
 
 Keep here:
 
-- Embedded/direct/drill playback bridges, runtime providers, session adapters, and assembly providers.
+- Embedded/direct/practice playback bridges, runtime providers, session adapters, and assembly providers.
 - Shared playback controller/runtime behavior that has no DOM dependency.
 - Compatibility globals for published playback APIs.
 
 Refactor signals:
 
-- Files named `drill-*` are actually generic playback infrastructure.
 - Feature modules duplicate playback provider or bridge concepts.
 - Runtime code imports UI-specific feature modules.
 

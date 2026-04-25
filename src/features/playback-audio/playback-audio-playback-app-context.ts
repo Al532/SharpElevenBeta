@@ -4,13 +4,13 @@ import type {
   PlaybackAudioConstantsContext,
   PlaybackAudioHelpersContext,
   PlaybackAudioStateContext,
-  DrillPlaybackSettingsContext
+  PracticePlaybackSettingsContext
 } from './playback-audio-types.js';
 
 type PlaybackAudioPlaybackAppContextOptions = {
   audioState?: PlaybackAudioStateContext;
   audioHelpers?: PlaybackAudioHelpersContext;
-  playbackSettings?: DrillPlaybackSettingsContext;
+  playbackSettings?: PracticePlaybackSettingsContext;
   constants?: PlaybackAudioConstantsContext;
 };
 

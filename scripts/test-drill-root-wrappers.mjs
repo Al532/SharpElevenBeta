@@ -3283,7 +3283,6 @@ function testWelcomeRootFacadePreservesWelcomeWorkflow() {
         CUSTOM_PATTERN_OPTION_VALUE: '__custom__',
         DEFAULT_CHORDS_PER_BAR: 1,
         DRUM_MODE_FULL_SWING: 'swing',
-        IS_EMBEDDED_DRILL_MODE: false,
         NEXT_PREVIEW_UNIT_BARS: 'bars',
         PATTERN_MODE_BOTH: 'both',
         WELCOME_GOAL_ONE_CHORD: 'one-chord',

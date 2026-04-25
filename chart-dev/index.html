@@ -12,9 +12,12 @@
   <div class="chart-app">
     <div class="chart-mobile-backdrop" id="chart-mobile-backdrop"></div>
 
-    <!-- Top overlay: chart selection & navigation -->
+    <!-- Top overlay: chart navigation -->
     <div class="chart-top-overlay" id="chart-top-overlay" aria-hidden="true">
       <div class="chart-top-bar">
+        <a id="chart-home-button" class="chart-home-button" href="../index.html" aria-label="Back to home">
+          <span aria-hidden="true"></span>
+        </a>
         <label class="chart-select-field chart-search-field">
           <span>Search</span>
           <input id="chart-search-input" type="search" placeholder="Title or composer">
@@ -127,15 +130,15 @@
             <span>Tempo</span>
             <input id="tempo-input" type="number" min="40" max="320" step="1" value="120">
           </label>
-          <label class="chart-select-field">
+          <label class="chart-select-field chart-legacy-playback-setting">
             <span>Comping style</span>
             <select id="comping-style-select">
               <option value="off">Off</option>
-              <option value="strings" selected>Strings</option>
-              <option value="piano">Piano</option>
+              <option value="strings">Strings</option>
+              <option value="piano" selected>Piano</option>
             </select>
           </label>
-          <label class="chart-select-field">
+          <label class="chart-select-field chart-legacy-playback-setting">
             <span>Drums</span>
             <select id="drums-select">
               <option value="off">Off</option>
@@ -144,7 +147,7 @@
               <option value="full_swing" selected>Full swing drum pattern</option>
             </select>
           </label>
-          <label class="chart-select-field">
+          <label class="chart-select-field chart-key-field">
             <span>Key</span>
             <select id="transpose-select">
               <option value="0">Concert</option>
@@ -161,9 +164,10 @@
             <span id="selection-summary">No selection</span>
           </div>
           <div class="chart-transport-buttons">
-            <button id="clear-selection-button" type="button" class="chart-transport-button">Clear selection</button>
-            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
             <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
+            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
+            <button id="chart-mixer-button" type="button" class="chart-transport-button chart-mixer-button" aria-label="Mixer">Mixer</button>
+            <button id="clear-selection-button" type="button" class="chart-transport-button chart-clear-selection-button">Clear selection</button>
           </div>
         </div>
       </div>

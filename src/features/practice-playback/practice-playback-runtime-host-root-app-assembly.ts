@@ -23,7 +23,7 @@ type PracticePlaybackRuntimeHostRootAppAssemblyOptions = {
 };
 
 /**
- * Creates the drill playback runtime host assembly from live root-app bindings.
+ * Creates the Practice playback runtime host assembly from live root-app bindings.
  * This keeps the largest remaining playback-host contract out of `app.js`
  * while preserving the existing host/app-context layering.
  *

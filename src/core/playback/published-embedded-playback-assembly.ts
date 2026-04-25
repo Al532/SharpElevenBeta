@@ -8,22 +8,17 @@ import type {
 
 import { createEmbeddedPlaybackAssembly } from './embedded-playback-assembly.js';
 import { publishEmbeddedPlaybackGlobals } from './embedded-playback-globals.js';
-import {
-  LEGACY_DRILL_API_READY_EVENT,
-  PLAYBACK_API_READY_EVENT
-} from './embedded-playback-identifiers.js';
+import { PLAYBACK_API_READY_EVENT } from './embedded-playback-identifiers.js';
 
 export function createPublishedEmbeddedPlaybackAssembly({
   targetWindow = window,
   readyEventName = PLAYBACK_API_READY_EVENT,
-  legacyReadyEventName = LEGACY_DRILL_API_READY_EVENT,
   playbackRuntime,
   applyEmbeddedPattern,
   getPlaybackState
 }: {
   targetWindow?: Window | null;
   readyEventName?: string;
-  legacyReadyEventName?: string | null;
   playbackRuntime: PlaybackRuntime;
   applyEmbeddedPattern?: (
     payload: EmbeddedPatternPayload
@@ -41,8 +36,7 @@ export function createPublishedEmbeddedPlaybackAssembly({
     embeddedApi: assembly.embeddedApi,
     playbackRuntime: assembly.playbackRuntime,
     playbackController: assembly.playbackController,
-    readyEventName,
-    legacyReadyEventName
+    readyEventName
   });
 
   return assembly;

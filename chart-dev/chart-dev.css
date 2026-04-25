@@ -1,14 +1,58 @@
-﻿:root {
-  --blue-ui: #1976c9;
-  --blue-ui-dark: #0d5fba;
-  --blue-soft: #dceeff;
-  --sheet-bg: #ffffff;
-  --sheet-line: #111111;
-  --sheet-muted: #68788a;
-  --paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);
+:root {
+  --chart-ui-bg: #f4f7fb;
+  --chart-ui-bg-start: #eef2f8;
+  --chart-ui-bg-end: #eef3f9;
+  --chart-ui-text: #0f1720;
+  --chart-ui-text-strong: #14202c;
+  --chart-ui-text-inverse: #ffffff;
+  --chart-ui-accent: #1976c9;
+  --chart-ui-accent-strong: #0d5fba;
+  --chart-ui-accent-surface: rgba(25, 118, 201, 0.12);
+  --chart-ui-accent-surface-hover: rgba(25, 118, 201, 0.18);
+  --chart-ui-overlay: rgba(244, 247, 251, 0.97);
+  --chart-ui-overlay-solid: #e7ecf4;
+  --chart-ui-accent-soft: #dceeff;
+  --chart-ui-control: #ffffff;
+  --chart-ui-control-translucent: rgba(255, 255, 255, 0.22);
+  --chart-ui-control-translucent-hover: rgba(255, 255, 255, 0.16);
+  --chart-ui-field-on-accent: rgba(255, 255, 255, 0.14);
+  --chart-ui-border: rgba(17, 17, 17, 0.12);
+  --chart-ui-accent-border: rgba(25, 118, 201, 0.18);
+  --chart-ui-accent-border-soft: rgba(25, 118, 201, 0.16);
+  --chart-ui-inverse-border: rgba(255, 255, 255, 0.24);
+  --chart-ui-muted-on-accent: rgba(255, 255, 255, 0.78);
+  --chart-ui-faint-on-accent: rgba(255, 255, 255, 0.72);
+  --chart-ui-bottom-overlay: rgba(15, 100, 191, 0.96);
+  --chart-ui-menu: rgba(15, 23, 32, 0.9);
+  --chart-ui-shadow-soft: rgba(15, 23, 32, 0.14);
+  --chart-ui-shadow-medium: rgba(15, 23, 32, 0.16);
+  --chart-ui-shadow-popover: rgba(15, 23, 32, 0.18);
+  --chart-ui-shadow-menu: rgba(15, 23, 32, 0.22);
+  --chart-status-error: #9f1239;
+  --chart-sheet-bg: #ffffff;
+  --chart-sheet-line: #111111;
+  --chart-sheet-text: #111111;
+  --chart-sheet-title: #141414;
+  --chart-sheet-muted: #68788a;
+  --chart-sheet-active: rgba(255, 248, 176, 0.42);
+  --chart-sheet-selected: rgba(195, 232, 255, 0.52);
+  --chart-sheet-active-selected: linear-gradient(180deg, rgba(255, 248, 176, 0.52), rgba(195, 232, 255, 0.52));
+  --chart-sheet-playback: rgba(238, 247, 255, 0.45);
+  --chart-sheet-pill: #111111;
+  --chart-sheet-pill-text: #ffffff;
+  --chart-sheet-paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);
+  --blue-ui: var(--chart-ui-accent);
+  --blue-ui-dark: var(--chart-ui-accent-strong);
+  --blue-soft: var(--chart-ui-accent-soft);
+  --chart-overlay-bg: var(--chart-ui-overlay-solid);
+  --sheet-bg: var(--chart-sheet-bg);
+  --sheet-line: var(--chart-sheet-line);
+  --sheet-muted: var(--chart-sheet-muted);
+  --paper-shadow: var(--chart-sheet-paper-shadow);
   --chart-text-scale-compensation: 1;
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
+  --chart-overlay-push-y: 0px;
   --chart-config-row-gap-min: 60px;
   --chart-config-sheet-bottom-margin: 20px;
   --chart-config-sheet-header-padding-top-portrait: 0px;
@@ -28,6 +72,71 @@
   --chart-runtime-row-min-height: max(var(--chart-config-bar-cell-min-height), calc(var(--chart-config-bar-line-height) + 16px));
 }
 
+:root[data-theme="light"] {
+  --chart-ui-bg: #faf7f1;
+  --chart-ui-bg-start: #fffaf2;
+  --chart-ui-bg-end: #eef3f1;
+  --chart-ui-text: #211b15;
+  --chart-ui-text-strong: #2f261d;
+  --chart-ui-accent: #b76d16;
+  --chart-ui-accent-strong: #8d4e0f;
+  --chart-ui-accent-surface: rgba(183, 109, 22, 0.11);
+  --chart-ui-accent-surface-hover: rgba(183, 109, 22, 0.18);
+  --chart-ui-overlay: rgba(255, 250, 242, 0.97);
+  --chart-ui-overlay-solid: #f1e7d8;
+  --chart-ui-accent-soft: #ffe5bc;
+  --chart-ui-accent-border: rgba(183, 109, 22, 0.2);
+  --chart-ui-accent-border-soft: rgba(183, 109, 22, 0.16);
+  --chart-ui-bottom-overlay: rgba(141, 78, 15, 0.96);
+  --chart-ui-menu: rgba(33, 27, 21, 0.92);
+  --chart-ui-shadow-soft: rgba(64, 48, 30, 0.12);
+  --chart-ui-shadow-medium: rgba(64, 48, 30, 0.14);
+  --chart-ui-shadow-popover: rgba(64, 48, 30, 0.14);
+  --chart-ui-shadow-menu: rgba(64, 48, 30, 0.18);
+  --chart-status-error: #a33a2b;
+  --chart-sheet-muted: #6e6255;
+  --chart-sheet-active: rgba(255, 230, 145, 0.44);
+  --chart-sheet-selected: rgba(176, 220, 218, 0.5);
+  --chart-sheet-active-selected: linear-gradient(180deg, rgba(255, 230, 145, 0.52), rgba(176, 220, 218, 0.5));
+  --chart-sheet-playback: rgba(244, 238, 227, 0.62);
+  --chart-sheet-paper-shadow: 0 18px 40px rgba(64, 48, 30, 0.12);
+}
+
+:root[data-theme="contrast"] {
+  --chart-ui-bg: #000000;
+  --chart-ui-bg-start: #071017;
+  --chart-ui-bg-end: #000000;
+  --chart-ui-text: #ffffff;
+  --chart-ui-text-strong: #ffffff;
+  --chart-ui-accent: #ffb627;
+  --chart-ui-accent-strong: #ffd166;
+  --chart-ui-accent-surface: rgba(255, 182, 39, 0.2);
+  --chart-ui-accent-surface-hover: rgba(255, 182, 39, 0.32);
+  --chart-ui-overlay: rgba(4, 10, 14, 0.98);
+  --chart-ui-overlay-solid: #071017;
+  --chart-ui-accent-soft: #18394a;
+  --chart-ui-control: #0f1b24;
+  --chart-ui-control-translucent: rgba(255, 255, 255, 0.16);
+  --chart-ui-control-translucent-hover: rgba(255, 255, 255, 0.24);
+  --chart-ui-field-on-accent: rgba(0, 0, 0, 0.26);
+  --chart-ui-border: rgba(255, 255, 255, 0.24);
+  --chart-ui-accent-border: rgba(255, 182, 39, 0.36);
+  --chart-ui-accent-border-soft: rgba(255, 182, 39, 0.28);
+  --chart-ui-bottom-overlay: rgba(21, 78, 97, 0.98);
+  --chart-ui-menu: rgba(4, 10, 14, 0.96);
+  --chart-ui-shadow-soft: rgba(0, 0, 0, 0.48);
+  --chart-ui-shadow-medium: rgba(0, 0, 0, 0.54);
+  --chart-ui-shadow-popover: rgba(0, 0, 0, 0.5);
+  --chart-ui-shadow-menu: rgba(0, 0, 0, 0.62);
+  --chart-status-error: #ff8aa0;
+  --chart-sheet-muted: #52636d;
+  --chart-sheet-active: rgba(255, 214, 102, 0.46);
+  --chart-sheet-selected: rgba(110, 231, 245, 0.42);
+  --chart-sheet-active-selected: linear-gradient(180deg, rgba(255, 214, 102, 0.48), rgba(110, 231, 245, 0.42));
+  --chart-sheet-playback: rgba(110, 231, 245, 0.18);
+  --chart-sheet-paper-shadow: 0 18px 40px rgba(0, 0, 0, 0.58);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -37,15 +146,15 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   font-family: "Arial Narrow", Arial, sans-serif;
-  color: #0f1720;
+  color: var(--chart-ui-text);
   text-size-adjust: none;
   -webkit-text-size-adjust: none;
   background:
-    linear-gradient(180deg, #eef2f8 0%, #f4f7fb 32%, #eef3f9 100%);
+    linear-gradient(180deg, var(--chart-ui-bg-start) 0%, var(--chart-ui-bg) 32%, var(--chart-ui-bg-end) 100%);
   overflow: hidden;
 }
 
-.chart-drill-bridge {
+.chart-playback-bridge {
   position: fixed;
   width: 1px;
   height: 1px;
@@ -76,7 +185,7 @@ select {
   position: fixed;
   inset: 0;
   z-index: 199;
-  background: rgba(10, 20, 40, 0.45);
+  background: transparent;
   opacity: 0;
   pointer-events: none;
   transition: opacity 280ms ease;
@@ -93,10 +202,10 @@ select {
   position: fixed;
   inset: 0 0 auto;
   z-index: 310;
-  background: rgba(244, 247, 251, 0.97);
+  background: var(--chart-ui-overlay);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px rgba(15, 23, 32, 0.14);
+  box-shadow: 0 8px 32px var(--chart-ui-shadow-soft);
   transform: translateY(-100%);
   transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
   overflow: auto;
@@ -139,11 +248,11 @@ select {
     max(10px, calc(env(safe-area-inset-bottom) + 6px))
     max(12px, calc(env(safe-area-inset-left) + 8px));
   padding: 12px;
-  border-top: 1px solid rgba(25, 118, 201, 0.16);
-  background: rgba(15, 100, 191, 0.96);
-  color: white;
+  border-top: 1px solid var(--chart-ui-accent-border-soft);
+  background: var(--chart-ui-bottom-overlay);
+  color: var(--chart-ui-text-inverse);
   border-radius: 16px;
-  box-shadow: 0 12px 28px rgba(15, 23, 32, 0.16);
+  box-shadow: 0 12px 28px var(--chart-ui-shadow-medium);
 }
 
 .chart-transport-controls {
@@ -154,19 +263,19 @@ select {
 }
 
 .chart-bottom-overlay .chart-select-field span {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--chart-ui-muted-on-accent);
 }
 
 .chart-bottom-overlay .chart-select-field select,
 .chart-bottom-overlay .chart-select-field input {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.14);
-  color: white;
+  border-color: var(--chart-ui-inverse-border);
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-text-inverse);
 }
 
 .chart-bottom-overlay .chart-select-field select option {
-  color: #0f1720;
-  background: white;
+  color: var(--chart-ui-text);
+  background: var(--chart-ui-text-inverse);
 }
 
 .chart-transport-bottom-row {
@@ -198,14 +307,14 @@ select {
   padding: 0 14px;
   border: 0;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.22);
-  color: white;
+  background: var(--chart-ui-control-translucent);
+  color: var(--chart-ui-text-inverse);
   font-weight: 700;
   cursor: pointer;
 }
 
 .chart-transport-play {
-  background: white;
+  background: var(--chart-ui-text-inverse);
   color: var(--blue-ui-dark);
 }
 
@@ -236,9 +345,9 @@ select {
   max-height: 72vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: white;
+  background: var(--chart-ui-text-inverse);
   border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(15, 23, 32, 0.18);
+  box-shadow: 0 10px 28px var(--chart-ui-shadow-popover);
   padding: 14px;
   display: grid;
   gap: 12px;
@@ -284,7 +393,7 @@ select {
   border: 0;
   border-radius: 10px;
   background: var(--blue-ui);
-  color: white;
+  color: var(--chart-ui-text-inverse);
   font-weight: 700;
   cursor: pointer;
 }
@@ -294,12 +403,12 @@ select {
 }
 
 .chart-action-button-secondary {
-  background: rgba(25, 118, 201, 0.12);
+  background: var(--chart-ui-accent-surface);
   color: var(--blue-ui-dark);
 }
 
 .chart-action-button-secondary:hover {
-  background: rgba(25, 118, 201, 0.18);
+  background: var(--chart-ui-accent-surface-hover);
 }
 
 .chart-import-actions {
@@ -332,9 +441,9 @@ select {
 
 .chart-import-inputs input {
   min-height: 38px;
-  border: 1px solid rgba(17, 17, 17, 0.12);
+  border: 1px solid var(--chart-ui-border);
   border-radius: 8px;
-  background: white;
+  background: var(--chart-ui-text-inverse);
   padding: 8px 10px;
 }
 
@@ -372,9 +481,9 @@ select {
 .chart-select-field input[type="number"],
 .chart-select-field input[type="text"] {
   min-height: 38px;
-  border: 1px solid rgba(25, 118, 201, 0.18);
+  border: 1px solid var(--chart-ui-accent-surface-hover);
   border-radius: 10px;
-  background: white;
+  background: var(--chart-ui-text-inverse);
   padding: 8px 10px;
 }
 
@@ -431,15 +540,15 @@ select {
   gap: 8px;
   padding: 10px;
   border-radius: 14px;
-  background: rgba(15, 23, 32, 0.9);
-  color: white;
-  box-shadow: 0 16px 32px rgba(15, 23, 32, 0.22);
+  background: var(--chart-ui-menu);
+  color: var(--chart-ui-text-inverse);
+  box-shadow: 0 16px 32px var(--chart-ui-shadow-menu);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 .chart-selection-menu-prompt {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--chart-ui-faint-on-accent);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -451,14 +560,14 @@ select {
   padding: 0 14px;
   border: 0;
   border-radius: 10px;
-  background: white;
+  background: var(--chart-ui-text-inverse);
   color: var(--blue-ui-dark);
   font-weight: 700;
   cursor: pointer;
 }
 
 .chart-selection-menu-button:hover {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--chart-ui-control);
 }
 
 .chart-selection-menu-button:disabled {
@@ -467,22 +576,22 @@ select {
 }
 
 .chart-selection-menu-button-secondary {
-  background: rgba(255, 255, 255, 0.16);
-  color: white;
+  background: var(--chart-ui-control-translucent-hover);
+  color: var(--chart-ui-text-inverse);
 }
 
 .chart-selection-menu-button-secondary:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--chart-ui-control-translucent);
 }
 
 .chart-selection-menu-button.is-active {
-  background: linear-gradient(135deg, #9fe0ff, white);
+  background: linear-gradient(135deg, var(--blue-soft), var(--chart-ui-text-inverse));
   color: var(--blue-ui-dark);
 }
 
 .chart-sheet-panel,
 .chart-card {
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--chart-ui-faint-on-accent);
   border-radius: 24px;
   box-shadow: var(--paper-shadow);
 }
@@ -517,7 +626,7 @@ select {
 }
 
 .chart-sheet-style {
-  color: #141414;
+  color: var(--chart-sheet-title);
   font-size: 0.92rem;
   line-height: 1.2;
   font-style: italic;
@@ -587,8 +696,8 @@ select {
   height: 40px;
   padding: 0 8px;
   border-radius: 6px;
-  background: #111;
-  color: white;
+  background: var(--chart-sheet-line);
+  color: var(--chart-ui-text-inverse);
   font-weight: 700;
   font-size: 1.75rem;
   line-height: 1;
@@ -673,7 +782,7 @@ select {
 }
 
 .chart-bar-cell.is-active .chart-bar-cell-highlight {
-  background: rgba(255, 248, 176, 0.42);
+  background: var(--chart-sheet-active);
 }
 
 .chart-bar-cell.is-selected {
@@ -681,7 +790,7 @@ select {
 }
 
 .chart-bar-cell.is-selected .chart-bar-cell-highlight {
-  background: rgba(195, 232, 255, 0.52);
+  background: var(--chart-sheet-selected);
 }
 
 .chart-bar-cell.is-active.is-selected {
@@ -689,11 +798,11 @@ select {
 }
 
 .chart-bar-cell.is-active.is-selected .chart-bar-cell-highlight {
-  background: linear-gradient(180deg, rgba(255, 248, 176, 0.52), rgba(195, 232, 255, 0.52));
+  background: var(--chart-sheet-active-selected);
 }
 
 .chart-bar-cell.is-playback {
-  background: rgba(238, 247, 255, 0.45);
+  background: var(--chart-sheet-playback);
 }
 
 /* --- Row time signature ------------------------------------------ */
@@ -707,7 +816,7 @@ select {
   font-size: 1rem;
   font-weight: 700;
   line-height: 1;
-  color: #111;
+  color: var(--chart-sheet-line);
   z-index: 4;
   pointer-events: none;
   user-select: none;
@@ -726,8 +835,8 @@ select {
   height: 20px;
   transform: translateY(calc(-50% + 2px));
   background:
-    radial-gradient(circle, #111 0 1.45px, transparent 1.65px) center 4px / 5px 5px no-repeat,
-    radial-gradient(circle, #111 0 1.45px, transparent 1.65px) center 15px / 5px 5px no-repeat;
+    radial-gradient(circle, var(--chart-sheet-line) 0 1.45px, transparent 1.65px) center 4px / 5px 5px no-repeat,
+    radial-gradient(circle, var(--chart-sheet-line) 0 1.45px, transparent 1.65px) center 15px / 5px 5px no-repeat;
 }
 
 .chart-bar-cell.is-final::after {
@@ -738,7 +847,7 @@ select {
   bottom: var(--chart-bar-line-bottom);
   width: 6px;
   background:
-    linear-gradient(90deg, transparent 0, transparent 1px, #111 1px, #111 3px, transparent 3px, transparent 4px, #111 4px, #111 6px);
+    linear-gradient(90deg, transparent 0, transparent 1px, var(--chart-sheet-line) 1px, var(--chart-sheet-line) 3px, transparent 3px, transparent 4px, var(--chart-sheet-line) 4px, var(--chart-sheet-line) 6px);
 }
 
 .chart-bar-head {
@@ -768,7 +877,7 @@ select {
 
 .chart-bar-corner-marker {
   display: inline-block;
-  color: #111;
+  color: var(--chart-sheet-line);
   font-size: 1.2rem;
   line-height: 1;
 }
@@ -794,7 +903,7 @@ select {
   padding-right: 4px;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #111;
+  color: var(--chart-sheet-line);
   line-height: 1;
   background: transparent;
 }
@@ -806,8 +915,8 @@ select {
   top: 0.05em;
   width: 9px;
   height: 1em;
-  border-top: 2px solid #111;
-  border-left: 2px solid #111;
+  border-top: 2px solid var(--chart-sheet-line);
+  border-left: 2px solid var(--chart-sheet-line);
 }
 
 .chart-ending::after {
@@ -816,7 +925,7 @@ select {
   left: 12px;
   right: 0;
   top: 0.05em;
-  border-top: 2px solid #111;
+  border-top: 2px solid var(--chart-sheet-line);
 }
 
 .chart-bar-cell.is-repeat-end .chart-ending::after {
@@ -840,7 +949,7 @@ select {
   font-size: calc(var(--chart-config-bar-body-size) * var(--chart-text-scale-compensation));
   line-height: 0.92;
   letter-spacing: -0.06em;
-  color: #111;
+  color: var(--chart-sheet-line);
   overflow: visible;
 }
 
@@ -934,7 +1043,7 @@ select {
 .chart-foot-pill {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(25, 118, 201, 0.08);
+  background: var(--chart-ui-accent-surface);
   color: var(--blue-ui-dark);
 }
 
@@ -947,7 +1056,7 @@ select {
 .chart-subcard {
   padding: 16px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--chart-ui-control-translucent);
   box-shadow: none;
 }
 
@@ -1007,7 +1116,7 @@ select {
 .chart-slider-row output {
   min-width: 48px;
   text-align: right;
-  color: #14202c;
+  color: var(--chart-ui-text-strong);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1027,7 +1136,7 @@ select {
 
 .chart-meta-list dd {
   margin: 0;
-  color: #14202c;
+  color: var(--chart-ui-text-strong);
 }
 
 #diagnostics-list {
@@ -1093,8 +1202,8 @@ select {
     left: max(12px, calc(env(safe-area-inset-left) + 8px));
     right: max(12px, calc(env(safe-area-inset-right) + 8px));
     z-index: 320;
-    background: rgba(244, 247, 251, 0.97);
-    box-shadow: 0 8px 24px rgba(15, 23, 32, 0.08);
+    background: var(--chart-ui-overlay);
+    box-shadow: 0 8px 24px var(--chart-ui-shadow-soft);
     padding-bottom: 12px;
     border-radius: 0 0 18px 18px;
     max-height: calc(100dvh - var(--chart-mobile-bottom-overlay-height) - max(28px, env(safe-area-inset-bottom) + 18px));
@@ -1145,7 +1254,7 @@ select {
     margin-top: 8px;
     border-radius: 14px;
     padding: 12px;
-    box-shadow: 0 10px 24px rgba(15, 23, 32, 0.12);
+    box-shadow: 0 10px 24px var(--chart-ui-shadow-soft);
   }
 
   .chart-bottom-overlay {
@@ -1157,7 +1266,7 @@ select {
     margin: 0;
     border-radius: 14px;
     padding: 12px;
-    background: linear-gradient(180deg, #1a79d2, #0f64bf);
+    background: linear-gradient(180deg, var(--chart-ui-accent), var(--chart-ui-accent-strong));
     max-height: calc(100dvh - var(--chart-mobile-top-overlay-height) - max(28px, env(safe-area-inset-top) + 18px));
     overflow: auto;
     overscroll-behavior: contain;
@@ -1374,5 +1483,255 @@ select {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
+  }
+}
+
+/* --- iReal-style playback overlay, first pass -------------------- */
+
+@media (max-width: 1200px) {
+  .chart-app.overlay-open .chart-mobile-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+    background: transparent;
+  }
+
+  .chart-top-bar {
+    left: 0;
+    right: 0;
+    min-height: calc(env(safe-area-inset-top) + 54px);
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0;
+    padding:
+      max(4px, calc(env(safe-area-inset-top) + 1px))
+      max(18px, calc(env(safe-area-inset-right) + 12px))
+      2px
+      max(18px, calc(env(safe-area-inset-left) + 12px));
+    border-radius: 0;
+    background: var(--chart-overlay-bg);
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .chart-top-bar > :not(.chart-home-button) {
+    display: none !important;
+  }
+
+  .chart-home-button {
+    width: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    color: var(--blue-ui-dark);
+    text-decoration: none;
+  }
+
+  .chart-home-button span {
+    width: 21px;
+    height: 21px;
+    display: block;
+    margin-left: 6px;
+    transform: rotate(45deg);
+    border-left: 4px solid currentColor;
+    border-bottom: 4px solid currentColor;
+    border-left-width: 4px;
+    border-bottom-width: 4px;
+  }
+
+  .chart-bottom-overlay {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 0;
+    margin: 0;
+    padding:
+      4px
+      max(22px, calc(env(safe-area-inset-right) + 16px))
+      max(12px, calc(env(safe-area-inset-bottom) + 6px))
+      max(22px, calc(env(safe-area-inset-left) + 16px));
+    border: 0;
+    border-radius: 0;
+    background: var(--chart-overlay-bg);
+    color: var(--blue-ui-dark);
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .chart-transport-controls {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    align-items: center;
+    gap: 18px;
+  }
+
+  .chart-legacy-playback-setting,
+  .chart-transport-meta,
+  .chart-clear-selection-button {
+    display: none !important;
+  }
+
+  .chart-select-field {
+    gap: 0;
+  }
+
+  .chart-bottom-overlay .chart-select-field span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .chart-bottom-overlay .chart-select-field input,
+  .chart-bottom-overlay .chart-select-field select {
+    width: 100%;
+    min-height: 60px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--blue-ui-dark);
+    font-size: clamp(2.45rem, 8.9vw, 3.85rem);
+    line-height: 1;
+    text-align: center;
+    text-align-last: center;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .chart-tempo-field input {
+    width: 3ch;
+    flex: 0 1 auto;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .chart-tempo-field input::-webkit-outer-spin-button,
+  .chart-tempo-field input::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+
+  .chart-tempo-field::after {
+    content: " bpm";
+    color: var(--blue-ui-dark);
+    font-size: clamp(2.45rem, 8.9vw, 3.85rem);
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .chart-tempo-field {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    white-space: nowrap;
+    column-gap: 0.12em;
+  }
+
+  .chart-key-field select {
+    font-weight: 400;
+  }
+
+  .chart-transport-bottom-row {
+    display: block;
+  }
+
+  .chart-transport-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 24px;
+    margin-top: 8px;
+  }
+
+  .chart-transport-button {
+    width: 100%;
+    height: 72px;
+    min-height: 72px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--blue-ui-dark);
+    padding: 0;
+    font-size: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chart-transport-button:disabled {
+    opacity: 1;
+  }
+
+  #stop-button::before {
+    content: "";
+    width: 50px;
+    height: 50px;
+    display: block;
+    border-radius: 7px;
+    background: currentColor;
+  }
+
+  .chart-transport-play::before {
+    content: "";
+    width: 58px;
+    height: 68px;
+    display: block;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 68'%3E%3Cpath d='M6 7C6 2.6 10.8-.1 14.6 2.2l39.3 24.6c5.5 3.4 5.5 11.3 0 14.7L14.6 65.8C10.8 68.1 6 65.4 6 61V7Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 68'%3E%3Cpath d='M6 7C6 2.6 10.8-.1 14.6 2.2l39.3 24.6c5.5 3.4 5.5 11.3 0 14.7L14.6 65.8C10.8 68.1 6 65.4 6 61V7Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+    margin-left: 8px;
+  }
+
+  .chart-transport-play.is-playing::before {
+    width: 54px;
+    height: 64px;
+    border: 0;
+    margin-left: 0;
+    -webkit-mask: none;
+    mask: none;
+    background:
+      linear-gradient(currentColor, currentColor) left center / 18px 64px no-repeat,
+      linear-gradient(currentColor, currentColor) right center / 18px 64px no-repeat;
+  }
+
+  .chart-mixer-button {
+    text-indent: -999px;
+    overflow: hidden;
+  }
+
+  .chart-mixer-button::before {
+    content: "";
+    width: 66px;
+    height: 58px;
+    display: block;
+    background:
+      linear-gradient(currentColor, currentColor) 10px 4px / 6px 50px no-repeat,
+      linear-gradient(currentColor, currentColor) 30px 4px / 6px 50px no-repeat,
+      linear-gradient(currentColor, currentColor) 50px 4px / 6px 50px no-repeat,
+      radial-gradient(circle at 13px 20px, currentColor 0 8px, transparent 8.5px),
+      radial-gradient(circle at 33px 39px, currentColor 0 8px, transparent 8.5px),
+      radial-gradient(circle at 53px 27px, currentColor 0 8px, transparent 8.5px);
+  }
+
+  .chart-workspace {
+    padding:
+      env(safe-area-inset-top)
+      max(4px, calc(env(safe-area-inset-right) + var(--chart-runtime-cutout-padding-right)))
+      max(20px, calc(env(safe-area-inset-bottom) + var(--chart-runtime-cutout-padding-bottom)))
+      max(4px, calc(env(safe-area-inset-left) + var(--chart-runtime-cutout-padding-left))) !important;
+    transition: transform 240ms ease;
+    will-change: transform;
+  }
+
+  .chart-app.overlay-open .chart-workspace {
+    transform: translateY(var(--chart-overlay-push-y));
   }
 }

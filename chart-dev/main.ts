@@ -12,12 +12,16 @@
   PracticeSessionSpec
 } from '../src/core/types/contracts';
 
+import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
 import {
   createChartDocumentsFromIRealText,
 } from '../chart/index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
+
+initializeSharpElevenTheme();
 import {
   loadPersistedChartId as loadPersistedChartIdFromStorage,
+  persistChartLibrary,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
   persistChartId as persistChartIdToStorage,
   persistPlaybackSettings as persistChartPlaybackSettings
@@ -170,10 +174,10 @@ const dom = {
   stringsVolumeValue: document.getElementById('strings-volume-value'),
   drumsVolume: document.getElementById('drums-volume') as HTMLInputElement | null,
   drumsVolumeValue: document.getElementById('drums-volume-value'),
-  playbackBridgeFrame: document.getElementById('drill-bridge-frame') as HTMLIFrameElement | null,
+  playbackBridgeFrame: document.getElementById('playback-bridge-frame') as HTMLIFrameElement | null,
   selectionSummary: document.getElementById('selection-summary'),
   clearSelectionButton: document.getElementById('clear-selection-button') as HTMLButtonElement | null,
-  sendSelectionToPracticeButton: document.getElementById('send-selection-to-drill-button') as HTMLButtonElement | null,
+  sendSelectionToPracticeButton: document.getElementById('send-selection-to-practice-button') as HTMLButtonElement | null,
   selectionMenu: document.getElementById('chart-selection-menu'),
   selectionLoopButton: document.getElementById('selection-loop-button') as HTMLButtonElement | null,
   selectionCreateDrillButton: document.getElementById('selection-create-drill-button') as HTMLButtonElement | null,
@@ -235,6 +239,10 @@ const state: ExtendedChartScreenState = {
   selectionLoopActive: false,
   selectionLoopRestartPending: false
 };
+
+let lastMobileOverlayTopHeight = -1;
+let lastMobileOverlayBottomHeight = -1;
+let lastMobileOverlayPushY = -1;
 
 let chartTextScaleCompensation = 1;
 
@@ -382,9 +390,16 @@ const playbackRuntimeContext = createChartPlaybackRuntimeContext(createChartPlay
 }));
 
 function loadPersistedChartId() {
+  const requestedChartId = new URLSearchParams(window.location.search).get('chart');
+  if (requestedChartId) return requestedChartId;
+
   return loadPersistedChartIdFromStorage({
     legacyStorageKey: LAST_CHART_STORAGE_KEY
   });
+}
+
+function getRequestedPlaylist() {
+  return new URLSearchParams(window.location.search).get('playlist') || '';
 }
 
 function persistChartId(chartId: string) {
@@ -528,6 +543,12 @@ function applyImportedLibrary({ documents, source, preferredId = null, statusMes
   preferredId?: string | null,
   statusMessage?: string
 }) {
+  if (documents.length > 0) {
+    void persistChartLibrary({
+      documents,
+      source
+    });
+  }
   applyImportedChartLibrary(createChartImportedLibraryBindings({
     state,
     chartSearchInput: dom.chartSearchInput,
@@ -539,6 +560,12 @@ function applyImportedLibrary({ documents, source, preferredId = null, statusMes
     preferredId,
     statusMessage
   }));
+
+  const requestedPlaylist = getRequestedPlaylist();
+  if (requestedPlaylist && dom.chartSearchInput) {
+    dom.chartSearchInput.value = requestedPlaylist;
+    applySearchFilter();
+  }
 }
 
 function getPlaybackSettings(): PlaybackSettings {
@@ -731,6 +758,12 @@ async function stopPlayback({ resetPosition = true, cancelSelectionLoop = true }
   }
   stopPlaybackPolling({
     state
+  });
+  if (resetPosition) {
+    resetActivePlaybackPosition();
+  }
+  applyChartPlaybackState({ isPlaying: false, isPaused: false }, {
+    allowSelectionLoopRestart: false
   });
   const nextState = await getChartPlaybackController().stopPlayback({ resetPosition });
   applyChartPlaybackState(nextState, {
@@ -1104,8 +1137,23 @@ function syncMobileOverlayDrawerLayout() {
   if (!dom.chartApp) return;
   const topHeight = Math.ceil(dom.chartTopOverlay?.querySelector('.chart-top-bar')?.getBoundingClientRect().height || 0);
   const bottomHeight = Math.ceil(dom.chartBottomOverlay?.getBoundingClientRect().height || 0);
+  const pushY = Math.max(0, topHeight - 34);
+
+  if (
+    topHeight === lastMobileOverlayTopHeight
+    && bottomHeight === lastMobileOverlayBottomHeight
+    && pushY === lastMobileOverlayPushY
+  ) {
+    return;
+  }
+
+  lastMobileOverlayTopHeight = topHeight;
+  lastMobileOverlayBottomHeight = bottomHeight;
+  lastMobileOverlayPushY = pushY;
+
   dom.chartApp.style.setProperty('--chart-mobile-top-overlay-height', `${topHeight}px`);
   dom.chartApp.style.setProperty('--chart-mobile-bottom-overlay-height', `${bottomHeight}px`);
+  dom.chartApp.style.setProperty('--chart-overlay-push-y', `${pushY}px`);
 }
 
 function bindMobileOverlayDrawerLayout() {
@@ -1121,8 +1169,13 @@ function bindMobileOverlayDrawerLayout() {
 
   if (typeof ResizeObserver === 'undefined') return;
 
+  let overlayLayoutFrame = 0;
   const overlayLayoutObserver = new ResizeObserver(() => {
-    syncMobileSafeLayout();
+    if (overlayLayoutFrame) return;
+    overlayLayoutFrame = window.requestAnimationFrame(() => {
+      overlayLayoutFrame = 0;
+      syncMobileSafeLayout();
+    });
   });
 
   const topBar = dom.chartTopOverlay?.querySelector('.chart-top-bar');
@@ -1228,6 +1281,11 @@ function bindImportControls() {
 }
 
 async function loadFixtures() {
+  const requestedPlaylist = getRequestedPlaylist();
+  if (requestedPlaylist && dom.chartSearchInput) {
+    dom.chartSearchInput.value = requestedPlaylist;
+  }
+
   await initializeChartScreen(createChartScreenBindings(createChartScreenAppBindings({
     applyPersistedPlaybackSettings,
     bindImportControls,

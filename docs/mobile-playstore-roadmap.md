@@ -5,7 +5,7 @@
 Objectif verrouille: livrer une application mobile sur la base web existante, sans replatforming, avec **Capacitor** comme emballage natif, **Android en premier**, puis **iOS** sur la meme architecture.
 
 Constat de depart a prendre comme verite du depot:
-- le chart est deja nominalement oriente vers le **direct same-page** et non vers `window.__JPT_DRILL_API__`
+- le chart est deja nominalement oriente vers le **direct same-page** et `window.__JPT_PLAYBACK_API__`
 - une grande partie des seams playback et des contrats TS existent deja
 - `app.js` reste encore trop gros et porte encore une partie du **moteur audio/runtime reel**
 - le vrai blocage avant mobile n'est pas le packaging natif, mais la **mobile readiness de la web app**
@@ -115,7 +115,7 @@ Critere de sortie:
 
 Critere de sortie Android:
 - installation reussie sur appareil
-- chart playback et drill playback fonctionnent
+- chart playback et Practice playback fonctionnent
 - persistance des settings fonctionne
 - aucun bug bloquant de navigation, overlay, audio unlock ou retour arriere
 - package pret pour preparation Play Store

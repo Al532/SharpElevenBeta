@@ -4,15 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Piano Sample Calibrator</title>
+  <script src="./theme.js"></script>
   <style>
     :root {
-      --bg: #f4f0e8;
-      --panel: #fffaf2;
-      --line: #d8c8ae;
-      --text: #2d2418;
-      --muted: #72634f;
-      --accent: #a5572b;
-      --accent-soft: #f0dcc9;
+      --utility-bg: #f4f0e8;
+      --utility-bg-start: #fff7ea;
+      --utility-bg-elevated: #f8f2e7;
+      --utility-panel: #fffaf2;
+      --utility-line: #d8c8ae;
+      --utility-text: #2d2418;
+      --utility-muted: #72634f;
+      --utility-accent: #a5572b;
+      --utility-accent-contrast: #ffffff;
+      --utility-accent-soft: #f0dcc9;
+      --utility-secondary: #d7b796;
+      --utility-status-text: #5c3417;
+      --utility-shadow: rgba(93, 66, 39, 0.08);
+      --bg: var(--utility-bg);
+      --panel: var(--utility-panel);
+      --line: var(--utility-line);
+      --text: var(--utility-text);
+      --muted: var(--utility-muted);
+      --accent: var(--utility-accent);
+      --accent-soft: var(--utility-accent-soft);
+    }
+
+    :root[data-theme="light"] {
+      --utility-bg: #f7f2ea;
+      --utility-bg-start: #fffaf2;
+      --utility-bg-elevated: #f8f4ee;
+      --utility-panel: #ffffff;
+      --utility-line: #d8cfc2;
+      --utility-text: #201b16;
+      --utility-muted: #5f554a;
+      --utility-accent: #b76d16;
+      --utility-accent-soft: #f2dfc3;
+      --utility-secondary: #dfc39f;
+      --utility-status-text: #7a470f;
+      --utility-shadow: rgba(64, 48, 30, 0.12);
+    }
+
+    :root[data-theme="contrast"] {
+      --utility-bg: #000000;
+      --utility-bg-start: #101820;
+      --utility-bg-elevated: #071017;
+      --utility-panel: #101820;
+      --utility-line: #52636d;
+      --utility-text: #ffffff;
+      --utility-muted: #c8d7df;
+      --utility-accent: #ffb627;
+      --utility-accent-contrast: #000000;
+      --utility-accent-soft: rgba(255, 182, 39, 0.18);
+      --utility-secondary: #6ee7f5;
+      --utility-status-text: #ffe7ad;
+      --utility-shadow: rgba(0, 0, 0, 0.58);
     }
 
     * {
@@ -23,8 +68,8 @@
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
       background:
-        radial-gradient(circle at top left, #fff7ea 0, transparent 26%),
-        linear-gradient(180deg, #f8f2e7 0%, var(--bg) 100%);
+        radial-gradient(circle at top left, var(--utility-bg-start) 0, transparent 26%),
+        linear-gradient(180deg, var(--utility-bg-elevated) 0%, var(--bg) 100%);
       color: var(--text);
     }
 
@@ -55,11 +100,11 @@
     }
 
     .panel {
-      background: color-mix(in srgb, var(--panel) 92%, white);
+      background: color-mix(in srgb, var(--panel) 92%, var(--utility-accent-contrast));
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 18px;
-      box-shadow: 0 14px 32px rgba(93, 66, 39, 0.08);
+      box-shadow: 0 14px 32px var(--utility-shadow);
     }
 
     .panel h2 {
@@ -89,7 +134,7 @@
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 10px 12px;
-      background: white;
+      background: var(--utility-panel);
       color: var(--text);
       font: inherit;
     }
@@ -104,15 +149,15 @@
       border-radius: 999px;
       padding: 10px 14px;
       background: var(--accent);
-      color: white;
+      color: var(--utility-accent-contrast);
       cursor: pointer;
       font: inherit;
       font-weight: 600;
     }
 
     button.secondary {
-      background: #d7b796;
-      color: #2d2418;
+      background: var(--utility-secondary);
+      color: var(--utility-text);
     }
 
     button.ghost {
@@ -131,7 +176,7 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 12px;
-      background: white;
+      background: var(--utility-panel);
     }
 
     .layer-header {
@@ -158,7 +203,7 @@
       padding: 12px 14px;
       border-radius: 12px;
       background: var(--accent-soft);
-      color: #5c3417;
+      color: var(--utility-status-text);
       font-size: 0.92rem;
       line-height: 1.4;
       white-space: pre-wrap;

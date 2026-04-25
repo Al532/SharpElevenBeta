@@ -111,8 +111,7 @@ export function createChartPlaybackController({
 
     const controller = ensurePlaybackController();
     const playbackSettings = getPlaybackSettings?.() || {};
-    const applyResult = await controller.loadSession(practiceSession);
-    await controller.updatePlaybackSettings({
+    const nextPlaybackSettings = {
       tempo: getTempo?.(),
       compingStyle: playbackSettings.compingStyle,
       drumsMode: playbackSettings.drumsMode,
@@ -125,7 +124,13 @@ export function createChartPlaybackController({
       bassVolume: playbackSettings.bassVolume,
       stringsVolume: playbackSettings.stringsVolume,
       drumsVolume: playbackSettings.drumsVolume
-    });
+    };
+    const settingsResult = await controller.updatePlaybackSettings(nextPlaybackSettings);
+    if (!settingsResult?.ok) {
+      throw new Error(settingsResult?.errorMessage || 'Playback rejected the chart settings.');
+    }
+
+    const applyResult = await controller.loadSession(practiceSession);
 
     if (!applyResult?.ok) {
       throw new Error(applyResult?.errorMessage || 'Playback rejected the interpreted chart.');
@@ -168,7 +173,7 @@ export function createChartPlaybackController({
     if (!practiceSession) return false;
     onPersistPlaybackSettings?.();
     storePendingPracticeSession(practiceSession);
-    window.location.href = '../index.html?source=chart-session';
+    window.location.href = '../drill.html?source=chart-session';
     return true;
   }
 

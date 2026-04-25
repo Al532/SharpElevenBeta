@@ -1,6 +1,6 @@
 import type {
-  DrillPlaybackBassPlan,
-  DrillPlaybackCompingPlan,
+  PracticePlaybackBassPlan,
+  PracticePlaybackCompingPlan,
   PracticePlaybackResourceChord,
   PracticePlaybackResourcesCompingEngine,
   PracticePlaybackResourcesWalkingBassGenerator
@@ -26,10 +26,10 @@ type PracticePlaybackPreparationRuntimeOptions = {
   getNextKeyValue?: () => number | null;
   getNextPaddedChords?: () => PracticePlaybackResourceChord[] | null;
   getNextVoicingPlan?: () => unknown[] | null;
-  getNextCompingPlan?: () => DrillPlaybackCompingPlan;
+  getNextCompingPlan?: () => PracticePlaybackCompingPlan;
   getIsMinorMode?: () => boolean;
-  setCurrentCompingPlan?: (value: DrillPlaybackCompingPlan) => void;
-  setNextCompingPlan?: (value: DrillPlaybackCompingPlan) => void;
+  setCurrentCompingPlan?: (value: PracticePlaybackCompingPlan) => void;
+  setNextCompingPlan?: (value: PracticePlaybackCompingPlan) => void;
   getPaddedChords?: () => PracticePlaybackResourceChord[];
   getCurrentKey?: () => number;
   getCurrentVoicingPlan?: () => unknown[];
@@ -38,8 +38,8 @@ type PracticePlaybackPreparationRuntimeOptions = {
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
   getSwingRatio?: () => number;
-  getCurrentBassPlan?: () => DrillPlaybackBassPlan;
-  setCurrentBassPlan?: (value: DrillPlaybackBassPlan) => void;
+  getCurrentBassPlan?: () => PracticePlaybackBassPlan;
+  setCurrentBassPlan?: (value: PracticePlaybackBassPlan) => void;
   getNextPaddedChordsForBass?: () => PracticePlaybackResourceChord[];
   getNextKeyForBass?: () => number | null;
   compingEngine?: PracticePlaybackResourcesCompingEngine;
@@ -54,10 +54,10 @@ type PracticePlaybackPreparationRuntimeOptions = {
  * @param {() => number | null} [options.getNextKeyValue]
  * @param {() => PracticePlaybackResourceChord[] | null} [options.getNextPaddedChords]
  * @param {() => unknown[] | null} [options.getNextVoicingPlan]
- * @param {() => DrillPlaybackCompingPlan} [options.getNextCompingPlan]
+ * @param {() => PracticePlaybackCompingPlan} [options.getNextCompingPlan]
  * @param {() => boolean} [options.getIsMinorMode]
- * @param {(value: DrillPlaybackCompingPlan) => void} [options.setCurrentCompingPlan]
- * @param {(value: DrillPlaybackCompingPlan) => void} [options.setNextCompingPlan]
+ * @param {(value: PracticePlaybackCompingPlan) => void} [options.setCurrentCompingPlan]
+ * @param {(value: PracticePlaybackCompingPlan) => void} [options.setNextCompingPlan]
  * @param {() => PracticePlaybackResourceChord[]} [options.getPaddedChords]
  * @param {() => number} [options.getCurrentKey]
  * @param {() => unknown[]} [options.getCurrentVoicingPlan]
@@ -66,8 +66,8 @@ type PracticePlaybackPreparationRuntimeOptions = {
  * @param {() => number} [options.getTempoBpm]
  * @param {() => boolean} [options.isWalkingBassEnabled]
  * @param {() => number} [options.getSwingRatio]
- * @param {() => DrillPlaybackBassPlan | null} [options.getCurrentBassPlan]
- * @param {(value: DrillPlaybackBassPlan) => void} [options.setCurrentBassPlan]
+ * @param {() => PracticePlaybackBassPlan | null} [options.getCurrentBassPlan]
+ * @param {(value: PracticePlaybackBassPlan) => void} [options.setCurrentBassPlan]
  * @param {() => PracticePlaybackResourceChord[]} [options.getNextPaddedChordsForBass]
  * @param {() => number | null} [options.getNextKeyForBass]
  * @param {PracticePlaybackResourcesCompingEngine} [options.compingEngine]

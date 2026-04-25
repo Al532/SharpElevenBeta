@@ -86,12 +86,17 @@ export function renderChartTransport({
     stopButton.disabled = !isPlaying && activePlaybackEntryIndex < 0;
   }
   if (playButton) {
+    playButton.classList.toggle('is-playing', isPlaying && !isPaused);
+    playButton.classList.toggle('is-paused', isPlaying && isPaused);
     if (isPlaying && isPaused) {
       playButton.textContent = 'Resume';
+      playButton.setAttribute('aria-label', 'Resume');
     } else if (isPlaying) {
       playButton.textContent = 'Pause';
+      playButton.setAttribute('aria-label', 'Pause');
     } else {
       playButton.textContent = 'Start';
+      playButton.setAttribute('aria-label', 'Start');
     }
   }
 }

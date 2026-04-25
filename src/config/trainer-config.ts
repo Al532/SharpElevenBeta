@@ -308,7 +308,7 @@ export const WELCOME_ONE_CHORDS = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 90,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLES.strings,
+    compingStyle: COMPING_STYLES.piano,
     drumsMode: 'hihats_2_4',
     enabledKeys: new Array(12).fill(true)
   },
@@ -321,7 +321,7 @@ export const WELCOME_ONE_CHORDS = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 90,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLES.strings,
+    compingStyle: COMPING_STYLES.piano,
     drumsMode: 'hihats_2_4',
     enabledKeys: new Array(12).fill(true)
   },
@@ -334,7 +334,7 @@ export const WELCOME_ONE_CHORDS = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 90,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLES.strings,
+    compingStyle: COMPING_STYLES.piano,
     drumsMode: 'hihats_2_4',
     enabledKeys: new Array(12).fill(true)
   },
@@ -347,7 +347,7 @@ export const WELCOME_ONE_CHORDS = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 90,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLES.strings,
+    compingStyle: COMPING_STYLES.piano,
     drumsMode: 'hihats_2_4',
     enabledKeys: new Array(12).fill(true)
   },
@@ -360,7 +360,7 @@ export const WELCOME_ONE_CHORDS = Object.freeze({
     repetitionsPerKey: 1,
     tempo: 90,
     chordsPerBar: 1,
-    compingStyle: COMPING_STYLES.strings,
+    compingStyle: COMPING_STYLES.piano,
     drumsMode: 'hihats_2_4',
     enabledKeys: new Array(12).fill(true)
   }

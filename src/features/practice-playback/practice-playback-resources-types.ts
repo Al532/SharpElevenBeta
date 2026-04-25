@@ -4,9 +4,9 @@ export type PracticePlaybackResourceChord = {
   [key: string]: unknown;
 };
 
-export type DrillPlaybackVoicingPlan = unknown[] | null | undefined;
-export type DrillPlaybackCompingPlan = unknown;
-export type DrillPlaybackBassPlan = unknown[];
+export type PracticePlaybackVoicingPlan = unknown[] | null | undefined;
+export type PracticePlaybackCompingPlan = unknown;
+export type PracticePlaybackBassPlan = unknown[];
 
 export type PracticePlaybackResourcesHarmonyBindings = {
   getPlayedChordQuality?: (
@@ -18,7 +18,7 @@ export type PracticePlaybackResourcesHarmonyBindings = {
     chords: PracticePlaybackResourceChord[],
     key: number,
     isMinor: boolean
-  ) => DrillPlaybackVoicingPlan;
+  ) => PracticePlaybackVoicingPlan;
   getVoicing?: (
     key: number,
     chord: PracticePlaybackResourceChord,
@@ -30,15 +30,15 @@ export type PracticePlaybackResourcesHarmonyBindings = {
 export type PracticePlaybackResourcesProgressionStateBindings = {
   getNextKeyValue?: () => number | null;
   getNextPaddedChords?: () => PracticePlaybackResourceChord[] | null;
-  getNextVoicingPlan?: () => DrillPlaybackVoicingPlan;
-  getNextCompingPlan?: () => DrillPlaybackCompingPlan;
-  setCurrentCompingPlan?: (value: DrillPlaybackCompingPlan) => void;
-  setNextCompingPlan?: (value: DrillPlaybackCompingPlan) => void;
+  getNextVoicingPlan?: () => PracticePlaybackVoicingPlan;
+  getNextCompingPlan?: () => PracticePlaybackCompingPlan;
+  setCurrentCompingPlan?: (value: PracticePlaybackCompingPlan) => void;
+  setNextCompingPlan?: (value: PracticePlaybackCompingPlan) => void;
   getPaddedChords?: () => PracticePlaybackResourceChord[];
   getCurrentKey?: () => number;
   getCurrentVoicingPlan?: () => unknown[];
-  getCurrentBassPlan?: () => DrillPlaybackBassPlan;
-  setCurrentBassPlan?: (value: DrillPlaybackBassPlan) => void;
+  getCurrentBassPlan?: () => PracticePlaybackBassPlan;
+  setCurrentBassPlan?: (value: PracticePlaybackBassPlan) => void;
   getNextPaddedChordsForBass?: () => PracticePlaybackResourceChord[];
   getNextKeyForBass?: () => number | null;
 };
@@ -53,8 +53,8 @@ export type PracticePlaybackResourcesSettingsBindings = {
 };
 
 export type PracticePlaybackPreparedPlans = {
-  currentPlan: DrillPlaybackCompingPlan;
-  nextPlan: DrillPlaybackCompingPlan;
+  currentPlan: PracticePlaybackCompingPlan;
+  nextPlan: PracticePlaybackCompingPlan;
 };
 
 export type PracticePlaybackResourcesCompingEngine = {
@@ -74,7 +74,7 @@ export type PracticePlaybackResourcesCompingEngine = {
       chords: PracticePlaybackResourceChord[] | null;
       key: number | null;
       isMinor: boolean;
-      voicingPlan: DrillPlaybackVoicingPlan;
+      voicingPlan: PracticePlaybackVoicingPlan;
       beatsPerChord: number;
     };
   }) => PracticePlaybackPreparedPlans;
@@ -92,7 +92,7 @@ export type PracticePlaybackResourcesWalkingBassGenerator = {
     nextKey: number;
     nextIsMinor: boolean;
     swingRatio: number;
-  }) => DrillPlaybackBassPlan;
+  }) => PracticePlaybackBassPlan;
 };
 
 export type PracticePlaybackResourcesRuntimeBindings = {
@@ -123,5 +123,5 @@ export type PracticePlaybackResourcesPreparationFacade = {
     currentPreviousTailBeats?: number | null
   ) => void;
   ensureWalkingBassGenerator?: () => Promise<unknown>;
-  buildPreparedBassPlan?: (initialPendingTargetMidi?: number | null) => DrillPlaybackBassPlan;
+  buildPreparedBassPlan?: (initialPendingTargetMidi?: number | null) => PracticePlaybackBassPlan;
 };

@@ -389,7 +389,6 @@ export interface PlaybackBridgeProvider {
 export interface RuntimePlaybackBridgeProvider extends PlaybackBridgeProvider {}
 
 export interface PracticePlaybackBridgeProvider extends RuntimePlaybackBridgeProvider {}
-export interface DrillPlaybackBridgeProvider extends PracticePlaybackBridgeProvider {}
 export interface DirectPlaybackBridgeProvider extends PracticePlaybackBridgeProvider {}
 
 export interface EmbeddedPlaybackBridge extends PlaybackRuntimeBindings {
@@ -406,7 +405,6 @@ export interface EmbeddedPlaybackRuntimeProvider extends PlaybackRuntimeProvider
 }
 
 export interface PracticePlaybackRuntimeProvider extends PlaybackRuntimeProvider {}
-export interface DrillPlaybackRuntimeProvider extends PracticePlaybackRuntimeProvider {}
 export interface DirectPlaybackRuntimeProvider extends PracticePlaybackRuntimeProvider {}
 
 export interface PracticePlaybackControllerOptions {
@@ -424,8 +422,6 @@ export interface PracticePlaybackControllerOptions {
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;
 }
-
-export interface DrillPlaybackControllerOptions extends PracticePlaybackControllerOptions {}
 
 export interface DirectPlaybackControllerOptions extends PracticePlaybackControllerOptions {
   loadDirectSession?: (sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) => Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
@@ -462,14 +458,10 @@ export interface ChartDirectPlaybackRuntimeHost {
 export interface PracticePlaybackAssembly extends PlaybackRuntimeBindings {
   playbackRuntime: PlaybackRuntime;
 }
-export interface DrillPlaybackAssembly extends PracticePlaybackAssembly {}
 export interface DirectPlaybackAssembly extends PracticePlaybackAssembly {}
 
 export interface PracticePlaybackAssemblyProvider extends PlaybackAssemblyProvider {
   getAssembly(): PracticePlaybackAssembly;
-}
-export interface DrillPlaybackAssemblyProvider extends PracticePlaybackAssemblyProvider {
-  getAssembly(): DrillPlaybackAssembly;
 }
 export interface DirectPlaybackAssemblyProvider extends PracticePlaybackAssemblyProvider {
   getAssembly(): DirectPlaybackAssembly;
@@ -578,8 +570,6 @@ export interface EmbeddedPracticeRuntimeOptions {
   playbackControllerOptions?: PracticePlaybackControllerOptions;
 }
 
-export interface EmbeddedDrillRuntimeOptions extends EmbeddedPracticeRuntimeOptions {}
-
 export interface EmbeddedRuntimeBindings extends PlaybackRuntimeBindings {
   playbackRuntime: PlaybackRuntime;
   playbackController: PlaybackSessionController;
@@ -647,7 +637,6 @@ export interface DrillExport extends PracticeSessionExport {}
 declare global {
   interface Window {
     __JPT_PLAYBACK_API__?: EmbeddedPlaybackApi;
-    __JPT_DRILL_API__?: EmbeddedPlaybackApi;
     __JPT_PLAYBACK_RUNTIME__?: PlaybackRuntime;
     __JPT_PLAYBACK_SESSION_CONTROLLER__?: PlaybackSessionController;
     __JPT_DIRECT_PLAYBACK_CONTROLLER_OPTIONS__?: DirectPlaybackControllerOptions;

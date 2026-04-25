@@ -1,4 +1,4 @@
-import type { DrillPlaybackControllerOptions, EmbeddedDrillRuntimeOptions } from '../../core/types/contracts';
+import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
 
 type DrillRuntimeBindingMap = Record<string, unknown>;
 
@@ -52,8 +52,8 @@ type DrillEmbeddedTransportActions = {
   togglePausePlayback?: () => void;
 };
 
-type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedDrillRuntimeOptions['playbackStateOptions']>;
-type DrillEmbeddedPlaybackControllerBindings = NonNullable<DrillPlaybackControllerOptions>;
+type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
+type DrillEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
 
 function getBindingRecord(value: unknown): DrillRuntimeBindingMap {
   return value && typeof value === 'object'
@@ -61,7 +61,7 @@ function getBindingRecord(value: unknown): DrillRuntimeBindingMap {
     : {};
 }
 
-export function createDrillPlaybackStateBindings(
+export function createPracticePlaybackStateBindings(
   bindings: Record<string, unknown> = {}
 ): Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown> {
   return {
@@ -119,7 +119,7 @@ export function createDrillNormalizationBindings(
   } as DrillEmbeddedNormalizationBindings;
 }
 
-export function createDrillPlaybackSettingsBindings(
+export function createPracticePlaybackSettingsBindings(
   bindings: Record<string, unknown> = {}
 ): DrillEmbeddedPlaybackSettingsBindings {
   return {
@@ -132,7 +132,7 @@ export function createDrillPlaybackSettingsBindings(
   } as DrillEmbeddedPlaybackSettingsBindings;
 }
 
-export function createDrillPlaybackRuntimeBindings(
+export function createPracticePlaybackRuntimeBindings(
   bindings: Record<string, unknown> = {}
 ): Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown> {
   return {
@@ -162,9 +162,9 @@ export function createDrillEmbeddedRuntimeContextBindings(bindings: Record<strin
     dom: getBindingRecord(bindings.dom),
     patternUi: createPracticePatternUiBindings(getBindingRecord(bindings.patternUi)),
     normalization: createDrillNormalizationBindings(getBindingRecord(bindings.normalization)),
-    playbackSettings: createDrillPlaybackSettingsBindings(getBindingRecord(bindings.playbackSettings)),
-    playbackState: createDrillPlaybackStateBindings(getBindingRecord(bindings.playbackState)),
-    playbackRuntime: createDrillPlaybackRuntimeBindings(getBindingRecord(bindings.playbackRuntime)),
+    playbackSettings: createPracticePlaybackSettingsBindings(getBindingRecord(bindings.playbackSettings)),
+    playbackState: createPracticePlaybackStateBindings(getBindingRecord(bindings.playbackState)),
+    playbackRuntime: createPracticePlaybackRuntimeBindings(getBindingRecord(bindings.playbackRuntime)),
     transportActions: createDrillTransportActionBindings(getBindingRecord(bindings.transportActions))
   };
 }

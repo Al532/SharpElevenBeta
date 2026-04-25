@@ -6,7 +6,7 @@ Goals for v1:
 
 - keep a rich source document faithful to iReal structure
 - separate source, view, and playback interpretation
-- export a reusable `practice session` for the existing `Drill` engine
+- export a reusable `practice session` for practice playback
 - stay out of the public app bundle
 - keep the chart/session domain browser-agnostic and JSON-safe
 
@@ -39,7 +39,7 @@ Vocabulary:
 
 - `chart`: lead-sheet import, selection, rendering, and navigation domain
 - `drill`: the interactive practice screen and its dedicated runtime/UI
-- `practice session`: the shared payload passed from chart into drill or playback bridges
+- `practice session`: the shared payload passed from chart into practice playback
 
 Default iReal style tempos to document when the source playlist does not expose an explicit BPM:
 

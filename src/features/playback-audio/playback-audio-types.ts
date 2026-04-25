@@ -113,7 +113,7 @@ export type PlaybackAudioHelpersContext = {
   trackScheduledSource?: (source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown;
 };
 
-export type DrillPlaybackSettingsContext = {
+export type PracticePlaybackSettingsContext = {
   getDrumsMode?: () => string;
   getSwingRatio?: () => number;
 };

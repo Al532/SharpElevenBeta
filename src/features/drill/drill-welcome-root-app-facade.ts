@@ -75,7 +75,6 @@ type DrillWelcomeConstants = {
   CUSTOM_PATTERN_OPTION_VALUE?: string;
   DEFAULT_CHORDS_PER_BAR?: number;
   DRUM_MODE_FULL_SWING?: string;
-  IS_EMBEDDED_DRILL_MODE?: boolean;
   NEXT_PREVIEW_UNIT_BARS?: string;
   PATTERN_MODE_BOTH?: string;
   WELCOME_GOAL_ONE_CHORD?: string;
@@ -164,7 +163,6 @@ export function createDrillWelcomeRootAppFacade({
     CUSTOM_PATTERN_OPTION_VALUE = '__custom__',
     DEFAULT_CHORDS_PER_BAR = 1,
     DRUM_MODE_FULL_SWING = 'swing',
-    IS_EMBEDDED_DRILL_MODE = false,
     NEXT_PREVIEW_UNIT_BARS = 'bars',
     PATTERN_MODE_BOTH = 'both',
     WELCOME_GOAL_ONE_CHORD = 'one-chord',

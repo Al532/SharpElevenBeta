@@ -14,6 +14,6 @@ export function resolveAppBaseUrl(meta: ViteImportMeta = import.meta as ViteImpo
   return meta.env?.BASE_URL || './';
 }
 
-export function readEmbeddedDrillMode(search: string = window.location.search) {
+export function readEmbeddedPlaybackMode(search: string = window.location.search) {
   return new URLSearchParams(search).get('embedded') === '1';
 }

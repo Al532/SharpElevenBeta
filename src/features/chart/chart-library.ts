@@ -78,6 +78,9 @@ export function filterChartDocuments(documents: ChartDocument[] = [], query = ''
   return documents.filter((document) => {
     const title = String(document.metadata.title || '').toLowerCase();
     const composer = String(document.metadata.composer || '').toLowerCase();
-    return title.includes(normalizedQuery) || composer.includes(normalizedQuery);
+    const playlistName = String(document.source?.playlistName || '').toLowerCase();
+    return title.includes(normalizedQuery)
+      || composer.includes(normalizedQuery)
+      || playlistName.includes(normalizedQuery);
   });
 }

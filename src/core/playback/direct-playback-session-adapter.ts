@@ -8,7 +8,7 @@ import type {
   PracticeSessionSpec
 } from '../types/contracts';
 
-import { createDrillPlaybackSessionAdapter } from './drill-playback-session-adapter.js';
+import { createPracticePlaybackSessionAdapter } from './practice-playback-session-adapter.js';
 
 type DirectPlaybackSessionAdapterOptions = DirectPlaybackControllerOptions & {
   loadDirectSession?: (
@@ -35,7 +35,7 @@ export function createDirectPlaybackSessionAdapter({
   togglePausePlayback,
   ...fallbackOptions
 }: DirectPlaybackSessionAdapterOptions = {}): PlaybackSessionAdapter {
-  const fallbackAdapter = createDrillPlaybackSessionAdapter(fallbackOptions);
+  const fallbackAdapter = createPracticePlaybackSessionAdapter(fallbackOptions);
 
   return {
     async loadSession(sessionSpec, playbackSettings) {

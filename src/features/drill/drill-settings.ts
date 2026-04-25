@@ -651,7 +651,7 @@ export function createDrillLoadedSettingsApplier({
   };
 }
 
-export function createDrillPlaybackSettingsResetter({
+export function createPracticePlaybackSettingsResetter({
   dom = {},
   state = {},
   helpers = {}

@@ -10,7 +10,7 @@ import type {
 
 import { bootstrapEmbeddedPlaybackApi } from '../../core/playback/embedded-playback-bootstrap.js';
 
-export function bootstrapEmbeddedDrillApi({
+export function bootstrapEmbeddedPlaybackBridge({
   playbackRuntime,
   playbackController,
   applyEmbeddedPattern,
@@ -31,5 +31,3 @@ export function bootstrapEmbeddedDrillApi({
     publishedPlaybackAssemblyProvider
   });
 }
-
-export const bootstrapEmbeddedPlaybackBridge = bootstrapEmbeddedDrillApi;

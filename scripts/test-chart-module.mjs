@@ -35,14 +35,14 @@ import {
   readEmbeddedPlaybackGlobals,
   resolveEmbeddedPlaybackApi
 } from '../src/core/playback/embedded-playback-globals.ts';
-import { createDrillPlaybackAssembly } from '../src/core/playback/drill-playback-assembly.ts';
-import { createDrillPlaybackAssemblyProvider } from '../src/core/playback/drill-playback-assembly-provider.ts';
-import { createDrillPlaybackBridgeProvider } from '../src/core/playback/drill-playback-bridge-provider.ts';
-import { createDrillPlaybackRuntime as createCoreDrillPlaybackRuntime } from '../src/core/playback/drill-playback-runtime.ts';
-import { createDrillPlaybackRuntimeProvider } from '../src/core/playback/drill-playback-runtime-provider.ts';
+import { createPracticePlaybackAssembly } from '../src/core/playback/practice-playback-assembly.ts';
+import { createPracticePlaybackAssemblyProvider } from '../src/core/playback/practice-playback-assembly-provider.ts';
+import { createPracticePlaybackBridgeProvider } from '../src/core/playback/practice-playback-bridge-provider.ts';
+import { createPracticePlaybackRuntime as createCorePracticePlaybackRuntime } from '../src/core/playback/practice-playback-runtime.ts';
+import { createPracticePlaybackRuntimeProvider } from '../src/core/playback/practice-playback-runtime-provider.ts';
 import { createEmbeddedPlaybackSessionAdapter } from '../src/core/playback/embedded-playback-session-adapter.ts';
 import { createDirectPlaybackSessionAdapter } from '../src/core/playback/direct-playback-session-adapter.ts';
-import { createDrillPlaybackSessionAdapter } from '../src/core/playback/drill-playback-session-adapter.ts';
+import { createPracticePlaybackSessionAdapter } from '../src/core/playback/practice-playback-session-adapter.ts';
 import { createPlaybackBridgeProvider } from '../src/core/playback/playback-bridge-provider.ts';
 import { createPlaybackAssembly } from '../src/core/playback/playback-assembly.ts';
 import { createPlaybackAssemblyProvider } from '../src/core/playback/playback-assembly-provider.ts';
@@ -53,7 +53,7 @@ import { createPlaybackRuntime } from '../src/core/playback/playback-runtime.ts'
 import { bootstrapEmbeddedPlaybackApi } from '../src/core/playback/embedded-playback-bootstrap.ts';
 import { createPublishedEmbeddedPlaybackAssembly } from '../src/core/playback/published-embedded-playback-assembly.ts';
 import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../src/core/playback/published-embedded-playback-assembly-provider.ts';
-import { createEmbeddedDrillApi } from '../src/features/drill/drill-embedded-api.ts';
+import { createEmbeddedPlaybackApi as createFeatureEmbeddedPlaybackApi } from '../src/features/drill/drill-embedded-api.ts';
 import {
   createChartDirectPlaybackBridgeProvider,
   createChartPlaybackBridgeProviderForMode,
@@ -101,9 +101,9 @@ import {
 } from '../src/features/chart/chart-playback-runtime.ts';
 import { createAppShellBindings } from '../src/features/app/app-shell-bindings.ts';
 import { importDefaultFixtureLibrary as importChartDefaultFixtureLibrary } from '../src/features/chart/chart-import-controls.ts';
-import { initializeEmbeddedDrillRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
+import { initializeEmbeddedPracticeRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
 import { createPlaybackAudioRuntime } from '../src/features/playback-audio/playback-audio-runtime.ts';
-import { createEmbeddedDrillRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
+import { createEmbeddedPracticeRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
 import { createPracticePatternAnalysis } from '../src/features/practice-patterns/practice-pattern-analysis.ts';
 import { loadPracticePatternHelp } from '../src/features/practice-patterns/practice-pattern-help.ts';
 import { validatePracticeCustomPattern } from '../src/features/practice-patterns/practice-pattern-validation.ts';
@@ -116,7 +116,7 @@ import { createDrillDirectRuntimeAppAssembly } from '../src/features/drill/drill
 import { createPracticePlaybackPreparationRuntime } from '../src/features/practice-playback/practice-playback-preparation-runtime.ts';
 import { createPracticePlaybackPreparationAppContext } from '../src/features/practice-playback/practice-playback-preparation-app-context.ts';
 import { createPracticePlaybackResourcesAppFacade } from '../src/features/practice-playback/practice-playback-resources-app-facade.ts';
-import { createDrillPlaybackSettingsRuntime } from '../src/features/drill/drill-playback-settings-runtime.ts';
+import { createPracticePlaybackSettingsRuntime } from '../src/features/practice-playback/practice-playback-settings-runtime.ts';
 import { createDrillSessionAnalytics } from '../src/features/drill/drill-session-analytics.ts';
 import { createDrillKeyPoolRuntime } from '../src/features/drill/drill-key-pool-runtime.ts';
 import { createPracticePlaybackRuntimeHost } from '../src/features/practice-playback/practice-playback-runtime-host.ts';
@@ -125,7 +125,7 @@ import {
   createDefaultDrillAppSettingsFactory,
   createDrillLoadedSettingsApplier,
   createDrillLoadedSettingsFinalizer,
-  createDrillPlaybackSettingsResetter,
+  createPracticePlaybackSettingsResetter,
   createDrillSettingsSnapshotBuilder
 } from '../src/features/drill/drill-settings.ts';
 import { createDrillSettingsAppBindings } from '../src/features/drill/drill-settings-app-bindings.ts';
@@ -134,9 +134,9 @@ import {
   createDrillEmbeddedRuntimeContextBindings,
   createDrillNormalizationBindings,
   createPracticePatternUiBindings,
-  createDrillPlaybackSettingsBindings,
-  createDrillPlaybackRuntimeBindings,
-  createDrillPlaybackStateBindings,
+  createPracticePlaybackSettingsBindings,
+  createPracticePlaybackRuntimeBindings,
+  createPracticePlaybackStateBindings,
   createDrillTransportActionBindings
 } from '../src/features/drill/drill-runtime-app-bindings.ts';
 import { createPlaybackAudioRuntimeAppContext } from '../src/features/playback-audio/playback-audio-runtime-app-context.ts';
@@ -164,23 +164,23 @@ import { createPlaybackSamplePreloadAppContext } from '../src/features/playback-
 import { createPlaybackSamplePreloadRuntime } from '../src/features/playback-audio/playback-sample-preload-runtime.ts';
 import { createPlaybackScheduledAudioRuntime } from '../src/features/playback-audio/playback-scheduled-audio-runtime.ts';
 import { createPlaybackScheduledAudioAppContext } from '../src/features/playback-audio/playback-scheduled-audio-app-context.ts';
-import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createDrillPlaybackRuntime } from '../src/features/drill/drill-playback-controller.ts';
-import { createDrillPlaybackEngineAppContext } from '../src/features/drill/drill-playback-engine-app-context.ts';
-import { createDrillPlaybackRuntimeAppAssembly } from '../src/features/drill/drill-playback-runtime-app-assembly.ts';
+import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createPracticePlaybackRuntime } from '../src/features/practice-playback/practice-playback-controller.ts';
+import { createPracticePlaybackEngineAppContext } from '../src/features/practice-playback/practice-playback-engine-app-context.ts';
+import { createPracticePlaybackRuntimeAppAssembly } from '../src/features/practice-playback/practice-playback-runtime-app-assembly.ts';
 import { createPracticePlaybackRuntimeHostAppBindings } from '../src/features/practice-playback/practice-playback-runtime-host-app-bindings.ts';
-import { createDrillPlaybackStateAppContext } from '../src/features/drill/drill-playback-state-app-context.ts';
+import { createPracticePlaybackStateAppContext } from '../src/features/practice-playback/practice-playback-state-app-context.ts';
 import { createDrillRuntimePrimitivesAppBindings } from '../src/features/drill/drill-runtime-primitives-app-bindings.ts';
 import { createDrillRuntimePrimitivesRuntimeAppBindings } from '../src/features/drill/drill-runtime-primitives-runtime-app-bindings.ts';
 import { createDrillRuntimeStateAppBindings } from '../src/features/drill/drill-runtime-state-app-bindings.ts';
 import {
-  createDrillPlaybackSchedulerState,
-  createDrillPlaybackTransportState
-} from '../src/features/drill/drill-playback-runtime-engine.ts';
+  createPracticePlaybackSchedulerState,
+  createPracticePlaybackTransportState
+} from '../src/features/practice-playback/practice-playback-runtime-engine.ts';
 import {
   createPracticePlaybackAppBindings,
   createPracticePlaybackRuntimeAppBindings
 } from '../src/features/practice-playback/practice-playback-app-context.ts';
-import { createDrillPlaybackRuntimeAppBindings } from '../src/features/drill/drill-playback-runtime-app-bindings.ts';
+import { createPracticePlaybackRuntimeAppBindings as createPracticePlaybackRuntimeHostAppContextBindings } from '../src/features/practice-playback/practice-playback-runtime-app-bindings.ts';
 import { createPracticeArrangementVoicingRuntimeAppBindings } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-app-bindings.ts';
 import { createPracticeArrangementWalkingBassAppBindings } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-app-bindings.ts';
 import { createWalkingBassGenerator } from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
@@ -618,7 +618,7 @@ assert.equal(
   'Drill pattern validation stays inert when the custom-pattern mode is not active.'
 );
 const appliedMixerPayloads = [];
-const drillPlaybackSettingsRuntime = createDrillPlaybackSettingsRuntime({
+const PracticePlaybackSettingsRuntime = createPracticePlaybackSettingsRuntime({
   dom: {
     compingStyle: { value: 'piano-one-hand' },
     stringsVolume: { value: '25' },
@@ -645,35 +645,35 @@ const drillPlaybackSettingsRuntime = createDrillPlaybackSettingsRuntime({
   }
 });
 assert.equal(
-  drillPlaybackSettingsRuntime.getCompingStyle(),
+  PracticePlaybackSettingsRuntime.getCompingStyle(),
   'piano',
-  'Drill playback settings runtime normalizes comping style through shared helpers.'
+  'Practice playback settings runtime normalizes comping style through shared helpers.'
 );
 assert.equal(
-  drillPlaybackSettingsRuntime.isChordsEnabled(),
+  PracticePlaybackSettingsRuntime.isChordsEnabled(),
   true,
-  'Drill playback settings runtime enables chords when comping is active and strings volume is non-zero.'
+  'Practice playback settings runtime enables chords when comping is active and strings volume is non-zero.'
 );
 assert.equal(
-  drillPlaybackSettingsRuntime.getDrumsMode(),
+  PracticePlaybackSettingsRuntime.getDrumsMode(),
   'full_swing',
-  'Drill playback settings runtime reads drum mode from DOM state with legacy defaults.'
+  'Practice playback settings runtime reads drum mode from DOM state with legacy defaults.'
 );
 assert.equal(
-  drillPlaybackSettingsRuntime.getBassMidi(2, 0),
+  PracticePlaybackSettingsRuntime.getBassMidi(2, 0),
   38,
-  'Drill playback settings runtime maps bass pitch classes into the configured preload range.'
+  'Practice playback settings runtime maps bass pitch classes into the configured preload range.'
 );
 assert.equal(
-  drillPlaybackSettingsRuntime.bassMidiToNoteName(38),
+  PracticePlaybackSettingsRuntime.bassMidiToNoteName(38),
   'D2',
-  'Drill playback settings runtime exposes bass-note labels for debug and UI helpers.'
+  'Practice playback settings runtime exposes bass-note labels for debug and UI helpers.'
 );
-drillPlaybackSettingsRuntime.applyMixerSettings();
+PracticePlaybackSettingsRuntime.applyMixerSettings();
 assert.equal(
   appliedMixerPayloads.length,
   1,
-  'Drill playback settings runtime forwards mixer synchronization through the injected audio helper.'
+  'Practice playback settings runtime forwards mixer synchronization through the injected audio helper.'
 );
 const buildDrillSettingsSnapshot = createDrillSettingsSnapshotBuilder({
   constants: {
@@ -893,7 +893,7 @@ let resetAppliedKeys = null;
 let resetPreviewLeadValue = null;
 let resetPianoFadeSettings = null;
 let resetPianoMidiSettings = null;
-const resetPlaybackSettings = createDrillPlaybackSettingsResetter({
+const resetPlaybackSettings = createPracticePlaybackSettingsResetter({
   dom: {
     patternSelect: { value: 'Autumn' },
     patternName: { value: '' },
@@ -985,27 +985,27 @@ resetPlaybackSettings();
 assert.equal(
   resetAppliedKeys.length,
   12,
-  'Drill playback-settings resetter reapplies the default enabled-key set.'
+  'Practice playback-settings resetter reapplies the default enabled-key set.'
 );
 assert.equal(
   resetPreviewLeadValue,
   2,
-  'Drill playback-settings resetter restores the next-preview lead value from default app settings.'
+  'Practice playback-settings resetter restores the next-preview lead value from default app settings.'
 );
 assert.equal(
   resetPianoFadeSettings.timeConstantLow,
   0.1,
-  'Drill playback-settings resetter restores piano fade settings through the shared settings boundary.'
+  'Practice playback-settings resetter restores piano fade settings through the shared settings boundary.'
 );
 assert.equal(
   resetPianoMidiSettings.enabled,
   false,
-  'Drill playback-settings resetter restores piano MIDI settings through the shared settings boundary.'
+  'Practice playback-settings resetter restores piano MIDI settings through the shared settings boundary.'
 );
 assert.equal(
   resetTrackedEvent,
   'settings_reset',
-  'Drill playback-settings resetter keeps the settings-reset analytics event.'
+  'Practice playback-settings resetter keeps the settings-reset analytics event.'
 );
 let finalizerSaved = false;
 let finalizerResetDraft = false;
@@ -1288,7 +1288,7 @@ const PracticePlaybackRuntimeHost = createPracticePlaybackRuntimeHost({
 assert.equal(
   typeof PracticePlaybackRuntimeHost.start,
   'function',
-  'Drill playback runtime host exposes transport controls through the extracted host boundary.'
+  'Practice playback runtime host exposes transport controls through the extracted host boundary.'
 );
 assert.equal(
   typeof capturedPracticePlaybackRuntimeHostOptions?.schedulerBindings?.getCurrentBeat,
@@ -1355,7 +1355,7 @@ assert.equal(
   'Drill piano-tools app bindings preserve grouped piano-settings facade concerns.'
 );
 assert.equal(
-  createDrillPlaybackStateBindings({
+  createPracticePlaybackStateBindings({
     isEmbeddedMode: true,
     getIsPlaying: () => true
   }).isEmbeddedMode,
@@ -1377,14 +1377,14 @@ assert.equal(
   'Drill runtime app bindings preserve normalization helpers used by the embedded runtime boundary.'
 );
 assert.equal(
-  typeof createDrillPlaybackSettingsBindings({
+  typeof createPracticePlaybackSettingsBindings({
     applyMixerSettings: () => {}
   }).applyMixerSettings,
   'function',
   'Drill runtime app bindings preserve playback-settings hooks consumed by the embedded runtime.'
 );
 assert.equal(
-  createDrillPlaybackRuntimeBindings({
+  createPracticePlaybackRuntimeBindings({
     noteFadeout: 0.26
   }).noteFadeout,
   0.26,
@@ -1853,14 +1853,14 @@ assert.equal(
     runtime: { compingEngine: { id: 'comping' } }
   }).runtime.compingEngine.id,
   'comping',
-  'Drill playback-resources app bindings preserve grouped runtime resources consumed by the shared preparation layer.'
+  'Practice playback-resources app bindings preserve grouped runtime resources consumed by the shared preparation layer.'
 );
 assert.equal(
   createPracticePlaybackRuntimeHostAppBindings({
     constants: { noteFadeout: 0.26 }
   }).constants.noteFadeout,
   0.26,
-  'Drill playback-runtime host app bindings preserve transport constants for the shared runtime host.'
+  'Practice playback-runtime host app bindings preserve transport constants for the shared runtime host.'
 );
 assert.equal(
   createDrillRuntimePrimitivesAppBindings({
@@ -1884,18 +1884,18 @@ assert.equal(
   'Drill shared-playback runtime app bindings preserve grouped embedded/direct runtime concerns before the shared playback boundary.'
 );
 assert.equal(
-  createDrillPlaybackRuntimeAppBindings({
+  createPracticePlaybackRuntimeHostAppContextBindings({
     constants: { scheduleAhead: 0.2 }
   }).constants.scheduleAhead,
   0.2,
-  'Drill playback-runtime app bindings preserve grouped runtime-host concerns before the shared host boundary.'
+  'Practice playback-runtime app bindings preserve grouped runtime-host concerns before the shared host boundary.'
 );
 assert.equal(
   createPracticePlaybackResourcesRuntimeAppBindings({
     runtime: { compingEngine: { id: 'comping' } }
   }).runtime.compingEngine.id,
   'comping',
-  'Drill playback-resources runtime app bindings preserve grouped playback-resource concerns before the shared resources boundary.'
+  'Practice playback-resources runtime app bindings preserve grouped playback-resource concerns before the shared resources boundary.'
 );
 assert.equal(
   createDrillRuntimeStateAppBindings({
@@ -2458,38 +2458,38 @@ assert.deepEqual(
     compingPlan: { id: 'next-plan' },
     isMinor: true
   },
-  'Drill playback preparation runtime exposes the prepared next progression shape for comping decisions.'
+  'Practice playback preparation runtime exposes the prepared next progression shape for comping decisions.'
 );
 assert.deepEqual(
   playbackPreparationRuntime.getVoicingAtIndex([{ semitones: 0 }], 0, 0, false),
   { planned: true },
-  'Drill playback preparation runtime prefers precomputed voicings when available.'
+  'Practice playback preparation runtime prefers precomputed voicings when available.'
 );
 playbackPreparationRuntime.rebuildPreparedCompingPlans();
 assert.equal(
   preparedCurrentCompingPlan?.id,
   'current-plan',
-  'Drill playback preparation runtime stores rebuilt current comping plans.'
+  'Practice playback preparation runtime stores rebuilt current comping plans.'
 );
 assert.equal(
   preparedNextCompingPlan?.id,
   'next-plan',
-  'Drill playback preparation runtime stores rebuilt next comping plans.'
+  'Practice playback preparation runtime stores rebuilt next comping plans.'
 );
 const resolvedWalkingBassGenerator = await playbackPreparationRuntime.ensureWalkingBassGenerator();
 assert.ok(
   resolvedWalkingBassGenerator && typeof resolvedWalkingBassGenerator.buildLine === 'function',
-  'Drill playback preparation runtime resolves the shared walking-bass generator.'
+  'Practice playback preparation runtime resolves the shared walking-bass generator.'
 );
 assert.deepEqual(
   playbackPreparationRuntime.buildPreparedBassPlan(),
   [{ midi: 40, timeBeats: 0 }],
-  'Drill playback preparation runtime builds and stores prepared bass plans through the shared generator.'
+  'Practice playback preparation runtime builds and stores prepared bass plans through the shared generator.'
 );
 assert.equal(
   walkingBassBuilds[0]?.tempoBpm,
   140,
-  'Drill playback preparation runtime forwards tempo to the walking-bass generator.'
+  'Practice playback preparation runtime forwards tempo to the walking-bass generator.'
 );
 let preparationCurrentCompingPlan = null;
 let preparationNextCompingPlan = null;
@@ -2539,17 +2539,17 @@ playbackPreparationAppContext.rebuildPreparedCompingPlans();
 assert.equal(
   preparationCurrentCompingPlan?.id,
   'ctx-current-plan',
-  'Drill playback preparation app context materializes the shared comping-preparation runtime.'
+  'Practice playback preparation app context materializes the shared comping-preparation runtime.'
 );
 assert.deepEqual(
   playbackPreparationAppContext.buildPreparedBassPlan(),
   [{ midi: 41, timeBeats: 0 }],
-  'Drill playback preparation app context materializes the shared bass-preparation runtime.'
+  'Practice playback preparation app context materializes the shared bass-preparation runtime.'
 );
 assert.equal(
   preparationNextCompingPlan?.id,
   'ctx-next-plan',
-  'Drill playback preparation app context preserves next-progression comping writes.'
+  'Practice playback preparation app context preserves next-progression comping writes.'
 );
 const playbackResourcesFacade = createPracticePlaybackResourcesAppFacade({
   audioFacade: {
@@ -2568,17 +2568,17 @@ const playbackResourcesFacade = createPracticePlaybackResourcesAppFacade({
 assert.equal(
   playbackResourcesFacade.rebuildPreparedCompingPlans(),
   'rebuild',
-  'Drill playback resources facade forwards preparation helpers.'
+  'Practice playback resources facade forwards preparation helpers.'
 );
 assert.deepEqual(
   playbackResourcesFacade.buildPreparedBassPlan(12),
   ['bass-plan', 12],
-  'Drill playback resources facade preserves bass-plan arguments.'
+  'Practice playback resources facade preserves bass-plan arguments.'
 );
 assert.equal(
   playbackResourcesFacade.ensureBackgroundSamplePreload(),
   'background',
-  'Drill playback resources facade forwards preload helpers from the audio facade.'
+  'Practice playback resources facade forwards preload helpers from the audio facade.'
 );
 
 const importedDocuments = await createChartDocumentsFromIRealSource({ sourcePath });
@@ -2983,7 +2983,7 @@ assert.equal(
 );
 const embeddedPlaybackBridge = createEmbeddedPlaybackBridge({
   getTargetWindow() {
-    return /** @type {any} */ ({ __JPT_DRILL_API__: embeddedApi });
+    return /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi });
   },
   getHostFrame() {
     return /** @type {any} */ ({ addEventListener() {}, removeEventListener() {} });
@@ -3022,7 +3022,7 @@ assert.equal(
 );
 const embeddedPlaybackBridgeProvider = createEmbeddedPlaybackBridgeProvider({
   getTargetWindow() {
-    return /** @type {any} */ ({ __JPT_DRILL_API__: embeddedApi });
+    return /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi });
   },
   getHostFrame() {
     return /** @type {any} */ ({ addEventListener() {}, removeEventListener() {} });
@@ -3093,7 +3093,7 @@ assert.equal(
 const embeddedPlaybackApiClient = createEmbeddedPlaybackApiClient({
   getTargetWindow() {
     return /** @type {any} */ ({
-      __JPT_DRILL_API__: embeddedApi,
+      __JPT_PLAYBACK_API__: embeddedApi,
       __JPT_PLAYBACK_RUNTIME__: embeddedPlaybackRuntime,
       __JPT_PLAYBACK_SESSION_CONTROLLER__: embeddedPlaybackRuntime.ensurePlaybackController()
     });
@@ -3108,7 +3108,7 @@ assert.equal(
   'Embedded playback API client reads the embedded API through the centralized globals surface.'
 );
 const partialEmbeddedGlobalsWindow = /** @type {any} */ ({
-  __JPT_DRILL_API__: {
+  __JPT_PLAYBACK_API__: {
     version: 2
   },
   __JPT_PLAYBACK_RUNTIME__: embeddedPlaybackRuntime,
@@ -3164,8 +3164,8 @@ assert.equal(
 );
 assert.deepEqual(
   publishedAssemblyProviderEvents,
-  ['jpt-playback-api-ready', 'jpt-drill-api-ready'],
-  'Published embedded playback assembly providers emit both playback and legacy ready events when publishing.'
+  ['jpt-playback-api-ready'],
+  'Published embedded playback assembly providers emit the playback ready event when publishing.'
 );
 const bootstrappedEmbeddedApi = bootstrapEmbeddedPlaybackApi({
   publishedPlaybackAssemblyProvider: publishedEmbeddedPlaybackAssemblyProvider
@@ -3175,8 +3175,8 @@ assert.equal(
   publishedEmbeddedPlaybackAssemblyProvider.getAssembly().embeddedApi,
   'Embedded playback bootstrap reuses the published assembly provider when one is supplied.'
 );
-const embeddedRuntimeFromDrillAssembly = initializeEmbeddedDrillRuntime({
-  playbackAssemblyProvider: createDrillPlaybackAssemblyProvider({
+const embeddedRuntimeFromPracticeAssembly = initializeEmbeddedPracticeRuntime({
+  playbackAssemblyProvider: createPracticePlaybackAssemblyProvider({
     applyEmbeddedPattern(payload) {
       embeddedPlaybackCalls.push({ kind: 'embedded-runtime-default-provider-pattern', payload });
       return { ok: true, state: embeddedRuntimeState };
@@ -3203,7 +3203,7 @@ const embeddedRuntimeFromDrillAssembly = initializeEmbeddedDrillRuntime({
   createPublishedPlaybackAssemblyProvider({ playbackAssemblyProvider, applyEmbeddedPattern, getEmbeddedPlaybackState }) {
     return createPublishedEmbeddedPlaybackAssemblyProvider({
       targetWindow: /** @type {any} */ ({
-        __JPT_DRILL_API__: null,
+        __JPT_PLAYBACK_API__: null,
         __JPT_PLAYBACK_RUNTIME__: null,
         __JPT_PLAYBACK_SESSION_CONTROLLER__: null,
         dispatchEvent() {}
@@ -3220,9 +3220,9 @@ const embeddedRuntimeFromDrillAssembly = initializeEmbeddedDrillRuntime({
   }
 });
 assert.equal(
-  typeof embeddedRuntimeFromDrillAssembly.playbackRuntime.ensureReady,
+  typeof embeddedRuntimeFromPracticeAssembly.playbackRuntime.ensureReady,
   'function',
-  'Embedded Drill runtime keeps publishing a usable embedded API even when backed by a Drill assembly provider.'
+  'Embedded playback runtime keeps publishing a usable embedded API even when backed by a practice playback assembly provider.'
 );
 const publishedEmbeddedPlaybackAssembly = createPublishedEmbeddedPlaybackAssembly({
   targetWindow: /** @type {any} */ (publishedAssemblyWindow),
@@ -3242,8 +3242,8 @@ assert.equal(
 );
 assert.deepEqual(
   publishedAssemblyEvents,
-  ['jpt-playback-api-ready', 'jpt-drill-api-ready'],
-  'Published embedded playback assembly emits both playback and legacy ready events when publishing.'
+  ['jpt-playback-api-ready'],
+  'Published embedded playback assembly emits the playback ready event when publishing.'
 );
 
 const genericPlaybackRuntime = createPlaybackRuntime({
@@ -3390,7 +3390,7 @@ const drillRuntimeState = {
   sessionId: '',
   errorMessage: null
 };
-const drillPlaybackAdapter = createDrillPlaybackSessionAdapter({
+const PracticePlaybackAdapter = createPracticePlaybackSessionAdapter({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -3485,32 +3485,32 @@ assert.equal(
   0,
   'Direct playback session adapter preserves the no-op stop behavior when playback is already stopped.'
 );
-await drillPlaybackAdapter.loadSession(satinSession, {
+await PracticePlaybackAdapter.loadSession(satinSession, {
   transposition: -2,
   displayMode: 'roman'
 });
 assert.equal(
   drillAdapterCalls.find(call => call.kind === 'pattern')?.payload?.transposition,
   -2,
-  'Drill playback adapter forwards transposition through the shared playback-session boundary.'
+  'Practice playback adapter forwards transposition through the shared playback-session boundary.'
 );
-await drillPlaybackAdapter.updatePlaybackSettings({
+await PracticePlaybackAdapter.updatePlaybackSettings({
   customMediumSwingBass: true,
   displayMode: 'show-both'
 });
 assert.equal(
   drillAdapterCalls.find(call => call.kind === 'settings')?.settings?.displayMode,
   'show-both',
-  'Drill playback adapter forwards playback settings through the shared playback-session boundary.'
+  'Practice playback adapter forwards playback settings through the shared playback-session boundary.'
 );
-await drillPlaybackAdapter.start();
-drillPlaybackAdapter.pauseToggle();
-drillPlaybackAdapter.stop();
-assert.equal(drillAdapterCalls.filter(call => call.kind === 'start').length, 1, 'Drill playback adapter forwards start through the shared playback-session boundary.');
-assert.equal(drillAdapterCalls.filter(call => call.kind === 'pause').length, 1, 'Drill playback adapter forwards pause through the shared playback-session boundary.');
-assert.equal(drillAdapterCalls.filter(call => call.kind === 'stop').length, 0, 'Drill playback adapter preserves the no-op stop behavior when playback is already stopped.');
+await PracticePlaybackAdapter.start();
+PracticePlaybackAdapter.pauseToggle();
+PracticePlaybackAdapter.stop();
+assert.equal(drillAdapterCalls.filter(call => call.kind === 'start').length, 1, 'Practice playback adapter forwards start through the shared playback-session boundary.');
+assert.equal(drillAdapterCalls.filter(call => call.kind === 'pause').length, 1, 'Practice playback adapter forwards pause through the shared playback-session boundary.');
+assert.equal(drillAdapterCalls.filter(call => call.kind === 'stop').length, 0, 'Practice playback adapter preserves the no-op stop behavior when playback is already stopped.');
 
-const drillPlaybackRuntime = createDrillPlaybackRuntime({
+const PracticePlaybackRuntime = createPracticePlaybackRuntime({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'runtime-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -3542,7 +3542,7 @@ const drillPlaybackRuntime = createDrillPlaybackRuntime({
     drillAdapterCalls.push({ kind: 'runtime-pause' });
   }
 });
-const coreDrillPlaybackRuntime = createCoreDrillPlaybackRuntime({
+const corePracticePlaybackRuntime = createCorePracticePlaybackRuntime({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'core-runtime-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -3569,11 +3569,11 @@ const coreDrillPlaybackRuntime = createCoreDrillPlaybackRuntime({
   togglePausePlayback: () => {}
 });
 assert.equal(
-  coreDrillPlaybackRuntime.ensurePlaybackController(),
-  coreDrillPlaybackRuntime.ensurePlaybackController(),
-  'Core Drill playback runtime memoizes its playback controller.'
+  corePracticePlaybackRuntime.ensurePlaybackController(),
+  corePracticePlaybackRuntime.ensurePlaybackController(),
+  'Core practice playback runtime memoizes its playback controller.'
 );
-const drillPlaybackRuntimeProvider = createDrillPlaybackRuntimeProvider({
+const PracticePlaybackRuntimeProvider = createPracticePlaybackRuntimeProvider({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'provider-runtime-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -3600,14 +3600,14 @@ const drillPlaybackRuntimeProvider = createDrillPlaybackRuntimeProvider({
   togglePausePlayback: () => {}
 });
 assert.equal(
-  drillPlaybackRuntimeProvider.getRuntime(),
-  drillPlaybackRuntimeProvider.getRuntime(),
-  'Drill playback runtime provider memoizes the Drill runtime instance.'
+  PracticePlaybackRuntimeProvider.getRuntime(),
+  PracticePlaybackRuntimeProvider.getRuntime(),
+  'Practice playback runtime provider memoizes the practice playback runtime instance.'
 );
 assert.equal(
-  drillPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
-  drillPlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
-  'Drill playback runtime provider returns a stable runtime with a memoized controller.'
+  PracticePlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
+  PracticePlaybackRuntimeProvider.getRuntime().ensurePlaybackController(),
+  'Practice playback runtime provider returns a stable runtime with a memoized controller.'
 );
 const directPlaybackRuntimeProvider = createDirectPlaybackRuntimeProvider({
   loadDirectSession(sessionSpec, playbackSettings) {
@@ -3638,7 +3638,7 @@ assert.equal(
   true,
   'Direct playback runtime provider can load a practice session through the direct session boundary.'
 );
-const drillPlaybackBridgeProvider = createDrillPlaybackBridgeProvider({
+const PracticePlaybackBridgeProvider = createPracticePlaybackBridgeProvider({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'provider-bridge-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -3665,9 +3665,9 @@ const drillPlaybackBridgeProvider = createDrillPlaybackBridgeProvider({
   togglePausePlayback: () => {}
 });
 assert.equal(
-  drillPlaybackBridgeProvider.getBridge(),
-  drillPlaybackBridgeProvider.getBridge(),
-  'Drill playback bridge provider memoizes the direct runtime-backed bridge.'
+  PracticePlaybackBridgeProvider.getBridge(),
+  PracticePlaybackBridgeProvider.getBridge(),
+  'Practice playback bridge provider memoizes the direct runtime-backed bridge.'
 );
 const directPlaybackBridgeProvider = createDirectPlaybackBridgeProvider({
   applyEmbeddedPattern(payload) {
@@ -3709,7 +3709,7 @@ let schedulerNextRawChords = [];
 let schedulerNextVoicingPlan = [];
 let schedulerPaddedChords = [];
 const schedulerPendingDisplayTimeouts = new Set();
-const schedulerState = createDrillPlaybackSchedulerState({
+const schedulerState = createPracticePlaybackSchedulerState({
   getAudioContext: () => schedulerAudioContext,
   setAudioContext: (value) => { schedulerAudioContext = value; },
   getCurrentBassPlan: () => schedulerCurrentBassPlan,
@@ -3758,9 +3758,9 @@ const schedulerState = createDrillPlaybackSchedulerState({
 });
 schedulerState.currentBeat = 2;
 schedulerState.currentBassPlan = [1, 2];
-assert.equal(schedulerCurrentBeat, 2, 'Drill playback scheduler state proxy forwards beat mutations.');
-assert.deepEqual(schedulerState.currentBassPlan, [1, 2], 'Drill playback scheduler state proxy exposes current bass plan.');
-assert.equal(schedulerState.pendingDisplayTimeouts, schedulerPendingDisplayTimeouts, 'Drill playback scheduler state proxy exposes pending display timeouts.');
+assert.equal(schedulerCurrentBeat, 2, 'Practice playback scheduler state proxy forwards beat mutations.');
+assert.deepEqual(schedulerState.currentBassPlan, [1, 2], 'Practice playback scheduler state proxy exposes current bass plan.');
+assert.equal(schedulerState.pendingDisplayTimeouts, schedulerPendingDisplayTimeouts, 'Practice playback scheduler state proxy exposes pending display timeouts.');
 let transportActiveNoteGain = null;
 let transportAudioContext = null;
 let transportCurrentBeat = 0;
@@ -3778,7 +3778,7 @@ let transportNextBeatTime = 0;
 let transportNextKeyValue = null;
 let transportSchedulerTimer = null;
 let transportStartupSamplePreloadInProgress = false;
-const transportState = createDrillPlaybackTransportState({
+const transportState = createPracticePlaybackTransportState({
   getActiveNoteGain: () => transportActiveNoteGain,
   setActiveNoteGain: (value) => { transportActiveNoteGain = value; },
   getAudioContext: () => transportAudioContext,
@@ -3816,9 +3816,9 @@ const transportState = createDrillPlaybackTransportState({
 });
 transportState.isPlaying = true;
 transportState.currentBeat = 3;
-assert.equal(transportIsPlaying, true, 'Drill playback transport state proxy forwards transport playing mutations.');
-assert.equal(transportState.currentBeat, 3, 'Drill playback transport state proxy exposes beat mutations.');
-const drillPlaybackEngineAppContext = createDrillPlaybackEngineAppContext({
+assert.equal(transportIsPlaying, true, 'Practice playback transport state proxy forwards transport playing mutations.');
+assert.equal(transportState.currentBeat, 3, 'Practice playback transport state proxy exposes beat mutations.');
+const PracticePlaybackEngineAppContext = createPracticePlaybackEngineAppContext({
   dom: { transportStatus: {} },
   schedulerState,
   transportState,
@@ -3837,26 +3837,26 @@ const drillPlaybackEngineAppContext = createDrillPlaybackEngineAppContext({
   }
 });
 assert.equal(
-  drillPlaybackEngineAppContext.schedulerState,
+  PracticePlaybackEngineAppContext.schedulerState,
   schedulerState,
-  'Drill playback engine app context keeps the scheduler state boundary explicit.'
+  'Practice playback engine app context keeps the scheduler state boundary explicit.'
 );
 assert.equal(
-  drillPlaybackEngineAppContext.transportState,
+  PracticePlaybackEngineAppContext.transportState,
   transportState,
-  'Drill playback engine app context keeps the transport state boundary explicit.'
+  'Practice playback engine app context keeps the transport state boundary explicit.'
 );
 assert.equal(
-  drillPlaybackEngineAppContext.schedulerHelpers.getSecondsPerBeat(),
+  PracticePlaybackEngineAppContext.schedulerHelpers.getSecondsPerBeat(),
   0.5,
-  'Drill playback engine app context materializes scheduler helpers from app bindings.'
+  'Practice playback engine app context materializes scheduler helpers from app bindings.'
 );
 assert.equal(
-  typeof drillPlaybackEngineAppContext.transportHelpers.initAudio,
+  typeof PracticePlaybackEngineAppContext.transportHelpers.initAudio,
   'function',
-  'Drill playback engine app context materializes transport helpers from app bindings.'
+  'Practice playback engine app context materializes transport helpers from app bindings.'
 );
-const drillPlaybackRuntimeAppAssembly = createDrillPlaybackRuntimeAppAssembly({
+const PracticePlaybackRuntimeAppAssembly = createPracticePlaybackRuntimeAppAssembly({
   dom: {
     startStop: { textContent: '', classList: { add() {}, remove() {} } },
     pause: { textContent: '', classList: { add() {}, remove() {} } },
@@ -3962,16 +3962,16 @@ const drillPlaybackRuntimeAppAssembly = createDrillPlaybackRuntimeAppAssembly({
   }
 });
 assert.equal(
-  typeof drillPlaybackRuntimeAppAssembly.start,
+  typeof PracticePlaybackRuntimeAppAssembly.start,
   'function',
-  'Drill playback runtime app assembly materializes the shared playback transport.'
+  'Practice playback runtime app assembly materializes the shared playback transport.'
 );
 assert.equal(
-  typeof drillPlaybackRuntimeAppAssembly.prepareNextProgressionPlayback,
+  typeof PracticePlaybackRuntimeAppAssembly.prepareNextProgressionPlayback,
   'function',
-  'Drill playback runtime app assembly materializes the shared playback scheduler.'
+  'Practice playback runtime app assembly materializes the shared playback scheduler.'
 );
-const drillPlaybackStateAppContext = createDrillPlaybackStateAppContext({
+const PracticePlaybackStateAppContext = createPracticePlaybackStateAppContext({
   schedulerBindings: {
     getAudioContext: () => schedulerAudioContext,
     setAudioContext: (value) => { schedulerAudioContext = value; },
@@ -4057,18 +4057,18 @@ const drillPlaybackStateAppContext = createDrillPlaybackStateAppContext({
   }
 });
 assert.equal(
-  drillPlaybackStateAppContext.schedulerState.pendingDisplayTimeouts,
+  PracticePlaybackStateAppContext.schedulerState.pendingDisplayTimeouts,
   schedulerPendingDisplayTimeouts,
-  'Drill playback state app context builds the scheduler proxy from app bindings.'
+  'Practice playback state app context builds the scheduler proxy from app bindings.'
 );
-drillPlaybackStateAppContext.transportState.currentBeat = 1;
+PracticePlaybackStateAppContext.transportState.currentBeat = 1;
 assert.equal(
   transportCurrentBeat,
   1,
-  'Drill playback state app context builds the transport proxy from app bindings.'
+  'Practice playback state app context builds the transport proxy from app bindings.'
 );
 let embeddedRuntimeStopIfPlayingCalls = 0;
-const embeddedRuntimeAppContextOptions = createEmbeddedDrillRuntimeAppContextOptions({
+const embeddedRuntimeAppContextOptions = createEmbeddedPracticeRuntimeAppContextOptions({
   dom: { patternName: { value: '' }, patternSelect: { value: '' }, tempoSlider: { value: '140' }, patternError: { textContent: 'Oops' } },
   patternUi: {
     clearProgressionEditingState: () => {},
@@ -4141,12 +4141,12 @@ embeddedRuntimeAppContextOptions.patternAdapterOptions.stopIfPlaying();
 assert.equal(
   embeddedRuntimeStopIfPlayingCalls,
   1,
-  'Embedded drill runtime app context reuses grouped app actions to stop active playback.'
+  'Embedded playback runtime app context reuses grouped app actions to stop active playback.'
 );
 assert.equal(
   embeddedRuntimeAppContextOptions.playbackControllerOptions.noteFadeout,
   0.1,
-  'Embedded drill runtime app context forwards direct runtime controller options through the grouped boundary.'
+  'Embedded playback runtime app context forwards direct runtime controller options through the grouped boundary.'
 );
 const directSessionHandlers = createDirectPlaybackSessionHandlers({
   applyPracticeSession(sessionSpec) {
@@ -4382,7 +4382,7 @@ assert.equal(
   'Chart direct playback runtime host bindings preserve grouped chart-level host concerns for the shared direct host seam.'
 );
 const chartLegacyOnlyWindowHost = createChartDirectPlaybackWindowHost({
-  getCurrentWindow: () => /** @type {any} */ ({ __JPT_DRILL_API__: embeddedApi }),
+  getCurrentWindow: () => /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi }),
   getExistingFrame: () => chartFrameHostStoredFrame,
   setFrame: (frame) => { chartFrameHostStoredFrame = frame; },
   parent: /** @type {any} */ ({ appendChild() {} }),
@@ -4472,8 +4472,8 @@ assert.equal(
   'Chart direct playback controller options expose direct transport controls.'
 );
 const chartDirectUnavailableControllerOptions = createChartDirectPlaybackControllerOptions({
-  getTargetWindow: () => /** @type {any} */ ({ __JPT_DRILL_API__: embeddedApi }),
-  getPreferredTargetWindow: () => /** @type {any} */ ({ __JPT_DRILL_API__: embeddedApi }),
+  getTargetWindow: () => /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi }),
+  getPreferredTargetWindow: () => /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi }),
   getFallbackTargetWindow: () => null,
   getHostFrame: () => null
 });
@@ -4534,7 +4534,7 @@ assert.equal(
   satinSession.tempo || 160,
   'Chart playback payload builder preserves session tempo when present.'
 );
-const drillPlaybackAssembly = createDrillPlaybackAssembly({
+const PracticePlaybackAssembly = createPracticePlaybackAssembly({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'assembly-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -4561,9 +4561,9 @@ const drillPlaybackAssembly = createDrillPlaybackAssembly({
   togglePausePlayback: () => {}
 });
 assert.equal(
-  drillPlaybackAssembly.playbackController,
-  drillPlaybackAssembly.playbackRuntime.ensurePlaybackController(),
-  'Core Drill playback assembly materializes the same controller as its runtime.'
+  PracticePlaybackAssembly.playbackController,
+  PracticePlaybackAssembly.playbackRuntime.ensurePlaybackController(),
+  'Core practice playback assembly materializes the same controller as its runtime.'
 );
 const directPlaybackAssembly = createDirectPlaybackAssembly({
   loadDirectSession(sessionSpec, playbackSettings) {
@@ -4583,7 +4583,7 @@ assert.equal(
   directPlaybackAssembly.playbackRuntime.ensurePlaybackController(),
   'Direct playback assembly materializes the same controller as its runtime.'
 );
-const drillPlaybackAssemblyProvider = createDrillPlaybackAssemblyProvider({
+const PracticePlaybackAssemblyProvider = createPracticePlaybackAssemblyProvider({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'provider-assembly-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -4610,14 +4610,14 @@ const drillPlaybackAssemblyProvider = createDrillPlaybackAssemblyProvider({
   togglePausePlayback: () => {}
 });
 assert.equal(
-  drillPlaybackAssemblyProvider.getAssembly(),
-  drillPlaybackAssemblyProvider.getAssembly(),
-  'Drill playback assembly provider memoizes the Drill assembly instance.'
+  PracticePlaybackAssemblyProvider.getAssembly(),
+  PracticePlaybackAssemblyProvider.getAssembly(),
+  'Practice playback assembly provider memoizes the practice playback assembly instance.'
 );
 assert.equal(
-  drillPlaybackAssemblyProvider.getAssembly().playbackController,
-  drillPlaybackAssemblyProvider.getAssembly().playbackRuntime.ensurePlaybackController(),
-  'Drill playback assembly provider returns a stable assembly/controller pair.'
+  PracticePlaybackAssemblyProvider.getAssembly().playbackController,
+  PracticePlaybackAssemblyProvider.getAssembly().playbackRuntime.ensurePlaybackController(),
+  'Practice playback assembly provider returns a stable assembly/controller pair.'
 );
 const directPlaybackAssemblyProvider = createDirectPlaybackAssemblyProvider({
   loadDirectSession(sessionSpec, playbackSettings) {
@@ -4920,8 +4920,8 @@ const chartEmbeddedRuntimeContext = createChartPlaybackRuntimeContext({
 });
 chartEmbeddedRuntimeContext.getPlaybackBridgeProvider();
 assert.equal(embeddedBridgeFrameLookups, 1, 'Chart playback runtime context resolves the embedded bridge frame lazily.');
-const embeddedDrillApi = createEmbeddedDrillApi({
-  playbackRuntime: drillPlaybackRuntime,
+const embeddedPlaybackApi = createFeatureEmbeddedPlaybackApi({
+  playbackRuntime: PracticePlaybackRuntime,
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'embedded-api-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -4930,23 +4930,23 @@ const embeddedDrillApi = createEmbeddedDrillApi({
     return /** @type {any} */ ({ ...drillRuntimeState, isEmbeddedMode: true });
   }
 });
-await embeddedDrillApi.applyEmbeddedPlaybackSettings({ transposition: 3 });
-await embeddedDrillApi.startPlayback();
-await embeddedDrillApi.togglePausePlayback();
+await embeddedPlaybackApi.applyEmbeddedPlaybackSettings({ transposition: 3 });
+await embeddedPlaybackApi.startPlayback();
+await embeddedPlaybackApi.togglePausePlayback();
 assert.equal(
   drillAdapterCalls.find(call => call.kind === 'runtime-settings')?.settings?.transposition,
   3,
-  'Embedded Drill API can drive playback settings through the shared drill runtime boundary.'
+  'Embedded playback API can drive playback settings through the shared playback runtime boundary.'
 );
 assert.equal(
   drillAdapterCalls.filter(call => call.kind === 'runtime-start').length,
   1,
-  'Embedded Drill API starts playback through the shared drill runtime boundary.'
+  'Embedded playback API starts playback through the shared playback runtime boundary.'
 );
 assert.equal(
   drillAdapterCalls.filter(call => call.kind === 'runtime-pause').length,
   1,
-  'Embedded Drill API toggles pause through the shared drill runtime boundary.'
+  'Embedded playback API toggles pause through the shared playback runtime boundary.'
 );
 
 const globalEvents = [];
@@ -4958,22 +4958,22 @@ const globalTargetWindow = {
 };
 publishEmbeddedPlaybackGlobals({
   targetWindow: /** @type {any} */ (globalTargetWindow),
-  embeddedApi: embeddedDrillApi,
-  playbackRuntime: drillPlaybackRuntime,
-  playbackController: drillPlaybackRuntime.ensurePlaybackController()
+  embeddedApi: embeddedPlaybackApi,
+  playbackRuntime: PracticePlaybackRuntime,
+  playbackController: PracticePlaybackRuntime.ensurePlaybackController()
 });
 const publishedGlobals = readEmbeddedPlaybackGlobals(/** @type {any} */ (globalTargetWindow));
-assert.equal(publishedGlobals.embeddedApi, embeddedDrillApi, 'Embedded playback globals publish the embedded API through a single boundary.');
-assert.equal(publishedGlobals.playbackRuntime, drillPlaybackRuntime, 'Embedded playback globals publish the playback runtime through a single boundary.');
+assert.equal(publishedGlobals.embeddedApi, embeddedPlaybackApi, 'Embedded playback globals publish the embedded API through a single boundary.');
+assert.equal(publishedGlobals.playbackRuntime, PracticePlaybackRuntime, 'Embedded playback globals publish the playback runtime through a single boundary.');
 assert.equal(
   publishedGlobals.playbackController,
-  drillPlaybackRuntime.ensurePlaybackController(),
+  PracticePlaybackRuntime.ensurePlaybackController(),
   'Embedded playback globals keep the legacy playback controller global for compatibility.'
 );
 assert.deepEqual(
   globalEvents,
-  ['jpt-playback-api-ready', 'jpt-drill-api-ready'],
-  'Embedded playback globals publish both playback and legacy ready events through a single boundary.'
+  ['jpt-playback-api-ready'],
+  'Embedded playback globals publish the playback ready event through a single boundary.'
 );
 
 const walkingBassGenerator = createWalkingBassGenerator();

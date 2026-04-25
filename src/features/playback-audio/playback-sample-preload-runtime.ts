@@ -110,7 +110,7 @@ export function createPlaybackSamplePreloadRuntime({
   getBassMidi = () => 0,
   getBeatsPerChord = () => 1,
   getChordsPerBar = () => 1,
-  getCompingStyle = () => 'strings',
+  getCompingStyle = () => 'piano',
   getDrumsMode = () => 'off',
   getCurrentProgression = () => ({}),
   getNextProgression = () => ({}),

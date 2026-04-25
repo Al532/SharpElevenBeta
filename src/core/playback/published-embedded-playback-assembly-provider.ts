@@ -25,13 +25,11 @@ function hasPublishedEmbeddedSourceShape(value: unknown): value is PlaybackAssem
 export function createPublishedEmbeddedPlaybackAssemblyProvider({
   targetWindow,
   readyEventName,
-  legacyReadyEventName,
   playbackAssemblyProvider,
   createPlaybackAssembly
 }: {
   targetWindow?: Window | null;
   readyEventName?: string;
-  legacyReadyEventName?: string | null;
   playbackAssemblyProvider?: PlaybackAssemblyProvider | null;
   createPlaybackAssembly?: () => PlaybackAssemblySource;
 }): PublishedEmbeddedPlaybackAssemblyProvider {
@@ -45,7 +43,6 @@ export function createPublishedEmbeddedPlaybackAssemblyProvider({
       return createPublishedEmbeddedPlaybackAssembly({
         targetWindow,
         readyEventName,
-        legacyReadyEventName,
         playbackRuntime: assembly.playbackRuntime,
         applyEmbeddedPattern: assembly.applyEmbeddedPattern,
         getPlaybackState: assembly.getPlaybackState

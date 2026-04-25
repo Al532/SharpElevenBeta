@@ -1,9 +1,9 @@
 export function createChartDirectPlaybackFrameHost({
   getExistingFrame,
   setFrame,
-  src = '../index.html?embedded=1',
-  id = 'drill-bridge-frame',
-  className = 'chart-drill-bridge',
+  src = '../drill.html?embedded=1',
+  id = 'playback-bridge-frame',
+  className = 'chart-playback-bridge',
   title = 'Hidden playback bridge',
   parent = typeof document !== 'undefined' ? document.body : null,
   createFrame = () => document.createElement('iframe') as HTMLIFrameElement

@@ -1,23 +1,18 @@
 import type { EmbeddedPlaybackApi } from '../types/contracts';
 
-import {
-  LEGACY_DRILL_API_READY_EVENT,
-  PLAYBACK_API_READY_EVENT
-} from './embedded-playback-identifiers.js';
+import { PLAYBACK_API_READY_EVENT } from './embedded-playback-identifiers.js';
 
 export function waitForEmbeddedPlaybackApi({
   getTargetWindow,
   getHostFrame,
   getEmbeddedApi,
   readyEventName = PLAYBACK_API_READY_EVENT,
-  legacyReadyEventName = LEGACY_DRILL_API_READY_EVENT,
   timeoutMs = 10000
 }: {
   getTargetWindow?: () => Window | null;
   getHostFrame?: () => HTMLIFrameElement | null;
   getEmbeddedApi?: () => EmbeddedPlaybackApi | null;
   readyEventName?: string;
-  legacyReadyEventName?: string | null;
   timeoutMs?: number;
 } = {}): Promise<EmbeddedPlaybackApi> {
   return new Promise((resolve, reject) => {
@@ -57,16 +52,10 @@ export function waitForEmbeddedPlaybackApi({
     const cleanup = () => {
       frame.removeEventListener('load', onLoad);
       getTargetWindow?.()?.removeEventListener?.(readyEventName, onReady);
-      if (legacyReadyEventName && legacyReadyEventName !== readyEventName) {
-        getTargetWindow?.()?.removeEventListener?.(legacyReadyEventName, onReady);
-      }
     };
 
     frame.addEventListener('load', onLoad, { once: true });
     getTargetWindow?.()?.addEventListener?.(readyEventName, onReady, { once: true });
-    if (legacyReadyEventName && legacyReadyEventName !== readyEventName) {
-      getTargetWindow?.()?.addEventListener?.(legacyReadyEventName, onReady, { once: true });
-    }
 
     window.setTimeout(() => {
       const embeddedApi = getEmbeddedApi?.() || null;

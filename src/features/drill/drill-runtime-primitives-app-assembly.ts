@@ -1,7 +1,7 @@
 // @ts-check
 
 import { createPracticePatternAnalysis } from '../practice-patterns/practice-pattern-analysis.js';
-import { createDrillPlaybackSettingsRuntime } from './drill-playback-settings-runtime.js';
+import { createPracticePlaybackSettingsRuntime } from '../practice-playback/practice-playback-settings-runtime.js';
 
 /**
  * Creates the low-level drill runtime primitives that are still configured from
@@ -21,7 +21,7 @@ import { createDrillPlaybackSettingsRuntime } from './drill-playback-settings-ru
  * }} [options]
  * @returns {{
  *   patternAnalysis: ReturnType<typeof createPracticePatternAnalysis>,
- *   playbackSettingsRuntime: ReturnType<typeof createDrillPlaybackSettingsRuntime>
+ *   playbackSettingsRuntime: ReturnType<typeof createPracticePlaybackSettingsRuntime>
  * }}
  */
 export function createDrillRuntimePrimitivesAppAssembly({
@@ -30,6 +30,6 @@ export function createDrillRuntimePrimitivesAppAssembly({
 } = {}) {
   return {
     patternAnalysis: createPracticePatternAnalysis(patternAnalysis),
-    playbackSettingsRuntime: createDrillPlaybackSettingsRuntime(playbackSettings)
+    playbackSettingsRuntime: createPracticePlaybackSettingsRuntime(playbackSettings)
   };
 }

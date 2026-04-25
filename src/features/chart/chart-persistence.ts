@@ -77,18 +77,40 @@ export function loadPersistedChartId({
   }
 }
 
+export function loadRecentChartIds(): string[] {
+  const chartUiSettings = loadChartUiSettings();
+  const recentChartIds = chartUiSettings?.recentChartIds;
+  if (!Array.isArray(recentChartIds)) return [];
+
+  return recentChartIds
+    .map((chartId) => String(chartId || '').trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 export function persistChartId(
   chartId: string,
   { legacyStorageKey = '' }: { legacyStorageKey?: string } = {}
 ): void {
-  saveChartUiSettings({ lastChartId: chartId || '' });
+  const normalizedChartId = String(chartId || '').trim();
+  const nextRecentChartIds = normalizedChartId
+    ? [
+        normalizedChartId,
+        ...loadRecentChartIds().filter((recentChartId) => recentChartId !== normalizedChartId)
+      ].slice(0, 3)
+    : loadRecentChartIds();
+
+  saveChartUiSettings({
+    lastChartId: normalizedChartId,
+    recentChartIds: nextRecentChartIds
+  });
   if (!legacyStorageKey) return;
   try {
-    if (!chartId) {
+    if (!normalizedChartId) {
       window.localStorage.removeItem(legacyStorageKey);
       return;
     }
-    window.localStorage.setItem(legacyStorageKey, chartId);
+    window.localStorage.setItem(legacyStorageKey, normalizedChartId);
   } catch {
     // Ignore storage failures so chart-dev still works in restricted contexts.
   }
@@ -128,7 +150,7 @@ export function persistPlaybackSettings({
   legacyStorageKey?: string;
 } = {}): void {
   const nextSettings = {
-    compingStyle: playbackSettings.compingStyle || 'strings',
+    compingStyle: playbackSettings.compingStyle || 'piano',
     drumsMode: playbackSettings.drumsMode || 'full_swing',
     customMediumSwingBass: playbackSettings.customMediumSwingBass !== false
   };

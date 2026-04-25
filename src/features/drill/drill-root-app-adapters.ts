@@ -2,12 +2,12 @@
 import { createDrillDisplayRootAppFacade } from './drill-display-root-app-facade.js';
 import { createDrillDirectRuntimeAppAssembly } from './drill-direct-runtime-app-assembly.js';
 import { createDrillEmbeddedRuntimeAppAssembly } from './drill-embedded-runtime-app-assembly.js';
-import { initializeEmbeddedDrillRuntime } from './drill-embedded-runtime.js';
+import { initializeEmbeddedPracticeRuntime } from './drill-embedded-runtime.js';
 import { createDrillKeysRootAppAssembly } from './drill-keys-root-app-assembly.js';
 import { createDrillNextPreviewRootAppFacade } from './drill-next-preview-root-app-facade.js';
 import { createDrillPianoMidiRuntimeRootAppAssembly } from './drill-piano-midi-runtime-root-app-assembly.js';
 import { createDrillPianoToolsRootAppFacade } from './drill-piano-tools-root-app-facade.js';
-import { createDrillPlaybackRuntimeAppAssembly } from './drill-playback-runtime-app-assembly.js';
+import { createPracticePlaybackRuntimeAppAssembly } from '../practice-playback/practice-playback-runtime-app-assembly.js';
 import { createPracticePlaybackRuntimeHostRootAppAssembly } from '../practice-playback/practice-playback-runtime-host-root-app-assembly.js';
 import { createDrillProgressionRootAppAssembly } from './drill-progression-root-app-assembly.js';
 import { createDrillRuntimeStateRootAppAssembly } from './drill-runtime-state-root-app-assembly.js';
@@ -182,7 +182,7 @@ export function createPracticePlaybackRuntimeHostDrillRootAppAssembly({
     preloadState: asRecord(preloadState),
     playbackConstants: asRecord(playbackConstants),
     runtimeHelpers: asRecord(runtimeHelpers),
-    createRuntimeAppAssembly: createDrillPlaybackRuntimeAppAssembly
+    createRuntimeAppAssembly: createPracticePlaybackRuntimeAppAssembly
   });
 }
 
@@ -361,7 +361,7 @@ export function createPracticePlaybackDrillRootAppAssembly({
       ...rootAppContext,
       adapters: {
         createEmbeddedRuntimeAssembly: createDrillEmbeddedRuntimeAppAssembly,
-        initializeEmbeddedRuntime: initializeEmbeddedDrillRuntime,
+        initializeEmbeddedRuntime: initializeEmbeddedPracticeRuntime,
         createDirectRuntimeAssembly: createDrillDirectRuntimeAppAssembly
       }
     } as SharedPlaybackRootAppAssemblyOptions)
