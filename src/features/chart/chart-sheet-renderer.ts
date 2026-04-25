@@ -594,7 +594,7 @@ function getVisualSymbolRect(mainTokenEl) {
 
 /**
  * @param {Element} slotEl
- * @returns {{ slotEl: Element, tokenEl: Element | null, slotRect: DOMRect, symbolRect: { left: number, top: number, right: number, bottom: number, width?: number, height?: number } | null, mainRect: DOMRect | null, anchorX: number, beatTargetX: number }}
+ * @returns {{ slotEl: Element, tokenEl: Element | null, slotRect: DOMRect, tokenRect: DOMRect | null, symbolRect: { left: number, top: number, right: number, bottom: number, width?: number, height?: number } | null, mainRect: DOMRect | null, anchorX: number, beatTargetX: number }}
  */
 function measureTokenGeometry(slotEl) {
   const tokenEl = /** @type {HTMLElement | null} */ (slotEl.querySelector('.chart-token'));
@@ -626,7 +626,66 @@ function measureTokenGeometry(slotEl) {
     : slotRect.left + (slotRect.width / 2);
   const beatTargetX = slotRect.left + (slotRect.width / 2);
 
-  return { slotEl, tokenEl, slotRect, symbolRect, mainRect, anchorX, beatTargetX };
+  return { slotEl, tokenEl, slotRect, tokenRect, symbolRect, mainRect, anchorX, beatTargetX };
+}
+
+/**
+ * @param {ReturnType<typeof measureTokenGeometry>} geometry
+ * @param {number} scale
+ * @returns {{ left: number, right: number, anchorX: number }}
+ */
+function getScaledCollisionGeometry(geometry, scale) {
+  const symbolRect = geometry.symbolRect || geometry.slotRect;
+  const originX = geometry.tokenRect
+    ? geometry.tokenRect.left
+    : symbolRect.left;
+  const left = originX + ((symbolRect.left - originX) * scale);
+  const right = originX + ((symbolRect.right - originX) * scale);
+  const anchorX = originX + ((geometry.anchorX - originX) * scale);
+
+  return { left, right, anchorX };
+}
+
+/**
+ * @param {ReturnType<typeof measureTokenGeometry>[]} geometries
+ * @param {DOMRect} barRect
+ * @param {number} maxOffsetPx
+ * @param {number} scale
+ * @param {number} minGap
+ * @returns {number}
+ */
+function getSolvedMaxOverlapAtScale(geometries, barRect, maxOffsetPx, scale, minGap) {
+  if (geometries.length < 2) return 0;
+
+  const scaledGeometries = geometries.map((geometry) => getScaledCollisionGeometry(geometry, scale));
+  const rawLefts = scaledGeometries.map((geometry) => geometry.left);
+  const rawRights = scaledGeometries.map((geometry) => geometry.right);
+  const targetOffsets = scaledGeometries.map((geometry, index) =>
+    geometries[index].beatTargetX - geometry.anchorX
+  );
+  const hardMinOffsets = rawLefts.map(() => -maxOffsetPx);
+  const hardMaxOffsets = rawRights.map(() => maxOffsetPx);
+  const boundaryMinOffsets = rawLefts.map((left) => barRect.left - left);
+  const boundaryMaxOffsets = rawRights.map((right) => barRect.right - right);
+  const solvedOffsets = solveGlobalTokenOffsets(
+    rawLefts,
+    rawRights,
+    targetOffsets,
+    hardMinOffsets,
+    hardMaxOffsets,
+    boundaryMinOffsets,
+    boundaryMaxOffsets,
+    minGap
+  );
+
+  let maxOverlap = 0;
+  for (let index = 0; index < rawLefts.length - 1; index += 1) {
+    const right = rawRights[index] + solvedOffsets[index];
+    const nextLeft = rawLefts[index + 1] + solvedOffsets[index + 1];
+    maxOverlap = Math.max(maxOverlap, right - nextLeft + minGap);
+  }
+
+  return Math.max(0, maxOverlap);
 }
 
 /**
@@ -651,23 +710,31 @@ function getBarBodyCollisionScale(barBodyEl, minScale: number = CHART_COMPRESSIO
     ? (availableWidth * CHART_COMPRESSION_CONFIG.triggerFillRatio) / occupiedWidth
     : 1;
 
-  let maxOverlap = 0;
-  for (let index = 0; index < symbolLefts.length - 1; index += 1) {
-    maxOverlap = Math.max(maxOverlap, symbolRights[index] - symbolLefts[index + 1]);
+  const maxOffsetPx = getMaxOffsetPx(barBodyEl);
+  const overlapTolerancePx = 0.25;
+  const compressionMinGap = CHART_DISPLACEMENT_CONFIG.antiCollisionGapPx
+    + Math.max(0, CHART_COMPRESSION_CONFIG.antiCollisionPaddingPx || 0);
+  const upperScale = clampNumber(Math.min(1, spanScale), minScale, 1);
+  if (getSolvedMaxOverlapAtScale(geometries, barRect, maxOffsetPx, upperScale, compressionMinGap) <= overlapTolerancePx) {
+    return upperScale;
   }
 
-  const overlapScale = maxOverlap > 0
-      ? Math.max(
-        minScale,
-        1 - (((maxOverlap + CHART_COMPRESSION_CONFIG.antiCollisionPaddingPx) / availableWidth)
-          * CHART_COMPRESSION_CONFIG.balance)
-      )
-    : 1;
+  if (getSolvedMaxOverlapAtScale(geometries, barRect, maxOffsetPx, minScale, compressionMinGap) > overlapTolerancePx) {
+    return minScale;
+  }
 
-  return Math.max(
-    minScale,
-    Math.min(1, spanScale, overlapScale)
-  );
+  let low = minScale;
+  let high = upperScale;
+  for (let iteration = 0; iteration < 12; iteration += 1) {
+    const middle = (low + high) / 2;
+    if (getSolvedMaxOverlapAtScale(geometries, barRect, maxOffsetPx, middle, compressionMinGap) <= overlapTolerancePx) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+
+  return clampNumber(low, minScale, 1);
 }
 
 /**
@@ -826,6 +893,170 @@ function clampTokenOffset(rawLeft, rawRight, offset, leftBound, rightBound, maxO
 }
 
 /**
+ * @param {number[]} values
+ * @returns {number}
+ */
+function getMean(values) {
+  return values.length > 0
+    ? values.reduce((total, value) => total + value, 0) / values.length
+    : 0;
+}
+
+/**
+ * @param {number[]} rawLefts
+ * @param {number[]} rawRights
+ * @param {number[]} targetOffsets
+ * @param {number[]} boundaryMinOffsets
+ * @param {number[]} boundaryMaxOffsets
+ * @param {number} minGap
+ * @returns {(candidateOffsets: number[]) => number}
+ */
+function scoreGlobalTokenOffsets(rawLefts, rawRights, targetOffsets, boundaryMinOffsets, boundaryMaxOffsets, minGap) {
+  const offsetMean = getMean(targetOffsets);
+  const span = Math.max(1, Math.max(...rawRights) - Math.min(...rawLefts));
+  const collisionWeight = 18;
+  const targetWeight = 0.65;
+  const balanceWeight = 0.08;
+  const boundaryWeight = 5;
+
+  return (candidateOffsets) => {
+    let score = 0;
+    for (let index = 0; index < candidateOffsets.length; index += 1) {
+      const offset = candidateOffsets[index];
+      const targetDelta = offset - targetOffsets[index];
+      const balanceDelta = offset - offsetMean;
+      score += targetDelta * targetDelta * targetWeight;
+      score += balanceDelta * balanceDelta * balanceWeight;
+
+      if (offset < boundaryMinOffsets[index]) {
+        const overflow = boundaryMinOffsets[index] - offset;
+        score += overflow * overflow * boundaryWeight;
+      } else if (offset > boundaryMaxOffsets[index]) {
+        const overflow = offset - boundaryMaxOffsets[index];
+        score += overflow * overflow * boundaryWeight;
+      }
+    }
+
+    for (let index = 0; index < candidateOffsets.length - 1; index += 1) {
+      const right = rawRights[index] + candidateOffsets[index];
+      const nextLeft = rawLefts[index + 1] + candidateOffsets[index + 1];
+      const overlap = Math.max(0, right - nextLeft + minGap);
+      score += overlap * overlap * collisionWeight;
+    }
+
+    for (let leftIndex = 0; leftIndex < candidateOffsets.length - 2; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 2; rightIndex < candidateOffsets.length; rightIndex += 1) {
+        const right = rawRights[leftIndex] + candidateOffsets[leftIndex];
+        const nextLeft = rawLefts[rightIndex] + candidateOffsets[rightIndex];
+        const overlap = Math.max(0, right - nextLeft + minGap);
+        score += overlap * overlap * collisionWeight * 0.35;
+      }
+    }
+
+    const occupiedLeft = Math.min(...rawLefts.map((left, index) => left + candidateOffsets[index]));
+    const occupiedRight = Math.max(...rawRights.map((right, index) => right + candidateOffsets[index]));
+    const occupiedWidth = Math.max(0, occupiedRight - occupiedLeft);
+    if (occupiedWidth > span) {
+      const overflow = occupiedWidth - span;
+      score += overflow * overflow * 0.02;
+    }
+
+    return score;
+  };
+}
+
+/**
+ * @param {number[]} rawLefts
+ * @param {number[]} rawRights
+ * @param {number[]} targetOffsets
+ * @param {number[]} hardMinOffsets
+ * @param {number[]} hardMaxOffsets
+ * @param {number[]} boundaryMinOffsets
+ * @param {number[]} boundaryMaxOffsets
+ * @param {number} minGap
+ * @returns {number[]}
+ */
+function solveGlobalTokenOffsets(
+  rawLefts,
+  rawRights,
+  targetOffsets,
+  hardMinOffsets,
+  hardMaxOffsets,
+  boundaryMinOffsets,
+  boundaryMaxOffsets,
+  minGap
+) {
+  const count = targetOffsets.length;
+  if (count === 0) return [];
+
+  const scoreOffsets = scoreGlobalTokenOffsets(rawLefts, rawRights, targetOffsets, boundaryMinOffsets, boundaryMaxOffsets, minGap);
+  const offsets = targetOffsets.map((offset, index) => clampNumber(offset, hardMinOffsets[index], hardMaxOffsets[index]));
+  const maxRange = Math.max(
+    1,
+    ...offsets.map((offset, index) => Math.max(Math.abs(offset - hardMinOffsets[index]), Math.abs(hardMaxOffsets[index] - offset)))
+  );
+  let currentScore = scoreOffsets(offsets);
+  let step = Math.max(0.5, Math.min(maxRange, (Math.max(...rawRights) - Math.min(...rawLefts)) / Math.max(2, count)));
+
+  const readCandidateTargets = (index) => {
+    const candidates = [
+      offsets[index],
+      targetOffsets[index],
+      boundaryMinOffsets[index],
+      boundaryMaxOffsets[index],
+      hardMinOffsets[index],
+      hardMaxOffsets[index]
+    ];
+    if (index > 0) {
+      candidates.push(rawRights[index - 1] + offsets[index - 1] + minGap - rawLefts[index]);
+    }
+    if (index < count - 1) {
+      candidates.push(rawLefts[index + 1] + offsets[index + 1] - minGap - rawRights[index]);
+    }
+    return candidates.map((candidate) => clampNumber(candidate, hardMinOffsets[index], hardMaxOffsets[index]));
+  };
+
+  while (step >= 0.25) {
+    let improved = false;
+    for (let pass = 0; pass < count * 2; pass += 1) {
+      for (let index = 0; index < count; index += 1) {
+        let bestOffset = offsets[index];
+        let bestScore = currentScore;
+        const candidates = [
+          ...readCandidateTargets(index),
+          offsets[index] - step,
+          offsets[index] + step,
+          offsets[index] - (step / 2),
+          offsets[index] + (step / 2)
+        ];
+
+        candidates.forEach((candidate) => {
+          const nextOffset = clampNumber(candidate, hardMinOffsets[index], hardMaxOffsets[index]);
+          if (Math.abs(nextOffset - offsets[index]) < 0.01) return;
+          const nextOffsets = [...offsets];
+          nextOffsets[index] = nextOffset;
+          const nextScore = scoreOffsets(nextOffsets);
+          if (nextScore + 0.001 < bestScore) {
+            bestOffset = nextOffset;
+            bestScore = nextScore;
+          }
+        });
+
+        if (bestScore + 0.001 < currentScore) {
+          offsets[index] = bestOffset;
+          currentScore = bestScore;
+          improved = true;
+        }
+      }
+    }
+
+    if (!improved) step /= 2;
+  }
+
+  return offsets;
+}
+
+/**
  * @param {number[]} rawLefts
  * @param {number[]} rawRights
  * @param {number[]} offsets
@@ -841,39 +1072,26 @@ function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, ba
   const leftBound = barRect.left;
   const rightBound = barRect.right;
 
-  const syncSymbol = (index) => {
-    offsets[index] = clampTokenOffset(rawLefts[index], rawRights[index], offsets[index], leftBound, rightBound, maxOffsetPx);
-    symLefts[index] = rawLefts[index] + offsets[index];
-    symRights[index] = rawRights[index] + offsets[index];
-  };
+  const hardMinOffsets = rawLefts.map(() => -maxOffsetPx);
+  const hardMaxOffsets = rawRights.map(() => maxOffsetPx);
+  const boundaryMinOffsets = rawLefts.map((left) => leftBound - left);
+  const boundaryMaxOffsets = rawRights.map((right) => rightBound - right);
+  const targetOffsets = offsets.map((offset, index) => clampNumber(offset, hardMinOffsets[index], hardMaxOffsets[index]));
+  const solvedOffsets = solveGlobalTokenOffsets(
+    rawLefts,
+    rawRights,
+    targetOffsets,
+    hardMinOffsets,
+    hardMaxOffsets,
+    boundaryMinOffsets,
+    boundaryMaxOffsets,
+    minGap
+  );
 
   for (let index = 0; index < count; index += 1) {
-    syncSymbol(index);
-  }
-
-  for (let pass = 0; pass < count; pass += 1) {
-    for (let index = 0; index < count - 1; index += 1) {
-      let overlap = symRights[index] - symLefts[index + 1] + minGap;
-      if (overlap <= 0) continue;
-
-      const rightCapacity = Math.min(
-        rightBound - symRights[index + 1],
-        maxOffsetPx - offsets[index + 1]
-      );
-      const push = Math.min(overlap, Math.max(0, rightCapacity));
-      offsets[index + 1] += push;
-      syncSymbol(index + 1);
-      overlap -= push;
-      if (overlap <= 0) continue;
-
-      const leftCapacity = Math.min(
-        symLefts[index] - leftBound,
-        offsets[index] + maxOffsetPx
-      );
-      const pull = Math.min(overlap, Math.max(0, leftCapacity));
-      offsets[index] -= pull;
-      syncSymbol(index);
-    }
+    offsets[index] = solvedOffsets[index];
+    symLefts[index] = rawLefts[index] + offsets[index];
+    symRights[index] = rawRights[index] + offsets[index];
   }
 }
 
