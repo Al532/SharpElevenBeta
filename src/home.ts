@@ -7,7 +7,8 @@ initializeHomePage({
   recentChartsList: document.getElementById('home-recent-charts'),
   recentChartsEmpty: document.getElementById('home-recent-charts-empty'),
   playlistsList: document.getElementById('home-playlists'),
-  playlistsEmpty: document.getElementById('home-playlists-empty')
+  playlistsEmpty: document.getElementById('home-playlists-empty'),
+  themeSelect: document.getElementById('home-theme-select') as HTMLSelectElement | null
 }).catch((error) => {
   console.error('Failed to initialize home page.', error);
 });

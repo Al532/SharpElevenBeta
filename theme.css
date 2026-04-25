@@ -1,16 +1,7 @@
-:root {
-  color-scheme: light;
+@import url("./theme-palettes.css");
 
-  /* Base source colors */
-  --c-bg: #ebeef6;
-  --c-text: #202028;
-  --c-accent: #0061a4;
-  --c-secondary: #b3d4ff;
-  --c-danger: #d06b7c;
-  --c-highlight: #fff14d; /* highlighter yellow for chart selection and playback */
-  --c-chart-paper: #ffffff;
-  --c-chart-ink: #000000;
-
+:root,
+:root[data-theme] {
   /* Derived source aliases */
   --c-surface: color-mix(in srgb, var(--c-bg) 72%, white 28%);
   --c-text-weak: color-mix(in srgb, var(--c-text) 66%, var(--c-bg) 34%);
@@ -88,11 +79,6 @@
   --key-black-text: #f4f7fb;
   --key-black-bg: linear-gradient(180deg, rgba(34, 48, 64, 0.98), rgba(9, 15, 22, 0.98));
   --key-black-selected-bg: linear-gradient(180deg, var(--c-accent), var(--ui-accent-strong));
-
-  --ui-chart-stage-bg: var(--c-chart-paper);
-  --ui-chart-sheet-bg: var(--c-chart-paper);
-  --ui-chart-sheet-line: var(--c-chart-ink);
-  --ui-chart-sheet-text: var(--c-chart-ink);
 
   /* Chart selection and playback states */
   --chart-sheet-active: color-mix(in srgb, var(--ui-highlight) 94%, transparent 6%) !important;

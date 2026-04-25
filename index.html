@@ -24,55 +24,43 @@
   <script type="module" src="./src/home.ts"></script>
 </head>
 <body class="home-body">
-  <div class="home-shell">
-    <header class="home-header">
-      <a class="home-brand" href="./index.html" aria-label="Sharp Eleven home">Sharp Eleven</a>
-      <nav class="home-header-links" aria-label="Project links">
-        <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 3.1V17h16V8.1l-7.36 5.15a1.1 1.1 0 0 1-1.28 0L4 8.1Zm1.15-1.1L12 11.8 18.85 7H5.15Z"></path>
-          </svg>
-        </a>
-        <a class="home-icon-link" href="#" aria-label="Placeholder link 2" title="Placeholder link 2">+</a>
-        <a class="home-icon-link" href="#" aria-label="Placeholder link 3" title="Placeholder link 3">i</a>
-      </nav>
-    </header>
+  <header class="home-header">
+    <a class="home-brand" href="./index.html" aria-label="Sharp Eleven home">
+      <img class="home-brand-logo" src="./logo/classic-paper.png" alt="Logo Classic Paper" width="32" height="32">
+      <span>Sharp Eleven</span>
+    </a>
+    <nav class="home-header-links" aria-label="Project links">
+      <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 3.1V17h16V8.1l-7.36 5.15a1.1 1.1 0 0 1-1.28 0L4 8.1Zm1.15-1.1L12 11.8 18.85 7H5.15Z"></path>
+        </svg>
+      </a>
+    </nav>
+  </header>
 
-    <main class="home-main">
-      <section class="home-section home-charts-section" aria-labelledby="home-charts-title">
-        <div class="home-section-heading">
-          <span class="home-section-kicker">Library</span>
-          <h1 id="home-charts-title">Charts</h1>
-        </div>
-
-        <div class="home-stack">
-          <section class="home-subsection" aria-labelledby="home-recent-charts-title">
-            <h2 id="home-recent-charts-title">Recent charts</h2>
-            <p id="home-recent-charts-empty" class="home-empty">No recent charts yet.</p>
-            <ul id="home-recent-charts" class="home-list" aria-label="Recently viewed charts"></ul>
-          </section>
-
-          <section class="home-subsection" aria-labelledby="home-playlists-title">
-            <h2 id="home-playlists-title">Playlists</h2>
-            <p id="home-playlists-empty" class="home-empty">No playlists yet.</p>
-            <ul id="home-playlists" class="home-list" aria-label="Chart playlists"></ul>
-          </section>
-        </div>
-
-        <a class="home-primary-action" href="./chart/index.html">Import/manage charts</a>
+  <main class="home-main" aria-label="Home">
+    <div class="home-stack">
+      <section class="home-subsection" aria-labelledby="home-recent-charts-title">
+        <h2 id="home-recent-charts-title">Recent charts</h2>
+        <p id="home-recent-charts-empty" class="home-empty">No recent charts yet.</p>
+        <ul id="home-recent-charts" class="home-list" aria-label="Recently viewed charts"></ul>
       </section>
 
-      <section class="home-section home-drill-section" aria-labelledby="home-drill-title">
-        <div class="home-section-heading">
-          <span class="home-section-kicker">Practice</span>
-          <h2 id="home-drill-title">Drill mode</h2>
-        </div>
-        <a class="home-drill-link" href="./drill.html">
-          <span>Open Drill mode</span>
-          <span aria-hidden="true">-></span>
-        </a>
+      <section class="home-subsection" aria-labelledby="home-playlists-title">
+        <h2 id="home-playlists-title">Playlists</h2>
+        <p id="home-playlists-empty" class="home-empty">No playlists yet.</p>
+        <ul id="home-playlists" class="home-list" aria-label="Chart playlists"></ul>
       </section>
-    </main>
-  </div>
+    </div>
+
+    <div class="home-actions" aria-label="Home actions">
+      <a class="home-primary-action" href="./charts.html">Import/manage charts</a>
+      <a class="home-primary-action" href="./drill.html">Drill mode</a>
+    </div>
+  </main>
+
+  <footer class="home-footer">
+    <select id="home-theme-select" class="home-theme-select" aria-label="Choose theme"></select>
+  </footer>
 </body>
 </html>

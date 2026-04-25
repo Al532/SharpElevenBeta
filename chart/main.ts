@@ -116,6 +116,8 @@ const PLAYBACK_SETTINGS_STORAGE_KEY = 'sharp-eleven-chart-playback-settings';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
+const DEFAULT_MASTER_VOLUME_PERCENT = 50;
+const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
 const DEFAULT_BAR_GROUP_SIZE = CHART_DISPLAY_CONFIG.layout.barsPerRow;
 const CHART_TEXT_SCALE_COMPENSATION_CSS_VAR = CHART_DISPLAY_CONFIG.textScaleCompensation.cssVarName;
 
@@ -573,10 +575,10 @@ function getPlaybackSettings(): PlaybackSettings {
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
     customMediumSwingBass: dom.walkingBassToggle?.checked,
-    masterVolume: Number(dom.masterVolume?.value || 100),
-    bassVolume: Number(dom.bassVolume?.value || 100),
-    stringsVolume: Number(dom.stringsVolume?.value || 100),
-    drumsVolume: Number(dom.drumsVolume?.value || 100)
+    masterVolume: Number(dom.masterVolume?.value || DEFAULT_MASTER_VOLUME_PERCENT),
+    bassVolume: Number(dom.bassVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT),
+    stringsVolume: Number(dom.stringsVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT),
+    drumsVolume: Number(dom.drumsVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT)
   };
 }
 

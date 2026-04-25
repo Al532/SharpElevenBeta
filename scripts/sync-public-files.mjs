@@ -20,6 +20,7 @@ const mirroredFiles = [
   'progression-suffixes.txt',
   'style.css',
   'theme.css',
+  'theme-palettes.css',
   'theme.js'
 ];
 

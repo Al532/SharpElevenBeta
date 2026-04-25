@@ -260,11 +260,31 @@ type DrillLoadedSettings = {
 };
 
 function normalizeSavedMixerVolume(value, fallbackValue) {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+    return Number(fallbackValue);
+  }
   const parsed = Number(value);
   if (Number.isFinite(parsed)) {
     return Math.max(0, Math.min(100, parsed));
   }
   return Number(fallbackValue);
+}
+
+function hasAllZeroLoadedMixerVolumes(settings: Record<string, unknown>): boolean {
+  return ['masterVolume', 'bassVolume', 'stringsVolume', 'drumsVolume'].every((key) => {
+    if (!(key in settings)) return false;
+    const parsed = Number(settings[key]);
+    return Number.isFinite(parsed) && parsed === 0;
+  });
+}
+
+function normalizeLoadedMixerVolume(value, fallbackValue) {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+    return String(fallbackValue);
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return String(fallbackValue);
+  return String(Math.max(0, Math.min(100, parsed)));
 }
 
 export function saveDrillSettings({
@@ -578,14 +598,21 @@ export function createDrillLoadedSettingsApplier({
     }
 
     const shouldResetMasterVolumeOnce = helpers.shouldApplyMasterVolumeDefault50Migration?.();
+    const shouldResetAllMixerVolumes = hasAllZeroLoadedMixerVolumes(s);
     if (dom.masterVolume) {
-      dom.masterVolume.value = shouldResetMasterVolumeOnce
+      dom.masterVolume.value = shouldResetMasterVolumeOnce || shouldResetAllMixerVolumes
         ? constants.defaultMasterVolumePercent
-        : (s.masterVolume ?? constants.defaultMasterVolumePercent);
+        : normalizeLoadedMixerVolume(s.masterVolume, constants.defaultMasterVolumePercent);
     }
-    if (s.bassVolume !== undefined && dom.bassVolume) dom.bassVolume.value = s.bassVolume;
-    if (s.stringsVolume !== undefined && dom.stringsVolume) dom.stringsVolume.value = s.stringsVolume;
-    if (s.drumsVolume !== undefined && dom.drumsVolume) dom.drumsVolume.value = s.drumsVolume;
+    if (dom.bassVolume && (shouldResetAllMixerVolumes || s.bassVolume !== undefined)) {
+      dom.bassVolume.value = shouldResetAllMixerVolumes ? '100' : normalizeLoadedMixerVolume(s.bassVolume, 100);
+    }
+    if (dom.stringsVolume && (shouldResetAllMixerVolumes || s.stringsVolume !== undefined)) {
+      dom.stringsVolume.value = shouldResetAllMixerVolumes ? '100' : normalizeLoadedMixerVolume(s.stringsVolume, 100);
+    }
+    if (dom.drumsVolume && (shouldResetAllMixerVolumes || s.drumsVolume !== undefined)) {
+      dom.drumsVolume.value = shouldResetAllMixerVolumes ? '100' : normalizeLoadedMixerVolume(s.drumsVolume, 100);
+    }
     if (s.enabledKeys !== undefined && Array.isArray(s.enabledKeys) && s.enabledKeys.length === 12) {
       state.setEnabledKeys?.(s.enabledKeys);
     }

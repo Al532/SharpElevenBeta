@@ -1,8 +1,63 @@
 const THEME_STORAGE_KEY = 'sharp-eleven-theme';
-const DEFAULT_PALETTE = 'current';
-const PALETTE_NAMES = ['current'] as const;
+const DEFAULT_PALETTE = 'iReal';
+const LEGACY_PALETTE_NAMES = new Map<string, string>([
+  ['current', DEFAULT_PALETTE]
+]);
+const THEME_DATA_SELECTOR_RE = /:root\s*\[[^\]]*data-theme\s*=\s*["']([^"']+)["']\]/i;
+const EXPLORATION_DEPTH_LIMIT = 12;
 
-type SharpElevenPaletteName = typeof PALETTE_NAMES[number];
+type SharpElevenPaletteName = string;
+
+function listThemeNamesFromStylesheets(): SharpElevenPaletteName[] {
+  const names = new Set<string>([DEFAULT_PALETTE]);
+  const styleSheets = Array.from(document.styleSheets ?? []);
+  const visitedStyleSheets = new Set<CSSStyleSheet>();
+
+  const inspectStyleRules = (styleSheet: CSSStyleSheet, depth = 0): void => {
+    if (depth > EXPLORATION_DEPTH_LIMIT) return;
+    if (visitedStyleSheets.has(styleSheet)) return;
+    visitedStyleSheets.add(styleSheet);
+
+    let rules: CSSRuleList;
+    try {
+      rules = styleSheet.cssRules;
+    } catch {
+      return;
+    }
+
+    for (const rule of Array.from(rules)) {
+      if (rule.type === CSSRule.IMPORT_RULE) {
+        const importRule = rule as CSSImportRule;
+        const importedStyleSheet = importRule.styleSheet;
+        if (importedStyleSheet) {
+          inspectStyleRules(importedStyleSheet, depth + 1);
+        }
+        continue;
+      }
+
+      if (rule.type !== CSSRule.STYLE_RULE) continue;
+      const styleRule = rule as CSSStyleRule;
+      const selectors = styleRule.selectorText.split(',');
+      for (const selector of selectors) {
+        const match = selector.trim().match(THEME_DATA_SELECTOR_RE);
+        if (!match) continue;
+
+        const name = (match[1] ?? '').trim();
+        if (name) names.add(name);
+      }
+    }
+  };
+
+  for (const styleSheet of styleSheets) {
+    inspectStyleRules(styleSheet);
+  }
+
+  return [...names].sort((a, b) => {
+    if (a === DEFAULT_PALETTE) return -1;
+    if (b === DEFAULT_PALETTE) return 1;
+    return a.localeCompare(b);
+  });
+}
 
 export interface SharpElevenThemeApi {
   listPalettes: () => SharpElevenPaletteName[];
@@ -18,17 +73,25 @@ declare global {
 }
 
 function isPaletteName(value: unknown): value is SharpElevenPaletteName {
-  return typeof value === 'string' && (PALETTE_NAMES as readonly string[]).includes(value);
+  if (typeof value !== 'string') return false;
+  return listThemeNamesFromStylesheets().includes(value);
+}
+
+function normalizePaletteName(value: unknown): SharpElevenPaletteName | null {
+  if (typeof value !== 'string') return null;
+  const normalizedValue = LEGACY_PALETTE_NAMES.get(value) ?? value;
+  return isPaletteName(normalizedValue) ? normalizedValue : null;
 }
 
 function readStoredPalette(storage: Storage | undefined): SharpElevenPaletteName {
   if (!storage) return DEFAULT_PALETTE;
+  const availablePalettes = listThemeNamesFromStylesheets();
 
   try {
     const storedPalette = storage.getItem(THEME_STORAGE_KEY);
-    return isPaletteName(storedPalette) ? storedPalette : DEFAULT_PALETTE;
+    return normalizePaletteName(storedPalette) ?? availablePalettes[0] ?? DEFAULT_PALETTE;
   } catch {
-    return DEFAULT_PALETTE;
+    return availablePalettes[0] ?? DEFAULT_PALETTE;
   }
 }
 
@@ -69,22 +132,26 @@ export function initializeSharpElevenTheme(): SharpElevenThemeApi {
   const storage = getThemeStorage();
 
   const api: SharpElevenThemeApi = {
-    listPalettes: () => [...PALETTE_NAMES],
+    listPalettes: () => listThemeNamesFromStylesheets(),
     getPalette: () => {
+      const availablePalettes = listThemeNamesFromStylesheets();
+      const fallbackPalette = availablePalettes[0] ?? DEFAULT_PALETTE;
       const currentPalette = document.documentElement.dataset.theme;
-      return isPaletteName(currentPalette) ? currentPalette : DEFAULT_PALETTE;
+      return normalizePaletteName(currentPalette) ?? fallbackPalette;
     },
     setPalette: (paletteName) => {
-      if (!isPaletteName(paletteName)) {
+      const normalizedPaletteName = normalizePaletteName(paletteName);
+      if (!normalizedPaletteName) {
         throw new Error(`Unknown Sharp Eleven palette: ${String(paletteName)}`);
       }
 
-      writeStoredPalette(storage, paletteName);
-      return applyPalette(paletteName);
+      writeStoredPalette(storage, normalizedPaletteName);
+      return applyPalette(normalizedPaletteName);
     },
     resetPalette: () => {
       clearStoredPalette(storage);
-      return applyPalette(DEFAULT_PALETTE);
+      const availablePalettes = listThemeNamesFromStylesheets();
+      return applyPalette(availablePalettes[0] ?? DEFAULT_PALETTE);
     }
   };
 

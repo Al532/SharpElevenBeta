@@ -4,37 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Import/manage charts - Sharp Eleven</title>
-  <meta http-equiv="refresh" content="0; url=./chart/index.html">
+  <meta name="description" content="Import and manage iReal charts in Sharp Eleven.">
+  <meta property="og:description" content="Import and manage iReal charts in Sharp Eleven.">
+  <meta property="twitter:description" content="Import and manage iReal charts in Sharp Eleven.">
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="shortcut icon" href="./favicon.png">
   <link rel="stylesheet" href="./theme.css">
   <link rel="stylesheet" href="./style.css">
-  <script src="./theme.js"></script>
-  <script>
-    window.location.replace('./chart/index.html' + window.location.search + window.location.hash);
-  </script>
+  <script type="module" src="./charts.ts"></script>
 </head>
 <body class="home-body">
   <div class="home-shell">
     <header class="home-header">
+      <a class="drill-home-button" href="./index.html" aria-label="Back to home">
+        <span aria-hidden="true"></span>
+      </a>
       <a class="home-brand" href="./index.html" aria-label="Sharp Eleven home">Sharp Eleven</a>
       <nav class="home-header-links" aria-label="Project links">
-        <a class="home-icon-link" href="#" aria-label="Placeholder link 1" title="Placeholder link 1">?</a>
-        <a class="home-icon-link" href="#" aria-label="Placeholder link 2" title="Placeholder link 2">+</a>
-        <a class="home-icon-link" href="#" aria-label="Placeholder link 3" title="Placeholder link 3">i</a>
+        <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">?</a>
       </nav>
     </header>
 
-    <main class="home-main">
+    <main class="home-main home-manage-charts-main">
       <section class="home-section" aria-labelledby="charts-placeholder-title">
-        <div class="home-section-heading">
-          <span class="home-section-kicker">Placeholder</span>
-          <h1 id="charts-placeholder-title">Import/manage charts</h1>
+        <h1 id="charts-placeholder-title" class="sr-only">Import/manage charts</h1>
+        <p class="home-empty">Use the controls below to import your iReal charts.</p>
+
+        <div class="home-actions" aria-label="iReal import controls">
+          <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
+          <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum tracks</button>
+          <button id="clear-all-charts-button" type="button" class="home-primary-action">Remove all charts</button>
         </div>
-        <p class="home-empty">Opening chart import and management tools...</p>
-        <a class="home-primary-action" href="./chart/index.html">Open charts</a>
+
+        <p id="chart-import-status" class="home-empty" role="status" aria-live="polite"></p>
       </section>
     </main>
   </div>
+
+  <input id="ireal-backup-input" type="file" accept=".html,.htm,.txt" hidden>
 </body>
 </html>

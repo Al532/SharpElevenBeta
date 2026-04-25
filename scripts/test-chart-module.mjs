@@ -767,6 +767,33 @@ assert.equal(
 let appliedLoadedProgressions = null;
 let appliedLoadedWelcome = null;
 let appliedLoadedPromptForDefaults = null;
+const loadedSettingsDom = {
+  welcomeShowNextTime: { checked: false },
+  patternSelect: { value: '' },
+  patternName: { value: '' },
+  customPattern: { value: '' },
+  patternMode: { value: '' },
+  tempoSlider: { value: '', textContent: '' },
+  tempoValue: { textContent: '' },
+  repetitionsPerKey: { value: '' },
+  transpositionSelect: { value: '' },
+  chordsPerBar: { value: '' },
+  majorMinor: { checked: false },
+  displayMode: { value: '' },
+  harmonyDisplayMode: { value: '' },
+  useMajorTriangleSymbol: { checked: false },
+  useHalfDiminishedSymbol: { checked: false },
+  useDiminishedSymbol: { checked: false },
+  showBeatIndicator: { checked: false },
+  hideCurrentHarmony: { checked: false },
+  compingStyle: { value: '' },
+  walkingBass: { checked: false },
+  stringsVolume: { value: '100' },
+  drumsSelect: { value: '' },
+  masterVolume: { value: '' },
+  bassVolume: { value: '' },
+  drumsVolume: { value: '' }
+};
 const applyDrillLoadedSettings = createDrillLoadedSettingsApplier({
   constants: {
     welcomeOnboardingSettingsKey: 'welcome_onboarding',
@@ -785,33 +812,7 @@ const applyDrillLoadedSettings = createDrillLoadedSettingsApplier({
     defaultPianoMidiSettings: { enabled: false },
     customPatternOptionValue: '__custom__'
   },
-  dom: {
-    welcomeShowNextTime: { checked: false },
-    patternSelect: { value: '' },
-    patternName: { value: '' },
-    customPattern: { value: '' },
-    patternMode: { value: '' },
-    tempoSlider: { value: '', textContent: '' },
-    tempoValue: { textContent: '' },
-    repetitionsPerKey: { value: '' },
-    transpositionSelect: { value: '' },
-    chordsPerBar: { value: '' },
-    majorMinor: { checked: false },
-    displayMode: { value: '' },
-    harmonyDisplayMode: { value: '' },
-    useMajorTriangleSymbol: { checked: false },
-    useHalfDiminishedSymbol: { checked: false },
-    useDiminishedSymbol: { checked: false },
-    showBeatIndicator: { checked: false },
-    hideCurrentHarmony: { checked: false },
-    compingStyle: { value: '' },
-    walkingBass: { checked: false },
-    stringsVolume: { value: '100' },
-    drumsSelect: { value: '' },
-    masterVolume: { value: '' },
-    bassVolume: { value: '' },
-    drumsVolume: { value: '' }
-  },
+  dom: loadedSettingsDom,
   state: {
     setHasCompletedWelcomeOnboarding: (value) => { appliedLoadedWelcome = value; },
     setShouldShowWelcomeNextTime: () => {},
@@ -887,6 +888,22 @@ assert.equal(
   appliedLoadedPromptForDefaults,
   true,
   'Drill loaded-settings applier flags outdated default progression acknowledgements after restore.'
+);
+applyDrillLoadedSettings({
+  masterVolume: 0,
+  bassVolume: 0,
+  stringsVolume: 0,
+  drumsVolume: 0
+});
+assert.deepEqual(
+  [
+    loadedSettingsDom.masterVolume.value,
+    loadedSettingsDom.bassVolume.value,
+    loadedSettingsDom.stringsVolume.value,
+    loadedSettingsDom.drumsVolume.value
+  ],
+  ['50', '100', '100', '100'],
+  'Drill loaded-settings applier treats all-zero mixer snapshots as corrupt update state and restores audible defaults.'
 );
 let resetTrackedEvent = '';
 let resetAppliedKeys = null;

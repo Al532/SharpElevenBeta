@@ -2442,6 +2442,27 @@ function testSettingsPersistenceRootAssemblyPreservesSaveLoadGlue() {
     'Settings persistence root assembly preserves stored-settings snapshot saving.'
   );
 
+  dom.masterVolume.value = '';
+  dom.bassVolume.value = '';
+  dom.stringsVolume.value = '';
+  dom.drumsVolume.value = '';
+  assembly.saveSettings();
+  assert.deepEqual(
+    {
+      masterVolume: savedSharedPlayback?.masterVolume,
+      bassVolume: savedSharedPlayback?.bassVolume,
+      stringsVolume: savedSharedPlayback?.stringsVolume,
+      drumsVolume: savedSharedPlayback?.drumsVolume
+    },
+    {
+      masterVolume: 50,
+      bassVolume: 100,
+      stringsVolume: 100,
+      drumsVolume: 100
+    },
+    'Settings persistence root assembly saves audible mixer defaults instead of converting empty slider values to zero.'
+  );
+
   assembly.loadSettings();
   assert.deepEqual(
     appliedSettings,

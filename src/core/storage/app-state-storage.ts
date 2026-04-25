@@ -6,9 +6,30 @@ import type {
 } from '../types/contracts';
 
 const APP_STATE_STORAGE_KEY = 'jpt-app-state-v1';
+const MIXER_VOLUME_KEYS = ['masterVolume', 'bassVolume', 'stringsVolume', 'drumsVolume'] as const;
 
 function deepClone<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
+}
+
+function hasAllZeroMixerVolumes(value: Record<string, unknown>): boolean {
+  return MIXER_VOLUME_KEYS.every((key) => {
+    if (!(key in value)) return false;
+    const parsed = Number(value[key]);
+    return Number.isFinite(parsed) && parsed === 0;
+  });
+}
+
+function sanitizePlaybackSettings<T extends PlaybackSettings>(settings: T): T {
+  if (!settings || typeof settings !== 'object' || !hasAllZeroMixerVolumes(settings as Record<string, unknown>)) {
+    return settings;
+  }
+
+  const sanitizedSettings = { ...(settings as Record<string, unknown>) };
+  MIXER_VOLUME_KEYS.forEach((key) => {
+    delete sanitizedSettings[key];
+  });
+  return sanitizedSettings as T;
 }
 
 function readJsonStorage(key: string): AppStateShape | null {
@@ -58,7 +79,7 @@ export function loadSharedPlaybackSettings({
 } = {}): PlaybackSettings | null {
   const appState = loadAppState();
   if (appState.sharedPlaybackSettings && typeof appState.sharedPlaybackSettings === 'object') {
-    return deepClone(appState.sharedPlaybackSettings);
+    return sanitizePlaybackSettings(deepClone(appState.sharedPlaybackSettings));
   }
 
   if (legacyChartStorageKey) {
@@ -77,11 +98,12 @@ export function loadSharedPlaybackSettings({
 }
 
 export function saveSharedPlaybackSettings(settings: PlaybackSettings = {}): void {
+  const nextSettings = sanitizePlaybackSettings(settings);
   updateAppState((previousState) => ({
     ...previousState,
     sharedPlaybackSettings: {
-      ...(previousState.sharedPlaybackSettings || {}),
-      ...(settings || {})
+      ...sanitizePlaybackSettings(previousState.sharedPlaybackSettings || {}),
+      ...(nextSettings || {})
     }
   }));
 }

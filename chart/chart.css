@@ -1,4 +1,11 @@
 :root {
+  --chart-paper: #ffffff;
+  --chart-ink: #000000;
+  --ui-chart-stage-bg: var(--chart-paper);
+  --ui-chart-sheet-bg: var(--chart-paper);
+  --ui-chart-sheet-line: var(--chart-ink);
+  --ui-chart-sheet-text: var(--chart-ink);
+
   --chart-ui-bg: var(--ui-bg);
   --chart-ui-bg-start: var(--ui-bg-elevated);
   --chart-ui-bg-end: var(--ui-bg-gradient-end);
@@ -30,18 +37,18 @@
   --chart-ui-shadow-popover: var(--ui-shadow-color-soft);
   --chart-ui-shadow-menu: var(--ui-shadow-color-strong);
   --chart-status-error: var(--ui-danger);
-  --chart-stage-bg: var(--ui-chart-stage-bg);
-  --chart-sheet-bg: var(--ui-chart-sheet-bg);
-  --chart-sheet-line: var(--ui-chart-sheet-line);
-  --chart-sheet-text: var(--ui-chart-sheet-text);
-  --chart-sheet-title: var(--ui-chart-sheet-text);
-  --chart-sheet-text-alt: color-mix(in srgb, var(--ui-chart-sheet-text) 70%, white 30%);
-  --chart-sheet-muted: color-mix(in srgb, var(--ui-chart-sheet-text) 78%, transparent 22%);
+  --chart-stage-bg: var(--chart-paper);
+  --chart-sheet-bg: var(--chart-paper);
+  --chart-sheet-line: var(--chart-ink);
+  --chart-sheet-text: var(--chart-ink);
+  --chart-sheet-title: var(--chart-ink);
+  --chart-sheet-text-alt: color-mix(in srgb, var(--chart-ink) 70%, white 30%);
+  --chart-sheet-muted: color-mix(in srgb, var(--chart-ink) 78%, transparent 22%);
   --chart-sheet-active: color-mix(in srgb, var(--ui-warning-bg) 90%, transparent 10%);
   --chart-sheet-selected: color-mix(in srgb, var(--ui-overlay-backdrop) 72%, transparent 28%);
   --chart-sheet-active-selected: linear-gradient(180deg, var(--chart-sheet-active), var(--chart-sheet-selected));
   --chart-sheet-playback: color-mix(in srgb, var(--ui-warning-bg) 55%, transparent 45%);
-  --chart-sheet-pill: var(--ui-chart-sheet-line);
+  --chart-sheet-pill: var(--chart-ink);
   --chart-sheet-pill-text: #ffffff;
   --chart-sheet-paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);
   --blue-ui: var(--chart-ui-accent);
@@ -56,7 +63,7 @@
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
   --chart-overlay-push-y: 0px;
-  --chart-overlay-duration: 180ms;
+  --chart-overlay-duration: 120ms;
   --chart-overlay-easing: linear;
   --chart-config-row-gap-min: 60px;
   --chart-config-sheet-bottom-margin: 20px;
@@ -127,7 +134,7 @@ select {
   background: transparent;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 280ms ease;
+  transition: opacity var(--chart-overlay-duration) ease;
 }
 
 .chart-app.overlay-open .chart-mobile-backdrop {

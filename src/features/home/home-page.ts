@@ -1,4 +1,5 @@
 import type { ChartDocument } from '../../core/types/contracts';
+import type { SharpElevenThemeApi } from '../app/app-theme.js';
 
 import {
   loadPersistedChartLibrary,
@@ -10,6 +11,7 @@ type HomePageDom = {
   recentChartsEmpty: HTMLElement | null;
   playlistsList: HTMLElement | null;
   playlistsEmpty: HTMLElement | null;
+  themeSelect: HTMLSelectElement | null;
 };
 
 function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
@@ -20,14 +22,79 @@ function createTextElement(tagName: string, className: string, textContent: stri
 }
 
 function getChartSubtitle(document: ChartDocument): string {
-  const parts = [
-    document.metadata?.composer,
-    document.source?.playlistName,
-    document.metadata?.styleReference || document.metadata?.style
-  ]
-    .map((value) => String(value || '').trim())
-    .filter(Boolean);
+  const asText = (value: unknown): string => {
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    return trimmed;
+  };
+
+  const pushIfDistinct = (list: string[], value: unknown): void => {
+    const normalized = asText(value);
+    if (!normalized || list.includes(normalized)) return;
+    list.push(normalized);
+  };
+
+  const parts: string[] = [];
+  const metadata = document.metadata || {};
+  const source = document.source || {};
+
+  pushIfDistinct(parts, metadata.composer);
+  pushIfDistinct(parts, metadata.artist);
+  pushIfDistinct(parts, metadata.author);
+  pushIfDistinct(parts, metadata['leadArtist']);
+  pushIfDistinct(parts, metadata['albumArtist']);
+  pushIfDistinct(parts, source['artist']);
+  pushIfDistinct(parts, source['composer']);
+  pushIfDistinct(parts, source['author']);
+  pushIfDistinct(parts, source['playlistName']);
+
+  pushIfDistinct(parts, metadata.styleReference);
+  pushIfDistinct(parts, metadata.style);
+  pushIfDistinct(parts, source['style']);
+  pushIfDistinct(parts, source['genre']);
+  pushIfDistinct(parts, source['category']);
+
   return parts.join(' - ');
+
+}
+
+type ThemeHost = Window & {
+  SharpElevenTheme?: SharpElevenThemeApi;
+};
+
+function initializeThemeSelector(themeSelect: HomePageDom['themeSelect']): void {
+  if (!themeSelect) return;
+
+  const themeApi = (window as ThemeHost).SharpElevenTheme;
+  if (!themeApi) {
+    themeSelect.disabled = true;
+    return;
+  }
+
+  const availableThemes = themeApi.listPalettes();
+  themeSelect.replaceChildren();
+
+  for (const paletteName of availableThemes) {
+    const option = document.createElement('option');
+    option.value = paletteName;
+    option.textContent = paletteName;
+    themeSelect.append(option);
+  }
+
+  themeSelect.value = themeApi.getPalette();
+  themeSelect.disabled = false;
+
+  themeSelect.addEventListener('change', () => {
+    const selectedTheme = themeSelect.value;
+    try {
+      const appliedTheme = themeApi.setPalette(selectedTheme);
+      themeSelect.value = appliedTheme;
+    } catch (error) {
+      console.error('Failed to change theme.', error);
+      themeSelect.value = themeApi.getPalette();
+    }
+  });
 }
 
 function renderRecentCharts(
@@ -52,11 +119,6 @@ function renderRecentCharts(
     link.append(
       createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart')
     );
-
-    const subtitle = getChartSubtitle(chartDocument);
-    if (subtitle) {
-      link.append(createTextElement('span', 'home-list-meta', subtitle));
-    }
 
     item.append(link);
     dom.recentChartsList.append(item);
@@ -104,4 +166,5 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
 
   renderRecentCharts(documentsById, dom);
   renderPlaylists(documents, dom);
+  initializeThemeSelector(dom.themeSelect);
 }

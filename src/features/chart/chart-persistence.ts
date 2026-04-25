@@ -10,6 +10,17 @@ import {
 const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
 const CHART_LIBRARY_STORE_NAME = 'libraries';
 const IMPORTED_CHART_LIBRARY_KEY = 'imported-chart-library';
+const DEFAULT_MASTER_VOLUME_PERCENT = 50;
+const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
+
+function normalizeMixerVolume(value: unknown, fallbackValue: number): number {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+    return fallbackValue;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallbackValue;
+  return Math.max(0, Math.min(100, parsed));
+}
 
 function getIndexedDbFactory(): IDBFactory | null {
   return typeof window !== 'undefined' && window.indexedDB ? window.indexedDB : null;
@@ -157,10 +168,10 @@ export function persistPlaybackSettings({
 
   saveSharedPlaybackSettings({
     ...nextSettings,
-    masterVolume: Number(playbackSettings.masterVolume || 100),
-    bassVolume: Number(playbackSettings.bassVolume || 100),
-    stringsVolume: Number(playbackSettings.stringsVolume || 100),
-    drumsVolume: Number(playbackSettings.drumsVolume || 100)
+    masterVolume: normalizeMixerVolume(playbackSettings.masterVolume, DEFAULT_MASTER_VOLUME_PERCENT),
+    bassVolume: normalizeMixerVolume(playbackSettings.bassVolume, DEFAULT_CHANNEL_VOLUME_PERCENT),
+    stringsVolume: normalizeMixerVolume(playbackSettings.stringsVolume, DEFAULT_CHANNEL_VOLUME_PERCENT),
+    drumsVolume: normalizeMixerVolume(playbackSettings.drumsVolume, DEFAULT_CHANNEL_VOLUME_PERCENT)
   });
   saveChartUiSettings({
     chartPlaybackSettings: {

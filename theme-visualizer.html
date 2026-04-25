@@ -311,7 +311,7 @@
       const meta = document.getElementById('meta');
       const countLabel = document.getElementById('countLabel');
       const chips = document.getElementById('chips');
-      const fallbackThemes = ['current'];
+      const fallbackThemes = ['iReal'];
       const tokenDescriptions = {
         '--c-bg': 'Couleur de fond principale de l application.',
         '--c-surface': 'Alias derive: surface principale des panneaux et cartes.',
@@ -324,8 +324,6 @@
         '--c-highlight': 'Jaune stabilo pour la selection et le playback dans l outil de chart.',
         '--c-shadow': 'Alias derive: couleur des ombres globales.',
         '--c-overlay': 'Alias derive: fond d overlay global.',
-        '--c-chart-paper': 'Couleur source du papier chart, quasi-blanc type gravure.',
-        '--c-chart-ink': 'Couleur source de l encre chart, quasi-noir type gravure.',
         '--ui-bg': 'Alias semantique: fond application.',
         '--ui-bg-elevated': 'Fond de surface elevee (barres, dialogs).',
         '--ui-bg-gradient-end': 'Point d arret secondaire pour degrade de fond.',
@@ -393,10 +391,12 @@
         '--key-black-text': 'Texte touche noire.',
         '--key-black-bg': 'Fond touche noire.',
         '--key-black-selected-bg': 'Fond touche noire selectionnee.',
-        '--ui-chart-stage-bg': 'Couleur de fond stage chart (alias de --c-chart-paper).',
-        '--ui-chart-sheet-bg': 'Couleur de fond feuille chart (alias de --c-chart-paper).',
-        '--ui-chart-sheet-line': 'Couleur des traits feuille chart (alias de --c-chart-ink).',
-        '--ui-chart-sheet-text': 'Couleur texte feuille chart (alias de --c-chart-ink).',
+        '--chart-paper': 'Couleur de papier chart fixe, hors thème.',
+        '--chart-ink': 'Couleur d encre chart fixe, hors thème.',
+        '--ui-chart-stage-bg': 'Couleur de fond stage chart (alias de --chart-paper).',
+        '--ui-chart-sheet-bg': 'Couleur de fond feuille chart (alias de --chart-paper).',
+        '--ui-chart-sheet-line': 'Couleur des traits feuille chart (alias de --chart-ink).',
+        '--ui-chart-sheet-text': 'Couleur texte feuille chart (alias de --chart-ink).',
         '--chart-stage-bg': 'Fond du stage chart.',
         '--chart-sheet-bg': 'Fond de feuille chart.',
         '--chart-sheet-line': 'Lignes horizontales et verticales de la feuille.',
@@ -661,7 +661,7 @@
 
       async function render() {
         await ensureCssVarsLoaded();
-        const themeName = themeSelect.value || getThemePaletteNames()[0] || 'current';
+        const themeName = themeSelect.value || getThemePaletteNames()[0] || 'iReal';
         setTheme(themeName);
         requestAnimationFrame(() => {
           const tokens = getTokenRowsFromRoot(document.documentElement);
