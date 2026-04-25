@@ -12,6 +12,12 @@ const CHART_LIBRARY_STORE_NAME = 'libraries';
 const IMPORTED_CHART_LIBRARY_KEY = 'imported-chart-library';
 const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
+const EMPTY_PLAYLIST_NAME = 'playlist';
+
+type ChartLibraryPayload = {
+  source: string;
+  documents: ChartDocument[];
+};
 
 function normalizeMixerVolume(value: unknown, fallbackValue: number): number {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
@@ -26,6 +32,14 @@ function getIndexedDbFactory(): IDBFactory | null {
   return typeof window !== 'undefined' && window.indexedDB ? window.indexedDB : null;
 }
 
+function toLowerPlaylistName(value: string): string {
+  return value.toLowerCase();
+}
+
+function normalizePlaylistName(value: unknown): string {
+  return String(value || '').trim() || EMPTY_PLAYLIST_NAME;
+}
+
 function waitForRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -33,9 +47,9 @@ function waitForRequest<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
-async function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
+function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
   const indexedDbFactory = getIndexedDbFactory();
-  if (!indexedDbFactory) return null;
+  if (!indexedDbFactory) return Promise.resolve(null);
 
   return new Promise((resolve, reject) => {
     const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 1);
@@ -52,7 +66,7 @@ async function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
 
 function normalizePersistedChartLibrary(
   value: unknown
-): { source: string; documents: ChartDocument[] } | null {
+): ChartLibraryPayload | null {
   if (!value || typeof value !== 'object') return null;
 
   const sourceValue = (value as { source?: unknown }).source;
@@ -68,6 +82,83 @@ function normalizePersistedChartLibrary(
   return {
     source,
     documents
+  };
+}
+
+function collectExistingPlaylistNameLookup(documents: ChartDocument[]): Set<string> {
+  const playlistNameLookup = new Set<string>();
+  for (const document of documents) {
+    playlistNameLookup.add(toLowerPlaylistName(
+      normalizePlaylistName(document?.source?.playlistName)
+    ));
+  }
+  return playlistNameLookup;
+}
+
+function resolveUniquePlaylistName(
+  requestedName: string,
+  usedPlaylistNameLookup: Set<string>,
+  requestedPlaylistNameCache: Map<string, string>
+): string {
+  const requestedPlaylistName = normalizePlaylistName(requestedName);
+  const memoized = requestedPlaylistNameCache.get(requestedPlaylistName);
+  if (memoized) return memoized;
+
+  if (!usedPlaylistNameLookup.has(toLowerPlaylistName(requestedPlaylistName))) {
+    usedPlaylistNameLookup.add(toLowerPlaylistName(requestedPlaylistName));
+    requestedPlaylistNameCache.set(requestedPlaylistName, requestedPlaylistName);
+    return requestedPlaylistName;
+  }
+
+  let suffix = 2;
+  let candidate = `${requestedPlaylistName} (${suffix})`;
+  while (usedPlaylistNameLookup.has(toLowerPlaylistName(candidate))) {
+    suffix += 1;
+    candidate = `${requestedPlaylistName} (${suffix})`;
+  }
+  usedPlaylistNameLookup.add(toLowerPlaylistName(candidate));
+  requestedPlaylistNameCache.set(requestedPlaylistName, candidate);
+  return candidate;
+}
+
+function mergePersistedChartLibrary(
+  existingLibrary: ChartLibraryPayload,
+  importedLibrary: ChartLibraryPayload
+): ChartLibraryPayload {
+  const playlistNameLookup = collectExistingPlaylistNameLookup(existingLibrary.documents);
+  const requestedPlaylistNameCache = new Map<string, string>();
+  const existingDocumentIds = new Set<string>(
+    existingLibrary.documents
+      .map((document) => String(document?.metadata?.id || '').trim())
+      .filter(Boolean)
+  );
+
+  const normalizedImportedDocuments = importedLibrary.documents.map((document) => {
+    const requestedPlaylistName = resolveUniquePlaylistName(
+      normalizePlaylistName(document?.source?.playlistName || importedLibrary.source),
+      playlistNameLookup,
+      requestedPlaylistNameCache
+    );
+
+    return {
+      ...document,
+      source: {
+        ...(document.source || {}),
+        playlistName: requestedPlaylistName
+      }
+    };
+  });
+
+  const dedupedImportedDocuments = normalizedImportedDocuments.filter((document) => {
+    const documentId = String(document?.metadata?.id || '').trim();
+    if (!documentId || existingDocumentIds.has(documentId)) return false;
+    existingDocumentIds.add(documentId);
+    return true;
+  });
+
+  return {
+    source: importedLibrary.source,
+    documents: [...existingLibrary.documents, ...dedupedImportedDocuments]
   };
 }
 
@@ -197,7 +288,7 @@ export function persistPlaybackSettings({
   }
 }
 
-export async function loadPersistedChartLibrary(): Promise<{ source: string; documents: ChartDocument[] } | null> {
+export async function loadPersistedChartLibrary(): Promise<ChartLibraryPayload | null> {
   try {
     const database = await openChartLibraryDatabase();
     if (database) {
@@ -220,11 +311,13 @@ export async function loadPersistedChartLibrary(): Promise<{ source: string; doc
 
 export async function persistChartLibrary({
   source = 'imported library',
-  documents = []
+  documents = [],
+  mergeWithExisting = false
 }: {
   source?: string;
   documents?: ChartDocument[];
-} = {}): Promise<void> {
+  mergeWithExisting?: boolean;
+}): Promise<ChartLibraryPayload | null> {
   const normalizedLibrary = normalizePersistedChartLibrary({
     source,
     documents
@@ -232,35 +325,52 @@ export async function persistChartLibrary({
 
   if (!normalizedLibrary) {
     await clearPersistedChartLibrary();
-    return;
+    return null;
+  }
+
+  let mergedLibrary = normalizedLibrary;
+  try {
+    if (mergeWithExisting) {
+      const existingLibrary = await loadPersistedChartLibrary();
+      if (existingLibrary?.documents?.length) {
+        mergedLibrary = mergePersistedChartLibrary(
+          existingLibrary,
+          normalizedLibrary
+        );
+      }
+    }
+  } catch {
+    // Continue with the incoming library if existing read fails.
   }
 
   try {
     const database = await openChartLibraryDatabase();
     if (!database) {
       saveChartUiSettings({
-        importedChartLibrary: normalizedLibrary,
-        importedChartLibrarySource: normalizedLibrary.source
+        importedChartLibrary: mergedLibrary,
+        importedChartLibrarySource: mergedLibrary.source
       });
-      return;
+      return mergedLibrary;
     }
     try {
       const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readwrite');
       const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
-      await waitForRequest(store.put(normalizedLibrary, IMPORTED_CHART_LIBRARY_KEY));
+      await waitForRequest(store.put(mergedLibrary, IMPORTED_CHART_LIBRARY_KEY));
       saveChartUiSettings({
         importedChartLibrary: null,
-        importedChartLibrarySource: normalizedLibrary.source
+        importedChartLibrarySource: mergedLibrary.source
       });
     } finally {
       database.close();
     }
   } catch {
     saveChartUiSettings({
-      importedChartLibrary: normalizedLibrary,
-      importedChartLibrarySource: normalizedLibrary.source
+      importedChartLibrary: mergedLibrary,
+      importedChartLibrarySource: mergedLibrary.source
     });
   }
+
+  return mergedLibrary;
 }
 
 export async function clearPersistedChartLibrary(): Promise<void> {

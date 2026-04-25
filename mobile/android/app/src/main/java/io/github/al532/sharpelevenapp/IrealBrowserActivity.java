@@ -150,6 +150,14 @@ public class IrealBrowserActivity extends AppCompatActivity {
             }
         }
 
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) {
+            Uri sharedUri = intent.getData();
+            if (sharedUri != null) {
+                bannerTitleView.setText(resolveSharedDocumentTitle(sharedUri, resolvedTitle));
+                return loadSharedHtml(sharedUri);
+            }
+        }
+
         String initialUrl = intent.getStringExtra(EXTRA_URL);
         if (initialUrl == null || initialUrl.isBlank()) {
             return false;

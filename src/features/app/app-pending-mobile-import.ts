@@ -7,6 +7,12 @@ type IrealBrowserPlugin = {
   consumePendingIRealLink: () => Promise<{ url?: string | null }>
 };
 
+type PendingIRealLinkResult = {
+  url: string,
+  hadPendingMarker: boolean,
+  errorMessage: string
+};
+
 const IrealBrowser = registerPlugin<IrealBrowserPlugin>('IrealBrowser');
 
 /**
@@ -51,37 +57,68 @@ export function storePendingIRealLink(rawUrl, storage = globalThis.localStorage)
  * @returns {Promise<string>}
  */
 export async function consumePendingIRealLink(storage = globalThis.localStorage) {
+  const result = await consumePendingIRealLinkResult(storage);
+  return result.url;
+}
+
+/**
+ * @param {Storage | undefined | null} [storage]
+ * @returns {Promise<PendingIRealLinkResult>}
+ */
+export async function consumePendingIRealLinkResult(storage = globalThis.localStorage): Promise<PendingIRealLinkResult> {
   const nativePendingValue = await consumeNativePendingIRealLink();
-  if (nativePendingValue) {
-    if (storage) {
-      storage.removeItem(getPendingIRealLinkStorageKey(storage));
-    }
-    return nativePendingValue;
+  if (nativePendingValue.url) {
+    storage?.removeItem(getPendingIRealLinkStorageKey(storage));
+    return {
+      url: nativePendingValue.url,
+      hadPendingMarker: true,
+      errorMessage: ''
+    };
   }
 
-  if (!storage) return '';
+  if (!storage) {
+    return {
+      url: '',
+      hadPendingMarker: false,
+      errorMessage: ''
+    };
+  }
   const storageKey = getPendingIRealLinkStorageKey(storage);
   const value = storage.getItem(storageKey) || '';
   if (value) {
     storage.removeItem(storageKey);
   }
   if (isNativePendingIRealLinkMarker(value)) {
-    return '';
+    return {
+      url: '',
+      hadPendingMarker: true,
+      errorMessage: nativePendingValue.errorMessage || 'The native iReal link capture was empty.'
+    };
   }
-  return value;
+  return {
+    url: value,
+    hadPendingMarker: false,
+    errorMessage: ''
+  };
 }
 
 /**
- * @returns {Promise<string>}
+ * @returns {Promise<{ url: string, errorMessage: string }>}
  */
 async function consumeNativePendingIRealLink() {
-  if (!Capacitor.isNativePlatform()) return '';
+  if (!Capacitor.isNativePlatform()) return { url: '', errorMessage: '' };
   try {
     const result = await IrealBrowser.consumePendingIRealLink();
     const url = String(result?.url || '').trim();
-    return isIRealDeepLink(url) && !isNativePendingIRealLinkMarker(url) ? url : '';
-  } catch (_error) {
-    return '';
+    return {
+      url: isIRealDeepLink(url) && !isNativePendingIRealLinkMarker(url) ? url : '',
+      errorMessage: ''
+    };
+  } catch (error) {
+    return {
+      url: '',
+      errorMessage: error instanceof Error ? error.message : String(error)
+    };
   }
 }
 

@@ -127,12 +127,13 @@ function renderRecentCharts(
 
 function renderPlaylists(
   documents: ChartDocument[],
+  librarySource: string,
   dom: Pick<HomePageDom, 'playlistsList' | 'playlistsEmpty'>
 ): void {
   if (!dom.playlistsList) return;
   const playlistCounts = new Map<string, number>();
   for (const document of documents) {
-    const playlistName = String(document.source?.playlistName || '').trim();
+    const playlistName = String(document.source?.playlistName || librarySource || '').trim();
     if (!playlistName) continue;
     playlistCounts.set(playlistName, (playlistCounts.get(playlistName) || 0) + 1);
   }
@@ -160,11 +161,12 @@ function renderPlaylists(
 export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const persistedLibrary = await loadPersistedChartLibrary();
   const documents = persistedLibrary?.documents || [];
+  const librarySource = String(persistedLibrary?.source || '').trim();
   const documentsById = new Map(
     documents.map((document) => [String(document.metadata?.id || ''), document])
   );
 
   renderRecentCharts(documentsById, dom);
-  renderPlaylists(documents, dom);
+  renderPlaylists(documents, librarySource, dom);
   initializeThemeSelector(dom.themeSelect);
 }

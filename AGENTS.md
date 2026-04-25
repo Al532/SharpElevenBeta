@@ -7,6 +7,11 @@
 - Prefer finishing the requested task end-to-end over asking avoidable questions.
 - Make reasonable assumptions from repository context.
 - Ask only when a choice has non-obvious product, structural, or release consequences.
+- Treat the current workspace state as the source of truth, including uncommitted changes.
+- Do not use the last Git commit as the implicit baseline for requested work.
+- Do not revert, discard, or overwrite uncommitted changes unless the user explicitly asks for that exact rollback.
+- When asked to undo recent work, undo only the changes you can specifically attribute to your own last action, not unrelated current workspace changes.
+- If the current files contain mixed work from the user or another agent, preserve the useful intent in the current state and repair only the incoherent or broken parts.
 
 ## Permanent Repository Rules
 

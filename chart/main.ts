@@ -52,6 +52,11 @@ import {
 } from '../src/features/chart/chart-renderer.js';
 import { createAppShellBindings } from '../src/features/app/app-shell-bindings.js';
 import { initializeAppShell } from '../src/features/app/app-shell.js';
+import {
+  consumePendingIRealLinkResult,
+  isIRealDeepLink,
+  storePendingIRealLink
+} from '../src/features/app/app-pending-mobile-import.js';
 import { openIrealBrowser } from '../src/features/app/ireal-browser.js';
 import { createChartSheetRenderer } from '../src/features/chart/chart-sheet-renderer.js';
 import {
@@ -539,17 +544,32 @@ async function importDocumentsFromIRealText(rawText: string, sourceFile = '') {
   }));
 }
 
-function applyImportedLibrary({ documents, source, preferredId = null, statusMessage = '' }: {
+async function applyImportedLibrary({ documents, source, preferredId = null, statusMessage = '' }: {
   documents: ChartDocument[],
   source: string,
   preferredId?: string | null,
   statusMessage?: string
-}) {
+}): Promise<void> {
+  let nextDocuments = documents;
+
   if (documents.length > 0) {
-    void persistChartLibrary({
+    const shouldMerge = source !== 'bundled default library';
+    const persistedLibrary = await persistChartLibrary({
       documents,
-      source
+      source,
+      mergeWithExisting: shouldMerge
     });
+
+    if (!persistedLibrary) {
+      throw new Error('The imported chart library could not be confirmed in persistent storage.');
+    }
+
+    if (persistedLibrary.documents.length === 0) {
+      throw new Error('The imported chart library could not be confirmed in persistent storage.');
+    }
+
+    nextDocuments = persistedLibrary.documents;
+    source = persistedLibrary.source;
   }
   applyImportedChartLibrary(createChartImportedLibraryBindings({
     state,
@@ -557,7 +577,7 @@ function applyImportedLibrary({ documents, source, preferredId = null, statusMes
     renderChartSelector,
     renderFixture,
     setImportStatus,
-    documents,
+    documents: nextDocuments,
     source,
     preferredId,
     statusMessage
@@ -1264,6 +1284,65 @@ async function handlePastedIRealLinkImport() {
   });
 }
 
+async function importPendingMobileIRealLink() {
+  const pendingResult = await consumePendingIRealLinkResult();
+  const pendingIRealLink = pendingResult.url;
+
+  if (!pendingIRealLink && pendingResult.hadPendingMarker) {
+    setImportStatus(
+      pendingResult.errorMessage
+        ? `iReal link detected, but the captured text could not be loaded: ${pendingResult.errorMessage}`
+        : 'iReal link detected, but the captured text could not be loaded. Open the forum tracks and tap the link again.',
+      true
+    );
+    return;
+  }
+
+  if (!pendingIRealLink) return;
+
+  if (dom.irealLinkInput) {
+    dom.irealLinkInput.value = pendingIRealLink;
+  }
+  setImportStatus('iReal link captured. Importing charts...');
+
+  await handlePastedChartIRealLinkImport({
+    rawText: pendingIRealLink,
+    importDocumentsFromIRealText,
+    applyImportedLibrary,
+    setImportStatus
+  });
+}
+
+async function bindIncomingMobileIRealImports() {
+  if (!window.Capacitor?.isNativePlatform?.()) return;
+  let appPlugin = null;
+  try {
+    const capacitorAppModule = await import('@capacitor/app');
+    appPlugin = capacitorAppModule?.App || null;
+  } catch (_error) {
+    appPlugin = window.Capacitor?.Plugins?.App || null;
+  }
+  if (!appPlugin?.addListener) return;
+
+  const handleIncomingUrl = (url: string) => {
+    if (!isIRealDeepLink(url)) return;
+    storePendingIRealLink(url);
+    setImportStatus('iReal link detected. Loading captured text...');
+    void importPendingMobileIRealLink();
+  };
+
+  try {
+    const launchUrl = await appPlugin.getLaunchUrl?.();
+    handleIncomingUrl(String(launchUrl?.url || ''));
+  } catch (_error) {
+    // Keep the live listener active even if launch URL retrieval fails.
+  }
+
+  appPlugin.addListener('appUrlOpen', ({ url }: { url?: string }) => {
+    handleIncomingUrl(String(url || ''));
+  });
+}
+
 function bindImportControls() {
   bindChartImportControls(createChartImportControlsBindings({
     importIRealBackupButton: dom.importIRealBackupButton,
@@ -1420,6 +1499,9 @@ async function loadFixtures() {
       if (dom.transportStatus) dom.transportStatus.textContent = message;
     }
   })));
+
+  await bindIncomingMobileIRealImports();
+  await importPendingMobileIRealLink();
 }
 
 applyChartDisplayCssVariables();

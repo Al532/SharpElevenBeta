@@ -14,32 +14,44 @@
   <script type="module" src="./charts.ts"></script>
 </head>
 <body class="home-body">
-  <div class="home-shell">
-    <header class="home-header">
-      <a class="drill-home-button" href="./index.html" aria-label="Back to home">
-        <span aria-hidden="true"></span>
+  <header class="home-header">
+    <div class="home-header-leading">
+      <a class="home-icon-link" href="./index.html" aria-label="Back to home" title="Back to home">
+        <span aria-hidden="true">&#8592;</span>
       </a>
-      <a class="home-brand" href="./index.html" aria-label="Sharp Eleven home">Sharp Eleven</a>
-      <nav class="home-header-links" aria-label="Project links">
-        <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">?</a>
-      </nav>
-    </header>
+      <a class="home-brand" href="./index.html" aria-label="Sharp Eleven home">
+        <img class="home-brand-logo" src="./logo/classic-paper.png" alt="Logo Classic Paper" width="32" height="32">
+        <span>Sharp Eleven</span>
+      </a>
+    </div>
+    <nav class="home-header-links" aria-label="Project links">
+      <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 3.1V17h16V8.1l-7.36 5.15a1.1 1.1 0 0 1-1.28 0L4 8.1Zm1.15-1.1L12 11.8 18.85 7H5.15Z"></path>
+        </svg>
+      </a>
+    </nav>
+  </header>
 
-    <main class="home-main home-manage-charts-main">
-      <section class="home-section" aria-labelledby="charts-placeholder-title">
-        <h1 id="charts-placeholder-title" class="sr-only">Import/manage charts</h1>
+  <main class="home-main" aria-label="Manage charts">
+    <div class="home-stack">
+      <section class="home-subsection" aria-labelledby="charts-placeholder-title">
+        <h1 id="charts-placeholder-title">Import/manage charts</h1>
         <p class="home-empty">Use the controls below to import your iReal charts.</p>
-
-        <div class="home-actions" aria-label="iReal import controls">
-          <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
-          <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum tracks</button>
-          <button id="clear-all-charts-button" type="button" class="home-primary-action">Remove all charts</button>
-        </div>
-
         <p id="chart-import-status" class="home-empty" role="status" aria-live="polite"></p>
       </section>
-    </main>
-  </div>
+    </div>
+
+    <div class="home-actions" aria-label="iReal import controls">
+      <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
+      <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum tracks</button>
+      <button id="clear-all-charts-button" type="button" class="home-primary-action">Remove all charts</button>
+    </div>
+  </main>
+
+  <footer class="home-footer">
+    <select id="home-theme-select" class="home-theme-select" aria-label="Choose theme"></select>
+  </footer>
 
   <input id="ireal-backup-input" type="file" accept=".html,.htm,.txt" hidden>
 </body>
