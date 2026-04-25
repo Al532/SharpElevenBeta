@@ -9,8 +9,7 @@ const {
   compression: CHART_COMPRESSION_CONFIG,
   density: CHART_DENSITY_CONFIG,
   tokenMetrics: CHART_TOKEN_METRICS_CONFIG,
-  subdividedTokenScale: CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG,
-  debug: CHART_DEBUG_CONFIG
+  subdividedTokenScale: CHART_SUBDIVIDED_TOKEN_SCALE_CONFIG
 } = CHART_DISPLAY_CONFIG;
 
 const OPTICAL_PIPELINE_MAX_PASSES = 3;
@@ -30,19 +29,6 @@ type CreateChartSheetRendererOptions = {
 
 type RenderBarCellOptions = {
   isRowStart?: boolean
-};
-
-type CollisionDebugBox = {
-  kind: string,
-  rect: {
-    left: number,
-    top: number,
-    right: number,
-    bottom: number,
-    width?: number,
-    height?: number
-  },
-  label?: string
 };
 
 /**
@@ -412,7 +398,7 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
 
 /** @returns {string} */
 function renderEmptyBarCell() {
-  return '<article class="chart-bar-cell is-empty" aria-hidden="true"><span class="chart-bar-cell-highlight"></span></article>';
+  return '<article class="chart-bar-cell is-empty" aria-hidden="true"></article>';
 }
 
 /**
@@ -427,53 +413,30 @@ function renderBarTimeSignature(timeSig) {
 
 /**
  * @param {Element} mainTokenEl
- * @returns {{ left: number, top: number, right: number, bottom: number, width: number, height: number } | null}
+ * @returns {{ left: number, right: number } | null}
  */
 function getVisualSymbolRect(mainTokenEl) {
   const selectors = [
     '.chord-symbol-main',
-    '.chord-symbol-main *',
     '.chord-symbol-sup',
-    '.chord-symbol-sup *',
-    '.chord-symbol-slash-stack',
-    '.chord-symbol-slash-stack *'
+    '.chord-symbol-slash-stack'
   ];
   let left = Infinity;
-  let top = Infinity;
   let right = -Infinity;
-  let bottom = -Infinity;
   for (const selector of selectors) {
-    const elements = Array.from(mainTokenEl.querySelectorAll(selector)) as Element[];
-    for (const element of elements) {
-      const rect = element.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
-      left = Math.min(left, rect.left);
-      top = Math.min(top, rect.top);
-      right = Math.max(right, rect.right);
-      bottom = Math.max(bottom, rect.bottom);
-    }
+    const element = mainTokenEl.querySelector(selector);
+    if (!element) continue;
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0) continue;
+    left = Math.min(left, rect.left);
+    right = Math.max(right, rect.right);
   }
-  const padding = Math.max(0, Number(CHART_DISPLACEMENT_CONFIG.symbolVisualPaddingPx || 0));
-  left -= padding;
-  top -= padding;
-  right += padding;
-  bottom += padding;
-
-  return Number.isFinite(left) && Number.isFinite(top)
-    ? {
-        left,
-        top,
-        right,
-        bottom,
-        width: Math.max(0, right - left),
-        height: Math.max(0, bottom - top)
-      }
-    : null;
+  return Number.isFinite(left) ? { left, right } : null;
 }
 
 /**
  * @param {Element} slotEl
- * @returns {{ slotEl: Element, tokenEl: Element | null, slotRect: DOMRect, symbolRect: { left: number, top: number, right: number, bottom: number, width?: number, height?: number } | null, mainRect: DOMRect | null, anchorX: number, beatTargetX: number }}
+ * @returns {{ slotEl: Element, tokenEl: Element | null, slotRect: DOMRect, symbolRect: { left: number, right: number } | null, mainRect: DOMRect | null, anchorX: number, beatTargetX: number }}
  */
 function measureTokenGeometry(slotEl) {
   const tokenEl = /** @type {HTMLElement | null} */ (slotEl.querySelector('.chart-token'));
@@ -490,14 +453,7 @@ function measureTokenGeometry(slotEl) {
   const tokenRect = tokenEl ? tokenEl.getBoundingClientRect() : null;
   const symbolRect = mainChordEl
     ? getVisualSymbolRect(mainChordEl)
-    : (tokenRect && tokenRect.width > 0 ? {
-        left: tokenRect.left,
-        top: tokenRect.top,
-        right: tokenRect.right,
-        bottom: tokenRect.bottom,
-        width: tokenRect.width,
-        height: tokenRect.height
-      } : null);
+    : (tokenRect && tokenRect.width > 0 ? { left: tokenRect.left, right: tokenRect.right } : null);
   const mainRect = mainEl ? mainEl.getBoundingClientRect() : null;
 
   const anchorX = mainRect
@@ -510,10 +466,9 @@ function measureTokenGeometry(slotEl) {
 
 /**
  * @param {HTMLElement} barBodyEl
- * @param {number} minScale
  * @returns {number}
  */
-function getBarBodyCollisionScale(barBodyEl, minScale: number = CHART_COMPRESSION_CONFIG.minScale) {
+function getBarBodyCollisionScale(barBodyEl) {
   const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
   if (slots.length === 0) return 1;
 
@@ -537,16 +492,27 @@ function getBarBodyCollisionScale(barBodyEl, minScale: number = CHART_COMPRESSIO
 
   const overlapScale = maxOverlap > 0
       ? Math.max(
-        minScale,
+        CHART_COMPRESSION_CONFIG.minScale,
         1 - (((maxOverlap + CHART_COMPRESSION_CONFIG.antiCollisionPaddingPx) / availableWidth)
           * CHART_COMPRESSION_CONFIG.balance)
       )
     : 1;
 
   return Math.max(
-    minScale,
+    CHART_COMPRESSION_CONFIG.minScale,
     Math.min(1, spanScale, overlapScale)
   );
+}
+
+/**
+ * @param {number} sourceScale
+ * @param {number} propagationRatio
+ * @returns {number}
+ */
+function getPropagatedCompressionScale(sourceScale, propagationRatio) {
+  const clampedScale = Math.max(0, Math.min(1, sourceScale));
+  const clampedRatio = Math.max(0, Math.min(1, propagationRatio));
+  return 1 - ((1 - clampedScale) * clampedRatio);
 }
 
 /**
@@ -557,103 +523,6 @@ function getBarBodyCollisionScale(barBodyEl, minScale: number = CHART_COMPRESSIO
  */
 function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-/**
- * @param {unknown} value
- * @returns {number}
- */
-function parseFiniteNumber(value) {
-  const number = Number.parseFloat(String(value || '0'));
-  return Number.isFinite(number) ? number : 0;
-}
-
-/**
- * @param {{ width?: number, height?: number }} rect
- * @returns {boolean}
- */
-function hasVisibleRect(rect) {
-  return Number(rect.width) > 0 && Number(rect.height) > 0;
-}
-
-/**
- * @param {Element} element
- * @param {string} pseudoElement
- * @param {string} propertyName
- * @returns {number}
- */
-function getPseudoPx(element, pseudoElement, propertyName) {
-  return parseFiniteNumber(getComputedStyle(element, pseudoElement).getPropertyValue(propertyName));
-}
-
-/**
- * @param {HTMLElement} sheetGrid
- * @returns {number}
- */
-function getSheetGridVisualBottomBound(sheetGrid) {
-  const gridRect = sheetGrid.getBoundingClientRect();
-  const gridStyle = getComputedStyle(sheetGrid);
-  const gridContentBottom = gridRect.bottom - parseFiniteNumber(gridStyle.paddingBottom);
-  const workspace = sheetGrid.closest('.chart-workspace');
-  if (!workspace) return gridContentBottom;
-
-  const workspaceRect = workspace.getBoundingClientRect();
-  const workspaceStyle = getComputedStyle(workspace);
-  const workspaceContentBottom = workspaceRect.bottom - parseFiniteNumber(workspaceStyle.paddingBottom);
-  return Math.min(gridContentBottom, workspaceContentBottom);
-}
-
-/**
- * @param {Element} referenceEl
- * @returns {number}
- */
-function getMaxOffsetPx(referenceEl) {
-  const fontSizePx = parseFloat(getComputedStyle(referenceEl).fontSize);
-  const maxOffsetEm = Math.max(0, Number(CHART_DISPLACEMENT_CONFIG.maxOffsetEm || 0));
-  return (Number.isFinite(fontSizePx) && fontSizePx > 0 ? fontSizePx : 16) * maxOffsetEm;
-}
-
-/**
- * @param {HTMLElement} barBodyEl
- * @returns {{ left: number, right: number }}
- */
-function getBarBodyMeasureBounds(barBodyEl) {
-  const cellEl = barBodyEl.closest('.chart-bar-cell') as HTMLElement | null;
-  const fallbackRect = barBodyEl.getBoundingClientRect();
-  if (!cellEl) return { left: fallbackRect.left, right: fallbackRect.right };
-
-  const cellRect = cellEl.getBoundingClientRect();
-  const rightLineWidth = getPseudoPx(cellEl, '::before', 'border-right-width');
-  const leftLineWidth = cellEl.classList.contains('is-row-start')
-    ? getPseudoPx(cellEl, '::after', 'border-left-width')
-    : 0;
-  const repeatDotsWidth = cellEl.classList.contains('is-repeat-end') ? 10 : 0;
-  const finalBarWidth = cellEl.classList.contains('is-final')
-    ? getPseudoPx(cellEl, '::after', 'width')
-    : 0;
-  const boundaryInset = Math.max(0, Number(CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx || 0));
-
-  return {
-    left: cellRect.left + leftLineWidth + boundaryInset,
-    right: cellRect.right - Math.max(rightLineWidth, repeatDotsWidth, finalBarWidth) - boundaryInset
-  };
-}
-
-/**
- * @param {HTMLElement} barBodyEl
- * @returns {{ left: number, top: number, right: number, bottom: number, width: number, height: number }}
- */
-function getBarBodyMeasureRect(barBodyEl) {
-  const bounds = getBarBodyMeasureBounds(barBodyEl);
-  const bodyRect = barBodyEl.getBoundingClientRect();
-  return {
-    left: bounds.left,
-    top: bodyRect.top,
-    right: bounds.right,
-    bottom: bodyRect.bottom,
-    width: Math.max(0, bounds.right - bounds.left),
-    height: bodyRect.height
-  };
 }
 
 /**
@@ -684,8 +553,8 @@ function clampTokenOffset(rawLeft, rawRight, offset, leftBound, rightBound, maxO
 function resolveCollisions(rawLefts, rawRights, offsets, symLefts, symRights, barRect, maxOffsetPx) {
   const minGap = CHART_DISPLACEMENT_CONFIG.antiCollisionGapPx;
   const count = rawLefts.length;
-  const leftBound = barRect.left;
-  const rightBound = barRect.right;
+  const leftBound = barRect.left + CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
 
   const syncSymbol = (index) => {
     offsets[index] = clampTokenOffset(rawLefts[index], rawRights[index], offsets[index], leftBound, rightBound, maxOffsetPx);
@@ -745,7 +614,6 @@ function applySingleChordAnchor(barBodyEl) {
   if (!tokenEl) return;
   tokenEl.style.removeProperty('--chart-token-offset-x');
   const barRect = barBodyEl.getBoundingClientRect();
-  const measureBounds = getBarBodyMeasureBounds(barBodyEl);
   const geometry = measureTokenGeometry(slots[0]);
   const rawLeft = geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left;
   const rawRight = geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right;
@@ -753,16 +621,26 @@ function applySingleChordAnchor(barBodyEl) {
   const fontSizePx = parseFloat(getComputedStyle(tokenEl).fontSize);
   if (!fontSizePx || rawWidth <= 0) return;
 
-  const leftBound = measureBounds.left;
-  const rightBound = measureBounds.right;
+  const leftBound = barRect.left + CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
   const availableWidth = Math.max(0, rightBound - leftBound);
-  const bias = Math.max(0, Math.min(1, Number(CHART_DISPLACEMENT_CONFIG.singleChordLeftBias || 0)));
-  const anchoredLeft = leftBound + (availableWidth * bias);
-  const maxOffsetPx = getMaxOffsetPx(tokenEl);
+  const anchoredLeft = barRect.left + (barRect.width * CHART_DISPLACEMENT_CONFIG.singleChordLeftBias);
+  const centeredLeft = leftBound + Math.max(0, (availableWidth - rawWidth) / 2);
 
   let offsetPx = anchoredLeft - rawLeft;
   let scaledLeft = rawLeft + offsetPx;
   let scaledRight = rawRight + offsetPx;
+
+  const leftSpace = Math.max(0, scaledLeft - leftBound);
+  const rightSpace = Math.max(0, rightBound - scaledRight);
+  if (rightSpace < leftSpace) {
+    const shiftTowardCenter = Math.min(leftSpace - rightSpace, scaledLeft - centeredLeft);
+    if (shiftTowardCenter > 0) {
+      offsetPx -= shiftTowardCenter;
+      scaledLeft -= shiftTowardCenter;
+      scaledRight -= shiftTowardCenter;
+    }
+  }
 
   if (scaledLeft < leftBound) {
     offsetPx += leftBound - scaledLeft;
@@ -779,7 +657,7 @@ function applySingleChordAnchor(barBodyEl) {
     offsetPx,
     leftBound,
     rightBound,
-    maxOffsetPx
+    CHART_DISPLACEMENT_CONFIG.maxOffsetPx
   );
   setTokenOffset(tokenEl, offsetPx);
 }
@@ -789,82 +667,23 @@ function applySingleChordAnchor(barBodyEl) {
  * @returns {{ top: number, bottom: number }}
  */
 function getRowChordVisualBounds(rowEl) {
-  const visualElements: HTMLElement[] = Array.from(rowEl.querySelectorAll(
-    '.chart-bar-body .chart-token, .chart-foot-pill, .chart-bar-corner-marker'
-  )) as HTMLElement[];
-  const elementRects = visualElements
+  const tokenElements: HTMLElement[] = Array.from(rowEl.querySelectorAll('.chart-bar-body .chart-token')) as HTMLElement[];
+  const tokenRects = tokenElements
     .map((element) => element.getBoundingClientRect())
     .filter((rect) => rect.width > 0 && rect.height > 0);
 
-  const barLineRects = getRowBarCells(rowEl).flatMap((barCellEl) => {
-    const cellRect = barCellEl.getBoundingClientRect();
-    const computed = getComputedStyle(barCellEl);
-    const lineTop = parseFiniteNumber(computed.getPropertyValue('--chart-bar-line-top'));
-    const lineHeight = parseFiniteNumber(computed.getPropertyValue('--chart-bar-line-height'));
-    const rects = [];
-    if (cellRect.width > 0 && lineHeight > 0) {
-      rects.push({
-        top: cellRect.top + lineTop,
-        bottom: cellRect.top + lineTop + lineHeight
-      });
-    }
-    if (barCellEl.classList.contains('is-repeat-end')) {
-      const repeatTop = cellRect.top + (cellRect.height / 2) - 10 + 2;
-      rects.push({
-        top: repeatTop,
-        bottom: repeatTop + 20
-      });
-    }
-    return rects;
-  });
-
-  const visualRects = [...elementRects, ...barLineRects];
-
-  if (visualRects.length === 0) {
+  if (tokenRects.length === 0) {
     const rowRect = rowEl.getBoundingClientRect();
     return { top: rowRect.top, bottom: rowRect.bottom };
   }
 
-  return visualRects.reduce((bounds, rect) => ({
+  return tokenRects.reduce((bounds, rect) => ({
     top: Math.min(bounds.top, rect.top),
     bottom: Math.max(bounds.bottom, rect.bottom)
   }), {
-    top: visualRects[0].top,
-    bottom: visualRects[0].bottom
+    top: tokenRects[0].top,
+    bottom: tokenRects[0].bottom
   });
-}
-
-/**
- * @param {HTMLElement} rowEl
- * @returns {HTMLElement[]}
- */
-function getRowEndingElements(rowEl) {
-  return Array.from(rowEl.querySelectorAll('.chart-ending-stack')) as HTMLElement[];
-}
-
-/**
- * @param {HTMLElement[]} rowElements
- * @returns {void}
- */
-function applyEndingCollisionMargins(rowElements) {
-  for (let index = 1; index < rowElements.length; index += 1) {
-    const endings = getRowEndingElements(rowElements[index]);
-    if (endings.length === 0) continue;
-
-    const endingRects = endings
-      .map((element) => element.getBoundingClientRect())
-      .filter((rect) => rect.width > 0 && rect.height > 0);
-    if (endingRects.length === 0) continue;
-
-    const previousBounds = getRowChordVisualBounds(rowElements[index - 1]);
-    const minEndingTop = Math.min(...endingRects.map((rect) => rect.top));
-    const requiredEndingTop = previousBounds.bottom + CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx;
-    const overflow = requiredEndingTop - minEndingTop;
-    if (overflow <= 0) continue;
-
-    const previousMargin = parseFloat(getComputedStyle(rowElements[index]).marginTop) || 0;
-    rowElements[index].style.marginTop = `${Math.ceil(previousMargin + overflow)}px`;
-  }
 }
 
 /**
@@ -987,8 +806,9 @@ function applyBarBodyDisplacement(barBodyEl) {
     tokenEl.style.removeProperty('--chart-token-offset-x');
   });
 
-  const measureBounds = getBarBodyMeasureBounds(barBodyEl);
-  const maxOffsetPx = getMaxOffsetPx(barBodyEl);
+  const barRect = barBodyEl.getBoundingClientRect();
+  const leftBound = barRect.left + CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
+  const rightBound = barRect.right - CHART_DISPLACEMENT_CONFIG.symbolBoundaryInsetPx;
   const geometries = slots.map((slot) => measureTokenGeometry(slot));
   const rawLefts = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.left : geometry.slotRect.left));
   const rawRights = geometries.map((geometry) => (geometry.symbolRect ? geometry.symbolRect.right : geometry.slotRect.right));
@@ -996,9 +816,9 @@ function applyBarBodyDisplacement(barBodyEl) {
     rawLefts[index],
     rawRights[index],
     geometry.beatTargetX - geometry.anchorX,
-    measureBounds.left,
-    measureBounds.right,
-    maxOffsetPx
+    leftBound,
+    rightBound,
+    CHART_DISPLACEMENT_CONFIG.maxOffsetPx
   ));
   const symLefts = rawLefts.map((left, index) => left + offsets[index]);
   const symRights = rawRights.map((right, index) => right + offsets[index]);
@@ -1009,8 +829,8 @@ function applyBarBodyDisplacement(barBodyEl) {
     offsets,
     symLefts,
     symRights,
-    measureBounds,
-    maxOffsetPx
+    barRect,
+    CHART_DISPLACEMENT_CONFIG.maxOffsetPx
   );
 
   geometries.forEach((geometry, index) => {
@@ -1042,129 +862,40 @@ function getRowBarCells(rowEl) {
  * @param {number} scale
  * @returns {number}
  */
-function getWidthFactorFromCompressionScale(scale) {
-  return scale > 0 && scale < 1 ? 1 / scale : 1;
-}
-
-/**
- * @param {HTMLElement} rowEl
- * @returns {void}
- */
-function resetRowTokenOffsets(rowEl) {
-  (Array.from(rowEl.querySelectorAll('.chart-token')) as HTMLElement[]).forEach((tokenEl) => {
-    tokenEl.style.removeProperty('--chart-token-offset-x');
-  });
-}
-
-/**
- * @param {HTMLElement} rowEl
- * @returns {number[]}
- */
-function getNeutralRowResizeFactors(rowEl) {
-  rowEl.style.removeProperty('grid-template-columns');
-  resetRowTokenOffsets(rowEl);
-  void rowEl.offsetWidth;
-
-  return getRowBarCells(rowEl).map((cellEl) => {
-    const barBodyEl = cellEl.querySelector<HTMLElement>('.chart-bar-body');
-    if (!barBodyEl) return 1;
-
-    return getWidthFactorFromCompressionScale(getBarBodyCollisionScale(barBodyEl, 0.01));
-  });
-}
-
-/**
- * @param {number[]} factors
- * @param {number} minSpreadFactor
- * @param {number} maxSpreadFactor
- * @returns {number[]}
- */
-function getRowResizeWeightsFromFactors(factors, minSpreadFactor, maxSpreadFactor) {
-  if (factors.length === 0) return [];
-
-  const normalizedFactors = factors.map((factor) => Math.max(1, factor));
-  const averageFactor = normalizedFactors.reduce((sum, factor) => sum + factor, 0) / normalizedFactors.length || 1;
-  const relativeWeights = normalizedFactors.map((factor) => factor / averageFactor);
-  const spreadFactor = Math.max(...relativeWeights);
-  if (spreadFactor < minSpreadFactor) return normalizedFactors.map(() => 1);
-
-  const spreadDelta = spreadFactor - 1;
-  const maxSpreadDelta = maxSpreadFactor - 1;
-  const scale = spreadDelta > maxSpreadDelta && spreadDelta > 0
-    ? maxSpreadDelta / spreadDelta
-    : 1;
-
-  return relativeWeights.map((weight) => 1 + ((weight - 1) * scale));
-}
-
-/**
- * @param {HTMLElement} barBodyEl
- * @param {number} finalScale
- * @param {number} textScaleCompensation
- * @returns {void}
- */
-function applyBarBodyCompressionScale(barBodyEl, finalScale, textScaleCompensation) {
-  const mode = String(CHART_COMPRESSION_CONFIG.mode || 'fontSize');
-  const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
-
-  if (mode === 'fontSize') {
-    const combinedScale = finalScale * textScaleCompensation;
-    if (combinedScale >= 0.999 || !currentFontPx) return;
-    barBodyEl.style.fontSize = `${(currentFontPx * combinedScale).toFixed(2)}px`;
-    return;
-  }
-
-  if (textScaleCompensation < 0.999 && currentFontPx) {
-    barBodyEl.style.fontSize = `${(currentFontPx * textScaleCompensation).toFixed(2)}px`;
-  }
-
-  if (finalScale >= 0.999) return;
-
-  if (mode === 'rootHorizontal') {
-    (Array.from(barBodyEl.querySelectorAll('.chart-token.chord')) as HTMLElement[]).forEach((tokenEl) => {
-      tokenEl.style.setProperty('--chart-chord-root-scale-x', finalScale.toFixed(3));
-    });
-    return;
-  }
-
-  if (mode === 'chordHorizontal') {
-    (Array.from(barBodyEl.querySelectorAll('.chart-token.chord')) as HTMLElement[]).forEach((tokenEl) => {
-      tokenEl.style.setProperty('--chart-token-scale-x', finalScale.toFixed(3));
-    });
-  }
+function getWidthDeltaFromCompressionScale(scale) {
+  return scale > 0 && scale < 1 ? (1 / scale) - 1 : 0;
 }
 
 /**
  * @returns {number}
  */
 function applyRowBarResizing() {
-  const minSpreadFactor = Math.max(1, CHART_BAR_RESIZING_CONFIG.minDeltaRatio);
-  const maxSpreadFactor = Math.max(1, CHART_BAR_RESIZING_CONFIG.maxDeltaRatio);
-  if (maxSpreadFactor <= minSpreadFactor) {
-    let maxWeightChange = 0;
-    Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
-      if (!rowEl.style.gridTemplateColumns) return;
-      maxWeightChange = Math.max(maxWeightChange, 1);
-      rowEl.style.removeProperty('grid-template-columns');
-    });
-    return maxWeightChange;
-  }
+  const minDeltaRatio = Math.max(0, CHART_BAR_RESIZING_CONFIG.minDeltaRatio);
+  const maxDeltaRatio = Math.max(0, CHART_BAR_RESIZING_CONFIG.maxDeltaRatio);
+  if (maxDeltaRatio <= 0) return 0;
 
   let maxWeightChange = 0;
   Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
-    const previousWeights = rowEl.style.gridTemplateColumns.match(/([0-9.]+)fr/g)
-      ?.map((part) => Number.parseFloat(part)) || [];
-    const factors = getNeutralRowResizeFactors(rowEl);
-    const weights = getRowResizeWeightsFromFactors(factors, minSpreadFactor, maxSpreadFactor);
+    const weights = getRowBarCells(rowEl).map((cellEl) => {
+      const barBodyEl = cellEl.querySelector<HTMLElement>('.chart-bar-body');
+      if (!barBodyEl) return 1;
+
+      const deltaRatio = getWidthDeltaFromCompressionScale(getBarBodyCollisionScale(barBodyEl));
+      if (deltaRatio < minDeltaRatio) return 1;
+
+      return 1 + Math.min(maxDeltaRatio, deltaRatio);
+    });
 
     if (weights.length > 0 && weights.some((weight) => weight > 1)) {
+      const previousWeights = rowEl.style.gridTemplateColumns.match(/([0-9.]+)fr/g)
+        ?.map((part) => Number.parseFloat(part)) || [];
       weights.forEach((weight, index) => {
         maxWeightChange = Math.max(maxWeightChange, Math.abs(weight - (previousWeights[index] || 1)));
       });
       rowEl.style.gridTemplateColumns = weights
         .map((weight) => `minmax(0, ${weight.toFixed(3)}fr)`)
         .join(' ');
-    } else if (previousWeights.length > 0) {
+    } else if (rowEl.style.gridTemplateColumns) {
       maxWeightChange = Math.max(maxWeightChange, 1);
       rowEl.style.removeProperty('grid-template-columns');
     }
@@ -1193,19 +924,23 @@ function applyBarBodyCompression(textScaleCompensation) {
     (scale, rowData) => Math.min(scale, rowData.rowScale),
     1
   );
-  const pageScaleLimit = Math.min(
-    1,
-    pageScale + Math.max(0, CHART_COMPRESSION_CONFIG.pageMaxScaleGap)
+  const propagatedPageScale = getPropagatedCompressionScale(
+    pageScale,
+    CHART_COMPRESSION_CONFIG.pagePropagationRatio
   );
 
   rowCompressionData.forEach(({ barCompressionData, rowScale }) => {
-    const rowScaleLimit = Math.min(
-      1,
-      rowScale + Math.max(0, CHART_COMPRESSION_CONFIG.rowMaxScaleGap)
+    const propagatedRowScale = getPropagatedCompressionScale(
+      rowScale,
+      CHART_COMPRESSION_CONFIG.rowPropagationRatio
     );
     barCompressionData.forEach(({ barBodyEl, localScale }) => {
-      const finalScale = Math.min(localScale, rowScaleLimit, pageScaleLimit);
-      applyBarBodyCompressionScale(barBodyEl, finalScale, textScaleCompensation);
+      const finalScale = Math.min(localScale, propagatedRowScale, propagatedPageScale);
+      const combinedScale = finalScale * textScaleCompensation;
+      if (combinedScale >= 0.999) return;
+      const currentFontPx = parseFloat(getComputedStyle(barBodyEl).fontSize);
+      if (!currentFontPx) return;
+      barBodyEl.style.fontSize = `${(currentFontPx * combinedScale).toFixed(2)}px`;
     });
   });
 }
@@ -1217,143 +952,12 @@ function resetOpticalPlacementStyles() {
   Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
     rowEl.style.removeProperty('grid-template-columns');
   });
-  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-cell')).forEach((barCellEl) => {
-    barCellEl.style.removeProperty('--chart-bar-line-top');
-  });
   Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
     barBodyEl.style.removeProperty('font-size');
     barBodyEl.querySelectorAll<HTMLElement>('.chart-token').forEach((tokenEl) => {
       tokenEl.style.removeProperty('--chart-token-offset-x');
-      tokenEl.style.removeProperty('--chart-token-scale-x');
-      tokenEl.style.removeProperty('--chart-token-scale-y');
-      tokenEl.style.removeProperty('--chart-chord-root-scale-x');
+      tokenEl.style.removeProperty('--chart-token-scale');
     });
-  });
-}
-
-/** @returns {boolean} */
-function isCollisionDebugEnabled() {
-  return Boolean(CHART_DEBUG_CONFIG?.showChordCollisionBoxes);
-}
-
-/**
- * @param {HTMLElement} sheetGrid
- * @returns {HTMLElement}
- */
-function ensureCollisionDebugOverlay(sheetGrid) {
-  const ownerDocument = sheetGrid.ownerDocument || document;
-  const existing = ownerDocument.querySelector('[data-chart-collision-debug-overlay]') as HTMLElement | null;
-  if (existing) return existing;
-
-  const overlay = ownerDocument.createElement('div');
-  overlay.dataset.chartCollisionDebugOverlay = 'true';
-  overlay.setAttribute('aria-hidden', 'true');
-  Object.assign(overlay.style, {
-    position: 'fixed',
-    inset: '0',
-    zIndex: '2147483647',
-    pointerEvents: 'none',
-    overflow: 'hidden'
-  });
-  ownerDocument.body.appendChild(overlay);
-  return overlay;
-}
-
-/** @returns {void} */
-function removeCollisionDebugOverlay() {
-  document.querySelector('[data-chart-collision-debug-overlay]')?.remove();
-}
-
-/**
- * @param {HTMLElement} sheetGrid
- * @returns {CollisionDebugBox[]}
- */
-function collectCollisionDebugBoxes(sheetGrid) {
-  const boxes: CollisionDebugBox[] = [];
-
-  (Array.from(sheetGrid.querySelectorAll('.chart-bar-body')) as HTMLElement[]).forEach((barBodyEl) => {
-    (Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[]).forEach((slotEl) => {
-      const geometry = measureTokenGeometry(slotEl);
-      if (geometry.symbolRect) {
-        const symbolRect = {
-          left: geometry.symbolRect.left,
-          top: geometry.symbolRect.top,
-          right: geometry.symbolRect.right,
-          bottom: geometry.symbolRect.bottom,
-          width: Math.max(0, geometry.symbolRect.right - geometry.symbolRect.left),
-          height: Math.max(0, geometry.symbolRect.bottom - geometry.symbolRect.top)
-        };
-        if (hasVisibleRect(symbolRect)) {
-          boxes.push({ kind: 'symbol', rect: symbolRect, label: 'chord' });
-        }
-      }
-    });
-  });
-
-  return boxes;
-}
-
-/**
- * @param {HTMLElement} sheetGrid
- * @returns {void}
- */
-function renderCollisionDebugOverlay(sheetGrid) {
-  if (!isCollisionDebugEnabled()) {
-    removeCollisionDebugOverlay();
-    return;
-  }
-
-  const overlay = ensureCollisionDebugOverlay(sheetGrid);
-  const palette: Record<string, { border: string, background: string }> = {
-    measure: { border: '#1d4ed8', background: 'rgba(29, 78, 216, 0.06)' },
-    symbol: { border: '#dc2626', background: 'rgba(220, 38, 38, 0.10)' },
-    slot: { border: '#16a34a', background: 'rgba(22, 163, 74, 0.06)' },
-    row: { border: '#9333ea', background: 'rgba(147, 51, 234, 0.05)' },
-    annotation: { border: '#d97706', background: 'rgba(217, 119, 6, 0.08)' },
-    ending: { border: '#0f766e', background: 'rgba(15, 118, 110, 0.08)' }
-  };
-
-  overlay.innerHTML = collectCollisionDebugBoxes(sheetGrid).map(({ kind, rect, label }) => {
-    const color = palette[kind] || { border: '#111827', background: 'rgba(17, 24, 39, 0.08)' };
-    const left = Math.round(rect.left * 100) / 100;
-    const top = Math.round(rect.top * 100) / 100;
-    const width = Math.round(Math.max(0, rect.right - rect.left) * 100) / 100;
-    const height = Math.round(Math.max(0, rect.bottom - rect.top) * 100) / 100;
-    return `
-      <div
-        title="${label || kind}"
-        style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;border:1px solid ${color.border};background:${color.background};box-sizing:border-box;"
-      >
-        <span style="position:absolute;left:0;top:0;transform:translateY(-100%);font:10px/1.2 system-ui,sans-serif;color:${color.border};background:rgba(255,255,255,0.88);padding:1px 3px;white-space:nowrap;">${label || kind}</span>
-      </div>
-    `;
-  }).join('');
-}
-
-/**
- * @param {HTMLElement} barCellEl
- * @returns {DOMRect | null}
- */
-function getFullSizeRootRect(barCellEl) {
-  const rootElements = Array.from(barCellEl.querySelectorAll('.chart-token .chord-symbol-root-letter')) as HTMLElement[];
-  return rootElements
-    .map((element) => element.getBoundingClientRect())
-    .find((rect) => rect.width > 0 && rect.height > 0) || null;
-}
-
-/**
- * @returns {void}
- */
-function syncBarLinePlacements() {
-  const barLineHeight = CHART_DISPLAY_CONFIG.barGeometry.barLine.heightPx;
-  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-cell')).forEach((barCellEl) => {
-    const rootRect = getFullSizeRootRect(barCellEl);
-    if (!rootRect) return;
-
-    const cellRect = barCellEl.getBoundingClientRect();
-    const rootCenterY = rootRect.top + (rootRect.height / 2);
-    const lineTop = Math.max(0, rootCenterY - cellRect.top - (barLineHeight / 2));
-    barCellEl.style.setProperty('--chart-bar-line-top', `${lineTop.toFixed(2)}px`);
   });
 }
 
@@ -1391,7 +995,6 @@ export function createChartSheetRenderer({
 
     return `
       <article class="${classes.join(' ')}" data-bar-id="${bar.id}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
-        <span class="chart-bar-cell-highlight" aria-hidden="true"></span>
         ${renderEndingMarkup(bar.endings)}
         ${renderBarCornerMarkers(bar)}
         <div class="chart-bar-head">
@@ -1459,7 +1062,8 @@ export function createChartSheetRenderer({
 
     sheetGrid.style.rowGap = '0px';
     void sheetGrid.offsetHeight;
-    const bottomBound = getSheetGridVisualBottomBound(sheetGrid);
+    const workspace = sheetGrid.closest('.chart-workspace');
+    const bottomBound = workspace ? workspace.getBoundingClientRect().bottom : window.innerHeight;
 
     const firstRow = rowElements[0];
     if (firstRow) {
@@ -1493,10 +1097,8 @@ export function createChartSheetRenderer({
     }
 
     const rowElementList = Array.from(rowElements);
-    applyEndingCollisionMargins(rowElementList);
     const rowChordBounds = rowElementList.map((element) => getRowChordVisualBounds(element));
     applyRowAnnotationPlacements(rowElementList, rowChordBounds);
-    renderCollisionDebugOverlay(sheetGrid);
   }
 
   function applyOpticalPlacements() {
@@ -1507,7 +1109,6 @@ export function createChartSheetRenderer({
 
     resetOpticalPlacementStyles();
     void document.documentElement.offsetHeight;
-    syncBarLinePlacements();
 
     for (let pass = 0; pass < OPTICAL_PIPELINE_MAX_PASSES; pass += 1) {
       applyBarBodyDisplacements();
@@ -1520,7 +1121,6 @@ export function createChartSheetRenderer({
     applyBarBodyCompression(textScaleCompensation);
     void document.documentElement.offsetHeight;
     applyBarBodyDisplacements();
-    if (sheetGrid) renderCollisionDebugOverlay(sheetGrid);
   }
 
   function renderDiagnostics(playbackPlan) {

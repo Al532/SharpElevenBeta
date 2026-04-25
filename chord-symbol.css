@@ -78,18 +78,15 @@
   --chord-symbol-sup-padding-right: 0;
   --chord-symbol-sup-content-scale-x: 0.88;
   --chord-symbol-sup-content-letter-spacing: -0.045em;
-  --chord-symbol-quality-stroke-width: 14;
-  --chord-symbol-quality-half-diminished-slash-stroke-width: 13;
-  --chord-symbol-figure69-slash-stroke-width: 0.052em;
-  --chord-symbol-slash-column-width: 0.38em;
-  --chord-symbol-slash-row-offset: 0.36em;
-  --chord-symbol-slash-gap: 0.08em;
-  --chord-symbol-slash-stack-shift: 0.2em;
-  --chord-symbol-slash-top: 0.18em;
-  --chord-symbol-slash-height: 0.82em;
-  --chord-symbol-slash-stroke-width: 0.045em;
-  --chord-symbol-slash-stroke-height: 0.84em;
-  --chord-symbol-slash-stroke-top: 0.1em;
+  --chord-symbol-slash-column-width: 0.24em;
+  --chord-symbol-slash-row-offset: 0.4em;
+  --chord-symbol-slash-gap: 0.03em;
+  --chord-symbol-slash-stack-shift: 0.34em;
+  --chord-symbol-slash-top: 0.16em;
+  --chord-symbol-slash-height: 0.58em;
+  --chord-symbol-slash-stroke-width: 0.04em;
+  --chord-symbol-slash-stroke-height: 0.62em;
+  --chord-symbol-slash-stroke-top: -0.01em;
   --chord-symbol-slash-angle: 36deg;
   --chord-symbol-bass-size: 0.58em;
   --chord-symbol-bass-shift: 0.08em;
@@ -110,16 +107,6 @@
 
 .chord-symbol-with-base {
   padding-right: var(--chord-symbol-sup-base-reserve);
-}
-
-.chord-symbol-sup-reserve-medium {
-  --chord-symbol-sup-root-reserve: 0.48em;
-  --chord-symbol-sup-base-reserve: 0.68em;
-}
-
-.chord-symbol-sup-reserve-long {
-  --chord-symbol-sup-root-reserve: 0.82em;
-  --chord-symbol-sup-base-reserve: 1.02em;
 }
 
 .chord-symbol-topline {
@@ -150,11 +137,6 @@
 .chord-symbol-sup,
 .chord-symbol-bass {
   display: inline-block;
-}
-
-.chord-symbol-root {
-  transform: scaleX(var(--chart-chord-root-scale-x, 1));
-  transform-origin: left bottom;
 }
 
 .chord-symbol-root-letter,
@@ -226,14 +208,6 @@
   width: 100%;
   height: 1em;
   overflow: visible;
-}
-
-.chord-symbol-quality-glyph svg [stroke] {
-  stroke-width: var(--chord-symbol-quality-stroke-width);
-}
-
-.chord-symbol-base-symbol-halfDiminished .chord-symbol-quality-glyph svg path {
-  stroke-width: var(--chord-symbol-quality-half-diminished-slash-stroke-width);
 }
 
 .chord-symbol-base-symbol-majorTriangle .chord-symbol-quality-glyph {
@@ -343,7 +317,7 @@
   position: absolute;
   left: 50%;
   top: 0.02em;
-  width: var(--chord-symbol-figure69-slash-stroke-width);
+  width: 0.04em;
   height: 0.92em;
   border-radius: 999px;
   background: currentColor;

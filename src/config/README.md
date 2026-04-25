@@ -15,18 +15,14 @@ Quick guide:
   Chart sheet display tuning.
   The most directly useful sections are:
   `sheetHeader`, `rowSpacing`, `barGeometry`, `chordSizing`,
-  `displacement`, `barResizing`, `compression`, and `debug`.
+  `displacement`, `barResizing`, and `compression`.
   Start with `sheetHeader.portraitTopPaddingPx`,
   `sheetHeader.landscapeTopPaddingPx`, `rowSpacing.minPx`,
-  `layout.sheetBottomMarginPx`,
-  `barGeometry.cellVerticalSizePx`,
   `barGeometry.barLine.heightPx`,
-  `chordSizing.baseRem`, `displacement.contentHorizontalInsetPx`,
-  `displacement.singleChordLeftBias`, `displacement.maxOffsetEm`,
-  `displacement.symbolVisualPaddingPx`, `barResizing.minDeltaRatio`,
+  `chordSizing.baseRem`, `displacement.singleChordLeftBias`,
+  `displacement.maxOffsetPx`, `barResizing.minDeltaRatio`,
   `barResizing.maxDeltaRatio`, `compression.triggerFillRatio`,
-  `compression.mode`, `compression.rowMaxScaleGap`, `compression.pageMaxScaleGap`,
-  and `debug.showChordCollisionBoxes`.
+  `compression.rowPropagationRatio`, and `compression.pagePropagationRatio`.
 - `TRAINER_RESOURCE_PATHS`
   Relative resource paths that `src/app.ts` turns into runtime URLs.
 - `PATTERN_MODES`, `DISPLAY_MODES`, `HARMONY_DISPLAY_MODES`,
