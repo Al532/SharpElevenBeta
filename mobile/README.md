@@ -44,3 +44,4 @@ Current decisions:
 - Android/mobile builds stay local to this repository unless the user explicitly asks to update the separate demo deployment.
 - `config/vite/vite.mobile.config.js` exists specifically to produce an in-repo `mobile/www` bundle for Capacitor.
 - Root shortcuts are available in [package.json](</C:/Users/Alcibiade/Documents/GitHub/SharpElevenApp/package.json>) as `mobile:install`, `mobile:copy`, `mobile:sync`, `mobile:open:android`, and `mobile:open:ios`.
+- After using Android live-reload, run `npm run mobile:restore:android:local` before disconnecting if the phone needs to keep working without the dev server. This reinstalls the app without a live-reload `server.url`, so the WebView loads the bundled `mobile/www` assets again.

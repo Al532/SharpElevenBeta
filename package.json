@@ -28,6 +28,7 @@
     "mobile:copy": "npm --prefix mobile run copy",
     "mobile:sync": "npm --prefix mobile run sync",
     "mobile:run:android:live": "npm --prefix mobile run android:live",
+    "mobile:restore:android:local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/restore-android-local.ps1",
     "mobile:open:android": "npm --prefix mobile run open:android",
     "mobile:open:ios": "npm --prefix mobile run open:ios",
     "preview": "vite preview --config config/vite/vite.web.config.js"

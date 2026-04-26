@@ -1,4 +1,5 @@
 import type { ChartDocument } from '../../core/types/contracts';
+import { getChartSourceRefs } from './chart-library.js';
 
 type RenderChartTransportOptions = {
   transportStatusElement?: HTMLElement | null,
@@ -147,7 +148,8 @@ export function renderChartSelector({
   fixtureSelect.innerHTML = documents
     .map((document) => {
       const composer = document.metadata.composer ? ` - ${document.metadata.composer}` : '';
-      const playlist = document.source?.playlistName ? ` [${document.source.playlistName}]` : '';
+      const sourceRefs = getChartSourceRefs(document);
+      const playlist = sourceRefs[0]?.name ? ` [${sourceRefs[0].name}]` : '';
       return `<option value="${document.metadata.id}">${document.metadata.title}${composer}${playlist}</option>`;
     })
     .join('');

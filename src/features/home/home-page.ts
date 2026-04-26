@@ -8,12 +8,18 @@ import {
   loadRecentChartIds,
   saveHomeChartSummaryFromLibrary
 } from '../chart/chart-persistence.js';
+import {
+  filterChartDocuments,
+  getChartSourceRefs,
+  normalizeChartTextKey
+} from '../chart/chart-library.js';
 
 type HomePageDom = {
   recentChartsList: HTMLElement | null;
   recentChartsEmpty: HTMLElement | null;
-  playlistsList: HTMLElement | null;
-  playlistsEmpty: HTMLElement | null;
+  chartSearchInput: HTMLInputElement | null;
+  chartSearchResults: HTMLElement | null;
+  chartSearchEmpty: HTMLElement | null;
   themeButton: HTMLButtonElement | null;
   themeMenu: HTMLElement | null;
 };
@@ -51,7 +57,9 @@ function getChartSubtitle(document: ChartDocument): string {
   pushIfDistinct(parts, source['artist']);
   pushIfDistinct(parts, source['composer']);
   pushIfDistinct(parts, source['author']);
-  pushIfDistinct(parts, source['playlistName']);
+  for (const ref of getChartSourceRefs(document)) {
+    pushIfDistinct(parts, ref.name);
+  }
 
   pushIfDistinct(parts, metadata.styleReference);
   pushIfDistinct(parts, metadata.style);
@@ -185,65 +193,53 @@ function renderRecentChartSummary(
   }
 }
 
-function renderPlaylists(
-  documents: ChartDocument[],
-  librarySource: string,
-  dom: Pick<HomePageDom, 'playlistsList' | 'playlistsEmpty'>
-): void {
-  if (!dom.playlistsList) return;
-  const playlistCounts = new Map<string, number>();
-  for (const document of documents) {
-    const playlistName = String(document.source?.playlistName || librarySource || '').trim();
-    if (!playlistName) continue;
-    playlistCounts.set(playlistName, (playlistCounts.get(playlistName) || 0) + 1);
+function createChartLink(chartDocument: ChartDocument, className = 'home-list-link'): HTMLAnchorElement {
+  const link = document.createElement('a');
+  const targetUrl = new URL('./chart/index.html', window.location.href);
+  targetUrl.searchParams.set('chart', chartDocument.metadata.id);
+  link.href = targetUrl.toString();
+  link.className = className;
+  link.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
+  const subtitle = getChartSubtitle(chartDocument);
+  if (subtitle) {
+    link.append(createTextElement('span', 'home-list-meta', subtitle));
   }
-
-  const playlists = [...playlistCounts.entries()]
-    .sort(([leftName], [rightName]) => leftName.localeCompare(rightName, 'en', { sensitivity: 'base' }));
-
-  dom.playlistsList.replaceChildren();
-  dom.playlistsEmpty?.classList.toggle('hidden', playlists.length > 0);
-
-  for (const [playlistName, count] of playlists) {
-    const item = document.createElement('li');
-    const link = document.createElement('a');
-    const targetUrl = new URL('./chart/index.html', window.location.href);
-    targetUrl.searchParams.set('playlist', playlistName);
-    link.href = targetUrl.toString();
-    link.className = 'home-list-link home-playlist-link';
-    link.append(createTextElement('span', 'home-list-title', playlistName));
-    link.append(createTextElement('span', 'home-list-meta', `(${count})`));
-    item.append(link);
-    dom.playlistsList.append(item);
-  }
+  return link;
 }
 
-function renderPlaylistSummary(
-  playlists: HomeChartSummary['playlists'],
-  dom: Pick<HomePageDom, 'playlistsList' | 'playlistsEmpty'>
+function renderChartSearch(
+  documents: ChartDocument[],
+  dom: Pick<HomePageDom, 'chartSearchInput' | 'chartSearchResults' | 'chartSearchEmpty'>
 ): void {
-  if (!dom.playlistsList) return;
+  if (!dom.chartSearchResults) return;
+  const query = normalizeChartTextKey(dom.chartSearchInput?.value || '');
+  const matches = query
+    ? filterChartDocuments(documents, query).slice(0, 12)
+    : documents
+        .slice()
+        .sort((left, right) => String(left.metadata?.title || '').localeCompare(String(right.metadata?.title || ''), 'en', { sensitivity: 'base' }))
+        .slice(0, 8);
 
-  dom.playlistsList.replaceChildren();
-  dom.playlistsEmpty?.classList.toggle('hidden', playlists.length > 0);
+  dom.chartSearchResults.replaceChildren();
+  const isEmpty = matches.length === 0;
+  dom.chartSearchEmpty?.classList.toggle('hidden', !isEmpty);
+  if (dom.chartSearchEmpty) {
+    dom.chartSearchEmpty.textContent = documents.length === 0
+      ? 'Import charts, then search by title.'
+      : query
+        ? 'No matching charts.'
+        : 'Type a title, composer, style, or tag.';
+  }
 
-  for (const playlist of playlists) {
+  for (const chartDocument of matches) {
     const item = document.createElement('li');
-    const link = document.createElement('a');
-    const targetUrl = new URL('./chart/index.html', window.location.href);
-    targetUrl.searchParams.set('playlist', playlist.name);
-    link.href = targetUrl.toString();
-    link.className = 'home-list-link home-playlist-link';
-    link.append(createTextElement('span', 'home-list-title', playlist.name));
-    link.append(createTextElement('span', 'home-list-meta', `(${playlist.count})`));
-    item.append(link);
-    dom.playlistsList.append(item);
+    item.append(createChartLink(chartDocument));
+    dom.chartSearchResults.append(item);
   }
 }
 
 function renderHomeChartSummary(summary: HomeChartSummary, dom: HomePageDom): void {
   renderRecentChartSummary(summary.recentCharts, dom);
-  renderPlaylistSummary(summary.playlists, dom);
 }
 
 export async function initializeHomePage(dom: HomePageDom): Promise<void> {
@@ -255,12 +251,12 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
 
   const persistedLibrary = await loadPersistedChartLibrary();
   const documents = persistedLibrary?.documents || [];
-  const librarySource = String(persistedLibrary?.source || '').trim();
   const documentsById = new Map(
     documents.map((document) => [String(document.metadata?.id || ''), document])
   );
 
   renderRecentCharts(documentsById, dom);
-  renderPlaylists(documents, librarySource, dom);
+  renderChartSearch(documents, dom);
+  dom.chartSearchInput?.addEventListener('input', () => renderChartSearch(documents, dom));
   saveHomeChartSummaryFromLibrary(persistedLibrary);
 }

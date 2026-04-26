@@ -39,8 +39,9 @@ async function bindIncomingMobileIRealImports() {
 initializeHomePage({
   recentChartsList: document.getElementById('home-recent-charts'),
   recentChartsEmpty: document.getElementById('home-recent-charts-empty'),
-  playlistsList: document.getElementById('home-playlists'),
-  playlistsEmpty: document.getElementById('home-playlists-empty'),
+  chartSearchInput: document.getElementById('home-chart-search-input') as HTMLInputElement | null,
+  chartSearchResults: document.getElementById('home-chart-search-results'),
+  chartSearchEmpty: document.getElementById('home-chart-search-empty'),
   themeButton: document.getElementById('home-theme-button') as HTMLButtonElement | null,
   themeMenu: document.getElementById('home-theme-menu') as HTMLElement | null
 }).catch((error) => {

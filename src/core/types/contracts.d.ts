@@ -4,6 +4,7 @@ export type ChartSchemaVersion = '1.0.0';
 export interface ChartMetadata {
   id: string;
   title: string;
+  origin?: 'imported' | 'user' | string;
   composer?: string;
   style?: string;
   styleReference?: string;
@@ -12,6 +13,22 @@ export interface ChartMetadata {
   primaryTimeSignature?: string;
   tempo?: number;
   barCount?: number;
+  contentHash?: string;
+  contentHashVersion?: string;
+  titleKey?: string;
+  composerKey?: string;
+  userTags?: string[];
+  [key: string]: unknown;
+}
+
+export interface ChartSourceRef {
+  type: 'ireal-bundle' | 'ireal-link' | 'ireal-source' | 'unknown' | string;
+  name: string;
+  sourceFile?: string;
+  songIndex?: number;
+  importedTitle?: string;
+  importedComposer?: string;
+  importedAt?: string;
   [key: string]: unknown;
 }
 
@@ -87,10 +104,28 @@ export interface RichChartBar extends ChartBar {
 export interface ChartDocument {
   schemaVersion: ChartSchemaVersion;
   metadata: ChartMetadata;
-  source: Record<string, unknown>;
+  source: Record<string, unknown> & { sourceRefs?: ChartSourceRef[] };
   sections: ChartSection[];
   bars: RichChartBar[];
   layout: Record<string, unknown> | null;
+}
+
+export interface ChartSetlistItem {
+  chartId: string;
+  keyOverride?: string;
+  tempoOverride?: number;
+  playbackStyleOverride?: string;
+  note?: string;
+  [key: string]: unknown;
+}
+
+export interface ChartSetlist {
+  id: string;
+  name: string;
+  items: ChartSetlistItem[];
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
 }
 
 export interface ChartViewModel {

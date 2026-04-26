@@ -101,6 +101,14 @@ import {
 } from '../src/features/chart/chart-playback-runtime.ts';
 import { createAppShellBindings } from '../src/features/app/app-shell-bindings.ts';
 import { importDefaultFixtureLibrary as importChartDefaultFixtureLibrary } from '../src/features/chart/chart-import-controls.ts';
+import {
+  CHART_CONTENT_HASH_VERSION,
+  computeChartContentHash,
+  filterChartDocuments,
+  getChartSourceRefs,
+  normalizeChartLibraryDocument,
+  removeChartSourceFromDocuments
+} from '../src/features/chart/chart-library.ts';
 import { initializeEmbeddedPracticeRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
 import { createPlaybackAudioRuntime } from '../src/features/playback-audio/playback-audio-runtime.ts';
 import { createEmbeddedPracticeRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
@@ -2733,6 +2741,44 @@ const satinPlan = createChartPlaybackPlanFromDocument(satinDoll);
 assert.ok(satinPlan.entries.length > satinDoll.bars.length, 'Satin Doll playback expands the repeat.');
 assert.equal(satinPlan.schemaVersion, CHART_PLAYBACK_PLAN_CONTRACT.schemaVersion, 'Playback plans expose the stable schema version.');
 
+const satinHash = await computeChartContentHash(satinDoll);
+const satinWithDifferentSource = {
+  ...satinDoll,
+  source: {
+    type: 'ireal-source',
+    playlistName: 'Different Playlist',
+    sourceFile: 'different.txt',
+    songIndex: 999,
+    importedAt: '2099-01-01T00:00:00.000Z'
+  }
+};
+assert.equal(
+  await computeChartContentHash(satinWithDifferentSource),
+  satinHash,
+  'Chart content fingerprints ignore volatile import/source metadata.'
+);
+const satinWithChangedHarmony = {
+  ...satinDoll,
+  bars: satinDoll.bars.map((bar, index) => index === 0
+    ? {
+        ...bar,
+        playback: {
+          ...bar.playback,
+          slots: [{ kind: 'chord', symbol: 'Cmaj7', root: 'C', quality: 'maj7', bass: null }]
+        }
+      }
+    : bar)
+};
+assert.notEqual(
+  await computeChartContentHash(satinWithChangedHarmony),
+  satinHash,
+  'Chart content fingerprints change when converted chart harmony changes.'
+);
+const normalizedSatinImport = await normalizeChartLibraryDocument(satinDoll);
+assert.equal(normalizedSatinImport.metadata.origin, 'imported', 'Imported chart normalization marks imported origin.');
+assert.equal(normalizedSatinImport.metadata.contentHashVersion, CHART_CONTENT_HASH_VERSION, 'Imported chart normalization records the active fingerprint version.');
+assert.ok(getChartSourceRefs(normalizedSatinImport).length >= 1, 'Imported chart normalization exposes source refs.');
+
 const alicePlan = createChartPlaybackPlanFromDocument(alice);
 assert.ok(alicePlan.entries.some(entry => entry.flags.includes('fine')), 'Alice playback reaches Fine.');
 
@@ -2826,6 +2872,48 @@ const normalizedDocument = createChartDocument({
   sections: [{ id: 'a', barIds: ['bar-1', null] }],
   bars: [{ id: 'bar-1', index: '1' }]
 });
+const searchableDocuments = [
+  await normalizeChartLibraryDocument(createChartDocument({
+    metadata: { id: 'title-hit', title: 'Corcovado', composer: 'Antonio-Carlos Jobim', styleReference: 'Bossa Nova', barCount: 1 },
+    source: { playlistName: 'Jazz 1460' },
+    bars: [{ id: 'bar-1', index: 1 }]
+  })),
+  await normalizeChartLibraryDocument(createChartDocument({
+    metadata: { id: 'composer-hit', title: 'Wave', composer: 'Antonio-Carlos Jobim', styleReference: 'Bossa Nova', barCount: 1 },
+    source: { playlistName: 'Brazilian 220' },
+    bars: [{ id: 'bar-1', index: 1 }]
+  }))
+];
+assert.equal(filterChartDocuments(searchableDocuments, 'corco')[0].metadata.id, 'title-hit', 'Chart search ranks title-prefix matches first.');
+assert.equal(filterChartDocuments(searchableDocuments, 'jobim').length, 2, 'Chart search matches composer text.');
+assert.equal(filterChartDocuments(searchableDocuments, 'bossa').length, 2, 'Chart search matches style text.');
+const multiSourceChart = {
+  ...searchableDocuments[0],
+  source: {
+    ...searchableDocuments[0].source,
+    sourceRefs: [
+      { type: 'ireal-bundle', name: 'Jazz 1460' },
+      { type: 'ireal-bundle', name: 'Brazilian 220' }
+    ]
+  }
+};
+const singleSourceChart = {
+  ...searchableDocuments[1],
+  source: {
+    ...searchableDocuments[1].source,
+    sourceRefs: [{ type: 'ireal-bundle', name: 'Brazilian 220' }]
+  }
+};
+const userChart = {
+  ...searchableDocuments[1],
+  metadata: { ...searchableDocuments[1].metadata, id: 'user-chart', origin: 'user' },
+  source: { sourceRefs: [{ type: 'ireal-bundle', name: 'Brazilian 220' }] }
+};
+const sourceRemoval = removeChartSourceFromDocuments([multiSourceChart, singleSourceChart, userChart], 'Brazilian 220');
+assert.equal(sourceRemoval.removedChartCount, 1, 'Source removal deletes imported charts that only belong to that source.');
+assert.equal(sourceRemoval.updatedChartCount, 1, 'Source removal keeps multi-source charts and removes only the selected source ref.');
+assert.equal(sourceRemoval.ignoredUserChartCount, 1, 'Source removal ignores user charts.');
+assert.equal(sourceRemoval.documents.some(document => document.metadata.id === 'user-chart'), true, 'Source removal preserves user charts.');
 assert.equal(normalizedDocument.schemaVersion, CHART_DOCUMENT_CONTRACT.schemaVersion, 'Chart documents expose the stable schema version.');
 assert.equal(normalizedDocument.metadata.id, '', 'Chart document metadata defaults missing ids to empty strings.');
 assert.equal(normalizedDocument.metadata.barCount, 3, 'Chart document metadata normalizes bar counts.');

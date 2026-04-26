@@ -547,6 +547,28 @@ body {
   list-style: none;
 }
 
+.home-search-field {
+  display: block;
+  margin: 0 0 0.75rem;
+}
+
+.home-search-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ui-surface) 90%, var(--ui-text) 10%);
+  color: var(--ui-text);
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+}
+
+.home-search-field input:focus,
+.home-search-field input:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
 .home-list-link,
 .home-primary-action {
   border-radius: var(--radius-sm);
@@ -604,6 +626,49 @@ body {
   font-family: inherit;
   font-size: inherit;
   font-weight: 800;
+}
+
+.chart-manage-toolbar {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) auto auto;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.chart-manage-search {
+  margin: 0;
+}
+
+.chart-manage-select,
+.chart-manage-text-input {
+  min-height: 2.75rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ui-surface) 90%, var(--ui-text) 10%);
+  color: var(--ui-text);
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+}
+
+.chart-manage-source-row,
+.chart-manage-setlist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.chart-manage-danger {
+  border-color: color-mix(in srgb, var(--chart-status-error, #c33) 60%, var(--ui-border) 40%);
+}
+
+@media (max-width: 720px) {
+  .chart-manage-toolbar,
+  .chart-manage-source-row,
+  .chart-manage-setlist-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .home-primary-action {

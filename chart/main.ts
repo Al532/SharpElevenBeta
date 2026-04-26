@@ -25,6 +25,7 @@ import {
   loadPersistedChartDocument,
   loadPersistedChartDocumentById,
   loadPersistedChartLibrary,
+  loadPersistedSetlists,
   persistChartLibrary,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
   persistChartId as persistChartIdToStorage,
@@ -431,6 +432,10 @@ function loadPersistedChartId() {
 
 function getRequestedPlaylist() {
   return new URLSearchParams(window.location.search).get('playlist') || '';
+}
+
+function getRequestedSetlistId() {
+  return new URLSearchParams(window.location.search).get('setlist') || '';
 }
 
 function persistChartId(chartId: string, chartDocument = state.currentChartDocument) {
@@ -1672,6 +1677,28 @@ async function importDefaultFixtureLibrary() {
   });
 
   if (persistedLibrary?.documents?.length) {
+    const requestedSetlistId = getRequestedSetlistId();
+    if (requestedSetlistId) {
+      const setlists = await loadPersistedSetlists();
+      const requestedSetlist = setlists.find((setlist) => setlist.id === requestedSetlistId);
+      if (requestedSetlist) {
+        const documentsById = new Map(persistedLibrary.documents.map((document) => [String(document.metadata?.id || ''), document]));
+        const setlistDocuments = requestedSetlist.items
+          .map((item) => documentsById.get(String(item.chartId || '')))
+          .filter((document): document is ChartDocument => Boolean(document));
+        if (setlistDocuments.length > 0) {
+          renderImportedLibrary({
+            documents: setlistDocuments,
+            source: `setlist ${requestedSetlist.name}`,
+            preferredId: setlistDocuments[0].metadata.id,
+            statusMessage: `Loaded setlist "${requestedSetlist.name}" (${setlistDocuments.length} charts). Use previous and next to move manually.`,
+            renderSelectedChart: true
+          });
+          return;
+        }
+      }
+    }
+
     const canKeepCurrentChart = Boolean(
       state.currentChartDocument?.metadata?.id
       && state.currentChartDocument.metadata.id === preferredId
