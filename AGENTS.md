@@ -91,6 +91,14 @@ Synced static assets:
 - Only change it when the default progression catalog itself changes.
 - Do not increment the `# progressions-version:` header in `public/default-progressions.txt`.
 
+### Visual Design
+
+- The repository's visual direction is flat, clean, and borderless by default.
+- Prefer structure through spacing, typography, alignment, subtle background contrast, and interaction states rather than visible borders, outlines, framed panels, or decorative cards.
+- Do not add card-heavy layouts, nested cards, boxed sections, thick dividers, bevels, shadows, or bordered controls unless there is a clear functional reason in the existing interface.
+- When a boundary is needed for usability, keep it minimal and consistent with the current design language: soft background separation, restrained dividers, or existing component patterns are preferred over new borders.
+- Before changing UI styles, inspect the nearby existing CSS/components and preserve this flat visual language across desktop and mobile.
+
 ## On-Demand Workflows
 
 ### Android Live-Reload Workflow

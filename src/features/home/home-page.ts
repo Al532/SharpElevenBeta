@@ -4,15 +4,20 @@ import type { SharpElevenThemeApi } from '../app/app-theme.js';
 import {
   loadPersistedChartLibrary,
   loadPersistedSetlists,
+  persistChartLibrary,
+  persistSetlists,
   loadRecentChartIds,
   saveHomeChartSummaryFromLibrary
 } from '../chart/chart-persistence.js';
 import {
   filterChartDocuments,
-  getChartSetlistMembership,
   getChartSourceRefs,
   normalizeChartTextKey
 } from '../chart/chart-library.js';
+import {
+  closeChartMetadataPanel,
+  openChartMetadataPanel
+} from '../chart/chart-metadata-panel.js';
 
 type HomePageDom = {
   chartSearchInput: HTMLInputElement | null;
@@ -158,49 +163,7 @@ function getAvailableChartRowLimit(listElement: HTMLElement): number {
   return Math.max(1, Math.floor(availableHeight / 58));
 }
 
-function closeHomeMetadataPanel(): void {
-  document.querySelector<HTMLElement>('.home-metadata-panel')?.remove();
-}
-
-function showHomeMetadataPanel(chartDocument: ChartDocument, setlists: ChartSetlist[]): void {
-  closeHomeMetadataPanel();
-  const panel = document.createElement('div');
-  panel.className = 'home-metadata-panel';
-  const header = document.createElement('div');
-  header.className = 'home-metadata-panel-header';
-  const title = document.createElement('div');
-  title.append(createTextElement('strong', '', chartDocument.metadata.title || 'Untitled chart'));
-  title.append(createTextElement('span', 'home-list-meta', [chartDocument.metadata.composer, chartDocument.metadata.styleReference || chartDocument.metadata.style].filter(Boolean).join(' - ')));
-  const closeButton = document.createElement('button');
-  closeButton.type = 'button';
-  closeButton.className = 'home-metadata-close';
-  closeButton.textContent = 'Close';
-  closeButton.addEventListener('click', closeHomeMetadataPanel);
-  header.append(title, closeButton);
-  const memberships = getChartSetlistMembership(chartDocument.metadata.id, setlists).map((setlist) => setlist.name);
-  const facts = document.createElement('dl');
-  facts.className = 'home-metadata-facts';
-  [
-    ['Origin', chartDocument.metadata.origin || 'imported'],
-    ['Composer/style', [chartDocument.metadata.composer, chartDocument.metadata.styleReference || chartDocument.metadata.style].filter(Boolean).join(' - ') || 'None'],
-    ['Tags', (chartDocument.metadata.userTags || []).join(', ') || 'None'],
-    ['Setlists', memberships.join(', ') || 'None'],
-    ['Sources', getChartSourceRefs(chartDocument).map((ref) => ref.name).join(', ') || 'None']
-  ].forEach(([label, value]) => {
-    facts.append(createTextElement('dt', '', label));
-    facts.append(createTextElement('dd', '', value));
-  });
-  const openLink = document.createElement('a');
-  const targetUrl = new URL('./chart/index.html', window.location.href);
-  targetUrl.searchParams.set('chart', chartDocument.metadata.id);
-  openLink.href = targetUrl.toString();
-  openLink.className = 'home-primary-action home-metadata-open-chart';
-  openLink.textContent = 'Open chart';
-  panel.append(header, facts, openLink);
-  document.body.append(panel);
-}
-
-function createChartRow(chartDocument: ChartDocument, setlists: ChartSetlist[]): HTMLLIElement {
+function createChartRow(chartDocument: ChartDocument, onMetadata: (chartId: string) => void): HTMLLIElement {
   const item = document.createElement('li');
   const row = document.createElement('div');
   row.className = 'home-list-link home-chart-entry';
@@ -218,7 +181,7 @@ function createChartRow(chartDocument: ChartDocument, setlists: ChartSetlist[]):
   metadataButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    showHomeMetadataPanel(chartDocument, setlists);
+    onMetadata(chartDocument.metadata.id);
   });
   metadataButton.style.textDecoration = 'none';
   metadataButton.style.display = 'inline-flex';
@@ -262,7 +225,7 @@ function createChartRow(chartDocument: ChartDocument, setlists: ChartSetlist[]):
 function renderChartSearch(
   documents: ChartDocument[],
   recentDocuments: ChartDocument[],
-  setlists: ChartSetlist[],
+  onMetadata: (chartId: string) => void,
   dom: Pick<HomePageDom, 'chartSearchInput' | 'chartSearchResults' | 'chartSearchEmpty'>
 ): void {
   if (!dom.chartSearchResults) return;
@@ -284,28 +247,56 @@ function renderChartSearch(
   }
 
   for (const chartDocument of matches) {
-    dom.chartSearchResults.append(createChartRow(chartDocument, setlists));
+    dom.chartSearchResults.append(createChartRow(chartDocument, onMetadata));
   }
 }
 
 export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   initializeThemeSelector(dom.themeButton, dom.themeMenu);
 
-  const persistedLibrary = await loadPersistedChartLibrary();
-  const setlists = await loadPersistedSetlists();
-  const documents = persistedLibrary?.documents || [];
-  const documentsById = new Map(
-    documents.map((document) => [String(document.metadata?.id || ''), document])
-  );
-  const recentDocuments = loadRecentChartIds()
-    .map((chartId) => documentsById.get(chartId))
-    .filter((document): document is ChartDocument => Boolean(document));
+  let persistedLibrary = await loadPersistedChartLibrary();
+  let setlists = await loadPersistedSetlists();
+  let documents = persistedLibrary?.documents || [];
+  const metadataPanel = document.createElement('div');
+  metadataPanel.className = 'chart-metadata-panel';
+  metadataPanel.hidden = true;
+  document.body.append(metadataPanel);
 
-  renderChartSearch(documents, recentDocuments, setlists, dom);
-  dom.chartSearchInput?.addEventListener('input', () => renderChartSearch(documents, recentDocuments, setlists, dom));
-  window.addEventListener('resize', () => renderChartSearch(documents, recentDocuments, setlists, dom));
+  const getRecentDocuments = (): ChartDocument[] => {
+    const documentsById = new Map(
+      documents.map((document) => [String(document.metadata?.id || ''), document])
+    );
+    return loadRecentChartIds()
+      .map((chartId) => documentsById.get(chartId))
+      .filter((document): document is ChartDocument => Boolean(document));
+  };
+
+  const rerender = (): void => {
+    renderChartSearch(documents, getRecentDocuments(), openMetadata, dom);
+  };
+
+  const persistMetadataState = async ({ documents: nextDocuments, setlists: nextSetlists }: { documents: ChartDocument[]; setlists: ChartSetlist[] }, _statusMessage: string): Promise<void> => {
+    persistedLibrary = await persistChartLibrary({ documents: nextDocuments, source: persistedLibrary?.source || 'imported library', mergeWithExisting: false });
+    documents = persistedLibrary?.documents || nextDocuments;
+    setlists = await persistSetlists(nextSetlists);
+    saveHomeChartSummaryFromLibrary(persistedLibrary);
+    rerender();
+  };
+
+  function openMetadata(chartId: string): void {
+    openChartMetadataPanel({
+      host: metadataPanel,
+      target: { kind: 'single', chartId },
+      getState: () => ({ documents, setlists }),
+      persistState: persistMetadataState
+    });
+  }
+
+  rerender();
+  dom.chartSearchInput?.addEventListener('input', rerender);
+  window.addEventListener('resize', rerender);
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeHomeMetadataPanel();
+    if (event.key === 'Escape') closeChartMetadataPanel(metadataPanel);
   });
   saveHomeChartSummaryFromLibrary(persistedLibrary);
 }

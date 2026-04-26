@@ -63,37 +63,8 @@
           <select id="manage-setlist-filter" class="chart-manage-select" aria-label="Filter by setlist">
             <option value="">All setlists</option>
           </select>
-          <select id="manage-style-filter" class="chart-manage-select" aria-label="Filter by style or groove">
-            <option value="">All styles/grooves</option>
-          </select>
-          <label class="chart-manage-checkline">
-            <input id="manage-unorganized-filter" type="checkbox">
-            <span>Unorganized</span>
-          </label>
         </div>
-        <div class="chart-manage-batch-bar">
-          <button id="manage-select-matching-button" type="button" class="home-primary-action">Select matching</button>
-          <button id="manage-select-visible-button" type="button" class="home-primary-action">Select visible</button>
-          <button id="manage-clear-selection-button" type="button" class="home-primary-action">Clear selection</button>
-          <span id="manage-selected-count" class="home-empty">0 selected</span>
-        </div>
-        <div class="chart-manage-batch-card">
-          <select id="manage-batch-action-select" class="chart-manage-select" aria-label="Batch action">
-            <option value="add-tag">Add tag</option>
-            <option value="remove-tag">Remove tag</option>
-            <option value="add-setlist">Add to setlist</option>
-            <option value="remove-setlist">Remove from setlist</option>
-            <option value="delete">Delete charts</option>
-          </select>
-          <input id="manage-batch-tag-input" class="chart-manage-text-input" type="text" placeholder="Tag">
-          <select id="manage-batch-setlist-select" class="chart-manage-select" aria-label="Batch setlist"></select>
-          <button id="manage-preview-batch-button" type="button" class="home-primary-action">Preview batch</button>
-        </div>
-        <div id="manage-batch-preview" class="chart-manage-preview" hidden></div>
-        <div class="chart-manage-results-head">
-          <p id="manage-library-summary" class="home-empty"></p>
-          <button id="manage-toggle-results-button" type="button" class="home-primary-action">Show matching charts</button>
-        </div>
+        <div id="manage-library-summary" class="chart-manage-results-entry"></div>
         <ul id="manage-chart-list" class="home-list chart-manage-chart-list" aria-label="Managed charts" hidden></ul>
       </section>
 

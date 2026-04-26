@@ -14,24 +14,23 @@ import {
   persistSetlists
 } from './src/features/chart/chart-persistence.js';
 import {
-  applyBatchMetadataOperation,
-  applyPerChartMetadataUpdate,
   createEmptyChartSetlist,
   filterChartDocuments,
   getChartSetlistMembership,
   getChartSourceRefs,
   importDocumentsFromIRealText,
   listChartLibraryFacets,
-  previewBatchMetadataOperation,
-  previewProtectedChartDelete,
   reorderSetlistItems
 } from './src/features/chart/chart-library.js';
-import type { BatchMetadataOperation } from './src/features/chart/chart-library.js';
 import type { ChartDocument, ChartSetlist } from './src/core/types/contracts';
 import {
   bindChartImportControls,
   setChartImportStatus
 } from './src/features/chart/chart-import-controls.js';
+import {
+  closeChartMetadataPanel,
+  openChartMetadataPanel
+} from './src/features/chart/chart-metadata-panel.js';
 
 initializeSharpElevenTheme();
 
@@ -50,20 +49,8 @@ const dom = {
   manageSourceFilter: document.getElementById('manage-source-filter') as HTMLSelectElement | null,
   manageTagFilter: document.getElementById('manage-tag-filter') as HTMLSelectElement | null,
   manageSetlistFilter: document.getElementById('manage-setlist-filter') as HTMLSelectElement | null,
-  manageStyleFilter: document.getElementById('manage-style-filter') as HTMLSelectElement | null,
-  manageUnorganizedFilter: document.getElementById('manage-unorganized-filter') as HTMLInputElement | null,
   manageLibrarySummary: document.getElementById('manage-library-summary'),
-  manageToggleResultsButton: document.getElementById('manage-toggle-results-button') as HTMLButtonElement | null,
   manageChartList: document.getElementById('manage-chart-list'),
-  manageSelectMatchingButton: document.getElementById('manage-select-matching-button') as HTMLButtonElement | null,
-  manageSelectVisibleButton: document.getElementById('manage-select-visible-button') as HTMLButtonElement | null,
-  manageClearSelectionButton: document.getElementById('manage-clear-selection-button') as HTMLButtonElement | null,
-  manageSelectedCount: document.getElementById('manage-selected-count'),
-  manageBatchActionSelect: document.getElementById('manage-batch-action-select') as HTMLSelectElement | null,
-  manageBatchTagInput: document.getElementById('manage-batch-tag-input') as HTMLInputElement | null,
-  manageBatchSetlistSelect: document.getElementById('manage-batch-setlist-select') as HTMLSelectElement | null,
-  managePreviewBatchButton: document.getElementById('manage-preview-batch-button') as HTMLButtonElement | null,
-  manageBatchPreview: document.getElementById('manage-batch-preview'),
   manageSetlistNameInput: document.getElementById('manage-setlist-name-input') as HTMLInputElement | null,
   manageCreateSetlistButton: document.getElementById('manage-create-setlist-button') as HTMLButtonElement | null,
   manageSetlistList: document.getElementById('manage-setlist-list'),
@@ -74,7 +61,6 @@ const dom = {
 let currentDocuments: ChartDocument[] = [];
 let currentSource = 'imported library';
 let currentSetlists: ChartSetlist[] = [];
-let selectedChartIds = new Set<string>();
 let resultsExpanded = false;
 let activeSetlistId = '';
 
@@ -105,6 +91,20 @@ function createButton(label: string, className = 'home-primary-action'): HTMLBut
   return button;
 }
 
+function createMetadataButton(label: string, onClick: (event: MouseEvent) => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'home-chart-entry-kebab chart-manage-metadata-button';
+  button.setAttribute('aria-label', label);
+  button.addEventListener('click', onClick);
+  button.append(
+    createTextElement('span', 'home-chart-entry-dot', ''),
+    createTextElement('span', 'home-chart-entry-dot', ''),
+    createTextElement('span', 'home-chart-entry-dot', '')
+  );
+  return button;
+}
+
 function getChartSubtitle(document: ChartDocument): string {
   const parts = [
     document.metadata?.composer,
@@ -131,8 +131,6 @@ function getFilteredManageDocuments(): ChartDocument[] {
   const source = dom.manageSourceFilter?.value || '';
   const tag = dom.manageTagFilter?.value || '';
   const setlistId = dom.manageSetlistFilter?.value || '';
-  const style = dom.manageStyleFilter?.value || '';
-  const unorganized = Boolean(dom.manageUnorganizedFilter?.checked);
   const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
   const setlistChartIds = new Set((setlist?.items || []).map((item) => item.chartId));
   let documents = query ? filterChartDocuments(currentDocuments, query) : [...currentDocuments];
@@ -140,14 +138,6 @@ function getFilteredManageDocuments(): ChartDocument[] {
   if (source) documents = documents.filter((document) => getChartSourceRefs(document).some((ref) => ref.name === source));
   if (tag) documents = documents.filter((document) => (document.metadata?.userTags || []).some((candidate) => candidate === tag));
   if (setlistId) documents = documents.filter((document) => setlistChartIds.has(document.metadata.id));
-  if (style) documents = documents.filter((document) => String(document.metadata?.styleReference || document.metadata?.style || document.metadata?.canonicalGroove || document.metadata?.grooveReference || '') === style);
-  if (unorganized) {
-    documents = documents.filter((document) => {
-      const hasTags = (document.metadata?.userTags || []).length > 0;
-      const hasSetlist = getChartSetlistMembership(document.metadata.id, currentSetlists).length > 0;
-      return !hasTags && !hasSetlist;
-    });
-  }
   return documents;
 }
 
@@ -163,18 +153,11 @@ function renderFacets() {
   const facets = listChartLibraryFacets(currentDocuments, currentSetlists);
   renderOptionList(dom.manageSourceFilter, 'All sources', facets.sources);
   renderOptionList(dom.manageTagFilter, 'All tags', facets.tags);
-  renderOptionList(dom.manageStyleFilter, 'All styles/grooves', facets.styles);
   if (dom.manageSetlistFilter) {
     const previousValue = dom.manageSetlistFilter.value;
     dom.manageSetlistFilter.replaceChildren(new Option('All setlists', ''));
     for (const setlist of currentSetlists) dom.manageSetlistFilter.append(new Option(setlist.name, setlist.id));
     if ([...dom.manageSetlistFilter.options].some((option) => option.value === previousValue)) dom.manageSetlistFilter.value = previousValue;
-  }
-  if (dom.manageBatchSetlistSelect) {
-    const previousValue = dom.manageBatchSetlistSelect.value;
-    dom.manageBatchSetlistSelect.replaceChildren();
-    for (const setlist of currentSetlists) dom.manageBatchSetlistSelect.append(new Option(setlist.name, setlist.id));
-    if ([...dom.manageBatchSetlistSelect.options].some((option) => option.value === previousValue)) dom.manageBatchSetlistSelect.value = previousValue;
   }
 }
 
@@ -200,19 +183,36 @@ function renderGlobalSummary() {
   }));
 }
 
-function renderSelectionState() {
-  selectedChartIds = new Set([...selectedChartIds].filter((chartId) => currentDocuments.some((document) => document.metadata.id === chartId)));
-  if (dom.manageSelectedCount) dom.manageSelectedCount.textContent = `${selectedChartIds.size} selected`;
-}
-
 function renderManageCharts() {
   const documents = getFilteredManageDocuments();
   const visibleDocuments = documents.slice(0, VISIBLE_RESULT_LIMIT);
   if (dom.manageLibrarySummary) {
-    dom.manageLibrarySummary.textContent = `${documents.length} matching ${pluralizeChartLabel(documents.length)}. Results are ${resultsExpanded ? 'expanded' : 'collapsed'}.`;
-  }
-  if (dom.manageToggleResultsButton) {
-    dom.manageToggleResultsButton.textContent = resultsExpanded ? 'Hide matching charts' : 'Show matching charts';
+    const row = document.createElement('div');
+    row.className = 'home-list-link home-chart-entry chart-manage-summary-row';
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = 'minmax(0, 1fr)';
+    row.style.alignItems = 'center';
+    row.style.columnGap = '0.65rem';
+    row.style.position = 'relative';
+    row.style.paddingRight = '3.4rem';
+    const summaryButton = document.createElement('button');
+    summaryButton.type = 'button';
+    summaryButton.className = 'chart-manage-summary-open';
+    summaryButton.append(
+      createTextElement('span', 'home-list-title', `${documents.length} matching track${documents.length === 1 ? '' : 's'}`),
+      createTextElement('span', 'home-list-meta', resultsExpanded ? 'Click to hide' : 'Click to show')
+    );
+    summaryButton.addEventListener('click', () => {
+      resultsExpanded = !resultsExpanded;
+      renderManageCharts();
+    });
+    const metadataButton = createMetadataButton('Edit metadata for matching charts', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openMatchingMetadataPanel();
+    });
+    row.append(summaryButton, metadataButton);
+    dom.manageLibrarySummary.replaceChildren(row);
   }
   if (!dom.manageChartList) return;
   dom.manageChartList.toggleAttribute('hidden', !resultsExpanded);
@@ -222,15 +222,6 @@ function renderManageCharts() {
     const item = document.createElement('li');
     const row = document.createElement('div');
     row.className = 'home-list-link chart-manage-chart-row';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = selectedChartIds.has(chartDocument.metadata.id);
-    checkbox.setAttribute('aria-label', `Select ${chartDocument.metadata.title || 'chart'}`);
-    checkbox.addEventListener('change', () => {
-      if (checkbox.checked) selectedChartIds.add(chartDocument.metadata.id);
-      else selectedChartIds.delete(chartDocument.metadata.id);
-      renderSelectionState();
-    });
     const link = document.createElement('a');
     const targetUrl = new URL('./chart/index.html', window.location.href);
     targetUrl.searchParams.set('chart', chartDocument.metadata.id);
@@ -240,190 +231,52 @@ function renderManageCharts() {
     const usage = getChartSetlistMembership(chartDocument.metadata.id, currentSetlists).map((setlist) => setlist.name);
     const subtitle = [getChartSubtitle(chartDocument), usage.length ? `Setlists: ${usage.join(', ')}` : ''].filter(Boolean).join(' - ');
     if (subtitle) link.append(createTextElement('span', 'home-list-meta', subtitle));
-    const menuButton = createButton('⋮', 'chart-manage-kebab');
-    menuButton.setAttribute('aria-label', `Edit metadata for ${chartDocument.metadata.title || 'chart'}`);
-    menuButton.addEventListener('click', () => openMetadataPanel(chartDocument.metadata.id));
-    row.append(checkbox, link, menuButton);
+    const menuButton = createMetadataButton(`Edit metadata for ${chartDocument.metadata.title || 'chart'}`, (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openMetadataPanel(chartDocument.metadata.id);
+    });
+    row.append(link, menuButton);
     item.append(row);
     dom.manageChartList.append(item);
   }
 }
 
-async function persistManageState(statusMessage: string) {
-  const persistedLibrary = await persistChartLibrary({ documents: currentDocuments, source: currentSource, mergeWithExisting: false });
-  currentDocuments = persistedLibrary?.documents || currentDocuments;
-  currentSetlists = await persistSetlists(currentSetlists);
+async function persistMetadataState({ documents, setlists }: { documents: ChartDocument[]; setlists: ChartSetlist[] }, statusMessage: string) {
+  const persistedLibrary = await persistChartLibrary({ documents, source: currentSource, mergeWithExisting: false });
+  currentDocuments = persistedLibrary?.documents || documents;
+  currentSource = persistedLibrary?.source || currentSource;
+  currentSetlists = await persistSetlists(setlists);
   setImportStatus(statusMessage);
   renderManageUi();
 }
 
-function buildMetadataPanel(chartId: string): HTMLElement {
-  const chartDocument = currentDocuments.find((document) => document.metadata.id === chartId);
-  const panel = document.createElement('div');
-  panel.className = 'chart-metadata-card';
-  if (!chartDocument) {
-    panel.textContent = 'Chart not found.';
-    return panel;
-  }
-  const sources = getChartSourceRefs(chartDocument).map((ref) => ref.name);
-  const tags = chartDocument.metadata.userTags || [];
-  const memberships = getChartSetlistMembership(chartId, currentSetlists);
-  const closeButton = createButton('Close', 'chart-manage-small-action');
-  closeButton.addEventListener('click', closeMetadataPanel);
-  const header = document.createElement('div');
-  header.className = 'chart-metadata-header';
-  const title = document.createElement('div');
-  title.append(createTextElement('strong', '', chartDocument.metadata.title || 'Untitled chart'));
-  title.append(createTextElement('span', 'home-list-meta', [chartDocument.metadata.composer, chartDocument.metadata.styleReference || chartDocument.metadata.style].filter(Boolean).join(' - ')));
-  header.append(title, closeButton);
-  panel.append(header);
-
-  const identity = document.createElement('dl');
-  identity.className = 'chart-metadata-facts';
-  const facts = [
-    ['Origin', chartDocument.metadata.origin || 'imported'],
-    ['Content hash', chartDocument.metadata.contentHash ? `Stored (${chartDocument.metadata.contentHashVersion || 'unknown version'})` : 'Missing'],
-    ['Sources', sources.join(', ') || 'None'],
-    ['Tags', tags.join(', ') || 'None'],
-    ['Setlists', memberships.map((setlist) => setlist.name).join(', ') || 'None']
-  ];
-  for (const [label, value] of facts) {
-    identity.append(createTextElement('dt', '', label));
-    identity.append(createTextElement('dd', '', value));
-  }
-  panel.append(identity);
-
-  const tagInput = document.createElement('input');
-  tagInput.className = 'chart-manage-text-input';
-  tagInput.placeholder = 'New or existing tag';
-  const addTagButton = createButton('Add tag', 'chart-manage-small-action');
-  addTagButton.addEventListener('click', async () => {
-    const tag = tagInput.value.trim();
-    if (!tag) return;
-    const result = applyPerChartMetadataUpdate({ documents: currentDocuments, setlists: currentSetlists, chartId, patch: { addTags: [tag], createTag: tag } });
-    currentDocuments = result.documents;
-    currentSetlists = result.setlists;
-    await persistManageState(`Added tag "${tag}" to ${chartDocument.metadata.title || 'chart'}.`);
-  });
-  const tagList = document.createElement('div');
-  tagList.className = 'chart-manage-chip-row';
-  for (const tag of tags) {
-    const button = createButton(`Remove ${tag}`, 'chart-manage-chip');
-    button.addEventListener('click', async () => {
-      const result = applyPerChartMetadataUpdate({ documents: currentDocuments, setlists: currentSetlists, chartId, patch: { removeTags: [tag] } });
-      currentDocuments = result.documents;
-      currentSetlists = result.setlists;
-      await persistManageState(`Removed tag "${tag}".`);
-    });
-    tagList.append(button);
-  }
-  panel.append(createTextElement('h3', '', 'Tags'), tagList, tagInput, addTagButton);
-
-  const setlistSelect = document.createElement('select');
-  setlistSelect.className = 'chart-manage-select';
-  for (const setlist of currentSetlists) setlistSelect.append(new Option(setlist.name, setlist.id));
-  const addSetlistButton = createButton('Add to setlist', 'chart-manage-small-action');
-  addSetlistButton.addEventListener('click', async () => {
-    const result = applyPerChartMetadataUpdate({ documents: currentDocuments, setlists: currentSetlists, chartId, patch: { addSetlistIds: [setlistSelect.value] } });
-    currentDocuments = result.documents;
-    currentSetlists = result.setlists;
-    await persistManageState('Updated setlist membership.');
-  });
-  const newSetlistInput = document.createElement('input');
-  newSetlistInput.className = 'chart-manage-text-input';
-  newSetlistInput.placeholder = 'New setlist name';
-  const createSetlistButton = createButton('Create setlist and add chart', 'chart-manage-small-action');
-  createSetlistButton.addEventListener('click', async () => {
-    const name = newSetlistInput.value.trim();
-    if (!name) return;
-    const result = applyPerChartMetadataUpdate({ documents: currentDocuments, setlists: currentSetlists, chartId, patch: { createSetlistName: name } });
-    currentDocuments = result.documents;
-    currentSetlists = result.setlists;
-    await persistManageState(`Created "${name}" and added chart.`);
-  });
-  const membershipList = document.createElement('div');
-  membershipList.className = 'chart-manage-chip-row';
-  for (const setlist of memberships) {
-    const button = createButton(`Remove from ${setlist.name}`, 'chart-manage-chip');
-    button.addEventListener('click', async () => {
-      const result = applyPerChartMetadataUpdate({ documents: currentDocuments, setlists: currentSetlists, chartId, patch: { removeSetlistIds: [setlist.id] } });
-      currentDocuments = result.documents;
-      currentSetlists = result.setlists;
-      await persistManageState(`Removed chart from "${setlist.name}".`);
-    });
-    membershipList.append(button);
-  }
-  panel.append(createTextElement('h3', '', 'Setlists'), membershipList, setlistSelect, addSetlistButton, newSetlistInput, createSetlistButton);
-
-  const deletePreview = previewProtectedChartDelete({ documents: currentDocuments, setlists: currentSetlists, chartIds: [chartId] });
-  const deleteButton = createButton('Delete chart', 'home-primary-action chart-manage-danger');
-  deleteButton.addEventListener('click', async () => {
-    const confirmed = window.confirm(`Delete "${chartDocument.metadata.title || 'chart'}"?\n\n${deletePreview.deletedChartCount} chart will be deleted.\n${deletePreview.setlistUsageCount} setlist entries will be removed.`);
-    if (!confirmed) return;
-    const result = applyBatchMetadataOperation({ documents: currentDocuments, setlists: currentSetlists, chartIds: [chartId], operation: { kind: 'delete' } });
-    currentDocuments = result.documents;
-    currentSetlists = result.setlists;
-    selectedChartIds.delete(chartId);
-    closeMetadataPanel();
-    await persistManageState('Chart deleted.');
-  });
-  panel.append(createTextElement('h3', '', 'Delete'), createTextElement('p', 'home-empty', `${deletePreview.deletedChartCount} chart delete, ${deletePreview.setlistUsageCount} setlist entries affected.`), deleteButton);
-  return panel;
-}
-
 function openMetadataPanel(chartId: string) {
   if (!dom.manageMetadataPanel) return;
-  dom.manageMetadataPanel.replaceChildren(buildMetadataPanel(chartId));
-  dom.manageMetadataPanel.hidden = false;
+  openChartMetadataPanel({
+    host: dom.manageMetadataPanel,
+    target: { kind: 'single', chartId },
+    getState: () => ({ documents: currentDocuments, setlists: currentSetlists }),
+    persistState: persistMetadataState
+  });
+}
+
+function openMatchingMetadataPanel() {
+  if (!dom.manageMetadataPanel) return;
+  openChartMetadataPanel({
+    host: dom.manageMetadataPanel,
+    target: {
+      kind: 'batch',
+      title: 'Matching charts',
+      getChartIds: () => getFilteredManageDocuments().map((document) => document.metadata.id)
+    },
+    getState: () => ({ documents: currentDocuments, setlists: currentSetlists }),
+    persistState: persistMetadataState
+  });
 }
 
 function closeMetadataPanel() {
-  if (!dom.manageMetadataPanel) return;
-  dom.manageMetadataPanel.hidden = true;
-  dom.manageMetadataPanel.replaceChildren();
-}
-
-function getBatchOperation(): BatchMetadataOperation | null {
-  const kind = dom.manageBatchActionSelect?.value as BatchMetadataOperation['kind'] || 'add-tag';
-  if (kind === 'add-tag' || kind === 'remove-tag') return { kind, tag: dom.manageBatchTagInput?.value.trim() || '' };
-  if (kind === 'add-setlist' || kind === 'remove-setlist') return { kind, setlistId: dom.manageBatchSetlistSelect?.value || '' };
-  return { kind: 'delete', activeSourceName: dom.manageSourceFilter?.value || '' };
-}
-
-async function previewAndApplyBatch() {
-  const operation = getBatchOperation();
-  if (!operation) return;
-  const chartIds = [...selectedChartIds];
-  if (chartIds.length === 0) {
-    setImportStatus('Select charts before applying a batch action.', true);
-    return;
-  }
-  const preview = previewBatchMetadataOperation({ documents: currentDocuments, setlists: currentSetlists, chartIds, operation });
-  if (!dom.manageBatchPreview) return;
-  dom.manageBatchPreview.hidden = false;
-  dom.manageBatchPreview.replaceChildren();
-  dom.manageBatchPreview.append(createTextElement('p', 'home-empty', [
-    `${preview.selectedCount} selected`,
-    `${preview.affectedCount} affected`,
-    `${preview.alreadyHadCount} already had it`,
-    `${preview.skippedCount} skipped`,
-    `${preview.setlistUsageCount} setlist usages`,
-    `${preview.protectedMultiSourceImportedCount} multi-source imported protected`
-  ].join(' - ')));
-  const applyButton = createButton(operation.kind === 'delete' ? 'Apply delete' : 'Apply batch', 'home-primary-action');
-  applyButton.addEventListener('click', async () => {
-    if (operation.kind === 'delete') {
-      const confirmed = window.confirm(`Apply delete?\n\n${preview.deletedChartCount} charts deleted.\n${preview.sourceRefRemovedCount} source refs removed.\n${preview.protectedMultiSourceImportedCount} multi-source imported charts protected.`);
-      if (!confirmed) return;
-    }
-    const result = applyBatchMetadataOperation({ documents: currentDocuments, setlists: currentSetlists, chartIds, operation });
-    currentDocuments = result.documents;
-    currentSetlists = result.setlists;
-    if (operation.kind === 'delete') selectedChartIds = new Set([...selectedChartIds].filter((chartId) => currentDocuments.some((document) => document.metadata.id === chartId)));
-    dom.manageBatchPreview?.setAttribute('hidden', '');
-    await persistManageState('Batch action applied.');
-  });
-  dom.manageBatchPreview.append(applyButton);
+  closeChartMetadataPanel(dom.manageMetadataPanel);
 }
 
 function renderSetlists() {
@@ -518,7 +371,6 @@ async function createSetlist() {
 function renderManageUi() {
   renderFacets();
   renderGlobalSummary();
-  renderSelectionState();
   renderManageCharts();
   renderSetlists();
 }
@@ -625,7 +477,7 @@ dom.clearAllChartsButton?.addEventListener('click', async () => {
     await clearPersistedChartLibrary();
     currentDocuments = [];
     currentSetlists = [];
-    selectedChartIds.clear();
+    closeMetadataPanel();
     setImportStatus('All charts removed.');
     renderManageUi();
   } catch (error) {
@@ -633,31 +485,9 @@ dom.clearAllChartsButton?.addEventListener('click', async () => {
   }
 });
 
-[dom.manageChartSearchInput, dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter, dom.manageStyleFilter, dom.manageUnorganizedFilter].forEach((element) => {
+[dom.manageChartSearchInput, dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter].forEach((element) => {
   element?.addEventListener('input', renderManageCharts);
   element?.addEventListener('change', renderManageCharts);
-});
-dom.manageToggleResultsButton?.addEventListener('click', () => {
-  resultsExpanded = !resultsExpanded;
-  renderManageCharts();
-});
-dom.manageSelectMatchingButton?.addEventListener('click', () => {
-  selectedChartIds = new Set(getFilteredManageDocuments().map((document) => document.metadata.id));
-  renderManageCharts();
-  renderSelectionState();
-});
-dom.manageSelectVisibleButton?.addEventListener('click', () => {
-  for (const document of getFilteredManageDocuments().slice(0, VISIBLE_RESULT_LIMIT)) selectedChartIds.add(document.metadata.id);
-  renderManageCharts();
-  renderSelectionState();
-});
-dom.manageClearSelectionButton?.addEventListener('click', () => {
-  selectedChartIds.clear();
-  renderManageCharts();
-  renderSelectionState();
-});
-dom.managePreviewBatchButton?.addEventListener('click', () => {
-  void previewAndApplyBatch().catch((error) => setImportStatus(`Batch action failed: ${getErrorMessage(error)}`, true));
 });
 dom.manageCreateSetlistButton?.addEventListener('click', () => {
   void createSetlist().catch((error) => setImportStatus(`Failed to create setlist: ${getErrorMessage(error)}`, true));
