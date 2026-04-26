@@ -41,6 +41,10 @@ const dom = {
   importIRealBackupButton: document.getElementById('import-ireal-backup-button') as HTMLButtonElement | null,
   openIRealForumButton: document.getElementById('open-ireal-forum-button') as HTMLButtonElement | null,
   irealBackupInput: document.getElementById('ireal-backup-input') as HTMLInputElement | null,
+  irealImportActions: document.getElementById('ireal-import-actions'),
+  irealLinkInput: document.getElementById('ireal-link-input') as HTMLInputElement | null,
+  importIRealLinkButton: document.getElementById('import-ireal-link-button') as HTMLButtonElement | null,
+  irealLinkImportSection: document.getElementById('ireal-link-import-section'),
   clearAllChartsButton: document.getElementById('clear-all-charts-button') as HTMLButtonElement | null,
   chartImportStatus: document.getElementById('chart-import-status'),
   manageGlobalSummary: document.getElementById('manage-global-summary'),
@@ -74,6 +78,20 @@ function getErrorMessage(error: unknown) {
 
 function pluralizeChartLabel(count: number) {
   return `chart${count === 1 ? '' : 's'}`;
+}
+
+function isNativePlatform() {
+  return Boolean(window.Capacitor?.isNativePlatform?.());
+}
+
+function applyImportModeVisibility() {
+  const isNative = isNativePlatform();
+  if (dom.irealImportActions) {
+    dom.irealImportActions.hidden = !isNative;
+  }
+  if (dom.irealLinkImportSection) {
+    dom.irealLinkImportSection.hidden = isNative;
+  }
 }
 
 function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
@@ -423,6 +441,17 @@ async function handleBackupFileSelection(event: Event & { target: HTMLInputEleme
   }
 }
 
+async function handlePastedIRealLinkImport() {
+  const rawText = dom.irealLinkInput?.value || '';
+  try {
+    await importFromRawText(rawText, 'pasted-ireal-link');
+  } finally {
+    if (dom.irealLinkInput) {
+      dom.irealLinkInput.value = '';
+    }
+  }
+}
+
 async function importPendingMobileIRealLink() {
   const pendingResult = await consumePendingIRealLinkResult();
   const pendingIRealLink = pendingResult.url;
@@ -436,7 +465,7 @@ async function importPendingMobileIRealLink() {
 }
 
 async function bindIncomingMobileIRealImports() {
-  if (!window.Capacitor?.isNativePlatform?.()) return;
+  if (!isNativePlatform()) return;
   let appPlugin = null;
   try {
     const capacitorAppModule = await import('@capacitor/app');
@@ -460,17 +489,37 @@ async function bindIncomingMobileIRealImports() {
   appPlugin.addListener('appUrlOpen', ({ url }: { url?: string }) => handleIncomingUrl(String(url || '')));
 }
 
-bindChartImportControls({
-  importIRealBackupButton: dom.importIRealBackupButton,
-  irealBackupInput: dom.irealBackupInput,
-  openIRealForumButton: dom.openIRealForumButton,
-  forumTracksUrl: IREAL_FORUM_TRACKS_URL,
-  setImportStatus,
-  onBackupFileSelection: handleBackupFileSelection,
-  onOpenForumTracks: () => openIrealBrowser({ url: IREAL_FORUM_TRACKS_URL, title: 'Click on a link to import' })
-});
+function bindImportControls() {
+  if (!isNativePlatform()) return;
+  bindChartImportControls({
+    importIRealBackupButton: dom.importIRealBackupButton,
+    irealBackupInput: dom.irealBackupInput,
+    openIRealForumButton: dom.openIRealForumButton,
+    forumTracksUrl: IREAL_FORUM_TRACKS_URL,
+    setImportStatus,
+    onBackupFileSelection: handleBackupFileSelection,
+    onOpenForumTracks: () => openIrealBrowser({ url: IREAL_FORUM_TRACKS_URL, title: 'Click on a link to import' })
+  });
+}
 
-void bindIncomingMobileIRealImports().then(() => importPendingMobileIRealLink());
+function bindWebIRealLinkImport() {
+  dom.importIRealLinkButton?.addEventListener('click', () => {
+    void handlePastedIRealLinkImport();
+  });
+  dom.irealLinkInput?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void handlePastedIRealLinkImport();
+  });
+}
+
+applyImportModeVisibility();
+bindImportControls();
+bindWebIRealLinkImport();
+void bindIncomingMobileIRealImports().then(() => {
+  if (!isNativePlatform()) return;
+  void importPendingMobileIRealLink();
+});
 
 dom.clearAllChartsButton?.addEventListener('click', async () => {
   try {

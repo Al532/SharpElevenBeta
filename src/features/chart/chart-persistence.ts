@@ -22,6 +22,7 @@ const CHART_SETLISTS_KEY = 'chart-setlists';
 const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
 const EMPTY_PLAYLIST_NAME = 'playlist';
+const RECENT_CHART_STORAGE_LIMIT = 10;
 
 type ChartLibraryPayload = {
   source: string;
@@ -213,7 +214,7 @@ function normalizeHomeChartSummary(value: unknown): HomeChartSummary | null {
           };
         })
         .filter((chart): chart is HomeChartSummary['recentCharts'][number] => Boolean(chart))
-        .slice(0, 3)
+        .slice(0, RECENT_CHART_STORAGE_LIMIT)
     : [];
 
   const playlists = Array.isArray(playlistsValue)
@@ -302,7 +303,7 @@ function updateHomeChartSummaryRecentChart(chartDocument: ChartDocument | null |
   const recentCharts = [
     { id, title },
     ...previousSummary.recentCharts.filter((chart) => chart.id !== id)
-  ].slice(0, 3);
+  ].slice(0, RECENT_CHART_STORAGE_LIMIT);
 
   saveHomeChartSummary({
     ...previousSummary,
@@ -521,7 +522,7 @@ export function loadRecentChartIds(): string[] {
   return recentChartIds
     .map((chartId) => String(chartId || '').trim())
     .filter(Boolean)
-    .slice(0, 3);
+    .slice(0, RECENT_CHART_STORAGE_LIMIT);
 }
 
 export function persistChartId(
@@ -534,7 +535,7 @@ export function persistChartId(
     ? [
         normalizedChartId,
         ...loadRecentChartIds().filter((recentChartId) => recentChartId !== normalizedChartId)
-      ].slice(0, 3)
+      ].slice(0, RECENT_CHART_STORAGE_LIMIT)
     : loadRecentChartIds();
   const recentChartDocumentsById = new Map(
     normalizePersistedChartDocuments(chartUiSettings?.recentChartDocuments)

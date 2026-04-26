@@ -153,6 +153,20 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error || 'Unknown error');
 }
 
+function isNativePlatform() {
+  return Boolean(window.Capacitor?.isNativePlatform?.());
+}
+
+function applyImportModeVisibility() {
+  const isNative = isNativePlatform();
+  if (dom.irealImportActions) {
+    dom.irealImportActions.hidden = !isNative;
+  }
+  if (dom.irealLinkImportSection) {
+    dom.irealLinkImportSection.hidden = isNative;
+  }
+}
+
 const dom = {
   appModeBadge: document.getElementById('app-mode-badge'),
   appModeDrillLink: document.getElementById('app-mode-drill-link') as HTMLAnchorElement | null,
@@ -163,6 +177,8 @@ const dom = {
   openIRealForumButton: document.getElementById('open-ireal-forum-button') as HTMLButtonElement | null,
   irealLinkInput: document.getElementById('ireal-link-input') as HTMLInputElement | null,
   importIRealLinkButton: document.getElementById('import-ireal-link-button') as HTMLButtonElement | null,
+  irealImportActions: document.getElementById('chart-import-native-actions'),
+  irealLinkImportSection: document.getElementById('ireal-link-import-section'),
   chartImportStatus: document.getElementById('chart-import-status'),
   irealBackupInput: document.getElementById('ireal-backup-input') as HTMLInputElement | null,
   fixtureSelect: document.getElementById('fixture-select') as HTMLSelectElement | null,
@@ -1916,7 +1932,7 @@ async function importPendingMobileIRealLink() {
 }
 
 async function bindIncomingMobileIRealImports() {
-  if (!window.Capacitor?.isNativePlatform?.()) return;
+  if (!isNativePlatform()) return;
   let appPlugin = null;
   try {
     const capacitorAppModule = await import('@capacitor/app');
@@ -1946,6 +1962,7 @@ async function bindIncomingMobileIRealImports() {
 }
 
 function bindImportControls() {
+  applyImportModeVisibility();
   bindChartImportControls(createChartImportControlsBindings({
     importIRealBackupButton: dom.importIRealBackupButton,
     irealBackupInput: dom.irealBackupInput,

@@ -81,8 +81,17 @@
     </div>
 
     <div class="home-actions" aria-label="iReal import controls">
-      <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
-      <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum tracks</button>
+      <div id="ireal-import-actions">
+        <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
+        <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum tracks</button>
+      </div>
+      <div id="ireal-link-import-section" hidden>
+        <label class="home-search-field">
+          <span class="sr-only">Import iReal link</span>
+          <input id="ireal-link-input" type="text" placeholder="Paste irealb:// link here" spellcheck="false">
+        </label>
+        <button id="import-ireal-link-button" type="button" class="home-primary-action">Import iReal link</button>
+      </div>
       <button id="clear-all-charts-button" type="button" class="home-primary-action">Remove all charts</button>
     </div>
   </main>

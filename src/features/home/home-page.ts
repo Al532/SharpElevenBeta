@@ -155,12 +155,25 @@ function createChartLink(chartDocument: ChartDocument, className = 'home-list-li
   return link;
 }
 
-function getAvailableChartRowLimit(listElement: HTMLElement): number {
+function getAvailableChartListHeight(listElement: HTMLElement): number {
   const listTop = listElement.getBoundingClientRect().top;
   const footer = document.querySelector<HTMLElement>('.home-footer');
   const footerTop = footer?.getBoundingClientRect().top || window.innerHeight;
-  const availableHeight = Math.max(0, footerTop - listTop - 12);
-  return Math.max(1, Math.floor(availableHeight / 58));
+  const visibleBottom = Math.min(footerTop, window.innerHeight);
+  return Math.max(0, visibleBottom - listTop - 12);
+}
+
+function getViewportHeight(): number {
+  return Math.floor(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight);
+}
+
+function isHomePageOverflowing(): boolean {
+  const viewportHeight = getViewportHeight();
+  const documentHeight = Math.ceil(Math.max(
+    document.documentElement.scrollHeight,
+    document.body?.scrollHeight || 0
+  ));
+  return documentHeight > viewportHeight + 1;
 }
 
 function createChartRow(chartDocument: ChartDocument, onMetadata: (chartId: string) => void): HTMLLIElement {
@@ -230,13 +243,29 @@ function renderChartSearch(
 ): void {
   if (!dom.chartSearchResults) return;
   const query = normalizeChartTextKey(dom.chartSearchInput?.value || '');
-  const limit = getAvailableChartRowLimit(dom.chartSearchResults);
+  dom.chartSearchEmpty?.classList.add('hidden');
+  const availableHeight = getAvailableChartListHeight(dom.chartSearchResults);
+  const maxListBottom = dom.chartSearchResults.getBoundingClientRect().top + availableHeight;
   const matches = query
-    ? filterChartDocuments(documents, query).slice(0, limit)
-    : recentDocuments.slice(0, limit);
+    ? filterChartDocuments(documents, query)
+    : recentDocuments;
 
   dom.chartSearchResults.replaceChildren();
-  const isEmpty = matches.length === 0;
+  for (const chartDocument of matches) {
+    dom.chartSearchResults.append(createChartRow(chartDocument, onMetadata));
+    const last = dom.chartSearchResults.lastElementChild;
+    if (!last) break;
+    if (last.getBoundingClientRect().bottom > maxListBottom || isHomePageOverflowing()) {
+      dom.chartSearchResults.lastElementChild?.remove();
+      break;
+    }
+  }
+
+  while (dom.chartSearchResults.lastElementChild && isHomePageOverflowing()) {
+    dom.chartSearchResults.lastElementChild.remove();
+  }
+
+  const isEmpty = dom.chartSearchResults.children.length === 0;
   dom.chartSearchEmpty?.classList.toggle('hidden', !isEmpty);
   if (dom.chartSearchEmpty) {
     dom.chartSearchEmpty.textContent = documents.length === 0
@@ -244,10 +273,6 @@ function renderChartSearch(
       : query
         ? 'No matching charts.'
         : 'No recent charts yet. Type a title, composer, style, or tag.';
-  }
-
-  for (const chartDocument of matches) {
-    dom.chartSearchResults.append(createChartRow(chartDocument, onMetadata));
   }
 }
 
