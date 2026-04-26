@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator';
 
 const packageJsonUrl = new URL('../../package.json', import.meta.url);
 const packageJson = JSON.parse(readFileSync(fileURLToPath(packageJsonUrl), 'utf8'));
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 export default defineConfig({
   base: './',
@@ -29,6 +31,13 @@ export default defineConfig({
   build: {
     sourcemap: false,
     outDir: 'mobile/www',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        index: resolve(repositoryRoot, 'index.html'),
+        drill: resolve(repositoryRoot, 'drill.html'),
+        charts: resolve(repositoryRoot, 'charts.html')
+      }
+    }
   }
 });
