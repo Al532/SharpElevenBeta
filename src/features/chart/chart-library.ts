@@ -1,4 +1,4 @@
-import type { ChartDocument, ChartMetadata, ChartSourceRef } from '../../core/types/contracts';
+import type { ChartDocument, ChartMetadata, ChartSetlist, ChartSetlistItem, ChartSourceRef } from '../../core/types/contracts';
 
 export const CHART_CONTENT_HASH_VERSION = 'chart-document-fingerprint-v1';
 
@@ -133,6 +133,7 @@ export function mergeChartSourceRefs(
 export function getChartSourceRefs(document: ChartDocument | null | undefined): ChartSourceRef[] {
   const source = document?.source || {};
   const existingRefs = Array.isArray(source.sourceRefs) ? source.sourceRefs : [];
+  if (existingRefs.length > 0) return mergeChartSourceRefs(existingRefs, []);
   const fallbackName = String(source.playlistName || source.sourceFile || '').trim();
   const fallbackRef = fallbackName
     ? [{
@@ -385,4 +386,398 @@ export function removeChartSourceFromDocuments(
     updatedChartCount,
     ignoredUserChartCount
   };
+}
+
+export type ChartLibraryFacetSummary = {
+  tags: string[];
+  sources: string[];
+  styles: string[];
+  setlistMembershipByChartId: Map<string, ChartSetlist[]>;
+};
+
+export type ChartMetadataPatch = {
+  addTags?: string[];
+  removeTags?: string[];
+  addSetlistIds?: string[];
+  removeSetlistIds?: string[];
+  createTag?: string;
+  createSetlistName?: string;
+};
+
+export type BatchMetadataOperation = {
+  kind: 'add-tag' | 'remove-tag' | 'add-setlist' | 'remove-setlist' | 'delete';
+  tag?: string;
+  setlistId?: string;
+  activeSourceName?: string;
+};
+
+export type BatchOperationPreview = {
+  affectedCount: number;
+  alreadyHadCount: number;
+  skippedCount: number;
+  setlistUsageCount: number;
+  protectedMultiSourceImportedCount: number;
+  deletedChartCount: number;
+  sourceRefRemovedCount: number;
+  selectedCount: number;
+};
+
+export type ProtectedDeletePreview = BatchOperationPreview & {
+  protectedChartIds: string[];
+  deletedChartIds: string[];
+  sourceRefOnlyChartIds: string[];
+};
+
+export function normalizeChartTag(value: unknown): string {
+  return String(value || '').trim();
+}
+
+function normalizeDistinctChartTags(values: unknown[] = []): string[] {
+  const tagsByKey = new Map<string, string>();
+  for (const value of values) {
+    const tag = normalizeChartTag(value);
+    if (!tag) continue;
+    tagsByKey.set(normalizeChartTextKey(tag), tag);
+  }
+  return [...tagsByKey.values()].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
+}
+
+function chartHasTag(document: ChartDocument, tag: string): boolean {
+  const normalizedTag = normalizeChartTextKey(tag);
+  return (document.metadata?.userTags || []).some((existingTag) => normalizeChartTextKey(existingTag) === normalizedTag);
+}
+
+function chartStyleLabel(document: ChartDocument): string {
+  return String(document.metadata?.styleReference || document.metadata?.style || document.metadata?.canonicalGroove || document.metadata?.grooveReference || '').trim();
+}
+
+export function listChartLibraryFacets(
+  documents: ChartDocument[] = [],
+  setlists: ChartSetlist[] = []
+): ChartLibraryFacetSummary {
+  const tags: string[] = [];
+  const sources = new Set<string>();
+  const styles = new Set<string>();
+  const setlistMembershipByChartId = new Map<string, ChartSetlist[]>();
+
+  for (const document of documents) {
+    tags.push(...(document.metadata?.userTags || []));
+    for (const ref of getChartSourceRefs(document)) {
+      const name = String(ref.name || '').trim();
+      if (name) sources.add(name);
+    }
+    const style = chartStyleLabel(document);
+    if (style) styles.add(style);
+  }
+
+  for (const setlist of setlists) {
+    for (const item of setlist.items || []) {
+      const chartId = String(item.chartId || '').trim();
+      if (!chartId) continue;
+      setlistMembershipByChartId.set(chartId, [
+        ...(setlistMembershipByChartId.get(chartId) || []),
+        setlist
+      ]);
+    }
+  }
+
+  return {
+    tags: normalizeDistinctChartTags(tags),
+    sources: [...sources].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' })),
+    styles: [...styles].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' })),
+    setlistMembershipByChartId
+  };
+}
+
+export function getChartSetlistMembership(chartId: string, setlists: ChartSetlist[] = []): ChartSetlist[] {
+  return setlists.filter((setlist) => setlist.items.some((item) => item.chartId === chartId));
+}
+
+export function applyChartTagUpdate(document: ChartDocument, patch: ChartMetadataPatch = {}): ChartDocument {
+  const existingTags = document.metadata?.userTags || [];
+  const removeKeys = new Set((patch.removeTags || []).map(normalizeChartTextKey));
+  const nextTags = normalizeDistinctChartTags([
+    ...existingTags.filter((tag) => !removeKeys.has(normalizeChartTextKey(tag))),
+    ...(patch.addTags || []),
+    patch.createTag || ''
+  ]);
+  return {
+    ...document,
+    metadata: {
+      ...document.metadata,
+      userTags: nextTags
+    }
+  };
+}
+
+function createEmptySetlist(name: string): ChartSetlist {
+  const now = new Date().toISOString();
+  return {
+    id: `setlist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    name: String(name || '').trim() || 'Untitled setlist',
+    items: [],
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+export function applyChartSetlistUpdate(
+  chartId: string,
+  setlists: ChartSetlist[] = [],
+  patch: ChartMetadataPatch = {}
+): ChartSetlist[] {
+  const normalizedChartId = String(chartId || '').trim();
+  if (!normalizedChartId) return setlists;
+  const now = new Date().toISOString();
+  let nextSetlists = [...setlists];
+  const createdSetlistName = String(patch.createSetlistName || '').trim();
+  let addSetlistIds = [...(patch.addSetlistIds || [])];
+  if (createdSetlistName) {
+    const createdSetlist = createEmptySetlist(createdSetlistName);
+    nextSetlists = [...nextSetlists, createdSetlist];
+    addSetlistIds = [...addSetlistIds, createdSetlist.id];
+  }
+  const addIds = new Set(addSetlistIds.map((id) => String(id || '').trim()).filter(Boolean));
+  const removeIds = new Set((patch.removeSetlistIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+  return nextSetlists.map((setlist) => {
+    const hasChart = setlist.items.some((item) => item.chartId === normalizedChartId);
+    if (removeIds.has(setlist.id) && hasChart) {
+      return {
+        ...setlist,
+        items: setlist.items.filter((item) => item.chartId !== normalizedChartId),
+        updatedAt: now
+      };
+    }
+    if (addIds.has(setlist.id) && !hasChart) {
+      return {
+        ...setlist,
+        items: [...setlist.items, { chartId: normalizedChartId }],
+        updatedAt: now
+      };
+    }
+    return setlist;
+  });
+}
+
+export function createEmptyChartSetlist(name: string): ChartSetlist {
+  return createEmptySetlist(name);
+}
+
+export function applyPerChartMetadataUpdate({
+  documents = [],
+  setlists = [],
+  chartId = '',
+  patch = {}
+}: {
+  documents?: ChartDocument[];
+  setlists?: ChartSetlist[];
+  chartId?: string;
+  patch?: ChartMetadataPatch;
+}): { documents: ChartDocument[]; setlists: ChartSetlist[] } {
+  const nextDocuments = documents.map((document) => document.metadata.id === chartId
+    ? applyChartTagUpdate(document, patch)
+    : document);
+  const nextSetlists = applyChartSetlistUpdate(chartId, setlists, patch);
+  return { documents: nextDocuments, setlists: nextSetlists };
+}
+
+function getSelectedDocuments(documents: ChartDocument[], chartIds: string[]): ChartDocument[] {
+  const selectedIds = new Set(chartIds);
+  return documents.filter((document) => selectedIds.has(String(document.metadata?.id || '')));
+}
+
+export function previewProtectedChartDelete({
+  documents = [],
+  setlists = [],
+  chartIds = [],
+  activeSourceName = ''
+}: {
+  documents?: ChartDocument[];
+  setlists?: ChartSetlist[];
+  chartIds?: string[];
+  activeSourceName?: string;
+}): ProtectedDeletePreview {
+  const selectedDocuments = getSelectedDocuments(documents, chartIds);
+  const normalizedSourceName = normalizeChartTextKey(activeSourceName);
+  const deletedChartIds: string[] = [];
+  const protectedChartIds: string[] = [];
+  const sourceRefOnlyChartIds: string[] = [];
+  let skippedCount = 0;
+
+  for (const document of selectedDocuments) {
+    const chartId = String(document.metadata?.id || '');
+    if (normalizedSourceName && document.metadata?.origin === 'user') {
+      skippedCount += 1;
+      continue;
+    }
+    const refs = getChartSourceRefs(document);
+    const matchesActiveSource = normalizedSourceName && refs.some((ref) => normalizeChartTextKey(ref.name) === normalizedSourceName);
+    if (normalizedSourceName && document.metadata?.origin !== 'user' && matchesActiveSource && refs.length > 1) {
+      protectedChartIds.push(chartId);
+      sourceRefOnlyChartIds.push(chartId);
+      continue;
+    }
+    deletedChartIds.push(chartId);
+  }
+
+  const deletedSet = new Set(deletedChartIds);
+  const sourceRefSet = new Set(sourceRefOnlyChartIds);
+  const setlistUsageCount = setlists.reduce((count, setlist) => count + setlist.items.filter((item) => deletedSet.has(item.chartId) || sourceRefSet.has(item.chartId)).length, 0);
+
+  return {
+    selectedCount: selectedDocuments.length,
+    affectedCount: deletedChartIds.length + sourceRefOnlyChartIds.length,
+    alreadyHadCount: 0,
+    skippedCount,
+    setlistUsageCount,
+    protectedMultiSourceImportedCount: protectedChartIds.length,
+    deletedChartCount: deletedChartIds.length,
+    sourceRefRemovedCount: sourceRefOnlyChartIds.length,
+    protectedChartIds,
+    deletedChartIds,
+    sourceRefOnlyChartIds
+  };
+}
+
+export function applyProtectedChartDelete({
+  documents = [],
+  setlists = [],
+  chartIds = [],
+  activeSourceName = ''
+}: {
+  documents?: ChartDocument[];
+  setlists?: ChartSetlist[];
+  chartIds?: string[];
+  activeSourceName?: string;
+}): { documents: ChartDocument[]; setlists: ChartSetlist[]; preview: ProtectedDeletePreview } {
+  const preview = previewProtectedChartDelete({ documents, setlists, chartIds, activeSourceName });
+  const deletedIds = new Set(preview.deletedChartIds);
+  const sourceRefOnlyIds = new Set(preview.sourceRefOnlyChartIds);
+  const normalizedSourceName = normalizeChartTextKey(activeSourceName);
+  const nextDocuments = documents
+    .filter((document) => !deletedIds.has(String(document.metadata?.id || '')))
+    .map((document) => {
+      if (!sourceRefOnlyIds.has(String(document.metadata?.id || ''))) return document;
+      const nextRefs = getChartSourceRefs(document).filter((ref) => normalizeChartTextKey(ref.name) !== normalizedSourceName);
+      return {
+        ...document,
+        source: {
+          ...(document.source || {}),
+          sourceRefs: nextRefs,
+          playlistName: nextRefs[0]?.name || ''
+        }
+      };
+    });
+  const nextSetlists = setlists.map((setlist) => ({
+    ...setlist,
+    items: setlist.items.filter((item) => !deletedIds.has(item.chartId)),
+    updatedAt: deletedIds.size ? new Date().toISOString() : setlist.updatedAt
+  }));
+  return { documents: nextDocuments, setlists: nextSetlists, preview };
+}
+
+export function previewBatchMetadataOperation({
+  documents = [],
+  setlists = [],
+  chartIds = [],
+  operation
+}: {
+  documents?: ChartDocument[];
+  setlists?: ChartSetlist[];
+  chartIds?: string[];
+  operation: BatchMetadataOperation;
+}): BatchOperationPreview {
+  if (operation.kind === 'delete') {
+    return previewProtectedChartDelete({ documents, setlists, chartIds, activeSourceName: operation.activeSourceName || '' });
+  }
+  const selectedDocuments = getSelectedDocuments(documents, chartIds);
+  let affectedCount = 0;
+  let alreadyHadCount = 0;
+  let skippedCount = 0;
+  for (const document of selectedDocuments) {
+    const chartId = String(document.metadata?.id || '');
+    if (!chartId) {
+      skippedCount += 1;
+      continue;
+    }
+    if (operation.kind === 'add-tag') {
+      if (chartHasTag(document, operation.tag || '')) alreadyHadCount += 1;
+      else affectedCount += 1;
+    } else if (operation.kind === 'remove-tag') {
+      if (chartHasTag(document, operation.tag || '')) affectedCount += 1;
+      else skippedCount += 1;
+    } else if (operation.kind === 'add-setlist') {
+      const setlist = setlists.find((candidate) => candidate.id === operation.setlistId);
+      if (!setlist) skippedCount += 1;
+      else if (setlist.items.some((item) => item.chartId === chartId)) alreadyHadCount += 1;
+      else affectedCount += 1;
+    } else if (operation.kind === 'remove-setlist') {
+      const setlist = setlists.find((candidate) => candidate.id === operation.setlistId);
+      if (setlist?.items.some((item) => item.chartId === chartId)) affectedCount += 1;
+      else skippedCount += 1;
+    }
+  }
+  const selectedIds = new Set(chartIds);
+  const setlistUsageCount = setlists.reduce((count, setlist) => count + setlist.items.filter((item) => selectedIds.has(item.chartId)).length, 0);
+  return {
+    selectedCount: selectedDocuments.length,
+    affectedCount,
+    alreadyHadCount,
+    skippedCount,
+    setlistUsageCount,
+    protectedMultiSourceImportedCount: 0,
+    deletedChartCount: 0,
+    sourceRefRemovedCount: 0
+  };
+}
+
+export function applyBatchMetadataOperation({
+  documents = [],
+  setlists = [],
+  chartIds = [],
+  operation
+}: {
+  documents?: ChartDocument[];
+  setlists?: ChartSetlist[];
+  chartIds?: string[];
+  operation: BatchMetadataOperation;
+}): { documents: ChartDocument[]; setlists: ChartSetlist[]; preview: BatchOperationPreview } {
+  const preview = previewBatchMetadataOperation({ documents, setlists, chartIds, operation });
+  if (operation.kind === 'delete') {
+    return applyProtectedChartDelete({ documents, setlists, chartIds, activeSourceName: operation.activeSourceName || '' });
+  }
+  const selectedIds = new Set(chartIds);
+  let nextDocuments = documents;
+  let nextSetlists = setlists;
+  if (operation.kind === 'add-tag' || operation.kind === 'remove-tag') {
+    nextDocuments = documents.map((document) => {
+      if (!selectedIds.has(String(document.metadata?.id || ''))) return document;
+      return applyChartTagUpdate(document, {
+        addTags: operation.kind === 'add-tag' ? [operation.tag || ''] : [],
+        removeTags: operation.kind === 'remove-tag' ? [operation.tag || ''] : []
+      });
+    });
+  }
+  if (operation.kind === 'add-setlist' || operation.kind === 'remove-setlist') {
+    for (const chartId of chartIds) {
+      nextSetlists = applyChartSetlistUpdate(chartId, nextSetlists, {
+        addSetlistIds: operation.kind === 'add-setlist' ? [operation.setlistId || ''] : [],
+        removeSetlistIds: operation.kind === 'remove-setlist' ? [operation.setlistId || ''] : []
+      });
+    }
+  }
+  return { documents: nextDocuments, setlists: nextSetlists, preview };
+}
+
+export function reorderSetlistItems(
+  items: ChartSetlistItem[] = [],
+  fromIndex: number,
+  toIndex: number
+): ChartSetlistItem[] {
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return [...items];
+  if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length || fromIndex === toIndex) return [...items];
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, movedItem);
+  return nextItems;
 }

@@ -37,8 +37,6 @@ async function bindIncomingMobileIRealImports() {
 }
 
 initializeHomePage({
-  recentChartsList: document.getElementById('home-recent-charts'),
-  recentChartsEmpty: document.getElementById('home-recent-charts-empty'),
   chartSearchInput: document.getElementById('home-chart-search-input') as HTMLInputElement | null,
   chartSearchResults: document.getElementById('home-chart-search-results'),
   chartSearchEmpty: document.getElementById('home-chart-search-empty'),

@@ -1,22 +1,20 @@
-import type { ChartDocument } from '../../core/types/contracts';
+import type { ChartDocument, ChartSetlist } from '../../core/types/contracts';
 import type { SharpElevenThemeApi } from '../app/app-theme.js';
 
 import {
-  type HomeChartSummary,
   loadPersistedChartLibrary,
-  loadPersistedHomeChartSummary,
+  loadPersistedSetlists,
   loadRecentChartIds,
   saveHomeChartSummaryFromLibrary
 } from '../chart/chart-persistence.js';
 import {
   filterChartDocuments,
+  getChartSetlistMembership,
   getChartSourceRefs,
   normalizeChartTextKey
 } from '../chart/chart-library.js';
 
 type HomePageDom = {
-  recentChartsList: HTMLElement | null;
-  recentChartsEmpty: HTMLElement | null;
   chartSearchInput: HTMLInputElement | null;
   chartSearchResults: HTMLElement | null;
   chartSearchEmpty: HTMLElement | null;
@@ -47,25 +45,15 @@ function getChartSubtitle(document: ChartDocument): string {
 
   const parts: string[] = [];
   const metadata = document.metadata;
-  const source = document.source || {};
 
   pushIfDistinct(parts, metadata.composer);
   pushIfDistinct(parts, metadata.artist);
   pushIfDistinct(parts, metadata.author);
   pushIfDistinct(parts, metadata['leadArtist']);
   pushIfDistinct(parts, metadata['albumArtist']);
-  pushIfDistinct(parts, source['artist']);
-  pushIfDistinct(parts, source['composer']);
-  pushIfDistinct(parts, source['author']);
-  for (const ref of getChartSourceRefs(document)) {
-    pushIfDistinct(parts, ref.name);
-  }
 
   pushIfDistinct(parts, metadata.styleReference);
   pushIfDistinct(parts, metadata.style);
-  pushIfDistinct(parts, source['style']);
-  pushIfDistinct(parts, source['genre']);
-  pushIfDistinct(parts, source['category']);
 
   return parts.join(' - ');
 
@@ -142,63 +130,18 @@ function initializeThemeSelector(
   });
 }
 
-function renderRecentCharts(
-  documentsById: Map<string, ChartDocument>,
-  dom: Pick<HomePageDom, 'recentChartsList' | 'recentChartsEmpty'>
-): void {
-  if (!dom.recentChartsList) return;
-  const recentDocuments = loadRecentChartIds()
-    .map((chartId) => documentsById.get(chartId))
-    .filter((document): document is ChartDocument => Boolean(document));
-
-  dom.recentChartsList.replaceChildren();
-  dom.recentChartsEmpty?.classList.toggle('hidden', recentDocuments.length > 0);
-
-  for (const chartDocument of recentDocuments) {
-    const item = document.createElement('li');
-    const link = document.createElement('a');
-    const targetUrl = new URL('./chart/index.html', window.location.href);
-    targetUrl.searchParams.set('chart', chartDocument.metadata.id);
-    link.href = targetUrl.toString();
-    link.className = 'home-list-link';
-    link.append(
-      createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart')
-    );
-
-    item.append(link);
-    dom.recentChartsList.append(item);
-  }
-}
-
-function renderRecentChartSummary(
-  recentCharts: HomeChartSummary['recentCharts'],
-  dom: Pick<HomePageDom, 'recentChartsList' | 'recentChartsEmpty'>
-): void {
-  if (!dom.recentChartsList) return;
-
-  dom.recentChartsList.replaceChildren();
-  dom.recentChartsEmpty?.classList.toggle('hidden', recentCharts.length > 0);
-
-  for (const chart of recentCharts) {
-    const item = document.createElement('li');
-    const link = document.createElement('a');
-    const targetUrl = new URL('./chart/index.html', window.location.href);
-    targetUrl.searchParams.set('chart', chart.id);
-    link.href = targetUrl.toString();
-    link.className = 'home-list-link';
-    link.append(createTextElement('span', 'home-list-title', chart.title || 'Untitled chart'));
-
-    item.append(link);
-    dom.recentChartsList.append(item);
-  }
-}
-
 function createChartLink(chartDocument: ChartDocument, className = 'home-list-link'): HTMLAnchorElement {
   const link = document.createElement('a');
   const targetUrl = new URL('./chart/index.html', window.location.href);
   targetUrl.searchParams.set('chart', chartDocument.metadata.id);
   link.href = targetUrl.toString();
   link.className = className;
+  link.style.textDecoration = 'none';
+  link.style.display = 'flex';
+  link.style.flexWrap = 'wrap';
+  link.style.columnGap = '0.28rem';
+  link.style.rowGap = '0.12rem';
+  link.style.alignItems = 'baseline';
   link.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
   const subtitle = getChartSubtitle(chartDocument);
   if (subtitle) {
@@ -207,18 +150,127 @@ function createChartLink(chartDocument: ChartDocument, className = 'home-list-li
   return link;
 }
 
+function getAvailableChartRowLimit(listElement: HTMLElement): number {
+  const listTop = listElement.getBoundingClientRect().top;
+  const footer = document.querySelector<HTMLElement>('.home-footer');
+  const footerTop = footer?.getBoundingClientRect().top || window.innerHeight;
+  const availableHeight = Math.max(0, footerTop - listTop - 12);
+  return Math.max(1, Math.floor(availableHeight / 58));
+}
+
+function closeHomeMetadataPanel(): void {
+  document.querySelector<HTMLElement>('.home-metadata-panel')?.remove();
+}
+
+function showHomeMetadataPanel(chartDocument: ChartDocument, setlists: ChartSetlist[]): void {
+  closeHomeMetadataPanel();
+  const panel = document.createElement('div');
+  panel.className = 'home-metadata-panel';
+  const header = document.createElement('div');
+  header.className = 'home-metadata-panel-header';
+  const title = document.createElement('div');
+  title.append(createTextElement('strong', '', chartDocument.metadata.title || 'Untitled chart'));
+  title.append(createTextElement('span', 'home-list-meta', [chartDocument.metadata.composer, chartDocument.metadata.styleReference || chartDocument.metadata.style].filter(Boolean).join(' - ')));
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'home-metadata-close';
+  closeButton.textContent = 'Close';
+  closeButton.addEventListener('click', closeHomeMetadataPanel);
+  header.append(title, closeButton);
+  const memberships = getChartSetlistMembership(chartDocument.metadata.id, setlists).map((setlist) => setlist.name);
+  const facts = document.createElement('dl');
+  facts.className = 'home-metadata-facts';
+  [
+    ['Origin', chartDocument.metadata.origin || 'imported'],
+    ['Composer/style', [chartDocument.metadata.composer, chartDocument.metadata.styleReference || chartDocument.metadata.style].filter(Boolean).join(' - ') || 'None'],
+    ['Tags', (chartDocument.metadata.userTags || []).join(', ') || 'None'],
+    ['Setlists', memberships.join(', ') || 'None'],
+    ['Sources', getChartSourceRefs(chartDocument).map((ref) => ref.name).join(', ') || 'None']
+  ].forEach(([label, value]) => {
+    facts.append(createTextElement('dt', '', label));
+    facts.append(createTextElement('dd', '', value));
+  });
+  const openLink = document.createElement('a');
+  const targetUrl = new URL('./chart/index.html', window.location.href);
+  targetUrl.searchParams.set('chart', chartDocument.metadata.id);
+  openLink.href = targetUrl.toString();
+  openLink.className = 'home-primary-action home-metadata-open-chart';
+  openLink.textContent = 'Open chart';
+  panel.append(header, facts, openLink);
+  document.body.append(panel);
+}
+
+function createChartRow(chartDocument: ChartDocument, setlists: ChartSetlist[]): HTMLLIElement {
+  const item = document.createElement('li');
+  const row = document.createElement('div');
+  row.className = 'home-list-link home-chart-entry';
+  row.style.display = 'grid';
+  row.style.gridTemplateColumns = 'minmax(0, 1fr)';
+  row.style.alignItems = 'center';
+  row.style.columnGap = '0.65rem';
+  row.style.position = 'relative';
+  row.style.paddingRight = '3.4rem';
+  const link = createChartLink(chartDocument, 'home-chart-entry-link');
+  const metadataButton = document.createElement('button');
+  metadataButton.type = 'button';
+  metadataButton.className = 'home-chart-entry-kebab';
+  metadataButton.setAttribute('aria-label', `Open metadata for ${chartDocument.metadata.title || 'chart'}`);
+  metadataButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showHomeMetadataPanel(chartDocument, setlists);
+  });
+  metadataButton.style.textDecoration = 'none';
+  metadataButton.style.display = 'inline-flex';
+  metadataButton.style.flexDirection = 'column';
+  metadataButton.style.gap = '0.18rem';
+  metadataButton.style.alignItems = 'center';
+  metadataButton.style.justifyContent = 'center';
+  metadataButton.style.position = 'absolute';
+  metadataButton.style.top = '50%';
+  metadataButton.style.right = '0.35rem';
+  metadataButton.style.transform = 'translateY(-50%)';
+  metadataButton.style.width = '2.6rem';
+  metadataButton.style.height = '2.6rem';
+  metadataButton.style.zIndex = '2';
+  metadataButton.style.color = 'currentColor';
+  metadataButton.style.border = '0';
+  metadataButton.style.background = 'transparent';
+  metadataButton.style.boxShadow = 'none';
+  metadataButton.style.padding = '0';
+  metadataButton.style.margin = '0';
+  metadataButton.style.appearance = 'none';
+  metadataButton.style.webkitAppearance = 'none';
+  metadataButton.append(
+    createTextElement('span', 'home-chart-entry-dot', ''),
+    createTextElement('span', 'home-chart-entry-dot', ''),
+    createTextElement('span', 'home-chart-entry-dot', '')
+  );
+  metadataButton.querySelectorAll<HTMLElement>('.home-chart-entry-dot').forEach((dot) => {
+    dot.style.display = 'block';
+    dot.style.width = '0.28rem';
+    dot.style.height = '0.28rem';
+    dot.style.borderRadius = '999px';
+    dot.style.background = 'currentColor';
+    dot.style.opacity = '0.9';
+  });
+  row.append(link, metadataButton);
+  item.append(row);
+  return item;
+}
+
 function renderChartSearch(
   documents: ChartDocument[],
+  recentDocuments: ChartDocument[],
+  setlists: ChartSetlist[],
   dom: Pick<HomePageDom, 'chartSearchInput' | 'chartSearchResults' | 'chartSearchEmpty'>
 ): void {
   if (!dom.chartSearchResults) return;
   const query = normalizeChartTextKey(dom.chartSearchInput?.value || '');
+  const limit = getAvailableChartRowLimit(dom.chartSearchResults);
   const matches = query
-    ? filterChartDocuments(documents, query).slice(0, 12)
-    : documents
-        .slice()
-        .sort((left, right) => String(left.metadata?.title || '').localeCompare(String(right.metadata?.title || ''), 'en', { sensitivity: 'base' }))
-        .slice(0, 8);
+    ? filterChartDocuments(documents, query).slice(0, limit)
+    : recentDocuments.slice(0, limit);
 
   dom.chartSearchResults.replaceChildren();
   const isEmpty = matches.length === 0;
@@ -228,35 +280,32 @@ function renderChartSearch(
       ? 'Import charts, then search by title.'
       : query
         ? 'No matching charts.'
-        : 'Type a title, composer, style, or tag.';
+        : 'No recent charts yet. Type a title, composer, style, or tag.';
   }
 
   for (const chartDocument of matches) {
-    const item = document.createElement('li');
-    item.append(createChartLink(chartDocument));
-    dom.chartSearchResults.append(item);
+    dom.chartSearchResults.append(createChartRow(chartDocument, setlists));
   }
-}
-
-function renderHomeChartSummary(summary: HomeChartSummary, dom: HomePageDom): void {
-  renderRecentChartSummary(summary.recentCharts, dom);
 }
 
 export async function initializeHomePage(dom: HomePageDom): Promise<void> {
-  const cachedSummary = loadPersistedHomeChartSummary();
-  if (cachedSummary) {
-    renderHomeChartSummary(cachedSummary, dom);
-  }
   initializeThemeSelector(dom.themeButton, dom.themeMenu);
 
   const persistedLibrary = await loadPersistedChartLibrary();
+  const setlists = await loadPersistedSetlists();
   const documents = persistedLibrary?.documents || [];
   const documentsById = new Map(
     documents.map((document) => [String(document.metadata?.id || ''), document])
   );
+  const recentDocuments = loadRecentChartIds()
+    .map((chartId) => documentsById.get(chartId))
+    .filter((document): document is ChartDocument => Boolean(document));
 
-  renderRecentCharts(documentsById, dom);
-  renderChartSearch(documents, dom);
-  dom.chartSearchInput?.addEventListener('input', () => renderChartSearch(documents, dom));
+  renderChartSearch(documents, recentDocuments, setlists, dom);
+  dom.chartSearchInput?.addEventListener('input', () => renderChartSearch(documents, recentDocuments, setlists, dom));
+  window.addEventListener('resize', () => renderChartSearch(documents, recentDocuments, setlists, dom));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeHomeMetadataPanel();
+  });
   saveHomeChartSummaryFromLibrary(persistedLibrary);
 }

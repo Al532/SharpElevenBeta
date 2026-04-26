@@ -103,10 +103,18 @@ import { createAppShellBindings } from '../src/features/app/app-shell-bindings.t
 import { importDefaultFixtureLibrary as importChartDefaultFixtureLibrary } from '../src/features/chart/chart-import-controls.ts';
 import {
   CHART_CONTENT_HASH_VERSION,
+  applyBatchMetadataOperation,
+  applyChartSetlistUpdate,
+  applyChartTagUpdate,
+  applyPerChartMetadataUpdate,
+  createEmptyChartSetlist,
   computeChartContentHash,
   filterChartDocuments,
   getChartSourceRefs,
+  previewBatchMetadataOperation,
+  previewProtectedChartDelete,
   normalizeChartLibraryDocument,
+  reorderSetlistItems,
   removeChartSourceFromDocuments
 } from '../src/features/chart/chart-library.ts';
 import { initializeEmbeddedPracticeRuntime } from '../src/features/drill/drill-embedded-runtime.ts';
@@ -5173,4 +5181,107 @@ const f9BassLine = walkingBassGenerator.buildLine({
   isMinor: false
 });
 assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sustained F9 bar.');
+
+{
+  const makeChart = (id, title, { origin = 'imported', sourceRefs = [], tags = [] } = {}) => ({
+    schemaVersion: '1.0.0',
+    metadata: { id, title, origin, userTags: tags, contentHash: `hash-${id}`, contentHashVersion: CHART_CONTENT_HASH_VERSION },
+    source: { sourceRefs },
+    sections: [{ id: 'A', label: 'A', barIds: ['b1'] }],
+    bars: [{ id: 'b1', index: 0 }],
+    layout: null
+  });
+  const sourceA = { type: 'ireal-bundle', name: 'Source A' };
+  const sourceB = { type: 'ireal-bundle', name: 'Source B' };
+  const multiSource = makeChart('multi', 'Multi Source', { sourceRefs: [sourceA, sourceB] });
+  const singleSource = makeChart('single', 'Single Source', { sourceRefs: [sourceA] });
+  const userChart = makeChart('user', 'User Chart', { origin: 'user', sourceRefs: [], tags: ['practice'] });
+  const setlists = [{
+    id: 'setlist-one',
+    name: 'Setlist One',
+    items: [{ chartId: 'multi', note: 'kept' }, { chartId: 'single', note: 'deleted' }],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z'
+  }];
+
+  const sourceDeletePreview = previewProtectedChartDelete({
+    documents: [multiSource, singleSource, userChart],
+    setlists,
+    chartIds: ['multi', 'single', 'user'],
+    activeSourceName: 'Source A'
+  });
+  assert.equal(sourceDeletePreview.protectedMultiSourceImportedCount, 1, 'Source-filter delete protects multi-source imported charts.');
+  assert.equal(sourceDeletePreview.sourceRefRemovedCount, 1, 'Source-filter delete removes only the active source ref from protected imported charts.');
+  assert.equal(sourceDeletePreview.deletedChartCount, 1, 'Source-filter delete deletes single-source imported charts.');
+  assert.equal(sourceDeletePreview.skippedCount, 1, 'Source-filter cleanup skips selected user charts instead of deleting them accidentally.');
+
+  const sourceDeleteResult = applyBatchMetadataOperation({
+    documents: [multiSource, singleSource, userChart],
+    setlists,
+    chartIds: ['multi', 'single', 'user'],
+    operation: { kind: 'delete', activeSourceName: 'Source A' }
+  });
+  assert.equal(sourceDeleteResult.documents.some((document) => document.metadata.id === 'single'), false, 'Source-filter delete removes single-source imported documents.');
+  assert.equal(sourceDeleteResult.documents.some((document) => document.metadata.id === 'user'), true, 'Source-filter delete preserves user charts.');
+  assert.deepEqual(
+    getChartSourceRefs(sourceDeleteResult.documents.find((document) => document.metadata.id === 'multi')).map((ref) => ref.name),
+    ['Source B'],
+    'Source-filter delete removes only the active source ref from multi-source imported charts.'
+  );
+  assert.equal(sourceDeleteResult.setlists[0].items.some((item) => item.chartId === 'single'), false, 'Deleted charts are removed from setlists.');
+
+  const explicitDeleteResult = applyBatchMetadataOperation({
+    documents: [multiSource, singleSource, userChart],
+    setlists,
+    chartIds: ['user'],
+    operation: { kind: 'delete' }
+  });
+  assert.equal(explicitDeleteResult.documents.some((document) => document.metadata.id === 'user'), false, 'Non-source explicit delete can delete selected user charts after preview.');
+
+  const taggedChart = applyChartTagUpdate(userChart, { addTags: ['solo'], removeTags: ['practice'] });
+  assert.deepEqual(taggedChart.metadata.userTags, ['solo'], 'Per-chart metadata updates add and remove tags.');
+  const addedToSetlist = applyChartSetlistUpdate('user', setlists, { addSetlistIds: ['setlist-one'] });
+  assert.equal(addedToSetlist[0].items.some((item) => item.chartId === 'user'), true, 'Per-chart metadata updates add charts to setlists.');
+  const createdFromPanel = applyPerChartMetadataUpdate({
+    documents: [userChart],
+    setlists,
+    chartId: 'user',
+    patch: { createTag: 'new tag', createSetlistName: 'Empty then add' }
+  });
+  assert.equal(createdFromPanel.documents[0].metadata.userTags.includes('new tag'), true, 'Metadata panel can create a new tag and apply it.');
+  assert.equal(createdFromPanel.setlists.some((setlist) => setlist.name === 'Empty then add' && setlist.items.some((item) => item.chartId === 'user')), true, 'Metadata panel can create a new setlist and add the chart.');
+
+  const batchTagPreview = previewBatchMetadataOperation({
+    documents: [multiSource, singleSource, userChart],
+    setlists,
+    chartIds: ['multi', 'user'],
+    operation: { kind: 'add-tag', tag: 'practice' }
+  });
+  assert.equal(batchTagPreview.alreadyHadCount, 1, 'Batch preview counts charts that already have the tag.');
+  assert.equal(batchTagPreview.affectedCount, 1, 'Batch preview counts charts affected by tag additions.');
+  const batchTagResult = applyBatchMetadataOperation({
+    documents: [multiSource, singleSource, userChart],
+    setlists,
+    chartIds: ['multi', 'single'],
+    operation: { kind: 'add-tag', tag: 'warmup' }
+  });
+  assert.equal(batchTagResult.documents.filter((document) => document.metadata.userTags.includes('warmup')).length, 2, 'Batch edit adds tags to selected charts.');
+  const batchSetlistResult = applyBatchMetadataOperation({
+    documents: [multiSource, singleSource, userChart],
+    setlists,
+    chartIds: ['user'],
+    operation: { kind: 'add-setlist', setlistId: 'setlist-one' }
+  });
+  assert.equal(batchSetlistResult.setlists[0].items.some((item) => item.chartId === 'user'), true, 'Batch edit adds setlist membership.');
+
+  const emptySetlist = createEmptyChartSetlist('Fresh');
+  assert.equal(emptySetlist.items.length, 0, 'Setlist creation is empty by default.');
+  const reorderedItems = reorderSetlistItems([
+    { chartId: 'a', note: 'first' },
+    { chartId: 'b', tempoOverride: 144 },
+    { chartId: 'c' }
+  ], 0, 2);
+  assert.deepEqual(reorderedItems.map((item) => item.chartId), ['b', 'c', 'a'], 'Setlist reorder moves entries to the requested position.');
+  assert.equal(reorderedItems[0].tempoOverride, 144, 'Setlist reorder preserves item data.');
+}
 

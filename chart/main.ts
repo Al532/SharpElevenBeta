@@ -1,5 +1,6 @@
 ﻿import type {
   ChartDocument,
+  ChartSetlist,
   ChartPlaybackController,
   ChartPlaybackPlan,
   ChartScreenState,
@@ -27,13 +28,19 @@ import {
   loadPersistedChartLibrary,
   loadPersistedSetlists,
   persistChartLibrary,
+  persistSetlists,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
   persistChartId as persistChartIdToStorage,
   persistPlaybackSettings as persistChartPlaybackSettings
 } from '../src/features/chart/chart-persistence.js';
 import {
+  applyBatchMetadataOperation,
+  applyPerChartMetadataUpdate,
   filterChartDocuments,
-  importDocumentsFromIRealText as importChartDocumentsFromIRealText
+  getChartSetlistMembership,
+  getChartSourceRefs,
+  importDocumentsFromIRealText as importChartDocumentsFromIRealText,
+  previewProtectedChartDelete
 } from '../src/features/chart/chart-library.js';
 import {
   renderSelectedFixture
@@ -206,6 +213,8 @@ const dom = {
   selectionCreateDrillButton: document.getElementById('selection-create-drill-button') as HTMLButtonElement | null,
   mobileMenuToggle: document.getElementById('mobile-menu-toggle') as HTMLButtonElement | null,
   mobileBackdrop: document.getElementById('chart-mobile-backdrop'),
+  chartMetadataButton: document.getElementById('chart-metadata-button') as HTMLButtonElement | null,
+  chartMetadataPopover: document.getElementById('chart-metadata-popover'),
   manageChartsButton: document.getElementById('manage-charts-button') as HTMLButtonElement | null,
   manageChartsPopover: document.getElementById('manage-charts-popover'),
   instrumentSettingsButton: document.getElementById('instrument-settings-button') as HTMLButtonElement | null,
@@ -277,6 +286,7 @@ let pendingChartLayoutNeedsOpticalPlacement = false;
 const pendingChartLayoutReasons = new Set<string>();
 let lastOpticalLayoutWidth = -1;
 let lastOpticalLayoutFontsReady = false;
+let didOpenRequestedMetadataPanel = false;
 
 declare global {
   interface Window {
@@ -1516,21 +1526,152 @@ function renderFixture() {
     renderSelectionState,
     updateChartNavigationState
   }));
+  if (!didOpenRequestedMetadataPanel && new URLSearchParams(window.location.search).get('metadata') === '1') {
+    didOpenRequestedMetadataPanel = true;
+    openOverlay();
+    void renderChartMetadataPopover();
+    dom.chartMetadataPopover?.removeAttribute('hidden');
+    dom.chartMetadataButton?.setAttribute('aria-expanded', 'true');
+  }
+}
+
+function createChartMetadataText(tagName: string, className: string, textContent: string): HTMLElement {
+  const element = document.createElement(tagName);
+  element.className = className;
+  element.textContent = textContent;
+  return element;
+}
+
+function createChartMetadataButton(label: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'chart-metadata-small-action';
+  button.textContent = label;
+  return button;
+}
+
+async function persistCurrentChartMetadataState(nextDocuments: ChartDocument[], nextSetlists: ChartSetlist[], message: string) {
+  const persistedLibrary = await persistChartLibrary({
+    documents: nextDocuments,
+    source: state.currentLibrarySourceLabel || 'imported library',
+    mergeWithExisting: false
+  });
+  await persistSetlists(nextSetlists);
+  if (persistedLibrary?.documents) {
+    state.fixtureLibrary = {
+      ...(state.fixtureLibrary || {}),
+      documents: persistedLibrary.documents,
+      source: persistedLibrary.source
+    };
+    state.filteredDocuments = filterChartDocuments(persistedLibrary.documents, state.currentSearch);
+  }
+  if (dom.transportStatus) dom.transportStatus.textContent = message;
+  renderChartSelector();
+  renderFixture();
+}
+
+async function renderChartMetadataPopover() {
+  if (!dom.chartMetadataPopover) return;
+  const chartDocument = state.currentChartDocument;
+  dom.chartMetadataPopover.replaceChildren();
+  if (!chartDocument) {
+    dom.chartMetadataPopover.append(createChartMetadataText('p', 'chart-import-status', 'No chart loaded.'));
+    return;
+  }
+  const allDocuments = state.fixtureLibrary?.documents || [chartDocument];
+  const setlists = await loadPersistedSetlists();
+  const chartId = chartDocument.metadata.id;
+  const sources = getChartSourceRefs(chartDocument).map((ref) => ref.name);
+  const tags = chartDocument.metadata.userTags || [];
+  const memberships = getChartSetlistMembership(chartId, setlists);
+  const facts = document.createElement('dl');
+  facts.className = 'chart-metadata-facts';
+  [
+    ['Title', chartDocument.metadata.title || 'Untitled chart'],
+    ['Origin', chartDocument.metadata.origin || 'imported'],
+    ['Composer/style', [chartDocument.metadata.composer, chartDocument.metadata.styleReference || chartDocument.metadata.style].filter(Boolean).join(' - ') || 'None'],
+    ['Content hash', chartDocument.metadata.contentHash ? `Stored (${chartDocument.metadata.contentHashVersion || 'unknown'})` : 'Missing'],
+    ['Sources', sources.join(', ') || 'None'],
+    ['Tags', tags.join(', ') || 'None'],
+    ['Setlists', memberships.map((setlist) => setlist.name).join(', ') || 'None']
+  ].forEach(([label, value]) => {
+    facts.append(createChartMetadataText('dt', '', label));
+    facts.append(createChartMetadataText('dd', '', value));
+  });
+  dom.chartMetadataPopover.append(createChartMetadataText('h3', '', 'Chart metadata'), facts);
+
+  const tagInput = document.createElement('input');
+  tagInput.type = 'text';
+  tagInput.placeholder = 'New or existing tag';
+  const addTagButton = createChartMetadataButton('Add tag');
+  addTagButton.addEventListener('click', async () => {
+    const tag = tagInput.value.trim();
+    if (!tag) return;
+    const result = applyPerChartMetadataUpdate({ documents: allDocuments, setlists, chartId, patch: { addTags: [tag], createTag: tag } });
+    await persistCurrentChartMetadataState(result.documents, result.setlists, `Added tag "${tag}".`);
+    await renderChartMetadataPopover();
+  });
+  const tagButtons = document.createElement('div');
+  tagButtons.className = 'chart-metadata-chip-row';
+  tags.forEach((tag) => {
+    const button = createChartMetadataButton(`Remove ${tag}`);
+    button.className = 'chart-metadata-chip';
+    button.addEventListener('click', async () => {
+      const result = applyPerChartMetadataUpdate({ documents: allDocuments, setlists, chartId, patch: { removeTags: [tag] } });
+      await persistCurrentChartMetadataState(result.documents, result.setlists, `Removed tag "${tag}".`);
+      await renderChartMetadataPopover();
+    });
+    tagButtons.append(button);
+  });
+  dom.chartMetadataPopover.append(createChartMetadataText('h3', '', 'Tags'), tagButtons, tagInput, addTagButton);
+
+  const setlistSelect = document.createElement('select');
+  setlists.forEach((setlist) => setlistSelect.append(new Option(setlist.name, setlist.id)));
+  const addSetlistButton = createChartMetadataButton('Add to setlist');
+  addSetlistButton.addEventListener('click', async () => {
+    const result = applyPerChartMetadataUpdate({ documents: allDocuments, setlists, chartId, patch: { addSetlistIds: [setlistSelect.value] } });
+    await persistCurrentChartMetadataState(result.documents, result.setlists, 'Updated setlist membership.');
+    await renderChartMetadataPopover();
+  });
+  const newSetlistInput = document.createElement('input');
+  newSetlistInput.type = 'text';
+  newSetlistInput.placeholder = 'New setlist name';
+  const createSetlistButton = createChartMetadataButton('Create setlist and add');
+  createSetlistButton.addEventListener('click', async () => {
+    const name = newSetlistInput.value.trim();
+    if (!name) return;
+    const result = applyPerChartMetadataUpdate({ documents: allDocuments, setlists, chartId, patch: { createSetlistName: name } });
+    await persistCurrentChartMetadataState(result.documents, result.setlists, `Created "${name}".`);
+    await renderChartMetadataPopover();
+  });
+  dom.chartMetadataPopover.append(createChartMetadataText('h3', '', 'Setlists'), setlistSelect, addSetlistButton, newSetlistInput, createSetlistButton);
+
+  const deletePreview = previewProtectedChartDelete({ documents: allDocuments, setlists, chartIds: [chartId] });
+  const deleteButton = createChartMetadataButton('Delete chart');
+  deleteButton.addEventListener('click', async () => {
+    const confirmed = window.confirm(`Delete "${chartDocument.metadata.title || 'chart'}"?\n\n${deletePreview.deletedChartCount} chart will be deleted.\n${deletePreview.setlistUsageCount} setlist entries will be removed.`);
+    if (!confirmed) return;
+    const result = applyBatchMetadataOperation({ documents: allDocuments, setlists, chartIds: [chartId], operation: { kind: 'delete' } });
+    await persistCurrentChartMetadataState(result.documents, result.setlists, 'Chart deleted.');
+    dom.chartMetadataPopover?.setAttribute('hidden', '');
+  });
+  dom.chartMetadataPopover.append(createChartMetadataText('h3', '', 'Delete'), createChartMetadataText('p', 'chart-import-status', `${deletePreview.deletedChartCount} chart delete, ${deletePreview.setlistUsageCount} setlist entries affected.`), deleteButton);
 }
 
 function closeAllPopovers() {
   closeAllChartPopovers((createChartPopoverBindings({
-    popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
+    popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]
   }) as { popovers: Array<HTMLElement | null> }).popovers);
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
+  dom.chartMetadataButton?.setAttribute('aria-expanded', 'false');
   closeBottomPopovers();
 }
 
 function togglePopover(targetPopover: HTMLElement | null, otherPopover: HTMLElement | null) {
   closeBottomPopovers();
   const bindings = createChartPopoverBindings({
-    targetPopover,
-    popovers: [targetPopover, otherPopover, dom.instrumentSettingsPopover]
+  targetPopover,
+  popovers: [targetPopover, otherPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]
   }) as { targetPopover: HTMLElement | null, popovers: Array<HTMLElement | null> };
   toggleChartPopover(bindings.targetPopover, bindings.popovers);
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden ? 'true' : 'false');
@@ -1592,7 +1733,7 @@ function bindMobileOverlayDrawerLayout() {
 }
 
 function handleSyntheticAndroidBack() {
-  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.tempoPopover, dom.mixerPopover];
+  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.mixerPopover];
   const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
   if (hasOpenPopover) {
     closeAllPopovers();
@@ -1634,9 +1775,10 @@ function closeOverlay() {
     chartApp: dom.chartApp,
     chartTopOverlay: dom.chartTopOverlay,
     chartBottomOverlay: dom.chartBottomOverlay,
-    popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
+    popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]
   }));
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
+  dom.chartMetadataButton?.setAttribute('aria-expanded', 'false');
   syncMobileOverlayDrawerLayout();
 }
 
@@ -1937,10 +2079,21 @@ async function loadFixtures() {
       bindings.mobileMenuToggle?.addEventListener('click', bindings.onOpenOverlay);
       bindings.mobileBackdrop?.addEventListener('click', bindings.onCloseOverlay);
       bindings.manageChartsButton?.addEventListener('click', bindings.onManageChartsToggle);
+      dom.chartMetadataButton?.addEventListener('click', () => {
+        closeBottomPopovers();
+        const wasOpen = Boolean(dom.chartMetadataPopover && !dom.chartMetadataPopover.hidden);
+        closeAllChartPopovers([dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]);
+        if (!wasOpen) {
+          void renderChartMetadataPopover();
+          dom.chartMetadataPopover?.removeAttribute('hidden');
+        }
+        dom.chartMetadataButton?.setAttribute('aria-expanded', !wasOpen ? 'true' : 'false');
+        syncMobileOverlayDrawerLayout();
+      });
       dom.instrumentSettingsButton?.addEventListener('click', () => {
         closeBottomPopovers();
         const wasOpen = Boolean(dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden);
-        closeAllChartPopovers([dom.manageChartsPopover, dom.instrumentSettingsPopover]);
+        closeAllChartPopovers([dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]);
         if (!wasOpen) dom.instrumentSettingsPopover?.removeAttribute('hidden');
         dom.instrumentSettingsButton?.setAttribute('aria-expanded', !wasOpen ? 'true' : 'false');
         syncMobileOverlayDrawerLayout();
