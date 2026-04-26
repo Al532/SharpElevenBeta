@@ -38,6 +38,7 @@ const CHIP_FILTER_OPTION_LIMIT = 12;
 const CHART_MANAGE_FILTER_KEYS = ['origin', 'source', 'tag', 'setlist'] as const;
 const FILTER_ACTION_ALL = '__all__';
 const FILTER_ACTION_NONE = '__none__';
+const FILTER_TAG_NO_TAG = '__no_tag__';
 
 type ChartManageFilterKey = typeof CHART_MANAGE_FILTER_KEYS[number];
 type ChartManageFilterMode = 'all' | 'custom';
@@ -201,7 +202,13 @@ function getFilteredManageDocuments(): ChartDocument[] {
   }
   if (hasOriginFilter) documents = documents.filter((document) => origins.has(document.metadata?.origin === 'user' ? 'user' : 'imported'));
   if (hasSourceFilter) documents = documents.filter((document) => getChartSourceRefs(document).some((ref) => sources.has(ref.name)));
-  if (hasTagFilter) documents = documents.filter((document) => (document.metadata?.userTags || []).some((candidate) => tags.has(candidate)));
+  if (hasTagFilter) {
+    documents = documents.filter((document) => {
+      const documentTags = (document.metadata?.userTags || []).map((tag) => String(tag || '').trim()).filter(Boolean);
+      return (documentTags.length === 0 && tags.has(FILTER_TAG_NO_TAG))
+        || documentTags.some((candidate) => tags.has(candidate));
+    });
+  }
   if (hasSetlistFilter) documents = documents.filter((document) => setlistChartIds.has(document.metadata.id));
   return documents;
 }
@@ -284,7 +291,6 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
   if (!host) return;
   const active = activeManageFilters[key];
   const isAllSelected = isFilterAllSelected(key, values);
-  const isNoneSelected = activeManageFilterModes[key] === 'custom' && active.size === 0;
   host.replaceChildren();
   const buttons = [
     { label: 'All', value: FILTER_ACTION_ALL },
@@ -292,11 +298,8 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
     ...values
   ].map(({ label, value }) => {
     const button = createButton(label, 'chart-manage-filter-chip');
-    const isActive = value === FILTER_ACTION_ALL
-      ? isAllSelected
-      : value === FILTER_ACTION_NONE
-        ? isNoneSelected
-        : isAllSelected || active.has(value);
+    const isFilterAction = value === FILTER_ACTION_ALL || value === FILTER_ACTION_NONE;
+    const isActive = !isFilterAction && (isAllSelected || active.has(value));
     button.setAttribute('aria-pressed', String(isActive));
     if (isActive) button.classList.add('is-active');
     button.addEventListener('click', () => selectFilterValue(key, value, values));
@@ -333,6 +336,12 @@ function renderFilterControl({
 
 function renderFacets() {
   const facets = listChartLibraryFacets(currentDocuments, currentSetlists);
+  const tagOptions = [
+    ...facets.tags.map((tag) => ({ label: tag, value: tag })),
+    currentDocuments.some((document) => (document.metadata?.userTags || []).map((tag) => String(tag || '').trim()).filter(Boolean).length === 0)
+      ? { label: 'No tag', value: FILTER_TAG_NO_TAG }
+      : null
+  ].filter(Boolean) as ChartManageFilterOption[];
   const originOptions = [
     currentDocuments.some((document) => document.metadata?.origin !== 'user') ? { label: 'Imported', value: 'imported' } : null,
     currentDocuments.some((document) => document.metadata?.origin === 'user') ? { label: 'User', value: 'user' } : null
@@ -359,7 +368,7 @@ function renderFacets() {
     select: dom.manageTagFilter,
     chipHost: dom.manageTagFilterChips,
     allLabel: 'All tags',
-    values: facets.tags.map((tag) => ({ label: tag, value: tag }))
+    values: tagOptions
   });
   renderFilterControl({
     key: 'setlist',
