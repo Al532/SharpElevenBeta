@@ -122,11 +122,13 @@ const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
 const LAST_CHART_STORAGE_KEY = 'sharp-eleven-chart-last-chart-id';
 const PLAYBACK_SETTINGS_STORAGE_KEY = 'sharp-eleven-chart-playback-settings';
+const INSTRUMENT_TRANSPOSITION_STORAGE_KEY = 'sharp-eleven-chart-instrument-transposition';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
 const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
+const DEFAULT_COMPING_STYLE = 'piano';
 const DEFAULT_BAR_GROUP_SIZE = CHART_DISPLAY_CONFIG.layout.barsPerRow;
 const CHART_TEXT_SCALE_COMPENSATION_CSS_VAR = CHART_DISPLAY_CONFIG.textScaleCompensation.cssVarName;
 const CHART_RENDER_PERF_LOG_PREFIX = '[SharpEleven chart perf]';
@@ -167,6 +169,8 @@ const dom = {
   tempoPopover: document.getElementById('tempo-popover'),
   tempoPopoverValue: document.getElementById('tempo-popover-value'),
   tempoRange: document.getElementById('tempo-range') as HTMLInputElement | null,
+  mixerButton: document.getElementById('chart-mixer-button') as HTMLButtonElement | null,
+  mixerPopover: document.getElementById('mixer-popover'),
   sheetStyle: document.getElementById('sheet-style'),
   sheetTitle: document.getElementById('sheet-title'),
   sheetSubtitle: document.getElementById('sheet-subtitle'),
@@ -203,8 +207,9 @@ const dom = {
   mobileBackdrop: document.getElementById('chart-mobile-backdrop'),
   manageChartsButton: document.getElementById('manage-charts-button') as HTMLButtonElement | null,
   manageChartsPopover: document.getElementById('manage-charts-popover'),
-  settingsButton: document.getElementById('settings-button') as HTMLButtonElement | null,
-  settingsPopover: document.getElementById('settings-popover'),
+  instrumentSettingsButton: document.getElementById('instrument-settings-button') as HTMLButtonElement | null,
+  instrumentSettingsPopover: document.getElementById('instrument-settings-popover'),
+  instrumentTransposeSelect: document.getElementById('instrument-transpose-select') as HTMLSelectElement | null,
   chartTopOverlay: document.getElementById('chart-top-overlay'),
   chartBottomOverlay: document.getElementById('chart-bottom-overlay'),
   chartApp: document.querySelector<HTMLElement>('.chart-app')
@@ -441,6 +446,39 @@ function loadPersistedPlaybackSettings() {
   });
 }
 
+function loadPersistedInstrumentTransposition() {
+  try {
+    return window.localStorage.getItem(INSTRUMENT_TRANSPOSITION_STORAGE_KEY) || '0';
+  } catch {
+    return '0';
+  }
+}
+
+function persistInstrumentTransposition() {
+  try {
+    window.localStorage.setItem(INSTRUMENT_TRANSPOSITION_STORAGE_KEY, dom.instrumentTransposeSelect?.value || '0');
+  } catch {
+    // Ignore storage failures so the chart remains usable in restricted contexts.
+  }
+}
+
+function setInstrumentTransposition(value: string | number, { render = false }: { render?: boolean } = {}) {
+  const normalized = String(value);
+  if (dom.instrumentTransposeSelect && Array.from(dom.instrumentTransposeSelect.options).some((option) => option.value === normalized)) {
+    dom.instrumentTransposeSelect.value = normalized;
+  }
+  if (dom.transposeSelect && Array.from(dom.transposeSelect.options).some((option) => option.value === normalized)) {
+    dom.transposeSelect.value = normalized;
+  }
+  persistInstrumentTransposition();
+  if (render) {
+    renderFixture();
+    void syncPlaybackSettings().catch((error) => {
+      if (dom.transportStatus) dom.transportStatus.textContent = `Playback settings error: ${getErrorMessage(error)}`;
+    });
+  }
+}
+
 function persistPlaybackSettings() {
   persistChartPlaybackSettings({
     playbackSettings: getPlaybackSettings(),
@@ -454,11 +492,13 @@ function persistPlaybackSettings() {
 
 function applyPersistedPlaybackSettings() {
   const persisted = loadPersistedPlaybackSettings();
-  if (!persisted) return;
 
-  if (persisted.compingStyle && dom.compingStyleSelect && Array.from(dom.compingStyleSelect.options).some((option) => option.value === persisted.compingStyle)) {
-    dom.compingStyleSelect.value = persisted.compingStyle;
+  if (dom.compingStyleSelect && Array.from(dom.compingStyleSelect.options).some((option) => option.value === DEFAULT_COMPING_STYLE)) {
+    dom.compingStyleSelect.value = DEFAULT_COMPING_STYLE;
   }
+  setInstrumentTransposition(loadPersistedInstrumentTransposition());
+
+  if (!persisted) return;
 
   if (persisted.drumsMode && dom.drumsSelect && Array.from(dom.drumsSelect.options).some((option) => option.value === persisted.drumsMode)) {
     dom.drumsSelect.value = persisted.drumsMode;
@@ -745,7 +785,16 @@ function populateTransposeOptions(chartDocument: ChartDocument | null | undefine
     option.textContent = transposeKeySymbol(sourceKey, offset) || sourceKey;
     dom.transposeSelect.appendChild(option);
   }
-  dom.transposeSelect.value = '0';
+  setInstrumentTransposition(dom.instrumentTransposeSelect?.value || '0');
+}
+
+function handleChartTransposeChange() {
+  const value = String(dom.transposeSelect?.value || '0');
+  if (dom.instrumentTransposeSelect && Array.from(dom.instrumentTransposeSelect.options).some((option) => option.value === value)) {
+    dom.instrumentTransposeSelect.value = value;
+    persistInstrumentTransposition();
+  }
+  renderFixture();
 }
 
 function getSelectedPracticeSession(): PracticeSessionSpec | null {
@@ -804,6 +853,8 @@ function setTempo(value: number | string, { syncPlayback = false }: { syncPlayba
 function closeBottomPopovers() {
   if (dom.tempoPopover) dom.tempoPopover.hidden = true;
   if (dom.tempoButton) dom.tempoButton.setAttribute('aria-expanded', 'false');
+  if (dom.mixerPopover) dom.mixerPopover.hidden = true;
+  if (dom.mixerButton) dom.mixerButton.setAttribute('aria-expanded', 'false');
 }
 
 function bindBottomControlPopovers() {
@@ -813,14 +864,33 @@ function bindBottomControlPopovers() {
     event.stopPropagation();
     const willOpen = Boolean(dom.tempoPopover?.hidden);
     closeAllChartPopovers((createChartPopoverBindings({
-      popovers: [dom.manageChartsPopover, dom.settingsPopover]
+      popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
     }) as { popovers: Array<HTMLElement | null> }).popovers);
+    dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
     if (dom.tempoPopover) dom.tempoPopover.hidden = !willOpen;
     dom.tempoButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     syncMobileOverlayDrawerLayout();
   });
 
   dom.tempoPopover?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  dom.mixerButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const willOpen = Boolean(dom.mixerPopover?.hidden);
+    closeAllChartPopovers((createChartPopoverBindings({
+      popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
+    }) as { popovers: Array<HTMLElement | null> }).popovers);
+    dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
+    if (dom.tempoPopover) dom.tempoPopover.hidden = true;
+    dom.tempoButton?.setAttribute('aria-expanded', 'false');
+    if (dom.mixerPopover) dom.mixerPopover.hidden = !willOpen;
+    dom.mixerButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    syncMobileOverlayDrawerLayout();
+  });
+
+  dom.mixerPopover?.addEventListener('click', (event) => {
     event.stopPropagation();
   });
 
@@ -1445,8 +1515,9 @@ function renderFixture() {
 
 function closeAllPopovers() {
   closeAllChartPopovers((createChartPopoverBindings({
-    popovers: [dom.manageChartsPopover, dom.settingsPopover]
+    popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
   }) as { popovers: Array<HTMLElement | null> }).popovers);
+  dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
   closeBottomPopovers();
 }
 
@@ -1454,9 +1525,10 @@ function togglePopover(targetPopover: HTMLElement | null, otherPopover: HTMLElem
   closeBottomPopovers();
   const bindings = createChartPopoverBindings({
     targetPopover,
-    popovers: [targetPopover, otherPopover]
+    popovers: [targetPopover, otherPopover, dom.instrumentSettingsPopover]
   }) as { targetPopover: HTMLElement | null, popovers: Array<HTMLElement | null> };
   toggleChartPopover(bindings.targetPopover, bindings.popovers);
+  dom.instrumentSettingsButton?.setAttribute('aria-expanded', dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden ? 'true' : 'false');
   syncMobileOverlayDrawerLayout();
 }
 
@@ -1515,7 +1587,7 @@ function bindMobileOverlayDrawerLayout() {
 }
 
 function handleSyntheticAndroidBack() {
-  const popovers = [dom.manageChartsPopover, dom.settingsPopover, dom.tempoPopover];
+  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.tempoPopover, dom.mixerPopover];
   const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
   if (hasOpenPopover) {
     closeAllPopovers();
@@ -1557,8 +1629,9 @@ function closeOverlay() {
     chartApp: dom.chartApp,
     chartTopOverlay: dom.chartTopOverlay,
     chartBottomOverlay: dom.chartBottomOverlay,
-    popovers: [dom.manageChartsPopover, dom.settingsPopover]
+    popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
   }));
+  dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
   syncMobileOverlayDrawerLayout();
 }
 
@@ -1756,7 +1829,7 @@ async function loadFixtures() {
     sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
         onSearch: applySearchFilter,
         onFixtureChange: renderFixture,
-        onTransposeChange: renderFixture,
+        onTransposeChange: handleChartTransposeChange,
         onHarmonyDisplayModeChange: () => {
           persistPlaybackSettings();
           renderFixture();
@@ -1823,25 +1896,31 @@ async function loadFixtures() {
           mobileMenuToggle: dom.mobileMenuToggle,
           mobileBackdrop: dom.mobileBackdrop,
         manageChartsButton: dom.manageChartsButton,
-        settingsButton: dom.settingsButton,
         onOpenOverlay: openOverlay,
         onCloseOverlay: closeOverlay,
-        onManageChartsToggle: () => togglePopover(dom.manageChartsPopover as HTMLElement | null, dom.settingsPopover as HTMLElement | null),
-        onSettingsToggle: () => togglePopover(dom.settingsPopover as HTMLElement | null, dom.manageChartsPopover as HTMLElement | null)
+        onManageChartsToggle: () => togglePopover(dom.manageChartsPopover as HTMLElement | null, null)
       }) as {
         mobileMenuToggle?: HTMLButtonElement | null,
         mobileBackdrop?: HTMLElement | null,
         manageChartsButton?: HTMLButtonElement | null,
-        settingsButton?: HTMLButtonElement | null,
         onOpenOverlay: () => void,
         onCloseOverlay: () => void,
-        onManageChartsToggle: () => void,
-        onSettingsToggle: () => void
+        onManageChartsToggle: () => void
       };
       bindings.mobileMenuToggle?.addEventListener('click', bindings.onOpenOverlay);
       bindings.mobileBackdrop?.addEventListener('click', bindings.onCloseOverlay);
       bindings.manageChartsButton?.addEventListener('click', bindings.onManageChartsToggle);
-      bindings.settingsButton?.addEventListener('click', bindings.onSettingsToggle);
+      dom.instrumentSettingsButton?.addEventListener('click', () => {
+        closeBottomPopovers();
+        const wasOpen = Boolean(dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden);
+        closeAllChartPopovers([dom.manageChartsPopover, dom.instrumentSettingsPopover]);
+        if (!wasOpen) dom.instrumentSettingsPopover?.removeAttribute('hidden');
+        dom.instrumentSettingsButton?.setAttribute('aria-expanded', !wasOpen ? 'true' : 'false');
+        syncMobileOverlayDrawerLayout();
+      });
+      dom.instrumentTransposeSelect?.addEventListener('change', () => {
+        setInstrumentTransposition(dom.instrumentTransposeSelect?.value || '0', { render: true });
+      });
     },
     bindLayoutObservers: () => {
       bindChartLayoutObservers(createChartLayoutObserversBindings({

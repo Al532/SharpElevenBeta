@@ -54,8 +54,31 @@ function slugify(value: unknown): string {
     .replace(/^-+|-+$/g, '') || 'session';
 }
 
-function normalizeSlotSymbol(slot: { symbol?: string } | null | undefined): string {
-  return String(slot?.symbol || '').trim();
+function normalizeSlotSymbol(slot: {
+  symbol?: string;
+  root?: string;
+  quality?: string;
+  modifier?: string;
+  bass?: string | null;
+  displayPrefix?: string;
+  display_prefix?: string;
+} | null | undefined): string {
+  const root = String(slot?.root || '').trim();
+  if (['p', 'n', 'r', 'x', 'W'].includes(root)) return '';
+
+  const quality = String(slot?.quality ?? slot?.modifier ?? '').trim();
+  const bass = String(slot?.bass || '').trim();
+  if (root && bass) {
+    return `${root}${quality}/${bass}`;
+  }
+
+  let symbol = String(slot?.symbol || '').trim();
+  const displayPrefix = String(slot?.displayPrefix || slot?.display_prefix || '').trim();
+  if (displayPrefix && symbol.startsWith(displayPrefix)) {
+    symbol = symbol.slice(displayPrefix.length).trim();
+  }
+  if (['p', 'n', 'r', 'x', 'W'].includes(symbol)) return '';
+  return symbol;
 }
 
 function compressBeatSlotsToDrillBar(symbols: string[] = []): string[] {
@@ -75,7 +98,17 @@ function compressBeatSlotsToDrillBar(symbols: string[] = []): string[] {
 }
 
 function resolveBeatSlotsFromCellSlots(
-  cellSlots: Array<{ chord?: { symbol?: string } | null }> = []
+  cellSlots: Array<{
+    chord?: {
+      symbol?: string;
+      root?: string;
+      quality?: string;
+      modifier?: string;
+      bass?: string | null;
+      displayPrefix?: string;
+      display_prefix?: string;
+    } | null;
+  }> = []
 ): string[] {
   if (!Array.isArray(cellSlots) || cellSlots.length === 0) return [];
 

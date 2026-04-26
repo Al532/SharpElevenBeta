@@ -25,7 +25,7 @@ function formatChord(chord) {
 
   const symbol =
     `${chord.note}${normalizeModifier(chord.modifiers || '')}` +
-    (chord.over ? `/${formatChord(chord.over).symbol}` : '');
+    (chord.over?.note ? `/${chord.over.note}` : '');
 
   return {
     symbol,

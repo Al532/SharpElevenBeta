@@ -51,37 +51,71 @@
               <div id="chart-import-status" class="chart-import-status" role="status" aria-live="polite"></div>
             </div>
           </div>
-          <div class="chart-popover-wrap" id="settings-wrap">
-            <button type="button" id="settings-button" class="chart-action-button chart-action-button-secondary">Settings</button>
-            <div class="chart-popover chart-settings-popover" id="settings-popover" hidden>
-              <label class="chart-select-field">
-                <span>Chord symbols</span>
-                <select id="harmony-display-mode">
-                  <option value="default" selected>Light</option>
-                  <option value="rich">Rich</option>
-                </select>
-              </label>
-              <label class="chart-toggle chart-toggle-strong">
-                <input id="walking-bass-toggle" type="checkbox" checked>
-                <span>Walking bass</span>
-              </label>
-              <div class="chart-settings-section chart-settings-section-tight">
-                <h3>Chord Symbols</h3>
-                <label class="chart-toggle">
-                  <input id="use-major-triangle-symbol" type="checkbox" checked>
-                  <span>Triangle for maj7</span>
+        </div>
+        <div class="chart-popover-wrap chart-instrument-settings-wrap" id="instrument-settings-wrap">
+          <button type="button" id="instrument-settings-button" class="chart-icon-button chart-gear-button" aria-label="Instrument settings" aria-haspopup="menu" aria-expanded="false"></button>
+          <div class="chart-popover chart-instrument-popover" id="instrument-settings-popover" hidden>
+            <label class="chart-select-field">
+              <span>Transposing instrument</span>
+              <select id="instrument-transpose-select">
+                <option value="0" selected>Concert pitch</option>
+                <option value="2">Bb instrument</option>
+                <option value="9">Eb instrument</option>
+                <option value="7">F instrument</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- Bottom overlay: transport controls -->
+      <div class="chart-bottom-overlay" id="chart-bottom-overlay" aria-hidden="true">
+        <div class="chart-transport-controls">
+          <div class="chart-bottom-popover-wrap chart-tempo-field">
+            <input id="tempo-input" type="number" min="40" max="320" step="1" value="120" hidden>
+            <button id="tempo-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
+              <span id="tempo-button-label">120 bpm</span>
+            </button>
+            <div id="tempo-popover" class="chart-bottom-popover chart-tempo-popover" hidden>
+              <span class="chart-bottom-popover-title">Tempo</span>
+              <strong id="tempo-popover-value">120</strong>
+              <input id="tempo-range" type="range" min="40" max="320" step="1" value="120">
+            </div>
+          </div>
+          <label class="chart-select-field chart-legacy-playback-setting">
+            <span>Drums</span>
+            <select id="drums-select">
+              <option value="off">Off</option>
+              <option value="metronome_2_4">Metronome 2 &amp; 4</option>
+              <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
+              <option value="full_swing" selected>Full swing drum pattern</option>
+            </select>
+          </label>
+          <label class="chart-select-field chart-key-field">
+            <span>Key</span>
+            <select id="transpose-select" aria-label="Chart key"></select>
+          </label>
+        </div>
+        <div class="chart-transport-bottom-row">
+          <div class="chart-transport-meta">
+            <span id="transport-status">Ready</span>
+            <span id="transport-position">Bar 0 / 0</span>
+            <span id="selection-summary">No selection</span>
+          </div>
+          <div class="chart-transport-buttons">
+            <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
+            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
+            <div class="chart-bottom-popover-wrap chart-mixer-popover-wrap">
+              <button id="chart-mixer-button" type="button" class="chart-transport-button chart-mixer-button" aria-label="Mixer" aria-haspopup="menu" aria-expanded="false">Mixer</button>
+              <div id="mixer-popover" class="chart-bottom-popover chart-mixer-popover" hidden>
+                <span class="chart-bottom-popover-title">Mixer</span>
+                <label class="chart-select-field">
+                  <span>Comping style</span>
+                  <select id="comping-style-select">
+                    <option value="off">Off</option>
+                    <option value="strings">Strings</option>
+                    <option value="piano" selected>Piano</option>
+                  </select>
                 </label>
-                <label class="chart-toggle">
-                  <input id="use-half-diminished-symbol" type="checkbox" checked>
-                  <span>Half-diminished symbol</span>
-                </label>
-                <label class="chart-toggle">
-                  <input id="use-diminished-symbol" type="checkbox" checked>
-                  <span>Diminished symbol</span>
-                </label>
-              </div>
-              <div class="chart-settings-section">
-                <h3>Mixer</h3>
                 <div class="chart-mixer">
                   <label class="chart-slider-field">
                     <span>Master</span>
@@ -113,64 +147,7 @@
                   </label>
                 </div>
               </div>
-              <div class="chart-settings-section">
-                <h3>Document</h3>
-                <dl id="chart-meta" class="chart-meta-list"></dl>
-              </div>
-              <div class="chart-settings-section">
-                <h3>Diagnostics</h3>
-                <ul id="diagnostics-list"></ul>
-              </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <!-- Bottom overlay: transport controls -->
-      <div class="chart-bottom-overlay" id="chart-bottom-overlay" aria-hidden="true">
-        <div class="chart-transport-controls">
-          <div class="chart-bottom-popover-wrap chart-tempo-field">
-            <input id="tempo-input" type="number" min="40" max="320" step="1" value="120" hidden>
-            <button id="tempo-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
-              <span id="tempo-button-label">120 bpm</span>
-            </button>
-            <div id="tempo-popover" class="chart-bottom-popover chart-tempo-popover" hidden>
-              <span class="chart-bottom-popover-title">Tempo</span>
-              <strong id="tempo-popover-value">120</strong>
-              <input id="tempo-range" type="range" min="40" max="320" step="1" value="120">
-            </div>
-          </div>
-          <label class="chart-select-field chart-legacy-playback-setting">
-            <span>Comping style</span>
-            <select id="comping-style-select">
-              <option value="off">Off</option>
-              <option value="strings">Strings</option>
-              <option value="piano" selected>Piano</option>
-            </select>
-          </label>
-          <label class="chart-select-field chart-legacy-playback-setting">
-            <span>Drums</span>
-            <select id="drums-select">
-              <option value="off">Off</option>
-              <option value="metronome_2_4">Metronome 2 &amp; 4</option>
-              <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
-              <option value="full_swing" selected>Full swing drum pattern</option>
-            </select>
-          </label>
-          <label class="chart-select-field chart-key-field">
-            <span>Key</span>
-            <select id="transpose-select" aria-label="Chart key"></select>
-          </label>
-        </div>
-        <div class="chart-transport-bottom-row">
-          <div class="chart-transport-meta">
-            <span id="transport-status">Ready</span>
-            <span id="transport-position">Bar 0 / 0</span>
-            <span id="selection-summary">No selection</span>
-          </div>
-          <div class="chart-transport-buttons">
-            <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
-            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
-            <button id="chart-mixer-button" type="button" class="chart-transport-button chart-mixer-button" aria-label="Mixer">Mixer</button>
             <button id="clear-selection-button" type="button" class="chart-transport-button chart-clear-selection-button">Clear selection</button>
           </div>
         </div>

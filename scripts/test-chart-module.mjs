@@ -2621,6 +2621,10 @@ assert.equal(alice.metadata.sourceRepeats, 3, 'Alice keeps the source repeats me
 const bodyAndSoul = byTitle.get('Body And Soul');
 assert.ok(bodyAndSoul, 'Body And Soul is present in the raw source import.');
 assert.ok(bodyAndSoul.bars.some(bar => bar.playback.slots.some(slot => slot.bass)), 'Body And Soul keeps slash chords.');
+assert.ok(
+  bodyAndSoul.bars.some(bar => bar.playback.slots.some(slot => slot.symbol === 'Ebm7/Db')),
+  'Body And Soul keeps slash bass symbols as bare notes instead of chord-quality suffixes.'
+);
 
 const aBallad = byTitle.get('A Ballad');
 assert.ok(aBallad, 'A Ballad is present in the raw source import.');
@@ -2643,6 +2647,78 @@ assert.equal(
   aBalladExport.engineBars[46],
   'G7 G7 Cmaj7 Cmaj7',
   'A Ballad bar 47 collapses 8 iReal cells into 4 Drill beat slots.'
+);
+
+const aPrettyGirl = byTitle.get('A Pretty Girl Is Like A Melody');
+assert.ok(aPrettyGirl, 'A Pretty Girl Is Like A Melody is present in the raw source import.');
+const aPrettyGirlSession = createPracticeSessionFromChartDocument(aPrettyGirl);
+assert.equal(
+  aPrettyGirlSession.playback.bars[15].beatSlots.join(' '),
+  'C9 C9 B7 Bb7',
+  'Chart playback strips display-only slash prefixes before the Drill engine parses beat slots.'
+);
+assert.equal(
+  drillPatternAnalysis.analyzePattern(aPrettyGirlSession.playback.enginePatternString).errorMessage,
+  null,
+  'Chart playback exports display-prefixed slash chords as valid Drill engine tokens.'
+);
+
+const legacySlashSession = createPracticeSessionFromChartDocument(createChartDocument({
+  metadata: {
+    id: 'legacy-slash',
+    title: 'Legacy slash',
+    primaryTimeSignature: '4/4',
+    barCount: 1
+  },
+  bars: [{
+    id: 'bar-1',
+    index: 1,
+    sectionId: 'A-1',
+    sectionLabel: 'A',
+    timeSignature: '4/4',
+    endings: [],
+    flags: [],
+    directives: [],
+    comments: [],
+    sourceEvent: null,
+    repeatedFromBar: null,
+    specialEvents: [],
+    annotationMisc: [],
+    spacerCount: 0,
+    chordSizes: [],
+    notation: {
+      kind: 'written',
+      tokens: []
+    },
+    playback: {
+      slots: [{
+        kind: 'chord',
+        symbol: 'Eb7/F6',
+        root: 'Eb',
+        quality: '7',
+        bass: 'F',
+        displayPrefix: '',
+        alternate: null
+      }],
+      overlaySlots: [],
+      cellSlots: [{
+        chord: {
+          kind: 'chord',
+          symbol: 'Eb7/F6',
+          root: 'Eb',
+          modifier: '7',
+          bass: 'F',
+          display_prefix: '',
+          alternate: null
+        }
+      }]
+    }
+  }]
+}));
+assert.equal(
+  legacySlashSession.playback.enginePatternString,
+  'key: C | Eb7/F Eb7/F Eb7/F Eb7/F |',
+  'Chart playback rebuilds slash chords from structured root/quality/bass fields when persisted symbols contain stale suffixes.'
 );
 
 const allTheThings = byTitle.get('All The Things You Are');

@@ -150,7 +150,7 @@ function applyContextualizedPlaybackSlotsToCellSlots(playbackCellSlots = [], con
   let contextualizedIndex = 0;
 
   for (const cellSlot of remappedCellSlots) {
-    if (!cellSlot?.chord) continue;
+    if (!cellSlot?.chord || !isPlayableChordSlot(cellSlot.chord)) continue;
     const contextualizedSlot = contextualizedPlaybackSlots[contextualizedIndex] || null;
     contextualizedIndex += 1;
     if (!contextualizedSlot) continue;
@@ -165,6 +165,17 @@ function applyContextualizedPlaybackSlotsToCellSlots(playbackCellSlots = [], con
   }
 
   return remappedCellSlots;
+}
+
+/**
+ * @param {ChartChordSlot | null | undefined} slot
+ * @returns {boolean}
+ */
+function isPlayableChordSlot(slot) {
+  const root = String(slot?.root || '').trim();
+  const symbol = String(slot?.symbol || '').trim();
+  if (!root && !symbol) return false;
+  return !['p', 'n', 'r', 'x', 'W'].includes(root || symbol);
 }
 
 /**
