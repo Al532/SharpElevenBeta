@@ -2,7 +2,7 @@
   "name": "sharp-eleven-app",
   "private": true,
   "type": "module",
-  "version": "1.1.47",
+  "version": "1.1.48",
   "dependencies": {
     "@capacitor/app": "^8.0.0"
   },

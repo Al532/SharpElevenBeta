@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "ChartMusicSymbols";
+  src: url("../assets/fonts/BravuraText-Latin-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --chart-paper: #ffffff;
   --chart-ink: #000000;
@@ -298,6 +306,62 @@ select {
 .chart-transport-button:disabled {
   opacity: 0.52;
   cursor: default;
+}
+
+.chart-bottom-popover-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.chart-bottom-control-button {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--chart-ui-inverse-border);
+  border-radius: 12px;
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-bottom-popover {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 12;
+  width: min(300px, calc(100vw - 32px));
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--chart-ui-accent-border-soft);
+  background: var(--chart-ui-bottom-overlay);
+  color: var(--chart-ui-accent);
+  box-shadow: 0 14px 34px var(--chart-ui-shadow-medium);
+  transform: translateX(-50%);
+}
+
+.chart-bottom-popover[hidden] {
+  display: none;
+}
+
+.chart-tempo-popover {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.chart-bottom-popover-title {
+  font-size: 0.78rem;
+  color: var(--chart-ui-muted-on-accent);
+}
+
+.chart-tempo-popover strong {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.chart-tempo-popover input[type="range"] {
+  width: 100%;
 }
 
 /* --- Popovers ---------------------------------------------------- */
@@ -970,6 +1034,7 @@ select {
   width: 100%;
   justify-content: center;
   align-items: center;
+  transform: scaleX(var(--chart-token-scale-x, 1)) scaleY(var(--chart-token-scale-y, 1));
   transform-origin: center center;
 }
 
@@ -977,13 +1042,15 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: serif;
-  font-size: 1.34em;
+  font-family: "ChartMusicSymbols", serif;
+  font-size: 1.14em;
+  font-weight: 400;
   line-height: 1;
   color: currentColor;
+  font-synthesis: none;
   text-rendering: geometricPrecision;
   font-variant-ligatures: none;
-  transform: translate(0.08em, 0.1em);
+  transform: translateY(0.16em);
 }
 
 .chart-token .chord-symbol {
@@ -1473,11 +1540,11 @@ select {
   .chart-top-bar {
     left: 0;
     right: 0;
-    min-height: calc(env(safe-area-inset-top) + 54px);
+    min-height: 0;
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 0;
+    gap: 8px;
     padding:
       max(4px, calc(env(safe-area-inset-top) + 1px))
       max(18px, calc(env(safe-area-inset-right) + 12px))
@@ -1523,7 +1590,7 @@ select {
   .chart-transport-controls {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     align-items: center;
-    gap: 18px;
+    gap: 12px;
   }
 
   .chart-legacy-playback-setting,
@@ -1544,51 +1611,46 @@ select {
     clip: rect(0 0 0 0);
   }
 
+  .chart-bottom-control-button,
   .chart-bottom-overlay .chart-select-field input,
   .chart-bottom-overlay .chart-select-field select {
     width: 100%;
-    min-height: 60px;
+    min-height: 38px;
     border: 0;
-    border-radius: 0;
+    border-radius: 999px;
     background: transparent;
     color: var(--chart-ui-accent);
-    font-size: clamp(2.45rem, 8.9vw, 3.85rem);
+    font-size: clamp(1.35rem, 5.2vw, 2.05rem);
+    font-weight: 400;
     line-height: 1;
     text-align: center;
     text-align-last: center;
-    padding: 0;
+    padding: 0 0.18em;
     appearance: none;
     -webkit-appearance: none;
   }
 
-  .chart-tempo-field input {
-    width: 3ch;
-    flex: 0 1 auto;
-    max-width: none;
-    min-width: 0;
-  }
-
-  .chart-tempo-field input::-webkit-outer-spin-button,
-  .chart-tempo-field input::-webkit-inner-spin-button {
-    margin: 0;
-    -webkit-appearance: none;
-  }
-
-  .chart-tempo-field::after {
-    content: " bpm";
-    color: var(--chart-ui-accent);
-    font-size: clamp(2.45rem, 8.9vw, 3.85rem);
-    line-height: 1;
-    pointer-events: none;
-  }
-
   .chart-tempo-field {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: auto;
     white-space: nowrap;
-    column-gap: 0.12em;
+  }
+
+  .chart-bottom-popover {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--chart-mobile-bottom-overlay-height);
+    width: auto;
+    padding: 10px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+    border: 0;
+    border-radius: 0;
+    background: var(--chart-ui-bottom-overlay);
+    box-shadow: none;
+    transform: none;
+  }
+
+  .chart-tempo-popover strong {
+    font-size: 2rem;
   }
 
   .chart-key-field select {
@@ -1604,14 +1666,14 @@ select {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: center;
-    gap: 24px;
-    margin-top: 8px;
+    gap: 8px;
+    margin-top: 4px;
   }
 
   .chart-transport-button {
     width: 100%;
-    height: 72px;
-    min-height: 72px;
+    height: 27px;
+    min-height: 27px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -1629,34 +1691,34 @@ select {
 
   #stop-button::before {
     content: "";
-    width: 50px;
-    height: 50px;
+    width: 25px;
+    height: 25px;
     display: block;
-    border-radius: 7px;
+    border-radius: 4px;
     background: currentColor;
   }
 
   .chart-transport-play::before {
     content: "";
-    width: 58px;
-    height: 68px;
+    width: 29px;
+    height: 34px;
     display: block;
     background: currentColor;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 68'%3E%3Cpath d='M6 7C6 2.6 10.8-.1 14.6 2.2l39.3 24.6c5.5 3.4 5.5 11.3 0 14.7L14.6 65.8C10.8 68.1 6 65.4 6 61V7Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 68'%3E%3Cpath d='M6 7C6 2.6 10.8-.1 14.6 2.2l39.3 24.6c5.5 3.4 5.5 11.3 0 14.7L14.6 65.8C10.8 68.1 6 65.4 6 61V7Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
-    margin-left: 8px;
+    margin-left: 4px;
   }
 
   .chart-transport-play.is-playing::before {
-    width: 54px;
-    height: 64px;
+    width: 27px;
+    height: 32px;
     border: 0;
     margin-left: 0;
-    -webkit-mask: none;
+      -webkit-mask: none;
     mask: none;
     background:
-      linear-gradient(currentColor, currentColor) left center / 18px 64px no-repeat,
-      linear-gradient(currentColor, currentColor) right center / 18px 64px no-repeat;
+      linear-gradient(currentColor, currentColor) left center / 9px 32px no-repeat,
+      linear-gradient(currentColor, currentColor) right center / 9px 32px no-repeat;
   }
 
   .chart-mixer-button {
@@ -1666,16 +1728,16 @@ select {
 
   .chart-mixer-button::before {
     content: "";
-    width: 66px;
-    height: 58px;
+    width: 33px;
+    height: 29px;
     display: block;
     background:
-      linear-gradient(currentColor, currentColor) 10px 4px / 6px 50px no-repeat,
-      linear-gradient(currentColor, currentColor) 30px 4px / 6px 50px no-repeat,
-      linear-gradient(currentColor, currentColor) 50px 4px / 6px 50px no-repeat,
-      radial-gradient(circle at 13px 20px, currentColor 0 8px, transparent 8.5px),
-      radial-gradient(circle at 33px 39px, currentColor 0 8px, transparent 8.5px),
-      radial-gradient(circle at 53px 27px, currentColor 0 8px, transparent 8.5px);
+      linear-gradient(currentColor, currentColor) 5px 2px / 3px 25px no-repeat,
+      linear-gradient(currentColor, currentColor) 15px 2px / 3px 25px no-repeat,
+      linear-gradient(currentColor, currentColor) 25px 2px / 3px 25px no-repeat,
+      radial-gradient(circle at 6.5px 10px, currentColor 0 4px, transparent 4.25px),
+      radial-gradient(circle at 16.5px 19.5px, currentColor 0 4px, transparent 4.25px),
+      radial-gradient(circle at 26.5px 13.5px, currentColor 0 4px, transparent 4.25px);
   }
 
   .chart-workspace {

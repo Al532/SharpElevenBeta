@@ -66,6 +66,7 @@ export function createChartGestureController({
   hasActiveSelection,
   clearSelection,
   openOverlay,
+  closeOverlay,
   goToAdjacentChart
 }: {
   sheetGrid?: HTMLElement | null;
@@ -74,6 +75,7 @@ export function createChartGestureController({
   hasActiveSelection?: () => boolean;
   clearSelection?: () => void;
   openOverlay?: () => void;
+  closeOverlay?: () => void;
   goToAdjacentChart?: (direction: number) => boolean;
 } = {}) {
   const gesture: {
@@ -284,6 +286,14 @@ export function createChartGestureController({
         event.stopImmediatePropagation?.();
         return;
       }
+      if (isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target)) {
+        closeOverlay?.();
+        suppressNextClick();
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
       if (isEditableTarget(event.target)) return;
       if (!isChartTapTarget(event.target)) return;
       if (hasActiveSelection?.()) {
@@ -323,7 +333,7 @@ export function createChartGestureController({
     }, { passive: false, capture: true });
 
     document.addEventListener('touchend', (event) => {
-      if (Date.now() < gesture.suppressClickUntil) return;
+      if (Date.now() < gesture.suppressClickUntil && !gesture.touchStartedInOverlay) return;
       if (Date.now() < gesture.suppressTapUntil) return;
       if (gesture.mode !== 'idle' && gesture.mode !== 'pending') return;
       if (!gesture.touchStartedInChart) return;
@@ -343,6 +353,13 @@ export function createChartGestureController({
       }
       if (gesture.touchMoved) return;
       if (isEditableTarget(event.target)) return;
+      if (gesture.touchStartedInOverlay) {
+        closeOverlay?.();
+        suppressNextClick();
+        gesture.touchStartedInChart = false;
+        gesture.touchStartedInOverlay = false;
+        return;
+      }
       if (hasActiveSelection?.()) {
         clearSelection?.();
       } else {

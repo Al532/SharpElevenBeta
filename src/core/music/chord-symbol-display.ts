@@ -269,6 +269,17 @@ function getSupAnchorCompressionClass(base: string | null | undefined) {
   }
 }
 
+function getSlashAnchorCompressionClass(base: string | null | undefined) {
+  switch (String(base || '')) {
+    case 'm':
+      return ' chord-symbol-slash-anchor-condensed-m';
+    case 'sus':
+      return ' chord-symbol-slash-anchor-condensed-sus';
+    default:
+      return '';
+  }
+}
+
 function getSupReserveClass(sup: QualityDisplayPart) {
   const value = sup.type === 'text' ? String(sup.text || '') : String(sup.symbolName || '');
   if (!value) return '';
@@ -291,9 +302,12 @@ export function renderChordSymbolHtml(
   const safeRootLetter = escapeHtml(letter);
   const safeRootAccidental = formatAccidentals(accidental);
   const { base, sup } = getDisplayPartsForQuality(quality || '', options);
-  const safeBase = base.type === 'symbol'
+  const safeBaseText = base.type === 'symbol'
     ? `<span class="chord-symbol-quality-glyph chord-symbol-quality-glyph-${base.symbolName}" aria-hidden="true">${QUALITY_SYMBOL_SVGS[base.symbolName] || ''}</span>`
     : formatAccidentals(base.text);
+  const safeBase = safeBaseText && base.type === 'text'
+    ? `<span class="chord-symbol-base-content">${safeBaseText}</span>`
+    : safeBaseText;
   const safeSup = sup.type === 'symbol'
     ? createQualitySupSymbolMarkup(sup.symbolName)
     : formatAccidentals(sup.text);
@@ -303,11 +317,12 @@ export function renderChordSymbolHtml(
   const baseCompressionClass = base.type === 'text' ? getSegmentCompressionClass(base.text, 'base') : '';
   const supCompressionClass = sup.type === 'text' ? getSegmentCompressionClass(sup.text, 'sup') : '';
   const supAnchorCompressionClass = safeBase && base.type === 'text' ? getSupAnchorCompressionClass(base.text) : '';
+  const slashAnchorCompressionClass = safeBass && base.type === 'text' ? getSlashAnchorCompressionClass(base.text) : '';
   const supReserveClass = safeSup ? getSupReserveClass(sup) : '';
   const baseSymbolClass = base.type === 'symbol' ? ` chord-symbol-base-symbol chord-symbol-base-symbol-${base.symbolName}` : '';
 
   return [
-    `<span class="chord-symbol${symbolContextClass}${supReserveClass}">`,
+    `<span class="chord-symbol${symbolContextClass}${supReserveClass}${slashAnchorCompressionClass}">`,
     '<span class="chord-symbol-topline">',
     '<span class="chord-symbol-head">',
     '<span class="chord-symbol-main">',

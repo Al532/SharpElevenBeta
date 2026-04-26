@@ -15,10 +15,16 @@
 import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
 import {
   createChartDocumentsFromIRealText,
+  parseNoteSymbol,
+  transposeKeySymbol
 } from './index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
 import {
+  hasPersistedChartDocumentIndex,
   loadPersistedChartId as loadPersistedChartIdFromStorage,
+  loadPersistedChartDocument,
+  loadPersistedChartDocumentById,
+  loadPersistedChartLibrary,
   persistChartLibrary,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
   persistChartId as persistChartIdToStorage,
@@ -29,7 +35,6 @@ import {
   importDocumentsFromIRealText as importChartDocumentsFromIRealText
 } from '../src/features/chart/chart-library.js';
 import {
-  applyImportedLibrary as applyImportedChartLibrary,
   renderSelectedFixture
 } from '../src/features/chart/chart-fixture-controller.js';
 import {
@@ -70,7 +75,6 @@ import {
   createChartDefaultLibraryBindings,
   createChartDirectPlaybackRuntimeHostBindings,
   createChartFixtureRenderBindings,
-  createChartImportedLibraryBindings,
   createChartImportControlsBindings,
   createChartImportStatusBindings,
   createChartLayoutObserversBindings,
@@ -125,6 +129,8 @@ const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
 const DEFAULT_BAR_GROUP_SIZE = CHART_DISPLAY_CONFIG.layout.barsPerRow;
 const CHART_TEXT_SCALE_COMPENSATION_CSS_VAR = CHART_DISPLAY_CONFIG.textScaleCompensation.cssVarName;
+const CHART_RENDER_PERF_LOG_PREFIX = '[SharpEleven chart perf]';
+const CHART_RENDER_PERF_STORAGE_KEY = 'sharp-eleven-chart-render-perf';
 
 const {
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
@@ -156,6 +162,11 @@ const dom = {
   useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol') as HTMLInputElement | null,
   useDiminishedSymbol: document.getElementById('use-diminished-symbol') as HTMLInputElement | null,
   tempoInput: document.getElementById('tempo-input') as HTMLInputElement | null,
+  tempoButton: document.getElementById('tempo-button') as HTMLButtonElement | null,
+  tempoButtonLabel: document.getElementById('tempo-button-label'),
+  tempoPopover: document.getElementById('tempo-popover'),
+  tempoPopoverValue: document.getElementById('tempo-popover-value'),
+  tempoRange: document.getElementById('tempo-range') as HTMLInputElement | null,
   sheetStyle: document.getElementById('sheet-style'),
   sheetTitle: document.getElementById('sheet-title'),
   sheetSubtitle: document.getElementById('sheet-subtitle'),
@@ -252,6 +263,14 @@ let lastMobileOverlayBottomHeight = -1;
 let lastMobileOverlayPushY = -1;
 
 let chartTextScaleCompensation = 1;
+let transposeOptionsChartId = '';
+let chartRenderPerfPassId = 0;
+let activeChartRenderPerfPassId = 0;
+let chartLayoutFrame = 0;
+let pendingChartLayoutNeedsOpticalPlacement = false;
+const pendingChartLayoutReasons = new Set<string>();
+let lastOpticalLayoutWidth = -1;
+let lastOpticalLayoutFontsReady = false;
 
 declare global {
   interface Window {
@@ -538,11 +557,95 @@ function setImportStatus(message: string, isError = false) {
 }
 
 async function importDocumentsFromIRealText(rawText: string, sourceFile = '') {
+  const startedAt = getChartRenderPerfNow();
   return importChartDocumentsFromIRealText(createChartLibraryImportBindings({
     rawText,
     sourceFile,
     importDocuments: createChartDocumentsFromIRealText
-  }));
+  })).finally(() => {
+    logChartRenderPerf('importDocumentsFromIRealText', startedAt, {
+      sourceFile
+    });
+  });
+}
+
+function renderImportedLibrary({
+  documents,
+  source,
+  preferredId,
+  statusMessage,
+  renderSelectedChart = true
+}: {
+  documents: ChartDocument[],
+  source: string,
+  preferredId?: string | null,
+  statusMessage?: string,
+  renderSelectedChart?: boolean
+}) {
+  state.fixtureLibrary = {
+    source,
+    documents
+  };
+  state.filteredDocuments = [...documents];
+  state.currentLibrarySourceLabel = String(source || '');
+  if (dom.chartSearchInput) {
+    dom.chartSearchInput.value = '';
+  }
+  state.currentSearch = '';
+  renderChartSelector(preferredId);
+  if (renderSelectedChart) {
+    renderFixture();
+  }
+  setImportStatus(statusMessage || `Loaded ${documents.length} charts from ${source}.`);
+
+  const requestedPlaylist = getRequestedPlaylist();
+  if (requestedPlaylist && dom.chartSearchInput) {
+    dom.chartSearchInput.value = requestedPlaylist;
+    applySearchFilter();
+  }
+}
+
+async function persistImportedLibraryInBackground({
+  documents,
+  source,
+  mergeWithExisting
+}: {
+  documents: ChartDocument[],
+  source: string,
+  mergeWithExisting: boolean
+}) {
+  const startedAt = getChartRenderPerfNow();
+  try {
+    await persistChartLibrary({
+      documents,
+      source,
+      mergeWithExisting
+    });
+  } catch (error) {
+    console.warn('Failed to persist chart library after initial render.', error);
+  } finally {
+    logChartRenderPerf('persistChartLibrary', startedAt, {
+      source,
+      mergeWithExisting,
+      background: true
+    });
+  }
+}
+
+async function backfillChartDocumentIndexInBackground({
+  documents,
+  source
+}: {
+  documents: ChartDocument[],
+  source: string
+}) {
+  const hasDocumentIndex = await hasPersistedChartDocumentIndex();
+  if (hasDocumentIndex) return;
+  await persistImportedLibraryInBackground({
+    documents,
+    source,
+    mergeWithExisting: false
+  });
 }
 
 async function applyImportedLibrary({ documents, source, preferredId = null, statusMessage = '' }: {
@@ -552,14 +655,38 @@ async function applyImportedLibrary({ documents, source, preferredId = null, sta
   statusMessage?: string
 }): Promise<void> {
   let nextDocuments = documents;
+  const isBundledDefaultLibrary = source === 'bundled default library';
 
   if (documents.length > 0) {
-    const shouldMerge = source !== 'bundled default library';
+    const shouldMerge = !isBundledDefaultLibrary;
+
+    if (isBundledDefaultLibrary) {
+      renderImportedLibrary({
+        documents: nextDocuments,
+        source,
+        preferredId,
+        statusMessage
+      });
+      void persistImportedLibraryInBackground({
+        documents,
+        source,
+        mergeWithExisting: shouldMerge
+      });
+      return;
+    }
+
+    const startedAt = getChartRenderPerfNow();
     const persistedLibrary = await persistChartLibrary({
-      documents,
-      source,
-      mergeWithExisting: shouldMerge
-    });
+        documents,
+        source,
+        mergeWithExisting: shouldMerge
+      }).finally(() => {
+        logChartRenderPerf('persistChartLibrary', startedAt, {
+          source,
+          mergeWithExisting: shouldMerge,
+          background: false
+        });
+      });
 
     if (!persistedLibrary) {
       throw new Error('The imported chart library could not be confirmed in persistent storage.');
@@ -572,27 +699,17 @@ async function applyImportedLibrary({ documents, source, preferredId = null, sta
     nextDocuments = persistedLibrary.documents;
     source = persistedLibrary.source;
   }
-  applyImportedChartLibrary(createChartImportedLibraryBindings({
-    state,
-    chartSearchInput: dom.chartSearchInput,
-    renderChartSelector,
-    renderFixture,
-    setImportStatus,
+  renderImportedLibrary({
     documents: nextDocuments,
     source,
     preferredId,
     statusMessage
-  }));
-
-  const requestedPlaylist = getRequestedPlaylist();
-  if (requestedPlaylist && dom.chartSearchInput) {
-    dom.chartSearchInput.value = requestedPlaylist;
-    applySearchFilter();
-  }
+  });
 }
 
 function getPlaybackSettings(): PlaybackSettings {
   return {
+    transposition: getChartTransposeSemitones(),
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
     customMediumSwingBass: dom.walkingBassToggle?.checked,
@@ -601,6 +718,34 @@ function getPlaybackSettings(): PlaybackSettings {
     stringsVolume: Number(dom.stringsVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT),
     drumsVolume: Number(dom.drumsVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT)
   };
+}
+
+function getChartTransposeSemitones() {
+  const parsed = Number(dom.transposeSelect?.value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getTransposeSourceKey(chartDocument: ChartDocument | null | undefined) {
+  const sourceKey = String(chartDocument?.metadata?.sourceKey || '').trim();
+  const tonic = sourceKey.match(/^([A-G](?:b|#)?)/)?.[1] || '';
+  return parseNoteSymbol(tonic) ? sourceKey : 'C';
+}
+
+function populateTransposeOptions(chartDocument: ChartDocument | null | undefined) {
+  if (!dom.transposeSelect || !chartDocument) return;
+  const chartId = chartDocument.metadata?.id || '';
+  if (transposeOptionsChartId === chartId && dom.transposeSelect.options.length > 0) return;
+
+  transposeOptionsChartId = chartId;
+  const sourceKey = getTransposeSourceKey(chartDocument);
+  dom.transposeSelect.innerHTML = '';
+  for (let offset = 0; offset < 12; offset += 1) {
+    const option = document.createElement('option');
+    option.value = String(offset);
+    option.textContent = transposeKeySymbol(sourceKey, offset) || sourceKey;
+    dom.transposeSelect.appendChild(option);
+  }
+  dom.transposeSelect.value = '0';
 }
 
 function getSelectedPracticeSession(): PracticeSessionSpec | null {
@@ -636,20 +781,171 @@ function getTempo() {
   return Number.isFinite(parsed) ? Math.max(40, Math.min(320, parsed)) : DEFAULT_TEMPO;
 }
 
+function syncTempoControls(tempo = getTempo()) {
+  const normalizedTempo = Math.round(Math.max(40, Math.min(320, Number(tempo) || DEFAULT_TEMPO)));
+  if (dom.tempoInput) dom.tempoInput.value = String(normalizedTempo);
+  if (dom.tempoRange) dom.tempoRange.value = String(normalizedTempo);
+  if (dom.tempoButtonLabel) dom.tempoButtonLabel.textContent = `${normalizedTempo} bpm`;
+  if (dom.tempoPopoverValue) dom.tempoPopoverValue.textContent = String(normalizedTempo);
+}
+
+function setTempo(value: number | string, { syncPlayback = false }: { syncPlayback?: boolean } = {}) {
+  const parsed = Number(value);
+  const nextTempo = Number.isFinite(parsed) ? Math.max(40, Math.min(320, Math.round(parsed))) : DEFAULT_TEMPO;
+  syncTempoControls(nextTempo);
+  renderTransport();
+  if (syncPlayback) {
+    void syncPlaybackSettings().catch((error) => {
+      if (dom.transportStatus) dom.transportStatus.textContent = `Playback settings error: ${getErrorMessage(error)}`;
+    });
+  }
+}
+
+function closeBottomPopovers() {
+  if (dom.tempoPopover) dom.tempoPopover.hidden = true;
+  if (dom.tempoButton) dom.tempoButton.setAttribute('aria-expanded', 'false');
+}
+
+function bindBottomControlPopovers() {
+  syncTempoControls();
+
+  dom.tempoButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const willOpen = Boolean(dom.tempoPopover?.hidden);
+    closeAllChartPopovers((createChartPopoverBindings({
+      popovers: [dom.manageChartsPopover, dom.settingsPopover]
+    }) as { popovers: Array<HTMLElement | null> }).popovers);
+    if (dom.tempoPopover) dom.tempoPopover.hidden = !willOpen;
+    dom.tempoButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    syncMobileOverlayDrawerLayout();
+  });
+
+  dom.tempoPopover?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  dom.tempoRange?.addEventListener('input', () => {
+    setTempo(dom.tempoRange?.value || DEFAULT_TEMPO, { syncPlayback: true });
+  });
+
+  dom.tempoInput?.addEventListener('change', () => {
+    setTempo(dom.tempoInput?.value || DEFAULT_TEMPO, { syncPlayback: true });
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.chart-bottom-popover-wrap')) return;
+    closeBottomPopovers();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    closeBottomPopovers();
+  });
+}
+
 function getDisplayedBarGroupSize() {
   return DEFAULT_BAR_GROUP_SIZE;
 }
 
+function getChartRenderPerfNow() {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
+function isChartRenderPerfEnabled() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('chartPerf') === '1' || params.has('perf')) return true;
+    if (params.get('chartPerf') === '0') return false;
+    return window.localStorage?.getItem(CHART_RENDER_PERF_STORAGE_KEY) === '1';
+  } catch (_error) {
+    return false;
+  }
+}
+
+function logChartRenderPerf(label: string, startedAt: number, details: Record<string, unknown> = {}) {
+  if (!isChartRenderPerfEnabled()) return;
+  const durationMs = getChartRenderPerfNow() - startedAt;
+  console.info(`${CHART_RENDER_PERF_LOG_PREFIX} ${JSON.stringify({
+    label,
+    passId: activeChartRenderPerfPassId,
+    durationMs: Math.round(durationMs * 100) / 100,
+    ...details
+  })}`);
+}
+
 function renderSheet(viewModel: ChartViewModel) {
+  const startedAt = getChartRenderPerfNow();
+  activeChartRenderPerfPassId = chartRenderPerfPassId + 1;
   getChartSheetRenderer().renderSheet(viewModel);
+  chartRenderPerfPassId = activeChartRenderPerfPassId;
+  logChartRenderPerf('renderSheet', startedAt, {
+    chartTitle: viewModel?.metadata?.title || '',
+    bars: viewModel?.bars?.length || 0
+  });
+}
+
+function runChartLayout({
+  includeOpticalPlacement = false,
+  reasons = []
+}: {
+  includeOpticalPlacement?: boolean,
+  reasons?: string[]
+} = {}) {
+  const startedAt = getChartRenderPerfNow();
+  if (includeOpticalPlacement) {
+    applyOpticalPlacements();
+  }
+  updateSheetGridGap();
+  logChartRenderPerf('scheduledChartLayout', startedAt, {
+    includeOpticalPlacement,
+    reasons
+  });
+}
+
+function scheduleChartLayout({
+  includeOpticalPlacement = false,
+  reason = 'layout'
+}: {
+  includeOpticalPlacement?: boolean,
+  reason?: string
+} = {}) {
+  pendingChartLayoutNeedsOpticalPlacement ||= includeOpticalPlacement;
+  pendingChartLayoutReasons.add(reason);
+  if (chartLayoutFrame) return;
+
+  chartLayoutFrame = window.requestAnimationFrame(() => {
+    chartLayoutFrame = 0;
+    const shouldApplyOpticalPlacement = pendingChartLayoutNeedsOpticalPlacement;
+    const reasons = Array.from(pendingChartLayoutReasons);
+    pendingChartLayoutNeedsOpticalPlacement = false;
+    pendingChartLayoutReasons.clear();
+    runChartLayout({
+      includeOpticalPlacement: shouldApplyOpticalPlacement,
+      reasons
+    });
+  });
+}
+
+function shouldRunObserverOpticalPlacement() {
+  if (lastOpticalLayoutWidth !== window.innerWidth) return true;
+  return !lastOpticalLayoutFontsReady && document.fonts?.status === 'loaded';
 }
 
 function updateSheetGridGap() {
+  const startedAt = getChartRenderPerfNow();
   getChartSheetRenderer().updateSheetGridGap();
+  logChartRenderPerf('updateSheetGridGap', startedAt);
 }
 
 function applyOpticalPlacements() {
+  const startedAt = getChartRenderPerfNow();
   getChartSheetRenderer().applyOpticalPlacements();
+  lastOpticalLayoutWidth = window.innerWidth;
+  lastOpticalLayoutFontsReady = document.fonts?.status === 'loaded';
+  logChartRenderPerf('applyOpticalPlacements', startedAt);
 }
 
 function renderDiagnostics(playbackPlan: ChartPlaybackPlan | null) {
@@ -1105,12 +1401,17 @@ function applySearchFilter() {
 }
 
 function renderFixture() {
+  const availableDocuments = getAvailableDocuments();
+  const selectedId = dom.fixtureSelect?.value || availableDocuments[0]?.metadata?.id || '';
+  const isNewChartSelection = state.currentChartDocument?.metadata?.id !== selectedId;
+  populateTransposeOptions(availableDocuments.find((document) => document.metadata.id === selectedId));
   renderSelectedFixture(createChartFixtureRenderBindings({
     state,
     fixtureSelect: dom.fixtureSelect,
     transposeSelect: dom.transposeSelect,
     tempoInput: dom.tempoInput,
     getAvailableDocuments,
+    resetTempo: isNewChartSelection,
     stopPlayback,
     createPracticeSessionOptions: (playbackPlan) => ({
       playbackPlan,
@@ -1126,14 +1427,15 @@ function renderFixture() {
     renderMeta,
     renderSheet,
     afterRenderSheet: () => {
-      requestAnimationFrame(() => {
-        applyOpticalPlacements();
-        updateSheetGridGap();
+      scheduleChartLayout({
+        includeOpticalPlacement: true,
+        reason: 'afterRenderSheet'
       });
     },
     renderDiagnostics,
     renderTransport: () => {
       if (dom.transportStatus) dom.transportStatus.textContent = 'Ready';
+      syncTempoControls();
       renderTransport();
     },
     renderSelectionState,
@@ -1145,9 +1447,11 @@ function closeAllPopovers() {
   closeAllChartPopovers((createChartPopoverBindings({
     popovers: [dom.manageChartsPopover, dom.settingsPopover]
   }) as { popovers: Array<HTMLElement | null> }).popovers);
+  closeBottomPopovers();
 }
 
 function togglePopover(targetPopover: HTMLElement | null, otherPopover: HTMLElement | null) {
+  closeBottomPopovers();
   const bindings = createChartPopoverBindings({
     targetPopover,
     popovers: [targetPopover, otherPopover]
@@ -1211,7 +1515,7 @@ function bindMobileOverlayDrawerLayout() {
 }
 
 function handleSyntheticAndroidBack() {
-  const popovers = [dom.manageChartsPopover, dom.settingsPopover];
+  const popovers = [dom.manageChartsPopover, dom.settingsPopover, dom.tempoPopover];
   const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
   if (hasOpenPopover) {
     closeAllPopovers();
@@ -1248,6 +1552,7 @@ function openOverlay() {
 }
 
 function closeOverlay() {
+  closeBottomPopovers();
   closeChartOverlay(createChartOverlayShellBindings({
     chartApp: dom.chartApp,
     chartTopOverlay: dom.chartTopOverlay,
@@ -1258,6 +1563,60 @@ function closeOverlay() {
 }
 
 async function importDefaultFixtureLibrary() {
+  const preferredId = loadPersistedChartId();
+  const snapshotStartedAt = getChartRenderPerfNow();
+  let fastChartDocument = loadPersistedChartDocument(preferredId);
+  logChartRenderPerf('loadPersistedChartDocument', snapshotStartedAt, {
+    requestedChartId: preferredId,
+    chartId: fastChartDocument?.metadata?.id || '',
+    bars: fastChartDocument?.bars?.length || 0
+  });
+  if (!fastChartDocument && preferredId) {
+    const indexedDocumentStartedAt = getChartRenderPerfNow();
+    fastChartDocument = await loadPersistedChartDocumentById(preferredId);
+    logChartRenderPerf('loadPersistedChartDocumentById', indexedDocumentStartedAt, {
+      requestedChartId: preferredId,
+      chartId: fastChartDocument?.metadata?.id || '',
+      bars: fastChartDocument?.bars?.length || 0
+    });
+  }
+
+  if (fastChartDocument && !state.currentViewModel) {
+    renderImportedLibrary({
+      documents: [fastChartDocument],
+      source: 'recent chart snapshot',
+      preferredId: fastChartDocument.metadata.id,
+      statusMessage: 'Loading chart library...',
+      renderSelectedChart: true
+    });
+  }
+
+  const cacheStartedAt = getChartRenderPerfNow();
+  const persistedLibrary = await loadPersistedChartLibrary();
+  logChartRenderPerf('loadPersistedChartLibrary', cacheStartedAt, {
+    documents: persistedLibrary?.documents?.length || 0,
+    source: persistedLibrary?.source || ''
+  });
+
+  if (persistedLibrary?.documents?.length) {
+    const canKeepCurrentChart = Boolean(
+      state.currentChartDocument?.metadata?.id
+      && state.currentChartDocument.metadata.id === preferredId
+    );
+    renderImportedLibrary({
+      documents: persistedLibrary.documents,
+      source: persistedLibrary.source,
+      preferredId,
+      statusMessage: `Loaded ${persistedLibrary.documents.length} charts from the cached chart library.`,
+      renderSelectedChart: !canKeepCurrentChart
+    });
+    void backfillChartDocumentIndexInBackground({
+      documents: persistedLibrary.documents,
+      source: persistedLibrary.source
+    });
+    return;
+  }
+
   return importChartDefaultFixtureLibrary(createChartDefaultLibraryBindings({
     sourceUrl: IREAL_SOURCE_URL,
     rawText: defaultIRealSourceText,
@@ -1445,6 +1804,7 @@ async function loadFixtures() {
         void startSelectionLoop();
       });
       dom.selectionCreateDrillButton?.addEventListener('click', navigateToPracticeWithSelection);
+      bindBottomControlPopovers();
       createChartGestureController({
         sheetGrid: dom.sheetGrid,
         selectionController: state.selectionController,
@@ -1452,6 +1812,7 @@ async function loadFixtures() {
         hasActiveSelection,
         clearSelection: clearChartSelection,
         openOverlay,
+        closeOverlay,
         goToAdjacentChart: (direction) => chartNavigationController?.goToAdjacentChart(direction) ?? false
       }).bind();
     },
@@ -1485,12 +1846,19 @@ async function loadFixtures() {
     bindLayoutObservers: () => {
       bindChartLayoutObservers(createChartLayoutObserversBindings({
         sheetGrid: dom.sheetGrid,
-        updateSheetGridGap,
-        applyOpticalPlacements
+        updateSheetGridGap: () => scheduleChartLayout({ reason: 'layoutObserver' }),
+        applyOpticalPlacements: () => scheduleChartLayout({
+          includeOpticalPlacement: shouldRunObserverOpticalPlacement(),
+          reason: 'viewportLayoutObserver'
+        })
       }));
     },
     updateMixerOutputs,
-    renderFixture,
+    renderFixture: () => {
+      if (!state.currentViewModel) {
+        renderFixture();
+      }
+    },
     ensurePlaybackReady: async () => {
       getChartPlaybackController();
       await getChartPlaybackController().ensureReady();

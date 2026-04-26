@@ -113,6 +113,7 @@ export function createChartPlaybackController({
     const playbackSettings = getPlaybackSettings?.() || {};
     const nextPlaybackSettings = {
       tempo: getTempo?.(),
+      transposition: playbackSettings.transposition,
       compingStyle: playbackSettings.compingStyle,
       drumsMode: playbackSettings.drumsMode,
       customMediumSwingBass: playbackSettings.customMediumSwingBass,
@@ -149,6 +150,8 @@ export function createChartPlaybackController({
     const playbackSettings = getPlaybackSettings?.() || {};
     onPersistPlaybackSettings?.();
     const result = await controller.updatePlaybackSettings({
+      tempo: getTempo?.(),
+      transposition: playbackSettings.transposition,
       compingStyle: playbackSettings.compingStyle,
       drumsMode: playbackSettings.drumsMode,
       customMediumSwingBass: playbackSettings.customMediumSwingBass,

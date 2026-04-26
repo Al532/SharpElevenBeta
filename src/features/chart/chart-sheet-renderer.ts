@@ -308,7 +308,9 @@ function renderToken(token, placement, harmonyDisplayMode, renderChordMarkup) {
   const tokenClass = isRepeatTokenKind(token?.kind) ? 'repeat' : 'chord';
   const slotStart = Math.max(1, Number(placement?.start || 1));
   const slotEnd = Math.max(slotStart + 1, Number(placement?.end || (slotStart + 1)));
-  const slotStyle = `grid-column: ${slotStart} / ${slotEnd};`;
+  const slotStyle = tokenClass === 'repeat'
+    ? 'grid-column: 1 / -1;'
+    : `grid-column: ${slotStart} / ${slotEnd};`;
   const tokenMarkup = tokenClass === 'chord'
     ? renderChordMarkup(token, harmonyDisplayMode)
     : renderRepeatTokenMarkup(token);

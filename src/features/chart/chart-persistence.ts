@@ -9,6 +9,7 @@ import {
 
 const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
 const CHART_LIBRARY_STORE_NAME = 'libraries';
+const CHART_DOCUMENT_STORE_NAME = 'documents';
 const IMPORTED_CHART_LIBRARY_KEY = 'imported-chart-library';
 const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
@@ -58,16 +59,27 @@ function waitForRequest<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
+function waitForTransaction(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('IndexedDB transaction failed.'));
+    transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted.'));
+  });
+}
+
 function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
   const indexedDbFactory = getIndexedDbFactory();
   if (!indexedDbFactory) return Promise.resolve(null);
 
   return new Promise((resolve, reject) => {
-    const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 1);
+    const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 2);
     request.onupgradeneeded = () => {
       const database = request.result;
       if (!database.objectStoreNames.contains(CHART_LIBRARY_STORE_NAME)) {
         database.createObjectStore(CHART_LIBRARY_STORE_NAME);
+      }
+      if (!database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) {
+        database.createObjectStore(CHART_DOCUMENT_STORE_NAME);
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -94,6 +106,20 @@ function normalizePersistedChartLibrary(
     source,
     documents
   };
+}
+
+function normalizePersistedChartDocument(value: unknown): ChartDocument | null {
+  if (!value || typeof value !== 'object') return null;
+  const document = value as ChartDocument;
+  if (!document.metadata?.id || !Array.isArray(document.bars) || document.bars.length === 0) return null;
+  return document;
+}
+
+function normalizePersistedChartDocuments(value: unknown): ChartDocument[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(normalizePersistedChartDocument)
+    .filter((document): document is ChartDocument => Boolean(document));
 }
 
 function normalizeHomeChartSummary(value: unknown): HomeChartSummary | null {
@@ -302,6 +328,60 @@ export function loadPersistedChartId({
   }
 }
 
+export function loadPersistedChartDocument(chartId = ''): ChartDocument | null {
+  const chartUiSettings = loadChartUiSettings();
+  const requestedChartId = String(chartId || '').trim();
+  const recentChartDocuments = normalizePersistedChartDocuments(chartUiSettings?.recentChartDocuments);
+  if (requestedChartId) {
+    const lastChartDocument = normalizePersistedChartDocument(chartUiSettings?.lastChartDocument);
+    if (lastChartDocument?.metadata.id === requestedChartId) return lastChartDocument;
+    return recentChartDocuments.find((document) => document.metadata.id === requestedChartId) || null;
+  }
+  return normalizePersistedChartDocument(chartUiSettings?.lastChartDocument)
+    || recentChartDocuments[0]
+    || null;
+}
+
+export async function loadPersistedChartDocumentById(chartId = ''): Promise<ChartDocument | null> {
+  const requestedChartId = String(chartId || '').trim();
+  if (!requestedChartId) return loadPersistedChartDocument();
+
+  try {
+    const database = await openChartLibraryDatabase();
+    if (database?.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) {
+      try {
+        const transaction = database.transaction(CHART_DOCUMENT_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(CHART_DOCUMENT_STORE_NAME);
+        const persistedDocument = await waitForRequest(store.get(requestedChartId));
+        return normalizePersistedChartDocument(persistedDocument);
+      } finally {
+        database.close();
+      }
+    }
+  } catch {
+    // Fall back to localStorage-backed recent document snapshots below.
+  }
+
+  return loadPersistedChartDocument(requestedChartId);
+}
+
+export async function hasPersistedChartDocumentIndex(): Promise<boolean> {
+  try {
+    const database = await openChartLibraryDatabase();
+    if (!database?.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) return false;
+    try {
+      const transaction = database.transaction(CHART_DOCUMENT_STORE_NAME, 'readonly');
+      const store = transaction.objectStore(CHART_DOCUMENT_STORE_NAME);
+      const count = await waitForRequest(store.count());
+      return count > 0;
+    } finally {
+      database.close();
+    }
+  } catch {
+    return false;
+  }
+}
+
 export function loadRecentChartIds(): string[] {
   const chartUiSettings = loadChartUiSettings();
   const recentChartIds = chartUiSettings?.recentChartIds;
@@ -317,6 +397,7 @@ export function persistChartId(
   chartId: string,
   { legacyStorageKey = '', chartDocument = null }: { legacyStorageKey?: string; chartDocument?: ChartDocument | null } = {}
 ): void {
+  const chartUiSettings = loadChartUiSettings();
   const normalizedChartId = String(chartId || '').trim();
   const nextRecentChartIds = normalizedChartId
     ? [
@@ -324,10 +405,23 @@ export function persistChartId(
         ...loadRecentChartIds().filter((recentChartId) => recentChartId !== normalizedChartId)
       ].slice(0, 3)
     : loadRecentChartIds();
+  const recentChartDocumentsById = new Map(
+    normalizePersistedChartDocuments(chartUiSettings?.recentChartDocuments)
+      .map((document) => [document.metadata.id, document])
+  );
+  if (normalizedChartId && chartDocument) {
+    recentChartDocumentsById.set(normalizedChartId, chartDocument);
+  }
+  const nextRecentChartDocuments = nextRecentChartIds
+    .map((recentChartId) => recentChartDocumentsById.get(recentChartId))
+    .filter((document): document is ChartDocument => Boolean(document));
 
   saveChartUiSettings({
     lastChartId: normalizedChartId,
-    recentChartIds: nextRecentChartIds
+    recentChartIds: nextRecentChartIds,
+    recentChartDocuments: nextRecentChartDocuments,
+    ...(chartDocument ? { lastChartDocument: chartDocument } : {}),
+    ...(!normalizedChartId ? { lastChartDocument: null, recentChartDocuments: [] } : {})
   });
   if (!legacyStorageKey) return;
   try {
@@ -478,9 +572,23 @@ export async function persistChartLibrary({
       return mergedLibrary;
     }
     try {
-      const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readwrite');
+      const storeNames = database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)
+        ? [CHART_LIBRARY_STORE_NAME, CHART_DOCUMENT_STORE_NAME]
+        : [CHART_LIBRARY_STORE_NAME];
+      const transaction = database.transaction(storeNames, 'readwrite');
+      const transactionDone = waitForTransaction(transaction);
       const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
       await waitForRequest(store.put(mergedLibrary, IMPORTED_CHART_LIBRARY_KEY));
+      if (database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) {
+        const documentStore = transaction.objectStore(CHART_DOCUMENT_STORE_NAME);
+        await waitForRequest(documentStore.clear());
+        for (const document of mergedLibrary.documents) {
+          const documentId = String(document?.metadata?.id || '').trim();
+          if (!documentId) continue;
+          await waitForRequest(documentStore.put(document, documentId));
+        }
+      }
+      await transactionDone;
       saveChartUiSettings({
         importedChartLibrary: null,
         importedChartLibrarySource: mergedLibrary.source,
@@ -513,9 +621,17 @@ export async function clearPersistedChartLibrary(): Promise<void> {
     const database = await openChartLibraryDatabase();
     if (!database) return;
     try {
-      const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readwrite');
+      const storeNames = database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)
+        ? [CHART_LIBRARY_STORE_NAME, CHART_DOCUMENT_STORE_NAME]
+        : [CHART_LIBRARY_STORE_NAME];
+      const transaction = database.transaction(storeNames, 'readwrite');
+      const transactionDone = waitForTransaction(transaction);
       const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
       await waitForRequest(store.delete(IMPORTED_CHART_LIBRARY_KEY));
+      if (database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) {
+        await waitForRequest(transaction.objectStore(CHART_DOCUMENT_STORE_NAME).clear());
+      }
+      await transactionDone;
     } finally {
       database.close();
     }

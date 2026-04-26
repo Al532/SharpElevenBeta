@@ -54,6 +54,7 @@ export async function renderSelectedFixture({
   transposeSelect,
   tempoInput,
   getAvailableDocuments,
+  resetTempo = true,
   stopPlayback,
   createPracticeSessionOptions,
   persistChartId,
@@ -76,6 +77,7 @@ export async function renderSelectedFixture({
   transposeSelect?: HTMLSelectElement | null;
   tempoInput?: HTMLInputElement | null;
   getAvailableDocuments?: () => ChartDocument[];
+  resetTempo?: boolean;
   stopPlayback?: (options?: { resetPosition?: boolean }) => Promise<unknown>;
   createPracticeSessionOptions?: (playbackPlan: ChartPlaybackPlan) => { playbackPlan?: ChartPlaybackPlan; tempo?: number };
   persistChartId?: (chartId: string, chartDocument?: ChartDocument) => void;
@@ -102,6 +104,10 @@ export async function renderSelectedFixture({
 
   await stopPlayback?.({ resetPosition: true });
 
+  if (tempoInput && resetTempo) {
+    tempoInput.value = String(chartDocument.metadata.tempo || tempoInput.value || 120);
+  }
+
   const transposeSemitones = Number(transposeSelect?.value || 0);
   const viewModel = createChartViewModel(chartDocument, {
     displayTransposeSemitones: transposeSemitones
@@ -123,10 +129,6 @@ export async function renderSelectedFixture({
   if (sheetSubtitle) sheetSubtitle.textContent = viewModel.metadata.composer || '';
   if (sheetTimeSignature) sheetTimeSignature.textContent = viewModel.metadata.primaryTimeSignature || '';
   if (sheetKey) sheetKey.textContent = viewModel.metadata.displayKey || viewModel.metadata.sourceKey || '';
-  if (tempoInput) {
-    tempoInput.value = String(chartDocument.metadata.tempo || tempoInput.value || 120);
-  }
-
   renderMeta?.(viewModel);
   renderSheet?.(viewModel);
   afterRenderSheet?.();
