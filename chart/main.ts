@@ -1618,7 +1618,7 @@ async function renderChartMetadataPopover() {
 
   const tagInput = document.createElement('input');
   tagInput.type = 'text';
-  tagInput.placeholder = 'New or existing tag';
+  tagInput.placeholder = 'New tag name';
   const addTagButton = createChartMetadataButton('Add tag');
   addTagButton.addEventListener('click', async () => {
     const tag = tagInput.value.trim();
@@ -1910,7 +1910,7 @@ async function importPendingMobileIRealLink() {
     setImportStatus(
       pendingResult.errorMessage
         ? `iReal link detected, but the captured text could not be loaded: ${pendingResult.errorMessage}`
-        : 'iReal link detected, but the captured text could not be loaded. Open the forum tracks and tap the link again.',
+        : 'iReal link detected, but the captured text could not be loaded. Open the forum charts and tap the link again.',
       true
     );
     return;

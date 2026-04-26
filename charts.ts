@@ -7,14 +7,12 @@ import {
 } from './src/features/app/app-pending-mobile-import.js';
 import { openIrealBrowser } from './src/features/app/ireal-browser.js';
 import {
-  clearPersistedChartLibrary,
   loadPersistedChartLibrary,
   loadPersistedSetlists,
   persistChartLibrary,
   persistSetlists
 } from './src/features/chart/chart-persistence.js';
 import {
-  createEmptyChartSetlist,
   filterChartDocuments,
   getChartSetlistMembership,
   getChartSourceRefs,
@@ -36,6 +34,17 @@ initializeSharpElevenTheme();
 
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com';
 const VISIBLE_RESULT_LIMIT = 80;
+const CHIP_FILTER_OPTION_LIMIT = 12;
+const CHART_MANAGE_FILTER_KEYS = ['origin', 'source', 'tag', 'setlist'] as const;
+const FILTER_ACTION_ALL = '__all__';
+const FILTER_ACTION_NONE = '__none__';
+
+type ChartManageFilterKey = typeof CHART_MANAGE_FILTER_KEYS[number];
+type ChartManageFilterMode = 'all' | 'custom';
+type ChartManageFilterOption = {
+  label: string;
+  value: string;
+};
 
 const dom = {
   importIRealBackupButton: document.getElementById('import-ireal-backup-button') as HTMLButtonElement | null,
@@ -45,20 +54,24 @@ const dom = {
   irealLinkInput: document.getElementById('ireal-link-input') as HTMLInputElement | null,
   importIRealLinkButton: document.getElementById('import-ireal-link-button') as HTMLButtonElement | null,
   irealLinkImportSection: document.getElementById('ireal-link-import-section'),
-  clearAllChartsButton: document.getElementById('clear-all-charts-button') as HTMLButtonElement | null,
   chartImportStatus: document.getElementById('chart-import-status'),
-  manageGlobalSummary: document.getElementById('manage-global-summary'),
   manageChartSearchInput: document.getElementById('manage-chart-search-input') as HTMLInputElement | null,
+  manageOriginFilterRow: document.getElementById('manage-origin-filter-row'),
   manageOriginFilter: document.getElementById('manage-origin-filter') as HTMLSelectElement | null,
+  manageOriginFilterChips: document.getElementById('manage-origin-filter-chips'),
+  manageSourceFilterRow: document.getElementById('manage-source-filter-row'),
   manageSourceFilter: document.getElementById('manage-source-filter') as HTMLSelectElement | null,
+  manageSourceFilterChips: document.getElementById('manage-source-filter-chips'),
+  manageTagFilterRow: document.getElementById('manage-tag-filter-row'),
   manageTagFilter: document.getElementById('manage-tag-filter') as HTMLSelectElement | null,
+  manageTagFilterChips: document.getElementById('manage-tag-filter-chips'),
+  manageSetlistFilterRow: document.getElementById('manage-setlist-filter-row'),
   manageSetlistFilter: document.getElementById('manage-setlist-filter') as HTMLSelectElement | null,
+  manageSetlistFilterChips: document.getElementById('manage-setlist-filter-chips'),
   manageLibrarySummary: document.getElementById('manage-library-summary'),
   manageChartList: document.getElementById('manage-chart-list'),
-  manageSetlistNameInput: document.getElementById('manage-setlist-name-input') as HTMLInputElement | null,
-  manageCreateSetlistButton: document.getElementById('manage-create-setlist-button') as HTMLButtonElement | null,
+  manageSetlistsSection: document.getElementById('manage-setlists-section'),
   manageSetlistList: document.getElementById('manage-setlist-list'),
-  manageSetlistDetail: document.getElementById('manage-setlist-detail'),
   manageMetadataPanel: document.getElementById('manage-metadata-panel')
 };
 
@@ -66,7 +79,20 @@ let currentDocuments: ChartDocument[] = [];
 let currentSource = 'imported library';
 let currentSetlists: ChartSetlist[] = [];
 let resultsExpanded = false;
-let activeSetlistId = '';
+let activeSetlistMenuId = '';
+let draggedSetlistItem: { setlistId: string; index: number } | null = null;
+const activeManageFilters: Record<ChartManageFilterKey, Set<string>> = {
+  origin: new Set(),
+  source: new Set(),
+  tag: new Set(),
+  setlist: new Set()
+};
+const activeManageFilterModes: Record<ChartManageFilterKey, ChartManageFilterMode> = {
+  origin: 'all',
+  source: 'all',
+  tag: 'all',
+  setlist: 'all'
+};
 
 function setImportStatus(message: string, isError = false) {
   setChartImportStatus(dom.chartImportStatus, message, isError);
@@ -112,24 +138,35 @@ function createButton(label: string, className = 'home-primary-action'): HTMLBut
 function createMetadataButton(label: string, onClick: (event: MouseEvent) => void): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'home-chart-entry-kebab chart-manage-metadata-button';
+  button.className = 'home-chart-entry-kebab';
   button.setAttribute('aria-label', label);
+  button.addEventListener('pointerdown', (event) => event.stopPropagation());
+  button.addEventListener('mousedown', (event) => event.stopPropagation());
   button.addEventListener('click', onClick);
-  button.append(
-    createTextElement('span', 'home-chart-entry-dot', ''),
-    createTextElement('span', 'home-chart-entry-dot', ''),
-    createTextElement('span', 'home-chart-entry-dot', '')
-  );
   return button;
 }
 
 function getChartSubtitle(document: ChartDocument): string {
-  const parts = [
-    document.metadata?.composer,
-    document.metadata?.styleReference || document.metadata?.style || document.metadata?.canonicalGroove,
-    document.metadata?.origin === 'user' ? 'User chart' : getChartSourceRefs(document).map((ref) => ref.name).join(', ')
-  ].map((part) => String(part || '').trim()).filter(Boolean);
-  return [...new Set(parts)].join(' - ');
+  const asText = (value: unknown): string => {
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (typeof value !== 'string') return '';
+    return value.trim();
+  };
+  const parts: string[] = [];
+  const pushIfDistinct = (value: unknown): void => {
+    const normalized = asText(value);
+    if (!normalized || parts.includes(normalized)) return;
+    parts.push(normalized);
+  };
+  const metadata = document.metadata;
+  pushIfDistinct(metadata.composer);
+  pushIfDistinct(metadata.artist);
+  pushIfDistinct(metadata.author);
+  pushIfDistinct(metadata['leadArtist']);
+  pushIfDistinct(metadata['albumArtist']);
+  pushIfDistinct(metadata.styleReference);
+  pushIfDistinct(metadata.style);
+  return parts.join(' - ');
 }
 
 function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persistChartLibrary>>, fallbackCount: number, sourceFile: string) {
@@ -145,60 +182,193 @@ function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persist
 
 function getFilteredManageDocuments(): ChartDocument[] {
   const query = dom.manageChartSearchInput?.value || '';
-  const origin = dom.manageOriginFilter?.value || '';
-  const source = dom.manageSourceFilter?.value || '';
-  const tag = dom.manageTagFilter?.value || '';
-  const setlistId = dom.manageSetlistFilter?.value || '';
-  const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
-  const setlistChartIds = new Set((setlist?.items || []).map((item) => item.chartId));
+  const origins = activeManageFilters.origin;
+  const sources = activeManageFilters.source;
+  const tags = activeManageFilters.tag;
+  const setlistIds = activeManageFilters.setlist;
+  const hasOriginFilter = activeManageFilterModes.origin === 'custom';
+  const hasSourceFilter = activeManageFilterModes.source === 'custom';
+  const hasTagFilter = activeManageFilterModes.tag === 'custom';
+  const hasSetlistFilter = activeManageFilterModes.setlist === 'custom';
+  const setlistChartIds = new Set(
+    currentSetlists
+      .filter((candidate) => setlistIds.has(candidate.id))
+      .flatMap((setlist) => setlist.items.map((item) => item.chartId))
+  );
   let documents = query ? filterChartDocuments(currentDocuments, query) : [...currentDocuments];
-  if (origin) documents = documents.filter((document) => document.metadata?.origin === origin);
-  if (source) documents = documents.filter((document) => getChartSourceRefs(document).some((ref) => ref.name === source));
-  if (tag) documents = documents.filter((document) => (document.metadata?.userTags || []).some((candidate) => candidate === tag));
-  if (setlistId) documents = documents.filter((document) => setlistChartIds.has(document.metadata.id));
+  if ([hasOriginFilter && origins.size === 0, hasSourceFilter && sources.size === 0, hasTagFilter && tags.size === 0, hasSetlistFilter && setlistIds.size === 0].some(Boolean)) {
+    return [];
+  }
+  if (hasOriginFilter) documents = documents.filter((document) => origins.has(document.metadata?.origin === 'user' ? 'user' : 'imported'));
+  if (hasSourceFilter) documents = documents.filter((document) => getChartSourceRefs(document).some((ref) => sources.has(ref.name)));
+  if (hasTagFilter) documents = documents.filter((document) => (document.metadata?.userTags || []).some((candidate) => tags.has(candidate)));
+  if (hasSetlistFilter) documents = documents.filter((document) => setlistChartIds.has(document.metadata.id));
   return documents;
 }
 
-function renderOptionList(select: HTMLSelectElement | null, label: string, values: string[], previousValue = '') {
+function getFilterOptionValues(values: ChartManageFilterOption[]) {
+  return values.map((option) => option.value);
+}
+
+function getSelectFilterOptions(select: HTMLSelectElement): ChartManageFilterOption[] {
+  return Array.from(select.options)
+    .filter((option) => option.value && option.value !== FILTER_ACTION_ALL && option.value !== FILTER_ACTION_NONE)
+    .map((option) => ({ label: option.textContent?.replace(/^Selected - /, '') || option.value, value: option.value }));
+}
+
+function isFilterAllSelected(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
+  const active = activeManageFilters[key];
+  return activeManageFilterModes[key] === 'all'
+    || (values.length > 0 && active.size === values.length && values.every((option) => active.has(option.value)));
+}
+
+function getSelectedFilterCount(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
+  return isFilterAllSelected(key, values) ? values.length : activeManageFilters[key].size;
+}
+
+function selectFilterValue(key: ChartManageFilterKey, value: string, values: ChartManageFilterOption[]) {
+  const active = activeManageFilters[key];
+  if (value === FILTER_ACTION_ALL) {
+    activeManageFilterModes[key] = 'all';
+    active.clear();
+  } else if (value === FILTER_ACTION_NONE) {
+    activeManageFilterModes[key] = 'custom';
+    active.clear();
+  } else if (activeManageFilterModes[key] === 'all') {
+    activeManageFilterModes[key] = 'custom';
+    active.clear();
+    getFilterOptionValues(values).forEach((optionValue) => active.add(optionValue));
+    active.delete(value);
+  } else if (active.has(value)) {
+    active.delete(value);
+  } else {
+    active.add(value);
+  }
+  renderFacets();
+  renderManageCharts();
+}
+
+function keepValidFilterValues(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
+  const validValues = new Set(values.map((option) => option.value));
+  activeManageFilters[key].forEach((value) => {
+    if (!validValues.has(value)) activeManageFilters[key].delete(value);
+  });
+  if (values.length <= 1) {
+    activeManageFilterModes[key] = 'all';
+    activeManageFilters[key].clear();
+  } else if (isFilterAllSelected(key, values)) {
+    activeManageFilterModes[key] = 'all';
+    activeManageFilters[key].clear();
+  }
+}
+
+function setElementHidden(element: HTMLElement | null, shouldHide: boolean) {
+  if (element) element.hidden = shouldHide;
+}
+
+function renderOptionList(select: HTMLSelectElement | null, label: string, values: ChartManageFilterOption[]) {
   if (!select) return;
-  const fallbackValue = previousValue || select.value;
-  select.replaceChildren(new Option(label, ''));
-  for (const value of values) select.append(new Option(value, value));
-  if ([...select.options].some((option) => option.value === fallbackValue)) select.value = fallbackValue;
+  const active = activeManageFilters[select.dataset.filterKey as ChartManageFilterKey];
+  const allSelected = isFilterAllSelected(select.dataset.filterKey as ChartManageFilterKey, values);
+  const selectedCount = getSelectedFilterCount(select.dataset.filterKey as ChartManageFilterKey, values);
+  select.replaceChildren(new Option(`${selectedCount}/${values.length} selected`, ''));
+  select.append(new Option(label, FILTER_ACTION_ALL));
+  select.append(new Option('None', FILTER_ACTION_NONE));
+  for (const { label: optionLabel, value } of values) {
+    select.append(new Option(allSelected || active?.has(value) ? `Selected - ${optionLabel}` : optionLabel, value));
+  }
+  select.value = '';
+}
+
+function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
+  if (!host) return;
+  const active = activeManageFilters[key];
+  const isAllSelected = isFilterAllSelected(key, values);
+  const isNoneSelected = activeManageFilterModes[key] === 'custom' && active.size === 0;
+  host.replaceChildren();
+  const buttons = [
+    { label: 'All', value: FILTER_ACTION_ALL },
+    { label: 'None', value: FILTER_ACTION_NONE },
+    ...values
+  ].map(({ label, value }) => {
+    const button = createButton(label, 'chart-manage-filter-chip');
+    const isActive = value === FILTER_ACTION_ALL
+      ? isAllSelected
+      : value === FILTER_ACTION_NONE
+        ? isNoneSelected
+        : isAllSelected || active.has(value);
+    button.setAttribute('aria-pressed', String(isActive));
+    if (isActive) button.classList.add('is-active');
+    button.addEventListener('click', () => selectFilterValue(key, value, values));
+    return button;
+  });
+  host.append(...buttons);
+}
+
+function renderFilterControl({
+  key,
+  row,
+  select,
+  chipHost,
+  allLabel,
+  values
+}: {
+  key: ChartManageFilterKey;
+  row: HTMLElement | null;
+  select: HTMLSelectElement | null;
+  chipHost: HTMLElement | null;
+  allLabel: string;
+  values: ChartManageFilterOption[];
+}) {
+  keepValidFilterValues(key, values);
+  const shouldHide = values.length <= 1;
+  const shouldUseChips = !shouldHide && values.length <= CHIP_FILTER_OPTION_LIMIT;
+  if (select) select.dataset.filterKey = key;
+  renderOptionList(select, allLabel, values);
+  renderFilterChips(chipHost, key, values);
+  setElementHidden(row, shouldHide);
+  setElementHidden(select, shouldHide || shouldUseChips);
+  setElementHidden(chipHost, shouldHide || !shouldUseChips);
 }
 
 function renderFacets() {
   const facets = listChartLibraryFacets(currentDocuments, currentSetlists);
-  renderOptionList(dom.manageSourceFilter, 'All sources', facets.sources);
-  renderOptionList(dom.manageTagFilter, 'All tags', facets.tags);
-  if (dom.manageSetlistFilter) {
-    const previousValue = dom.manageSetlistFilter.value;
-    dom.manageSetlistFilter.replaceChildren(new Option('All setlists', ''));
-    for (const setlist of currentSetlists) dom.manageSetlistFilter.append(new Option(setlist.name, setlist.id));
-    if ([...dom.manageSetlistFilter.options].some((option) => option.value === previousValue)) dom.manageSetlistFilter.value = previousValue;
-  }
-}
-
-function renderGlobalSummary() {
-  if (!dom.manageGlobalSummary) return;
-  const facets = listChartLibraryFacets(currentDocuments, currentSetlists);
-  const importedCount = currentDocuments.filter((document) => document.metadata?.origin !== 'user').length;
-  const userCount = currentDocuments.filter((document) => document.metadata?.origin === 'user').length;
-  const entries = [
-    ['Total charts', currentDocuments.length],
-    ['Imported', importedCount],
-    ['User', userCount],
-    ['Sources', facets.sources.length],
-    ['Tags', facets.tags.length],
-    ['Setlists', currentSetlists.length]
-  ];
-  dom.manageGlobalSummary.replaceChildren(...entries.map(([label, value]) => {
-    const card = document.createElement('div');
-    card.className = 'chart-manage-summary-card';
-    card.append(createTextElement('strong', '', String(value)));
-    card.append(createTextElement('span', '', String(label)));
-    return card;
-  }));
+  const originOptions = [
+    currentDocuments.some((document) => document.metadata?.origin !== 'user') ? { label: 'Imported', value: 'imported' } : null,
+    currentDocuments.some((document) => document.metadata?.origin === 'user') ? { label: 'User', value: 'user' } : null
+  ].filter(Boolean) as ChartManageFilterOption[];
+  renderFilterControl({
+    key: 'origin',
+    row: dom.manageOriginFilterRow,
+    select: dom.manageOriginFilter,
+    chipHost: dom.manageOriginFilterChips,
+    allLabel: 'All origins',
+    values: originOptions
+  });
+  renderFilterControl({
+    key: 'source',
+    row: dom.manageSourceFilterRow,
+    select: dom.manageSourceFilter,
+    chipHost: dom.manageSourceFilterChips,
+    allLabel: 'All sources',
+    values: facets.sources.map((source) => ({ label: source, value: source }))
+  });
+  renderFilterControl({
+    key: 'tag',
+    row: dom.manageTagFilterRow,
+    select: dom.manageTagFilter,
+    chipHost: dom.manageTagFilterChips,
+    allLabel: 'All tags',
+    values: facets.tags.map((tag) => ({ label: tag, value: tag }))
+  });
+  renderFilterControl({
+    key: 'setlist',
+    row: dom.manageSetlistFilterRow,
+    select: dom.manageSetlistFilter,
+    chipHost: dom.manageSetlistFilterChips,
+    allLabel: 'All setlists',
+    values: currentSetlists.map((setlist) => ({ label: setlist.name, value: setlist.id }))
+  });
 }
 
 function renderManageCharts() {
@@ -217,7 +387,7 @@ function renderManageCharts() {
     summaryButton.type = 'button';
     summaryButton.className = 'chart-manage-summary-open';
     summaryButton.append(
-      createTextElement('span', 'home-list-title', `${documents.length} matching track${documents.length === 1 ? '' : 's'}`),
+      createTextElement('span', 'home-list-title', `${documents.length} matching chart${documents.length === 1 ? '' : 's'}`),
       createTextElement('span', 'home-list-meta', resultsExpanded ? 'Click to hide' : 'Click to show')
     );
     summaryButton.addEventListener('click', () => {
@@ -246,8 +416,7 @@ function renderManageCharts() {
     link.href = targetUrl.toString();
     link.className = 'chart-manage-chart-link';
     link.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
-    const usage = getChartSetlistMembership(chartDocument.metadata.id, currentSetlists).map((setlist) => setlist.name);
-    const subtitle = [getChartSubtitle(chartDocument), usage.length ? `Setlists: ${usage.join(', ')}` : ''].filter(Boolean).join(' - ');
+    const subtitle = getChartSubtitle(chartDocument);
     if (subtitle) link.append(createTextElement('span', 'home-list-meta', subtitle));
     const menuButton = createMetadataButton(`Edit metadata for ${chartDocument.metadata.title || 'chart'}`, (event) => {
       event.preventDefault();
@@ -298,97 +467,144 @@ function closeMetadataPanel() {
 }
 
 function renderSetlists() {
-  if (!dom.manageSetlistList) return;
+  if (!dom.manageSetlistsSection || !dom.manageSetlistList) return;
+  const hasSetlists = currentSetlists.length > 0;
+  dom.manageSetlistsSection.hidden = !hasSetlists;
   dom.manageSetlistList.replaceChildren();
+  if (!hasSetlists) return;
+  const documentsById = new Map(currentDocuments.map((document) => [document.metadata.id, document]));
+
   for (const setlist of currentSetlists) {
     const item = document.createElement('li');
+    item.className = 'chart-manage-setlist-entry';
+
     const row = document.createElement('div');
     row.className = 'home-list-link chart-manage-setlist-row';
-    const label = document.createElement('button');
-    label.type = 'button';
-    label.className = 'chart-manage-setlist-open';
-    label.append(createTextElement('span', 'home-list-title', setlist.name));
-    label.append(createTextElement('span', 'home-list-meta', `${setlist.items.length} ${pluralizeChartLabel(setlist.items.length)} - manual playback`));
-    label.addEventListener('click', () => {
-      activeSetlistId = setlist.id;
-      renderSetlistDetail();
-    });
-    const playLink = document.createElement('a');
-    playLink.className = 'chart-manage-small-action';
+
     const targetUrl = new URL('./chart/index.html', window.location.href);
     targetUrl.searchParams.set('setlist', setlist.id);
-    playLink.href = targetUrl.toString();
-    playLink.textContent = 'Play';
-    row.append(label, playLink);
+    const link = document.createElement('a');
+    link.className = 'chart-manage-setlist-open';
+    link.href = targetUrl.toString();
+    link.append(
+      createTextElement('span', 'home-list-title', setlist.name),
+      createTextElement('span', 'home-list-meta', `${setlist.items.length} ${pluralizeChartLabel(setlist.items.length)}`)
+    );
+
+    const menuButton = createMetadataButton(`Manage ${setlist.name}`, (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      activeSetlistMenuId = activeSetlistMenuId === setlist.id ? '' : setlist.id;
+      renderSetlists();
+    });
+    row.append(link, menuButton);
     item.append(row);
+
+    if (activeSetlistMenuId === setlist.id) item.append(renderSetlistMenu(setlist));
+
+    const childList = document.createElement('ul');
+    childList.className = 'home-list chart-manage-setlist-chart-list';
+    setlist.items.forEach((setlistItem, index) => {
+      const chartDocument = documentsById.get(setlistItem.chartId);
+      const childItem = document.createElement('li');
+      const childRow = document.createElement('div');
+      childRow.className = 'home-list-link chart-manage-chart-row chart-manage-setlist-chart-row';
+      childRow.draggable = true;
+      childRow.dataset.setlistId = setlist.id;
+      childRow.dataset.index = String(index);
+      childRow.addEventListener('dragstart', (event) => {
+        draggedSetlistItem = { setlistId: setlist.id, index };
+        event.dataTransfer?.setData('text/plain', `${setlist.id}:${index}`);
+        event.dataTransfer?.setDragImage(childRow, 12, 12);
+      });
+      childRow.addEventListener('dragend', () => {
+        draggedSetlistItem = null;
+      });
+      childRow.addEventListener('dragover', (event) => {
+        if (draggedSetlistItem?.setlistId !== setlist.id) return;
+        event.preventDefault();
+      });
+      childRow.addEventListener('drop', (event) => {
+        event.preventDefault();
+        moveSetlistItem(setlist.id, draggedSetlistItem?.index ?? -1, index);
+      });
+
+      const childLink = document.createElement('a');
+      childLink.className = 'chart-manage-chart-link';
+      const chartUrl = new URL('./chart/index.html', window.location.href);
+      chartUrl.searchParams.set('chart', setlistItem.chartId);
+      childLink.href = chartUrl.toString();
+      childLink.append(createTextElement('span', 'home-list-title', chartDocument?.metadata.title || setlistItem.chartId));
+
+      const removeButton = createMetadataButton(`Remove ${chartDocument?.metadata.title || 'chart'} from ${setlist.name}`, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        removeSetlistItem(setlist.id, index);
+      });
+      childRow.append(childLink, removeButton);
+      childItem.append(childRow);
+      childList.append(childItem);
+    });
+    item.append(childList);
     dom.manageSetlistList.append(item);
   }
-  renderSetlistDetail();
 }
 
-function renderSetlistDetail() {
-  if (!dom.manageSetlistDetail) return;
-  const setlist = currentSetlists.find((candidate) => candidate.id === activeSetlistId);
-  dom.manageSetlistDetail.hidden = !setlist;
-  dom.manageSetlistDetail.replaceChildren();
-  if (!setlist) return;
-  const documentsById = new Map(currentDocuments.map((document) => [document.metadata.id, document]));
-  dom.manageSetlistDetail.append(createTextElement('h3', '', `Manage ${setlist.name}`));
-  const list = document.createElement('ol');
-  list.className = 'chart-manage-ordered-list';
-  setlist.items.forEach((item, index) => {
-    const chartDocument = documentsById.get(item.chartId);
-    const row = document.createElement('li');
-    row.draggable = true;
-    row.dataset.index = String(index);
-    row.append(createTextElement('span', 'home-list-title', chartDocument?.metadata.title || item.chartId));
-    const upButton = createButton('Up', 'chart-manage-small-action');
-    const downButton = createButton('Down', 'chart-manage-small-action');
-    const removeButton = createButton('Remove', 'chart-manage-small-action chart-manage-danger');
-    upButton.disabled = index === 0;
-    downButton.disabled = index === setlist.items.length - 1;
-    upButton.addEventListener('click', () => updateSetlistItems(setlist.id, reorderSetlistItems(setlist.items, index, index - 1), 'Setlist reordered.'));
-    downButton.addEventListener('click', () => updateSetlistItems(setlist.id, reorderSetlistItems(setlist.items, index, index + 1), 'Setlist reordered.'));
-    removeButton.addEventListener('click', () => updateSetlistItems(setlist.id, setlist.items.filter((_, itemIndex) => itemIndex !== index), 'Removed setlist entry.'));
-    row.addEventListener('dragstart', (event) => event.dataTransfer?.setData('text/plain', String(index)));
-    row.addEventListener('dragover', (event) => event.preventDefault());
-    row.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const fromIndex = Number(event.dataTransfer?.getData('text/plain'));
-      updateSetlistItems(setlist.id, reorderSetlistItems(setlist.items, fromIndex, index), 'Setlist reordered.');
-    });
-    row.append(upButton, downButton, removeButton);
-    list.append(row);
-  });
-  dom.manageSetlistDetail.append(list);
+function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
+  const menu = document.createElement('div');
+  menu.className = 'chart-manage-setlist-menu';
+  const renameButton = createButton('Rename', 'chart-manage-small-action');
+  renameButton.addEventListener('click', () => renameSetlist(setlist));
+  const deleteButton = createButton('Delete', 'chart-manage-small-action chart-manage-danger');
+  deleteButton.addEventListener('click', () => deleteSetlist(setlist));
+  menu.append(renameButton, deleteButton);
+  return menu;
+}
+
+function persistSetlistChanges(setlists: ChartSetlist[], statusMessage: string) {
+  currentSetlists = setlists;
+  void persistSetlists(currentSetlists).then((persistedSetlists) => {
+    currentSetlists = persistedSetlists;
+    setImportStatus(statusMessage);
+    renderManageUi();
+  }).catch((error) => setImportStatus(`Failed to update setlists: ${getErrorMessage(error)}`, true));
 }
 
 function updateSetlistItems(setlistId: string, items: ChartSetlist['items'], statusMessage: string) {
-  currentSetlists = currentSetlists.map((setlist) => setlist.id === setlistId
+  persistSetlistChanges(currentSetlists.map((setlist) => setlist.id === setlistId
     ? { ...setlist, items, updatedAt: new Date().toISOString() }
-    : setlist);
-  void persistSetlists(currentSetlists).then((setlists) => {
-    currentSetlists = setlists;
-    setImportStatus(statusMessage);
-    renderManageUi();
-  }).catch((error) => setImportStatus(`Failed to update setlist: ${getErrorMessage(error)}`, true));
+    : setlist), statusMessage);
 }
 
-async function createSetlist() {
-  const name = String(dom.manageSetlistNameInput?.value || '').trim();
-  if (!name) {
-    setImportStatus('Name the setlist first.', true);
-    return;
-  }
-  currentSetlists = await persistSetlists([...currentSetlists, createEmptyChartSetlist(name)]);
-  if (dom.manageSetlistNameInput) dom.manageSetlistNameInput.value = '';
-  setImportStatus(`Created empty setlist "${name}".`);
-  renderManageUi();
+function moveSetlistItem(setlistId: string, fromIndex: number, toIndex: number) {
+  const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
+  if (!setlist || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+  updateSetlistItems(setlistId, reorderSetlistItems(setlist.items, fromIndex, toIndex), 'Setlist reordered.');
+}
+
+function removeSetlistItem(setlistId: string, itemIndex: number) {
+  const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
+  if (!setlist) return;
+  updateSetlistItems(setlistId, setlist.items.filter((_, index) => index !== itemIndex), 'Removed chart from setlist.');
+}
+
+function renameSetlist(setlist: ChartSetlist) {
+  const name = window.prompt('Rename setlist', setlist.name)?.trim();
+  if (!name || name === setlist.name) return;
+  activeSetlistMenuId = '';
+  persistSetlistChanges(currentSetlists.map((candidate) => candidate.id === setlist.id
+    ? { ...candidate, name, updatedAt: new Date().toISOString() }
+    : candidate), 'Setlist renamed.');
+}
+
+function deleteSetlist(setlist: ChartSetlist) {
+  if (!window.confirm(`Delete "${setlist.name}"?`)) return;
+  activeSetlistMenuId = '';
+  persistSetlistChanges(currentSetlists.filter((candidate) => candidate.id !== setlist.id), 'Setlist deleted.');
 }
 
 function renderManageUi() {
   renderFacets();
-  renderGlobalSummary();
   renderManageCharts();
   renderSetlists();
 }
@@ -456,7 +672,7 @@ async function importPendingMobileIRealLink() {
   const pendingResult = await consumePendingIRealLinkResult();
   const pendingIRealLink = pendingResult.url;
   if (!pendingIRealLink && pendingResult.hadPendingMarker) {
-    setImportStatus(pendingResult.errorMessage ? `iReal link detected, but the captured text could not be loaded: ${pendingResult.errorMessage}` : 'iReal link detected, but the captured text could not be loaded. Open the forum tracks and tap the link again.', true);
+    setImportStatus(pendingResult.errorMessage ? `iReal link detected, but the captured text could not be loaded: ${pendingResult.errorMessage}` : 'iReal link detected, but the captured text could not be loaded. Open the forum charts and tap the link again.', true);
     return;
   }
   if (!pendingIRealLink) return;
@@ -521,25 +737,13 @@ void bindIncomingMobileIRealImports().then(() => {
   void importPendingMobileIRealLink();
 });
 
-dom.clearAllChartsButton?.addEventListener('click', async () => {
-  try {
-    await clearPersistedChartLibrary();
-    currentDocuments = [];
-    currentSetlists = [];
-    closeMetadataPanel();
-    setImportStatus('All charts removed.');
-    renderManageUi();
-  } catch (error) {
-    setImportStatus(`Failed to remove charts: ${getErrorMessage(error)}`, true);
-  }
-});
-
-[dom.manageChartSearchInput, dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter].forEach((element) => {
-  element?.addEventListener('input', renderManageCharts);
-  element?.addEventListener('change', renderManageCharts);
-});
-dom.manageCreateSetlistButton?.addEventListener('click', () => {
-  void createSetlist().catch((error) => setImportStatus(`Failed to create setlist: ${getErrorMessage(error)}`, true));
+dom.manageChartSearchInput?.addEventListener('input', renderManageCharts);
+[dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter].forEach((element) => {
+  element?.addEventListener('change', () => {
+    const key = element.dataset.filterKey as ChartManageFilterKey | undefined;
+    if (!key || !element.value) return;
+    selectFilterValue(key, element.value, getSelectFilterOptions(element));
+  });
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeMetadataPanel();

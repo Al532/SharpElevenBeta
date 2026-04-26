@@ -43,47 +43,54 @@
 
       <section class="home-subsection" aria-labelledby="charts-library-title">
         <h2 id="charts-library-title">Library</h2>
-        <div id="manage-global-summary" class="chart-manage-summary-grid" aria-label="Library summary"></div>
         <div class="chart-manage-filter-grid">
           <label class="home-search-field chart-manage-search">
             <span class="sr-only">Search library</span>
             <input id="manage-chart-search-input" type="search" placeholder="Search title, composer, source, tag">
           </label>
-          <select id="manage-origin-filter" class="chart-manage-select" aria-label="Filter by origin">
-            <option value="">All origins</option>
-            <option value="imported">Imported</option>
-            <option value="user">User</option>
-          </select>
-          <select id="manage-source-filter" class="chart-manage-select" aria-label="Filter by source">
-            <option value="">All sources</option>
-          </select>
-          <select id="manage-tag-filter" class="chart-manage-select" aria-label="Filter by tag">
-            <option value="">All tags</option>
-          </select>
-          <select id="manage-setlist-filter" class="chart-manage-select" aria-label="Filter by setlist">
-            <option value="">All setlists</option>
-          </select>
+          <div id="manage-origin-filter-row" class="chart-manage-filter-row" hidden>
+            <span class="chart-manage-filter-label">Origin:</span>
+            <select id="manage-origin-filter" class="chart-manage-select" aria-label="Filter by origin" hidden>
+              <option value="">All origins</option>
+            </select>
+            <div id="manage-origin-filter-chips" class="chart-manage-filter-chips" aria-label="Filter by origin" hidden></div>
+          </div>
+          <div id="manage-source-filter-row" class="chart-manage-filter-row" hidden>
+            <span class="chart-manage-filter-label">Sources:</span>
+            <select id="manage-source-filter" class="chart-manage-select" aria-label="Filter by source" hidden>
+              <option value="">All sources</option>
+            </select>
+            <div id="manage-source-filter-chips" class="chart-manage-filter-chips" aria-label="Filter by source" hidden></div>
+          </div>
+          <div id="manage-tag-filter-row" class="chart-manage-filter-row" hidden>
+            <span class="chart-manage-filter-label">Tags:</span>
+            <select id="manage-tag-filter" class="chart-manage-select" aria-label="Filter by tag" hidden>
+              <option value="">All tags</option>
+            </select>
+            <div id="manage-tag-filter-chips" class="chart-manage-filter-chips" aria-label="Filter by tag" hidden></div>
+          </div>
+          <div id="manage-setlist-filter-row" class="chart-manage-filter-row" hidden>
+            <span class="chart-manage-filter-label">Setlists:</span>
+            <select id="manage-setlist-filter" class="chart-manage-select" aria-label="Filter by setlist" hidden>
+              <option value="">All setlists</option>
+            </select>
+            <div id="manage-setlist-filter-chips" class="chart-manage-filter-chips" aria-label="Filter by setlist" hidden></div>
+          </div>
         </div>
         <div id="manage-library-summary" class="chart-manage-results-entry"></div>
         <ul id="manage-chart-list" class="home-list chart-manage-chart-list" aria-label="Managed charts" hidden></ul>
       </section>
 
-      <section class="home-subsection" aria-labelledby="charts-setlists-title">
-        <h2 id="charts-setlists-title">Setlists</h2>
-        <p class="home-empty">Create an empty setlist, then add charts through chart metadata or batch edit. Playback stays manual previous/next.</p>
-        <div class="chart-manage-toolbar">
-          <input id="manage-setlist-name-input" class="chart-manage-text-input" type="text" placeholder="New empty setlist name">
-          <button id="manage-create-setlist-button" type="button" class="home-primary-action">Create empty setlist</button>
-        </div>
-        <ul id="manage-setlist-list" class="home-list" aria-label="Setlists"></ul>
-        <div id="manage-setlist-detail" class="chart-manage-setlist-detail" hidden></div>
+      <section id="manage-setlists-section" class="home-subsection" aria-labelledby="charts-setlists-title" hidden>
+        <h2 id="charts-setlists-title">Manage setlists</h2>
+        <ul id="manage-setlist-list" class="home-list chart-manage-setlist-list" aria-label="Managed setlists"></ul>
       </section>
     </div>
 
     <div class="home-actions" aria-label="iReal import controls">
       <div id="ireal-import-actions">
         <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
-        <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum tracks</button>
+        <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum charts</button>
       </div>
       <div id="ireal-link-import-section" hidden>
         <label class="home-search-field">
@@ -92,7 +99,6 @@
         </label>
         <button id="import-ireal-link-button" type="button" class="home-primary-action">Import iReal link</button>
       </div>
-      <button id="clear-all-charts-button" type="button" class="home-primary-action">Remove all charts</button>
     </div>
   </main>
 

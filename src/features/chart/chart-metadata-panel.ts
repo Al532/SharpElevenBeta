@@ -4,7 +4,7 @@ import {
   applyBatchMetadataOperation,
   applyPerChartMetadataUpdate,
   createEmptyChartSetlist,
-  getChartSetlistMembership,
+  getChartSourceRefs,
   normalizeChartTextKey
 } from './chart-library.js';
 
@@ -59,17 +59,8 @@ function getTargetDocuments(target: MetadataPanelTarget, state: MetadataPanelSta
 }
 
 function getTargetTitle(target: MetadataPanelTarget, documents: ChartDocument[]): string {
-  if (target.kind === 'batch') return target.title;
-  return documents[0]?.metadata?.title || 'Untitled chart';
-}
-
-function getTargetSubtitle(target: MetadataPanelTarget, documents: ChartDocument[]): string {
   if (target.kind === 'batch') return `${documents.length} matching chart${documents.length === 1 ? '' : 's'}`;
-  const chartDocument = documents[0];
-  return [chartDocument?.metadata?.composer, chartDocument?.metadata?.styleReference || chartDocument?.metadata?.style]
-    .map((part) => String(part || '').trim())
-    .filter(Boolean)
-    .join(' - ');
+  return documents[0]?.metadata?.title || 'Untitled chart';
 }
 
 function getSharedTags(documents: ChartDocument[]): string[] {
@@ -83,11 +74,92 @@ function getSharedTags(documents: ChartDocument[]): string[] {
   return [...tagsByKey.values()].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
 }
 
-function getTargetSetlists(chartIds: string[], setlists: ChartSetlist[]): ChartSetlist[] {
+type TagAssignment = {
+  tag: string;
+  count: number;
+};
+
+type SetlistAssignment = {
+  setlist: ChartSetlist;
+  count: number;
+};
+
+type MetadataSummaryField = {
+  label: string;
+  getValue: (document: ChartDocument) => unknown;
+};
+
+const METADATA_SUMMARY_FIELDS: MetadataSummaryField[] = [
+  { label: 'Composer', getValue: (document) => document.metadata?.composer },
+  { label: 'Artist', getValue: (document) => document.metadata?.artist },
+  { label: 'Author', getValue: (document) => document.metadata?.author },
+  { label: 'Style', getValue: (document) => document.metadata?.styleReference || document.metadata?.style },
+  { label: 'Key', getValue: (document) => document.metadata?.displayKey || document.metadata?.sourceKey },
+  { label: 'Time', getValue: (document) => document.metadata?.primaryTimeSignature },
+  { label: 'Tempo', getValue: (document) => document.metadata?.tempo || document.metadata?.defaultTempo },
+  { label: 'Origin', getValue: (document) => document.metadata?.origin },
+  { label: 'Sources', getValue: (document) => getChartSourceRefs(document).map((ref) => ref.name).filter(Boolean).join(', ') }
+];
+
+function sortTags(tags: string[]): string[] {
+  return tags.sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
+}
+
+function formatMetadataValue(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) return value.map(formatMetadataValue).filter(Boolean).join(', ');
+  return '';
+}
+
+function getMetadataSummaryRows(documents: ChartDocument[]): Array<{ label: string; value: string }> {
+  return METADATA_SUMMARY_FIELDS.map((field) => {
+    const values = documents
+      .map((document) => formatMetadataValue(field.getValue(document)))
+      .filter(Boolean);
+    const distinctValues = [...new Set(values)];
+    if (distinctValues.length === 0) return null;
+    return {
+      label: field.label,
+      value: distinctValues.length === 1 ? distinctValues[0] : `${distinctValues.length} values`
+    };
+  }).filter((row): row is { label: string; value: string } => Boolean(row));
+}
+
+function getLibraryTags(documents: ChartDocument[]): string[] {
+  return getSharedTags(documents);
+}
+
+function getTagAssignments(targetDocuments: ChartDocument[], libraryDocuments: ChartDocument[]): TagAssignment[] {
+  const tagsByKey = new Map<string, TagAssignment>();
+  for (const tag of getLibraryTags(libraryDocuments)) {
+    const normalized = normalizeChartTextKey(tag);
+    if (normalized) tagsByKey.set(normalized, { tag, count: 0 });
+  }
+  for (const document of targetDocuments) {
+    const documentTagKeys = new Set<string>();
+    for (const tag of document.metadata?.userTags || []) {
+      const normalized = normalizeChartTextKey(tag);
+      if (!normalized) continue;
+      documentTagKeys.add(normalized);
+      if (!tagsByKey.has(normalized)) tagsByKey.set(normalized, { tag, count: 0 });
+    }
+    documentTagKeys.forEach((normalized) => {
+      const assignment = tagsByKey.get(normalized);
+      if (assignment) assignment.count += 1;
+    });
+  }
+  return [...tagsByKey.values()].sort((left, right) => left.tag.localeCompare(right.tag, 'en', { sensitivity: 'base' }));
+}
+
+function getSetlistAssignments(chartIds: string[], setlists: ChartSetlist[]): SetlistAssignment[] {
   const targetIds = new Set(chartIds);
   return setlists
-    .filter((setlist) => setlist.items.some((item) => targetIds.has(item.chartId)))
-    .sort((left, right) => left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }));
+    .map((setlist) => ({
+      setlist,
+      count: setlist.items.filter((item) => targetIds.has(item.chartId)).length
+    }))
+    .sort((left, right) => left.setlist.name.localeCompare(right.setlist.name, 'en', { sensitivity: 'base' }));
 }
 
 function createActionRow(...elements: HTMLElement[]): HTMLElement {
@@ -101,45 +173,38 @@ function createEmptyMessage(message: string): HTMLElement {
   return createTextElement('p', 'home-empty chart-metadata-empty', message);
 }
 
-async function applySingleTarget(
-  options: ChartMetadataPanelOptions,
+function applySingleTargetDraft(
+  state: MetadataPanelState,
   chartId: string,
-  patch: Parameters<typeof applyPerChartMetadataUpdate>[0]['patch'],
-  statusMessage: string
-): Promise<void> {
-  const state = options.getState();
-  const result = applyPerChartMetadataUpdate({
+  patch: Parameters<typeof applyPerChartMetadataUpdate>[0]['patch']
+): MetadataPanelState {
+  return applyPerChartMetadataUpdate({
     documents: state.documents,
     setlists: state.setlists,
     chartId,
     patch
   });
-  await options.persistState(result, statusMessage);
 }
 
-async function applyBatchTarget(
-  options: ChartMetadataPanelOptions,
+function applyBatchTargetDraft(
+  state: MetadataPanelState,
   chartIds: string[],
-  operation: Parameters<typeof applyBatchMetadataOperation>[0]['operation'],
-  statusMessage: string
-): Promise<void> {
-  const state = options.getState();
+  operation: Parameters<typeof applyBatchMetadataOperation>[0]['operation']
+): MetadataPanelState {
   const result = applyBatchMetadataOperation({
     documents: state.documents,
     setlists: state.setlists,
     chartIds,
     operation
   });
-  await options.persistState({ documents: result.documents, setlists: result.setlists }, statusMessage);
+  return { documents: result.documents, setlists: result.setlists };
 }
 
-async function createSetlistAndAddTargets(
-  options: ChartMetadataPanelOptions,
+function createSetlistAndAddTargetsDraft(
+  state: MetadataPanelState,
   chartIds: string[],
-  name: string,
-  statusMessage: string
-): Promise<void> {
-  const state = options.getState();
+  name: string
+): MetadataPanelState {
   const setlist = createEmptyChartSetlist(name);
   let nextSetlists = [...state.setlists, setlist];
   for (const chartId of chartIds) {
@@ -151,142 +216,241 @@ async function createSetlistAndAddTargets(
     });
     nextSetlists = result.setlists;
   }
-  await options.persistState({ documents: state.documents, setlists: nextSetlists }, statusMessage);
+  return { documents: state.documents, setlists: nextSetlists };
 }
 
 export function closeChartMetadataPanel(host: HTMLElement | null | undefined): void {
   if (!host) return;
   host.hidden = true;
+  host.removeAttribute('role');
+  host.removeAttribute('aria-modal');
+  host.removeAttribute('aria-label');
   host.replaceChildren();
 }
 
 export function openChartMetadataPanel(options: ChartMetadataPanelOptions): void {
+  let hasConfirmedPartialTagEdit = false;
+  let hasConfirmedPartialSetlistEdit = false;
+  let isDeleteConfirmationVisible = false;
+  let draftState: MetadataPanelState = {
+    documents: [...options.getState().documents],
+    setlists: [...options.getState().setlists]
+  };
+
   const render = (): void => {
-    const state = options.getState();
+    const state = draftState;
     const chartIds = getTargetChartIds(options.target, state);
     const documents = getTargetDocuments(options.target, state);
     const panel = document.createElement('section');
     panel.className = 'chart-metadata-panel-content';
     panel.setAttribute('aria-label', 'Chart metadata');
 
-    const closeButton = createButton('Close', 'chart-metadata-close');
-    closeButton.addEventListener('click', () => {
+    const cancelDraft = () => {
       closeChartMetadataPanel(options.host);
       options.closePanel?.();
-    });
-
-    const header = document.createElement('div');
-    header.className = 'chart-metadata-header';
-    const title = document.createElement('div');
-    title.className = 'chart-metadata-title';
-    title.append(createTextElement('strong', '', getTargetTitle(options.target, documents)));
-    const subtitle = getTargetSubtitle(options.target, documents);
-    if (subtitle) title.append(createTextElement('span', 'home-list-meta', subtitle));
-    header.append(title, closeButton);
-    panel.append(header);
+    };
+    const validateDraft = async () => {
+      await options.persistState(draftState, 'Metadata updated.');
+      closeChartMetadataPanel(options.host);
+      options.closePanel?.();
+    };
 
     if (documents.length === 0) {
       panel.append(createEmptyMessage('No matching charts.'));
       options.host.replaceChildren(panel);
       options.host.hidden = false;
+      options.host.setAttribute('role', 'dialog');
+      options.host.setAttribute('aria-modal', 'true');
+      options.host.setAttribute('aria-label', 'Chart metadata');
       return;
+    }
+
+    const header = document.createElement('div');
+    header.className = 'chart-metadata-header';
+    header.append(createTextElement('h2', 'chart-metadata-title', getTargetTitle(options.target, documents)));
+    panel.append(header);
+
+    const metadataRows = getMetadataSummaryRows(documents);
+    if (metadataRows.length > 0) {
+      const summary = document.createElement('dl');
+      summary.className = 'chart-metadata-summary';
+      for (const row of metadataRows) {
+        summary.append(
+          createTextElement('dt', '', row.label),
+          createTextElement('dd', '', row.value)
+        );
+      }
+      panel.append(summary);
     }
 
     const tagSection = document.createElement('section');
     tagSection.className = 'chart-metadata-section';
-    tagSection.append(createTextElement('h3', '', 'Tags'));
+
+    const applyTagAction = (tag: string, shouldAdd: boolean, isPartial = false) => {
+      if (isPartial && options.target.kind === 'batch' && !hasConfirmedPartialTagEdit) {
+        const confirmed = window.confirm('This tag is only assigned to part of the selection. This action will modify the entire selection.');
+        if (!confirmed) return;
+        hasConfirmedPartialTagEdit = true;
+      }
+      if (options.target.kind === 'single') {
+        draftState = applySingleTargetDraft(draftState, chartIds[0], shouldAdd ? { addTags: [tag], createTag: tag } : { removeTags: [tag] });
+      } else {
+        draftState = applyBatchTargetDraft(draftState, chartIds, { kind: shouldAdd ? 'add-tag' : 'remove-tag', tag });
+      }
+      render();
+    };
+
+    const assignments = getTagAssignments(documents, state.documents);
+    const assignedTags = assignments.filter((assignment) => assignment.count > 0);
+    const availableTags = assignments.filter((assignment) => assignment.count === 0);
+    const tagHeading = document.createElement('div');
+    tagHeading.className = 'chart-metadata-inline-heading';
+    tagHeading.append(createTextElement('h3', '', 'Tags'));
+    if (assignedTags.length > 0) {
+      const selectedTagRow = document.createElement('div');
+      selectedTagRow.className = 'chart-metadata-chip-row';
+      for (const assignment of assignedTags) {
+        const isPartial = documents.length > 1 && assignment.count > 0 && assignment.count < documents.length;
+        const button = createButton(assignment.tag, `chart-manage-filter-chip chart-metadata-tag-chip is-active${isPartial ? ' is-partial' : ''}`);
+        button.setAttribute('aria-pressed', isPartial ? 'mixed' : 'true');
+        button.title = isPartial ? `${assignment.count}/${documents.length} selected charts` : 'Assigned to selected charts';
+        button.addEventListener('click', () => applyTagAction(assignment.tag, false, isPartial));
+        selectedTagRow.append(button);
+      }
+      tagHeading.append(selectedTagRow);
+    }
+    tagSection.append(tagHeading);
+
+    if (availableTags.length > 0) {
+      const availableTagList = document.createElement('div');
+      availableTagList.className = 'chart-metadata-add-row';
+      availableTagList.append(createTextElement('span', 'chart-metadata-tag-group-label', 'Add tag:'));
+      const availableTagRow = document.createElement('div');
+      availableTagRow.className = 'chart-metadata-chip-row';
+      for (const tag of sortTags(availableTags.map((assignment) => assignment.tag))) {
+        const button = createButton(tag, 'chart-manage-filter-chip chart-metadata-tag-chip');
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', () => applyTagAction(tag, true));
+        availableTagRow.append(button);
+      }
+      availableTagList.append(availableTagRow);
+      tagSection.append(availableTagList);
+    }
+
     const tagInput = document.createElement('input');
     tagInput.className = 'chart-manage-text-input chart-metadata-input';
     tagInput.type = 'text';
-    tagInput.placeholder = 'New or existing tag';
+    tagInput.placeholder = 'New tag name';
     const addTagButton = createButton('Add tag');
-    addTagButton.addEventListener('click', async () => {
+    addTagButton.addEventListener('click', () => {
       const tag = tagInput.value.trim();
       if (!tag) return;
-      if (options.target.kind === 'single') {
-        await applySingleTarget(options, chartIds[0], { addTags: [tag], createTag: tag }, `Added tag "${tag}".`);
-      } else {
-        await applyBatchTarget(options, chartIds, { kind: 'add-tag', tag }, `Added tag "${tag}" to matching charts.`);
-      }
-      render();
+      applyTagAction(tag, true);
     });
-    tagSection.append(createActionRow(tagInput, addTagButton));
-    const tags = getSharedTags(documents);
-    const tagList = document.createElement('div');
-    tagList.className = 'chart-metadata-chip-row';
-    if (tags.length === 0) tagList.append(createEmptyMessage('No tags yet.'));
-    for (const tag of tags) {
-      const button = createButton(`Remove ${tag}`, 'chart-metadata-chip');
-      button.addEventListener('click', async () => {
-        if (options.target.kind === 'single') {
-          await applySingleTarget(options, chartIds[0], { removeTags: [tag] }, `Removed tag "${tag}".`);
-        } else {
-          await applyBatchTarget(options, chartIds, { kind: 'remove-tag', tag }, `Removed tag "${tag}" from matching charts.`);
-        }
-        render();
-      });
-      tagList.append(button);
-    }
-    tagSection.append(tagList);
+    const tagEntryRow = createActionRow(tagInput, addTagButton);
+    tagEntryRow.classList.add('chart-metadata-tag-entry-row');
+    tagSection.append(tagEntryRow);
     panel.append(tagSection);
 
     const setlistSection = document.createElement('section');
     setlistSection.className = 'chart-metadata-section';
-    setlistSection.append(createTextElement('h3', '', 'Setlists'));
-    const setlistSelect = document.createElement('select');
-    setlistSelect.className = 'chart-manage-select chart-metadata-input';
-    setlistSelect.setAttribute('aria-label', 'Setlist');
-    for (const setlist of state.setlists) setlistSelect.append(new Option(setlist.name, setlist.id));
-    const addSetlistButton = createButton('Add to setlist');
-    addSetlistButton.disabled = state.setlists.length === 0;
-    addSetlistButton.addEventListener('click', async () => {
-      const setlistId = setlistSelect.value;
-      if (!setlistId) return;
+
+    const applySetlistAction = (setlist: ChartSetlist, shouldAdd: boolean, isPartial = false) => {
+      if (isPartial && options.target.kind === 'batch' && !hasConfirmedPartialSetlistEdit) {
+        const confirmed = window.confirm('This setlist is only assigned to part of the selection. This action will modify the entire selection.');
+        if (!confirmed) return;
+        hasConfirmedPartialSetlistEdit = true;
+      }
       if (options.target.kind === 'single') {
-        await applySingleTarget(options, chartIds[0], { addSetlistIds: [setlistId] }, 'Updated setlist membership.');
+        draftState = applySingleTargetDraft(draftState, chartIds[0], shouldAdd ? { addSetlistIds: [setlist.id] } : { removeSetlistIds: [setlist.id] });
       } else {
-        await applyBatchTarget(options, chartIds, { kind: 'add-setlist', setlistId }, 'Updated matching chart setlists.');
+        draftState = applyBatchTargetDraft(draftState, chartIds, { kind: shouldAdd ? 'add-setlist' : 'remove-setlist', setlistId: setlist.id });
       }
       render();
-    });
-    setlistSection.append(createActionRow(setlistSelect, addSetlistButton));
+    };
+
+    const setlistAssignments = getSetlistAssignments(chartIds, state.setlists);
+    const assignedSetlists = setlistAssignments.filter((assignment) => assignment.count > 0);
+    const availableSetlists = setlistAssignments.filter((assignment) => assignment.count === 0);
+    const setlistHeading = document.createElement('div');
+    setlistHeading.className = 'chart-metadata-inline-heading';
+    setlistHeading.append(createTextElement('h3', '', 'Setlists'));
+    if (assignedSetlists.length > 0) {
+      const selectedSetlistRow = document.createElement('div');
+      selectedSetlistRow.className = 'chart-metadata-chip-row';
+      for (const assignment of assignedSetlists) {
+        const isPartial = documents.length > 1 && assignment.count > 0 && assignment.count < documents.length;
+        const button = createButton(assignment.setlist.name, `chart-manage-filter-chip chart-metadata-tag-chip is-active${isPartial ? ' is-partial' : ''}`);
+        button.setAttribute('aria-pressed', isPartial ? 'mixed' : 'true');
+        button.title = isPartial ? `${assignment.count}/${documents.length} selected charts` : 'Assigned to selected charts';
+        button.addEventListener('click', () => applySetlistAction(assignment.setlist, false, isPartial));
+        selectedSetlistRow.append(button);
+      }
+      setlistHeading.append(selectedSetlistRow);
+    }
+    setlistSection.append(setlistHeading);
+
+    if (availableSetlists.length > 0) {
+      const availableSetlistList = document.createElement('div');
+      availableSetlistList.className = 'chart-metadata-add-row';
+      availableSetlistList.append(createTextElement('span', 'chart-metadata-tag-group-label', 'Add to setlist:'));
+      const availableSetlistRow = document.createElement('div');
+      availableSetlistRow.className = 'chart-metadata-chip-row';
+      for (const assignment of availableSetlists) {
+        const button = createButton(assignment.setlist.name, 'chart-manage-filter-chip chart-metadata-tag-chip');
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', () => applySetlistAction(assignment.setlist, true));
+        availableSetlistRow.append(button);
+      }
+      availableSetlistList.append(availableSetlistRow);
+      setlistSection.append(availableSetlistList);
+    }
 
     const newSetlistInput = document.createElement('input');
     newSetlistInput.className = 'chart-manage-text-input chart-metadata-input';
     newSetlistInput.type = 'text';
     newSetlistInput.placeholder = 'New setlist name';
-    const createSetlistButton = createButton('Create setlist and add');
-    createSetlistButton.addEventListener('click', async () => {
+    const createSetlistButton = createButton('Add setlist');
+    createSetlistButton.addEventListener('click', () => {
       const name = newSetlistInput.value.trim();
       if (!name) return;
-      await createSetlistAndAddTargets(options, chartIds, name, `Created "${name}" and added matching chart${chartIds.length === 1 ? '' : 's'}.`);
+      draftState = createSetlistAndAddTargetsDraft(draftState, chartIds, name);
       render();
     });
-    setlistSection.append(createActionRow(newSetlistInput, createSetlistButton));
-
-    const memberships = options.target.kind === 'single'
-      ? getChartSetlistMembership(chartIds[0], state.setlists)
-      : getTargetSetlists(chartIds, state.setlists);
-    const setlistList = document.createElement('div');
-    setlistList.className = 'chart-metadata-chip-row';
-    if (memberships.length === 0) setlistList.append(createEmptyMessage('No setlists yet.'));
-    for (const setlist of memberships) {
-      const button = createButton(`Remove from ${setlist.name}`, 'chart-metadata-chip');
-      button.addEventListener('click', async () => {
-        if (options.target.kind === 'single') {
-          await applySingleTarget(options, chartIds[0], { removeSetlistIds: [setlist.id] }, `Removed from "${setlist.name}".`);
-        } else {
-          await applyBatchTarget(options, chartIds, { kind: 'remove-setlist', setlistId: setlist.id }, `Removed matching charts from "${setlist.name}".`);
-        }
-        render();
-      });
-      setlistList.append(button);
-    }
-    setlistSection.append(setlistList);
+    const setlistEntryRow = createActionRow(newSetlistInput, createSetlistButton);
+    setlistEntryRow.classList.add('chart-metadata-setlist-entry-row');
+    setlistSection.append(setlistEntryRow);
     panel.append(setlistSection);
+
+    const footerActions = document.createElement('div');
+    footerActions.className = 'chart-metadata-footer-actions';
+    const deleteButton = createButton(
+      isDeleteConfirmationVisible ? 'Confirm delete' : 'Delete',
+      isDeleteConfirmationVisible ? 'chart-metadata-danger-confirm' : 'chart-metadata-danger-action'
+    );
+    deleteButton.addEventListener('click', async () => {
+      if (!isDeleteConfirmationVisible) {
+        isDeleteConfirmationVisible = true;
+        render();
+        return;
+      }
+      const deletedState = applyBatchTargetDraft(draftState, chartIds, { kind: 'delete' });
+      await options.persistState(deletedState, `Deleted ${chartIds.length} chart${chartIds.length === 1 ? '' : 's'}.`);
+      closeChartMetadataPanel(options.host);
+      options.closePanel?.();
+    });
+    const cancelButton = createButton('Cancel', 'chart-metadata-cancel');
+    cancelButton.addEventListener('click', cancelDraft);
+    const validateButton = createButton('Validate', 'chart-metadata-confirm');
+    validateButton.addEventListener('click', () => void validateDraft());
+    footerActions.append(deleteButton, cancelButton, validateButton);
+    panel.append(footerActions);
 
     options.host.replaceChildren(panel);
     options.host.hidden = false;
+    options.host.setAttribute('role', 'dialog');
+    options.host.setAttribute('aria-modal', 'true');
+    options.host.setAttribute('aria-label', 'Chart metadata');
   };
 
   render();

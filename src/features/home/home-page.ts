@@ -191,44 +191,12 @@ function createChartRow(chartDocument: ChartDocument, onMetadata: (chartId: stri
   metadataButton.type = 'button';
   metadataButton.className = 'home-chart-entry-kebab';
   metadataButton.setAttribute('aria-label', `Open metadata for ${chartDocument.metadata.title || 'chart'}`);
+  metadataButton.addEventListener('pointerdown', (event) => event.stopPropagation());
+  metadataButton.addEventListener('mousedown', (event) => event.stopPropagation());
   metadataButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     onMetadata(chartDocument.metadata.id);
-  });
-  metadataButton.style.textDecoration = 'none';
-  metadataButton.style.display = 'inline-flex';
-  metadataButton.style.flexDirection = 'column';
-  metadataButton.style.gap = '0.18rem';
-  metadataButton.style.alignItems = 'center';
-  metadataButton.style.justifyContent = 'center';
-  metadataButton.style.position = 'absolute';
-  metadataButton.style.top = '50%';
-  metadataButton.style.right = '0.35rem';
-  metadataButton.style.transform = 'translateY(-50%)';
-  metadataButton.style.width = '2.6rem';
-  metadataButton.style.height = '2.6rem';
-  metadataButton.style.zIndex = '2';
-  metadataButton.style.color = 'currentColor';
-  metadataButton.style.border = '0';
-  metadataButton.style.background = 'transparent';
-  metadataButton.style.boxShadow = 'none';
-  metadataButton.style.padding = '0';
-  metadataButton.style.margin = '0';
-  metadataButton.style.appearance = 'none';
-  metadataButton.style.webkitAppearance = 'none';
-  metadataButton.append(
-    createTextElement('span', 'home-chart-entry-dot', ''),
-    createTextElement('span', 'home-chart-entry-dot', ''),
-    createTextElement('span', 'home-chart-entry-dot', '')
-  );
-  metadataButton.querySelectorAll<HTMLElement>('.home-chart-entry-dot').forEach((dot) => {
-    dot.style.display = 'block';
-    dot.style.width = '0.28rem';
-    dot.style.height = '0.28rem';
-    dot.style.borderRadius = '999px';
-    dot.style.background = 'currentColor';
-    dot.style.opacity = '0.9';
   });
   row.append(link, metadataButton);
   item.append(row);
