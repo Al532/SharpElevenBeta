@@ -17,6 +17,7 @@ export default defineConfig({
   plugins: [
     obfuscatorPlugin({
       apply: 'build',
+      exclude: [/node_modules/, /chart[\\/]chart-import-ireal\.ts$/, /chart[\\/]ireal-decoder\.mjs$/],
       options: {
         compact: true,
         identifierNamesGenerator: 'hexadecimal',
