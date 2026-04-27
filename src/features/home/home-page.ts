@@ -61,6 +61,51 @@ const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com';
 let lastHomeViewportWidth = 0;
 let maxHomeViewportHeightWithoutVirtualKeyboard = 0;
 
+function isHomeTextEntryActive(): boolean {
+  const activeElement = document.activeElement;
+  if (!activeElement) return false;
+  if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) return true;
+  return activeElement instanceof HTMLElement && activeElement.isContentEditable;
+}
+
+function setStableHomeViewportHeight(height: number): void {
+  if (!height) return;
+  const stableHeight = `${height}px`;
+  document.documentElement.style.setProperty('--home-stable-viewport-height', stableHeight);
+  document.body?.style.setProperty('--home-stable-viewport-height', stableHeight);
+}
+
+function updateHomeViewportHeightReference(): number {
+  const viewportWidth = Math.floor(Math.max(
+    window.innerWidth || 0,
+    document.documentElement.clientWidth || 0,
+    window.visualViewport?.width || 0
+  ));
+  const viewportHeight = Math.floor(Math.max(
+    window.innerHeight || 0,
+    document.documentElement.clientHeight || 0,
+    window.visualViewport?.height || 0
+  ));
+  const isTextEntryActive = isHomeTextEntryActive();
+  const isNewWidth = viewportWidth && Math.abs(viewportWidth - lastHomeViewportWidth) > 1;
+
+  if (isNewWidth) {
+    lastHomeViewportWidth = viewportWidth;
+    if (!isTextEntryActive || !maxHomeViewportHeightWithoutVirtualKeyboard) {
+      maxHomeViewportHeightWithoutVirtualKeyboard = viewportHeight;
+    }
+  } else if (!isTextEntryActive) {
+    maxHomeViewportHeightWithoutVirtualKeyboard = Math.max(
+      maxHomeViewportHeightWithoutVirtualKeyboard,
+      viewportHeight
+    );
+  }
+
+  const stableViewportHeight = maxHomeViewportHeightWithoutVirtualKeyboard || viewportHeight;
+  setStableHomeViewportHeight(stableViewportHeight);
+  return stableViewportHeight;
+}
+
 function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
   const element = document.createElement(tagName);
   element.className = className;
@@ -195,26 +240,7 @@ function getAvailableChartListHeight(listElement: HTMLElement): number {
 }
 
 function getViewportHeightWithoutVirtualKeyboard(): number {
-  const viewportWidth = Math.floor(Math.max(
-    window.innerWidth || 0,
-    document.documentElement.clientWidth || 0,
-    window.visualViewport?.width || 0
-  ));
-  const viewportHeight = Math.floor(Math.max(
-    window.innerHeight || 0,
-    document.documentElement.clientHeight || 0,
-    window.visualViewport?.height || 0
-  ));
-  if (viewportWidth && Math.abs(viewportWidth - lastHomeViewportWidth) > 1) {
-    lastHomeViewportWidth = viewportWidth;
-    maxHomeViewportHeightWithoutVirtualKeyboard = viewportHeight;
-  } else {
-    maxHomeViewportHeightWithoutVirtualKeyboard = Math.max(
-      maxHomeViewportHeightWithoutVirtualKeyboard,
-      viewportHeight
-    );
-  }
-  return maxHomeViewportHeightWithoutVirtualKeyboard || viewportHeight;
+  return updateHomeViewportHeightReference();
 }
 
 function createChartRow(chartDocument: ChartDocument, onMenu: (target: ChartEntryMenuTarget) => void): HTMLLIElement {
@@ -401,6 +427,12 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const rerender = (): void => {
     updateChartSearchPlaceholder();
     renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, dom);
+  };
+
+  const handleViewportResize = (): void => {
+    updateHomeViewportHeightReference();
+    if (isHomeTextEntryActive()) return;
+    rerender();
   };
 
   const persistMetadataState = async ({ documents: nextDocuments, setlists: nextSetlists }: { documents: ChartDocument[]; setlists: ChartSetlist[] }, _statusMessage: string): Promise<void> => {
@@ -603,6 +635,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
 
   const setImportStatus = (message: string, isError = false): void => {
     setChartImportStatus(dom.chartImportStatus, message, isError);
+    rerender();
   };
 
   const clearStaleImportStatus = (): void => {
@@ -784,11 +817,13 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   });
   if (new URLSearchParams(window.location.search).get('import') === 'charts') openImportPopup();
   void bindIncomingMobileIRealImports().then(() => importPendingMobileIRealLink());
+  updateHomeViewportHeightReference();
   rerender();
   clearStaleImportStatus();
 
   dom.chartSearchInput?.addEventListener('input', rerender);
-  window.addEventListener('resize', rerender);
+  window.addEventListener('resize', handleViewportResize);
+  window.visualViewport?.addEventListener('resize', handleViewportResize);
   window.addEventListener('pagehide', cancelActiveImport);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {

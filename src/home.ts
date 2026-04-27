@@ -21,7 +21,7 @@ initializeHomePage({
   irealLinkInput: document.getElementById('ireal-link-input') as HTMLInputElement | null,
   importIRealLinkButton: document.getElementById('import-ireal-link-button') as HTMLButtonElement | null,
   irealLinkImportSection: document.getElementById('ireal-link-import-section'),
-  chartImportStatus: document.getElementById('home-chart-search-empty'),
+  chartImportStatus: document.getElementById('home-chart-status'),
   themeButton: document.getElementById('home-theme-button') as HTMLButtonElement | null,
   themeMenu: document.getElementById('home-theme-menu') as HTMLElement | null
 }).catch((error) => {
