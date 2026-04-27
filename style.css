@@ -713,15 +713,37 @@ body {
 }
 
 .chart-manage-section-heading {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.65rem;
   align-items: center;
-  justify-content: space-between;
 }
 
 .chart-manage-section-heading h2 {
   margin: 0;
+}
+
+.chart-manage-section-heading .chart-manage-small-action {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.6rem;
+  white-space: nowrap;
+}
+
+.chart-manage-transfer-hint {
+  margin: -0.25rem 0 0.15rem;
+  color: var(--ui-text-soft);
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.chart-manage-transfer-hint span {
+  display: inline-block;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 0.8;
+  vertical-align: -0.08em;
 }
 
 .chart-manage-search {
@@ -867,9 +889,12 @@ body {
   padding-left: 0.9rem;
 }
 
-.chart-manage-chart-list .chart-manage-chart-link,
-.chart-manage-setlist-chart-list .chart-manage-chart-link {
+.chart-manage-chart-list .chart-manage-chart-link {
   margin-left: 0.9rem;
+}
+
+.chart-manage-setlist-chart-list .chart-manage-chart-link {
+  margin-left: 0;
 }
 
 .chart-manage-chart-list.is-direct .chart-manage-chart-row {
@@ -886,7 +911,6 @@ body {
   background: var(--ui-chip-bg-strong);
 }
 
-.chart-manage-chart-list.is-direct .chart-manage-chart-row.is-picked,
 .chart-manage-setlist-row.can-receive-chart,
 .chart-manage-setlist-chart-row.can-receive-chart {
   background: var(--ui-chip-bg-strong);
@@ -906,18 +930,72 @@ body {
   padding-left: 0;
 }
 
+.chart-manage-setlist-chart-list[hidden] {
+  display: none;
+}
+
+.chart-manage-setlist-chart-list > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr);
+  row-gap: 0.5rem;
+}
+
+.chart-manage-setlist-chart-list > li > .chart-manage-setlist-chart-row {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.chart-manage-setlist-chart-list > li > .home-chart-entry-kebab {
+  top: 1.55rem;
+  right: -1.3rem;
+}
+
 .chart-manage-setlist-chart-row {
+  position: relative;
   cursor: grab;
+  touch-action: none;
 }
 
 .chart-manage-setlist-chart-row:active {
   cursor: grabbing;
 }
 
+.chart-manage-setlist-chart-row.is-dragging {
+  background: var(--ui-chip-bg-strong);
+}
+
+.chart-manage-setlist-chart-row.has-drop-preview-before::before {
+  content: "";
+  position: absolute;
+  top: -0.34rem;
+  left: 0.9rem;
+  right: 0.9rem;
+  height: 0.18rem;
+  border-radius: 999px;
+  background: var(--ui-accent);
+  pointer-events: none;
+}
+
+.chart-manage-setlist-chart-list.has-drop-preview-end::after {
+  content: "";
+  display: block;
+  height: 0.18rem;
+  margin: 0.35rem 0.9rem 0.1rem 2.3rem;
+  border-radius: 999px;
+  background: var(--ui-accent);
+  pointer-events: none;
+}
+
 .chart-manage-setlist-menu {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+  margin-left: 1.8rem;
+}
+
+.chart-manage-setlist-item-menu {
+  grid-column: 2;
   margin-left: 1.8rem;
 }
 

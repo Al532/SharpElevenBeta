@@ -81,12 +81,14 @@ let currentDocuments: ChartDocument[] = [];
 let currentSource = 'imported library';
 let currentSetlists: ChartSetlist[] = [];
 let activeSetlistMenuId = '';
+let activeSetlistItemMenuKey = '';
 let draggedSetlistItem: { setlistId: string; index: number } | null = null;
 let draggedLibraryChartId = '';
-let pickedLibraryChartId = '';
+let setlistPointerStart: { x: number; y: number } | null = null;
 let isCreateSetlistVisible = false;
 let renamingSetlistId = '';
 let pendingDeleteSetlistId = '';
+const collapsedSetlistIds = new Set<string>();
 const activeManageFilters: Record<ChartManageFilterKey, Set<string>> = {
   origin: new Set(),
   source: new Set(),
@@ -416,13 +418,7 @@ function renderManageCharts() {
     const item = document.createElement('li');
     const row = document.createElement('div');
     row.className = 'home-list-link chart-manage-chart-row';
-    row.classList.toggle('is-picked', pickedLibraryChartId === chartDocument.metadata.id);
     row.dataset.chartId = chartDocument.metadata.id;
-    row.addEventListener('click', (event) => {
-      if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
-      pickedLibraryChartId = pickedLibraryChartId === chartDocument.metadata.id ? '' : chartDocument.metadata.id;
-      renderManageUi();
-    });
     row.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -431,18 +427,24 @@ function renderManageCharts() {
       row.classList.add('is-dragging');
       row.setPointerCapture(event.pointerId);
     });
+    row.addEventListener('pointermove', (event) => {
+      if (!draggedLibraryChartId) return;
+      showSetlistDropPreview(getSetlistDropTargetAtPoint(event.clientX, event.clientY));
+    });
     row.addEventListener('pointerup', (event) => {
       const chartId = draggedLibraryChartId;
       draggedLibraryChartId = '';
       row.classList.remove('is-dragging');
-      if (!chartId) return;
       const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
+      clearSetlistDropPreview();
+      if (!chartId) return;
       if (!dropTarget) return;
       addChartToSetlist(dropTarget.setlistId, chartId, dropTarget.index);
     });
     row.addEventListener('pointercancel', () => {
       draggedLibraryChartId = '';
       row.classList.remove('is-dragging');
+      clearSetlistDropPreview();
     });
     row.addEventListener('dragstart', (event) => {
       draggedSetlistItem = null;
@@ -455,15 +457,13 @@ function renderManageCharts() {
     });
     row.addEventListener('dragend', () => {
       draggedLibraryChartId = '';
+      clearSetlistDropPreview();
     });
     const content = document.createElement('div');
     content.className = 'chart-manage-chart-link';
     content.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
     const subtitle = getChartSubtitle(chartDocument);
     if (subtitle) content.append(createTextElement('span', 'home-list-meta', subtitle));
-    if (pickedLibraryChartId === chartDocument.metadata.id) {
-      content.append(createTextElement('span', 'home-list-meta', 'Click a setlist to add'));
-    }
     const menuButton = createMetadataButton(`Edit metadata for ${chartDocument.metadata.title || 'chart'}`, (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -533,6 +533,32 @@ function getSetlistDropTargetAtPoint(clientX: number, clientY: number): { setlis
   return Number.isFinite(index) ? { setlistId, index } : { setlistId };
 }
 
+function findSetlistChildList(setlistId: string): HTMLElement | undefined {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-child-list-id]'))
+    .find((element) => element.dataset.setlistChildListId === setlistId);
+}
+
+function findSetlistDropRow(setlistId: string, index: number): HTMLElement | undefined {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-drop-index]'))
+    .find((element) => element.dataset.setlistDropId === setlistId && Number(element.dataset.setlistDropIndex) === index);
+}
+
+function clearSetlistDropPreview() {
+  document.querySelectorAll('.has-drop-preview-before, .has-drop-preview-end').forEach((element) => {
+    element.classList.remove('has-drop-preview-before', 'has-drop-preview-end');
+  });
+}
+
+function showSetlistDropPreview(target: { setlistId: string; index?: number } | null) {
+  clearSetlistDropPreview();
+  if (!target) return;
+  if (Number.isFinite(target.index)) {
+    findSetlistDropRow(target.setlistId, target.index as number)?.classList.add('has-drop-preview-before');
+  } else {
+    findSetlistChildList(target.setlistId)?.classList.add('has-drop-preview-end');
+  }
+}
+
 function renderSetlists() {
   if (!dom.manageSetlistsSection || !dom.manageSetlistList) return;
   dom.manageSetlistsSection.hidden = false;
@@ -549,23 +575,28 @@ function renderSetlists() {
   for (const setlist of currentSetlists) {
     const item = document.createElement('li');
     item.className = 'chart-manage-setlist-entry';
+    const isCollapsed = collapsedSetlistIds.has(setlist.id);
 
     const row = document.createElement('div');
     row.className = 'home-list-link chart-manage-setlist-row';
-    row.classList.toggle('can-receive-chart', Boolean(pickedLibraryChartId));
+    row.classList.toggle('can-receive-chart', draggedLibraryChartId !== '');
+    row.setAttribute('aria-expanded', String(!isCollapsed));
     row.dataset.setlistDropId = setlist.id;
     row.addEventListener('click', (event) => {
-      if (!pickedLibraryChartId) return;
       if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
-      addChartToSetlist(setlist.id, pickedLibraryChartId);
+      if (isCollapsed) collapsedSetlistIds.delete(setlist.id);
+      else collapsedSetlistIds.add(setlist.id);
+      renderSetlists();
     });
     row.addEventListener('dragover', (event) => {
       if (!hasDraggedLibraryChart(event)) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      showSetlistDropPreview({ setlistId: setlist.id });
     });
     row.addEventListener('drop', (event) => {
       event.preventDefault();
+      clearSetlistDropPreview();
       addChartToSetlist(setlist.id, getDraggedLibraryChartId(event));
     });
 
@@ -580,6 +611,7 @@ function renderSetlists() {
       event.preventDefault();
       event.stopPropagation();
       activeSetlistMenuId = activeSetlistMenuId === setlist.id ? '' : setlist.id;
+      activeSetlistItemMenuKey = '';
       renderSetlists();
     });
     row.append(content, menuButton);
@@ -589,27 +621,68 @@ function renderSetlists() {
 
     const childList = document.createElement('ul');
     childList.className = 'home-list chart-manage-setlist-chart-list';
+    childList.hidden = isCollapsed;
     childList.dataset.setlistDropId = setlist.id;
+    childList.dataset.setlistChildListId = setlist.id;
     childList.addEventListener('dragover', (event) => {
       if (!hasDraggedLibraryChart(event)) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      showSetlistDropPreview({ setlistId: setlist.id });
     });
     childList.addEventListener('drop', (event) => {
       event.preventDefault();
+      clearSetlistDropPreview();
       addChartToSetlist(setlist.id, getDraggedLibraryChartId(event));
     });
     setlist.items.forEach((setlistItem, index) => {
       const chartDocument = documentsById.get(setlistItem.chartId);
       const childItem = document.createElement('li');
+      const childMenuKey = `${setlist.id}:${index}`;
       const childRow = document.createElement('div');
       childRow.className = 'home-list-link chart-manage-chart-row chart-manage-setlist-chart-row';
-      childRow.classList.toggle('can-receive-chart', Boolean(pickedLibraryChartId));
+      childRow.classList.toggle('can-receive-chart', draggedLibraryChartId !== '' || draggedSetlistItem?.setlistId === setlist.id);
       childRow.draggable = true;
       childRow.dataset.setlistId = setlist.id;
       childRow.dataset.index = String(index);
       childRow.dataset.setlistDropId = setlist.id;
       childRow.dataset.setlistDropIndex = String(index);
+      childRow.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
+        event.preventDefault();
+        draggedLibraryChartId = '';
+        draggedSetlistItem = { setlistId: setlist.id, index };
+        setlistPointerStart = { x: event.clientX, y: event.clientY };
+        childRow.classList.add('is-dragging');
+        childRow.setPointerCapture(event.pointerId);
+      });
+      childRow.addEventListener('pointermove', (event) => {
+        if (!draggedSetlistItem) return;
+        const target = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
+        showSetlistDropPreview(target?.setlistId === draggedSetlistItem.setlistId ? target : null);
+      });
+      childRow.addEventListener('pointerup', (event) => {
+        const draggedItem = draggedSetlistItem;
+        draggedSetlistItem = null;
+        childRow.classList.remove('is-dragging');
+        const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
+        clearSetlistDropPreview();
+        if (!draggedItem) return;
+        const movedDistance = setlistPointerStart
+          ? Math.hypot(event.clientX - setlistPointerStart.x, event.clientY - setlistPointerStart.y)
+          : 0;
+        setlistPointerStart = null;
+        if (movedDistance < 6) return;
+        if (!dropTarget || dropTarget.setlistId !== draggedItem.setlistId) return;
+        moveSetlistItem(draggedItem.setlistId, draggedItem.index, dropTarget.index ?? setlist.items.length - 1);
+      });
+      childRow.addEventListener('pointercancel', () => {
+        draggedSetlistItem = null;
+        setlistPointerStart = null;
+        childRow.classList.remove('is-dragging');
+        clearSetlistDropPreview();
+      });
       childRow.addEventListener('dragstart', (event) => {
         draggedLibraryChartId = '';
         draggedSetlistItem = { setlistId: setlist.id, index };
@@ -618,25 +691,22 @@ function renderSetlists() {
       });
       childRow.addEventListener('dragend', () => {
         draggedSetlistItem = null;
+        clearSetlistDropPreview();
       });
       childRow.addEventListener('dragover', (event) => {
         if (draggedSetlistItem?.setlistId === setlist.id || hasDraggedLibraryChart(event)) {
           event.preventDefault();
           if (event.dataTransfer) event.dataTransfer.dropEffect = draggedLibraryChartId ? 'copy' : 'move';
+          showSetlistDropPreview({ setlistId: setlist.id, index });
         }
       });
       childRow.addEventListener('drop', (event) => {
         event.preventDefault();
+        clearSetlistDropPreview();
         const draggedChartId = getDraggedLibraryChartId(event);
         if (draggedChartId) addChartToSetlist(setlist.id, draggedChartId, index);
         else moveSetlistItem(setlist.id, draggedSetlistItem?.index ?? -1, index);
       });
-      childRow.addEventListener('click', (event) => {
-        if (!pickedLibraryChartId) return;
-        if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
-        addChartToSetlist(setlist.id, pickedLibraryChartId, index);
-      });
-
       const childContent = document.createElement('div');
       childContent.className = 'chart-manage-chart-link';
       childContent.append(createTextElement('span', 'home-list-title', chartDocument?.metadata.title || setlistItem.chartId));
@@ -644,10 +714,13 @@ function renderSetlists() {
       const removeButton = createMetadataButton(`Remove ${chartDocument?.metadata.title || 'chart'} from ${setlist.name}`, (event) => {
         event.preventDefault();
         event.stopPropagation();
-        removeSetlistItem(setlist.id, index);
+        activeSetlistItemMenuKey = activeSetlistItemMenuKey === childMenuKey ? '' : childMenuKey;
+        activeSetlistMenuId = '';
+        renderSetlists();
       });
-      childRow.append(childContent, removeButton);
-      childItem.append(childRow);
+      childRow.append(childContent);
+      childItem.append(childRow, removeButton);
+      if (activeSetlistItemMenuKey === childMenuKey) childItem.append(renderSetlistItemMenu(setlist.id, index));
       childList.append(childItem);
     });
     item.append(childList);
@@ -691,6 +764,18 @@ function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
   const deleteButton = createButton(pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete', 'chart-manage-small-action chart-manage-danger');
   deleteButton.addEventListener('click', () => deleteSetlist(setlist));
   menu.append(renameButton, deleteButton);
+  return menu;
+}
+
+function renderSetlistItemMenu(setlistId: string, itemIndex: number): HTMLElement {
+  const menu = document.createElement('div');
+  menu.className = 'chart-manage-setlist-menu chart-manage-setlist-item-menu';
+  const deleteButton = createButton('Delete from setlist', 'chart-manage-small-action chart-manage-danger');
+  deleteButton.addEventListener('click', () => {
+    activeSetlistItemMenuKey = '';
+    removeSetlistItem(setlistId, itemIndex);
+  });
+  menu.append(deleteButton);
   return menu;
 }
 
@@ -743,12 +828,14 @@ function updateSetlistItems(setlistId: string, items: ChartSetlist['items'], sta
 function moveSetlistItem(setlistId: string, fromIndex: number, toIndex: number) {
   const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
   if (!setlist || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+  activeSetlistItemMenuKey = '';
   updateSetlistItems(setlistId, reorderSetlistItems(setlist.items, fromIndex, toIndex), 'Setlist reordered.');
 }
 
 function removeSetlistItem(setlistId: string, itemIndex: number) {
   const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
   if (!setlist) return;
+  activeSetlistItemMenuKey = '';
   updateSetlistItems(setlistId, setlist.items.filter((_, index) => index !== itemIndex), 'Removed chart from setlist.');
 }
 
@@ -756,8 +843,9 @@ function addChartToSetlist(setlistId: string, chartId: string, beforeIndex?: num
   if (!chartId) return;
   const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
   if (!setlist) return;
-  pickedLibraryChartId = '';
   draggedLibraryChartId = '';
+  activeSetlistItemMenuKey = '';
+  collapsedSetlistIds.delete(setlistId);
   if (setlist.items.some((item) => item.chartId === chartId)) {
     setImportStatus('Chart is already in this setlist.');
     return;
@@ -787,7 +875,9 @@ function deleteSetlist(setlist: ChartSetlist) {
     return;
   }
   activeSetlistMenuId = '';
+  activeSetlistItemMenuKey = '';
   pendingDeleteSetlistId = '';
+  collapsedSetlistIds.delete(setlist.id);
   persistSetlistChanges(currentSetlists.filter((candidate) => candidate.id !== setlist.id), 'Setlist deleted.');
 }
 
