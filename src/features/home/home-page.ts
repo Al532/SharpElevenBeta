@@ -1,6 +1,13 @@
 import type { ChartDocument, ChartSetlist } from '../../core/types/contracts';
 import type { SharpElevenThemeApi } from '../app/app-theme.js';
 
+import { createChartDocumentsFromIRealText } from '../../../chart/index.js';
+import {
+  consumePendingIRealLinkResult,
+  isIRealDeepLink,
+  storePendingIRealLink
+} from '../app/app-pending-mobile-import.js';
+import { openIrealBrowser } from '../app/ireal-browser.js';
 import {
   loadPersistedChartLibrary,
   loadPersistedSetlists,
@@ -12,8 +19,13 @@ import {
 import {
   filterChartDocuments,
   getChartSourceRefs,
+  importDocumentsFromIRealText,
   normalizeChartTextKey
 } from '../chart/chart-library.js';
+import {
+  bindChartImportControls,
+  setChartImportStatus
+} from '../chart/chart-import-controls.js';
 import {
   closeChartMetadataPanel,
   openChartMetadataPanel
@@ -23,15 +35,32 @@ type HomePageDom = {
   chartSearchInput: HTMLInputElement | null;
   chartSearchResults: HTMLElement | null;
   chartSearchEmpty: HTMLElement | null;
+  importChartsButton: HTMLButtonElement | null;
+  importChartsPopup: HTMLElement | null;
+  importCloseButton: HTMLButtonElement | null;
+  importIRealBackupButton: HTMLButtonElement | null;
+  openIRealForumButton: HTMLButtonElement | null;
+  irealBackupInput: HTMLInputElement | null;
+  irealImportActions: HTMLElement | null;
+  irealLinkInput: HTMLInputElement | null;
+  importIRealLinkButton: HTMLButtonElement | null;
+  irealLinkImportSection: HTMLElement | null;
+  chartImportStatus: HTMLElement | null;
   themeButton: HTMLButtonElement | null;
   themeMenu: HTMLElement | null;
 };
+
+const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com';
 
 function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
   const element = document.createElement(tagName);
   element.className = className;
   element.textContent = textContent;
   return element;
+}
+
+function isNativePlatform() {
+  return Boolean(window.Capacitor?.isNativePlatform?.());
 }
 
 function getChartSubtitle(document: ChartDocument): string {
@@ -234,13 +263,14 @@ function renderChartSearch(
   }
 
   const isEmpty = dom.chartSearchResults.children.length === 0;
-  dom.chartSearchEmpty?.classList.toggle('hidden', !isEmpty);
   if (dom.chartSearchEmpty) {
-    dom.chartSearchEmpty.textContent = documents.length === 0
+    const emptyMessage = documents.length === 0
       ? 'Import charts, then search by title.'
       : query
         ? 'No matching charts.'
-        : 'No recent charts yet. Type a title, composer, style, or tag.';
+        : '';
+    dom.chartSearchEmpty.textContent = emptyMessage;
+    dom.chartSearchEmpty.classList.toggle('hidden', !isEmpty || !emptyMessage);
   }
 }
 
@@ -264,7 +294,19 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       .filter((document): document is ChartDocument => Boolean(document));
   };
 
+  const updateChartSearchPlaceholder = (): void => {
+    const chartCount = documents.length;
+    const chartLabel = chartCount === 1 ? 'chart' : 'charts';
+    dom.chartSearchInput?.setAttribute(
+      'placeholder',
+      chartCount > 0
+        ? `Search ${chartCount} ${chartLabel} by title, composer, style, or tag`
+        : 'Search by title, composer, style, or tag'
+    );
+  };
+
   const rerender = (): void => {
+    updateChartSearchPlaceholder();
     renderChartSearch(documents, getRecentDocuments(), openMetadata, dom);
   };
 
@@ -285,11 +327,149 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     });
   }
 
+  const setImportStatus = (message: string, isError = false): void => {
+    setChartImportStatus(dom.chartImportStatus, message, isError);
+  };
+
+  const openImportPopup = (): void => {
+    if (!dom.importChartsPopup) return;
+    dom.importChartsPopup.hidden = false;
+    dom.importChartsButton?.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => dom.irealLinkInput?.focus());
+  };
+
+  const closeImportPopup = (): void => {
+    if (!dom.importChartsPopup) return;
+    dom.importChartsPopup.hidden = true;
+    dom.importChartsButton?.setAttribute('aria-expanded', 'false');
+  };
+
+  const applyImportModeVisibility = (): void => {
+    const isNative = isNativePlatform();
+    if (dom.irealImportActions) dom.irealImportActions.hidden = !isNative;
+    if (dom.irealLinkImportSection) dom.irealLinkImportSection.hidden = isNative;
+  };
+
+  const importFromRawText = async (rawText: string, sourceFile: string): Promise<void> => {
+    const trimmedText = String(rawText || '').trim();
+    if (!trimmedText) {
+      setImportStatus('Paste an irealb:// link first.', true);
+      return;
+    }
+    try {
+      const importedDocuments = await importDocumentsFromIRealText({
+        rawText: trimmedText,
+        sourceFile,
+        importDocuments: ({ rawText: sourceText, sourceFile: importedSourceFile = '' }) =>
+          createChartDocumentsFromIRealText({ rawText: sourceText, sourceFile: importedSourceFile })
+      });
+      if (!importedDocuments.length) {
+        setImportStatus(`No charts imported from ${sourceFile}.`);
+        return;
+      }
+      persistedLibrary = await persistChartLibrary({ documents: importedDocuments, source: sourceFile, mergeWithExisting: true });
+      if (!persistedLibrary || persistedLibrary.documents.length === 0) throw new Error('The imported chart library could not be confirmed in persistent storage.');
+      documents = persistedLibrary.documents;
+      setlists = await loadPersistedSetlists();
+      saveHomeChartSummaryFromLibrary(persistedLibrary);
+      rerender();
+      setImportStatus(`Imported ${importedDocuments.length} chart${importedDocuments.length === 1 ? '' : 's'} from ${sourceFile}.`);
+      closeImportPopup();
+    } catch (error) {
+      setImportStatus(`Import failed: ${error instanceof Error ? error.message : String(error || 'Unknown error')}`, true);
+    }
+  };
+
+  const handleBackupFileSelection = async (event: Event & { target: HTMLInputElement | null }): Promise<void> => {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    try {
+      await importFromRawText(await file.text(), file.name);
+    } finally {
+      if (event.target) event.target.value = '';
+    }
+  };
+
+  const handlePastedIRealLinkImport = async (): Promise<void> => {
+    try {
+      await importFromRawText(dom.irealLinkInput?.value || '', 'pasted-ireal-link');
+    } finally {
+      if (dom.irealLinkInput) dom.irealLinkInput.value = '';
+    }
+  };
+
+  const importPendingMobileIRealLink = async (): Promise<void> => {
+    const pendingResult = await consumePendingIRealLinkResult();
+    const pendingIRealLink = pendingResult.url;
+    if (!pendingIRealLink && pendingResult.hadPendingMarker) {
+      setImportStatus(pendingResult.errorMessage ? `iReal link detected, but the captured text could not be loaded: ${pendingResult.errorMessage}` : 'iReal link detected, but the captured text could not be loaded. Open the forum charts and tap the link again.', true);
+      openImportPopup();
+      return;
+    }
+    if (!pendingIRealLink) return;
+    openImportPopup();
+    setImportStatus('iReal link captured. Importing charts...');
+    await importFromRawText(pendingIRealLink, 'pasted-ireal-link');
+  };
+
+  const bindIncomingMobileIRealImports = async (): Promise<void> => {
+    if (!isNativePlatform()) return;
+    let appPlugin = null;
+    try {
+      const capacitorAppModule = await import('@capacitor/app');
+      appPlugin = capacitorAppModule?.App || null;
+    } catch (_error) {
+      appPlugin = window.Capacitor?.Plugins?.App || null;
+    }
+    if (!appPlugin?.addListener) return;
+    const handleIncomingUrl = (url: string): void => {
+      if (!isIRealDeepLink(url)) return;
+      storePendingIRealLink(url);
+      openImportPopup();
+      setImportStatus('iReal link detected. Loading captured text...');
+      void importPendingMobileIRealLink();
+    };
+    try {
+      const launchUrl = await appPlugin.getLaunchUrl?.();
+      handleIncomingUrl(String(launchUrl?.url || ''));
+    } catch (_error) {
+      // Keep listener active.
+    }
+    appPlugin.addListener('appUrlOpen', ({ url }: { url?: string }) => handleIncomingUrl(String(url || '')));
+  };
+
+  applyImportModeVisibility();
+  bindChartImportControls({
+    importIRealBackupButton: dom.importIRealBackupButton,
+    irealBackupInput: dom.irealBackupInput,
+    openIRealForumButton: dom.openIRealForumButton,
+    forumTracksUrl: IREAL_FORUM_TRACKS_URL,
+    setImportStatus,
+    onBackupFileSelection: handleBackupFileSelection,
+    onOpenForumTracks: () => openIrealBrowser({ url: IREAL_FORUM_TRACKS_URL, title: 'Click on a link to import' })
+  });
+  dom.importIRealLinkButton?.addEventListener('click', () => void handlePastedIRealLinkImport());
+  dom.irealLinkInput?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void handlePastedIRealLinkImport();
+  });
+  dom.importChartsButton?.addEventListener('click', openImportPopup);
+  dom.importCloseButton?.addEventListener('click', closeImportPopup);
+  dom.importChartsPopup?.addEventListener('click', (event) => {
+    if (event.target === dom.importChartsPopup) closeImportPopup();
+  });
+  if (new URLSearchParams(window.location.search).get('import') === 'charts') openImportPopup();
+  void bindIncomingMobileIRealImports().then(() => importPendingMobileIRealLink());
+
   rerender();
   dom.chartSearchInput?.addEventListener('input', rerender);
   window.addEventListener('resize', rerender);
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeChartMetadataPanel(metadataPanel);
+    if (event.key === 'Escape') {
+      closeChartMetadataPanel(metadataPanel);
+      closeImportPopup();
+    }
   });
   saveHomeChartSummaryFromLibrary(persistedLibrary);
 }

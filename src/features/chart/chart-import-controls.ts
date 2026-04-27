@@ -8,6 +8,7 @@ export function setChartImportStatus(
   if (!chartImportStatusElement) return;
   chartImportStatusElement.textContent = message || '';
   chartImportStatusElement.style.color = isError ? 'var(--chart-status-error)' : '';
+  chartImportStatusElement.classList.toggle('hidden', !message);
 }
 
 export async function importDefaultFixtureLibrary({

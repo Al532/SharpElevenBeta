@@ -69,15 +69,24 @@
         width: 100%;
         min-height: 36px;
         background: var(--ui-surface-input);
-        border: 1px solid var(--ui-border);
+        border: 0;
+        border-bottom: 2px solid transparent;
         color: var(--ui-text);
-        border-radius: 10px;
+        border-radius: 0;
         padding: 0 10px;
+        transition: background 0.15s, border-color 0.15s;
+      }
+
+      select:focus,
+      input:focus {
+        outline: 0;
+        border-bottom-color: var(--ui-accent);
+        background: color-mix(in srgb, var(--ui-surface-input) 82%, var(--ui-text) 18%);
       }
 
       button {
         background: var(--ui-accent);
-        border-color: var(--ui-accent);
+        border-bottom-color: transparent;
         color: var(--ui-text-inverse);
         font-weight: 700;
         cursor: pointer;

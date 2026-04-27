@@ -53,10 +53,32 @@
     </div>
 
     <div class="home-actions" aria-label="Home actions">
-      <a class="home-primary-action" href="./charts.html">Import/manage charts</a>
+      <button id="home-import-charts-button" class="home-primary-action" type="button" aria-haspopup="dialog" aria-expanded="false">Import charts</button>
+      <a class="home-primary-action" href="./charts.html">Library and setlists</a>
       <a class="home-primary-action" href="./drill.html">Drill mode</a>
     </div>
   </main>
+
+  <div id="home-import-charts-popup" class="home-import-popup" role="dialog" aria-label="Import charts" hidden>
+    <div class="home-import-popup-card">
+      <div class="home-import-popup-header">
+        <strong>Import charts</strong>
+        <button id="home-import-close-button" class="home-metadata-close" type="button">Close</button>
+      </div>
+      <div id="ireal-import-actions" class="home-import-actions">
+        <button id="import-ireal-backup-button" type="button" class="home-primary-action">Import iReal backup</button>
+        <button id="open-ireal-forum-button" type="button" class="home-primary-action">iReal forum charts</button>
+      </div>
+      <div id="ireal-link-import-section" class="home-import-link-section" hidden>
+        <label class="home-search-field">
+          <span class="sr-only">Import iReal link</span>
+          <input id="ireal-link-input" type="text" placeholder="Paste irealb:// link here" spellcheck="false">
+        </label>
+        <button id="import-ireal-link-button" type="button" class="home-primary-action">Import iReal link</button>
+      </div>
+    </div>
+  </div>
+  <input id="ireal-backup-input" type="file" accept=".html,.htm,.txt" hidden>
 
   <footer class="home-footer">
     <div class="home-theme-picker">

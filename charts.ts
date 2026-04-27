@@ -1,11 +1,4 @@
-import { createChartDocumentsFromIRealText } from './chart/index.js';
 import { initializeSharpElevenTheme } from './src/features/app/app-theme.js';
-import {
-  consumePendingIRealLinkResult,
-  isIRealDeepLink,
-  storePendingIRealLink
-} from './src/features/app/app-pending-mobile-import.js';
-import { openIrealBrowser } from './src/features/app/ireal-browser.js';
 import {
   loadPersistedChartLibrary,
   loadPersistedSetlists,
@@ -17,15 +10,10 @@ import {
   filterChartDocuments,
   getChartSetlistMembership,
   getChartSourceRefs,
-  importDocumentsFromIRealText,
   listChartLibraryFacets,
   reorderSetlistItems
 } from './src/features/chart/chart-library.js';
 import type { ChartDocument, ChartSetlist } from './src/core/types/contracts';
-import {
-  bindChartImportControls,
-  setChartImportStatus
-} from './src/features/chart/chart-import-controls.js';
 import {
   closeChartMetadataPanel,
   openChartMetadataPanel
@@ -33,7 +21,6 @@ import {
 
 initializeSharpElevenTheme();
 
-const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com';
 const CHIP_FILTER_OPTION_LIMIT = 12;
 const CHART_MANAGE_FILTER_KEYS = ['origin', 'source', 'tag', 'setlist'] as const;
 const FILTER_ACTION_ALL = '__all__';
@@ -48,14 +35,6 @@ type ChartManageFilterOption = {
 };
 
 const dom = {
-  importIRealBackupButton: document.getElementById('import-ireal-backup-button') as HTMLButtonElement | null,
-  openIRealForumButton: document.getElementById('open-ireal-forum-button') as HTMLButtonElement | null,
-  irealBackupInput: document.getElementById('ireal-backup-input') as HTMLInputElement | null,
-  irealImportActions: document.getElementById('ireal-import-actions'),
-  irealLinkInput: document.getElementById('ireal-link-input') as HTMLInputElement | null,
-  importIRealLinkButton: document.getElementById('import-ireal-link-button') as HTMLButtonElement | null,
-  irealLinkImportSection: document.getElementById('ireal-link-import-section'),
-  chartImportStatus: document.getElementById('chart-import-status'),
   manageChartSearchInput: document.getElementById('manage-chart-search-input') as HTMLInputElement | null,
   manageOriginFilterRow: document.getElementById('manage-origin-filter-row'),
   manageOriginFilter: document.getElementById('manage-origin-filter') as HTMLSelectElement | null,
@@ -83,6 +62,7 @@ let currentSetlists: ChartSetlist[] = [];
 let activeSetlistMenuId = '';
 let activeSetlistItemMenuKey = '';
 let draggedSetlistItem: { setlistId: string; index: number } | null = null;
+let draggedSetlistOrderIndex: number | null = null;
 let draggedLibraryChartId = '';
 let setlistPointerStart: { x: number; y: number } | null = null;
 let isCreateSetlistVisible = false;
@@ -103,7 +83,8 @@ const activeManageFilterModes: Record<ChartManageFilterKey, ChartManageFilterMod
 };
 
 function setImportStatus(message: string, isError = false) {
-  setChartImportStatus(dom.chartImportStatus, message, isError);
+  if (isError) console.error(message);
+  else console.info(message);
 }
 
 function getErrorMessage(error: unknown) {
@@ -112,20 +93,6 @@ function getErrorMessage(error: unknown) {
 
 function pluralizeChartLabel(count: number) {
   return `chart${count === 1 ? '' : 's'}`;
-}
-
-function isNativePlatform() {
-  return Boolean(window.Capacitor?.isNativePlatform?.());
-}
-
-function applyImportModeVisibility() {
-  const isNative = isNativePlatform();
-  if (dom.irealImportActions) {
-    dom.irealImportActions.hidden = !isNative;
-  }
-  if (dom.irealLinkImportSection) {
-    dom.irealLinkImportSection.hidden = isNative;
-  }
 }
 
 function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
@@ -232,21 +199,24 @@ function getSelectFilterOptions(select: HTMLSelectElement): ChartManageFilterOpt
 
 function isFilterAllSelected(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
   const active = activeManageFilters[key];
-  return activeManageFilterModes[key] === 'all'
-    || (values.length > 0 && active.size === values.length && values.every((option) => active.has(option.value)));
+  return activeManageFilterModes[key] === 'custom'
+    && values.length > 0
+    && active.size === values.length
+    && values.every((option) => active.has(option.value));
 }
 
 function getSelectedFilterCount(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
-  return isFilterAllSelected(key, values) ? values.length : activeManageFilters[key].size;
+  return activeManageFilterModes[key] === 'all' ? 0 : isFilterAllSelected(key, values) ? values.length : activeManageFilters[key].size;
 }
 
 function selectFilterValue(key: ChartManageFilterKey, value: string, values: ChartManageFilterOption[]) {
   const active = activeManageFilters[key];
   if (value === FILTER_ACTION_ALL) {
-    activeManageFilterModes[key] = 'all';
-    active.clear();
-  } else if (value === FILTER_ACTION_NONE) {
     activeManageFilterModes[key] = 'custom';
+    active.clear();
+    getFilterOptionValues(values).forEach((optionValue) => active.add(optionValue));
+  } else if (value === FILTER_ACTION_NONE) {
+    activeManageFilterModes[key] = 'all';
     active.clear();
   } else if (activeManageFilterModes[key] === 'all') {
     activeManageFilterModes[key] = 'custom';
@@ -268,9 +238,6 @@ function keepValidFilterValues(key: ChartManageFilterKey, values: ChartManageFil
     if (!validValues.has(value)) activeManageFilters[key].delete(value);
   });
   if (values.length <= 1) {
-    activeManageFilterModes[key] = 'all';
-    activeManageFilters[key].clear();
-  } else if (isFilterAllSelected(key, values)) {
     activeManageFilterModes[key] = 'all';
     activeManageFilters[key].clear();
   }
@@ -298,6 +265,7 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
   if (!host) return;
   const active = activeManageFilters[key];
   const isAllSelected = isFilterAllSelected(key, values);
+  const isFilterCleared = activeManageFilterModes[key] === 'all';
   host.replaceChildren();
   const buttons = [
     { label: 'All', value: FILTER_ACTION_ALL },
@@ -306,7 +274,11 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
   ].map(({ label, value }) => {
     const button = createButton(label, 'chart-manage-filter-chip');
     const isFilterAction = value === FILTER_ACTION_ALL || value === FILTER_ACTION_NONE;
-    const isActive = !isFilterAction && (isAllSelected || active.has(value));
+    const isActive = value === FILTER_ACTION_ALL
+      ? isAllSelected
+      : value === FILTER_ACTION_NONE
+        ? isFilterCleared
+        : !isFilterAction && active.has(value);
     button.setAttribute('aria-pressed', String(isActive));
     if (isActive) button.classList.add('is-active');
     button.addEventListener('click', () => selectFilterValue(key, value, values));
@@ -389,7 +361,7 @@ function renderFacets() {
 
 function renderManageCharts() {
   const documents = getFilteredManageDocuments();
-  const shouldSummarize = documents.length > 5;
+  const shouldSummarize = documents.length === 0 || documents.length > 5;
   if (dom.manageLibrarySummary) {
     dom.manageLibrarySummary.replaceChildren();
     dom.manageLibrarySummary.hidden = !shouldSummarize;
@@ -519,7 +491,8 @@ function getDraggedLibraryChartId(event: DragEvent): string {
 }
 
 function hasDraggedLibraryChart(event: DragEvent): boolean {
-  return Boolean(draggedLibraryChartId || (event.dataTransfer?.types || []).includes('text/plain'));
+  if (draggedSetlistOrderIndex !== null || draggedSetlistItem) return false;
+  return Boolean(draggedLibraryChartId);
 }
 
 function getSetlistDropTargetAtPoint(clientX: number, clientY: number): { setlistId: string; index?: number } | null {
@@ -549,6 +522,19 @@ function clearSetlistDropPreview() {
   });
 }
 
+function clearSetlistOrderPreview() {
+  document.querySelectorAll('.has-setlist-order-preview-before').forEach((element) => {
+    element.classList.remove('has-setlist-order-preview-before');
+  });
+}
+
+function showSetlistOrderPreview(index: number) {
+  clearSetlistOrderPreview();
+  Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-order-index]'))
+    .find((element) => Number(element.dataset.setlistOrderIndex) === index)
+    ?.classList.add('has-setlist-order-preview-before');
+}
+
 function showSetlistDropPreview(target: { setlistId: string; index?: number } | null) {
   clearSetlistDropPreview();
   if (!target) return;
@@ -572,16 +558,49 @@ function renderSetlists() {
   }
   const documentsById = new Map(currentDocuments.map((document) => [document.metadata.id, document]));
 
-  for (const setlist of currentSetlists) {
+  for (const [setlistIndex, setlist] of currentSetlists.entries()) {
     const item = document.createElement('li');
     item.className = 'chart-manage-setlist-entry';
+    item.dataset.setlistOrderIndex = String(setlistIndex);
     const isCollapsed = collapsedSetlistIds.has(setlist.id);
 
     const row = document.createElement('div');
     row.className = 'home-list-link chart-manage-setlist-row';
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = 'minmax(0, 1fr) auto';
+    row.style.alignItems = 'center';
+    row.style.columnGap = '0.65rem';
+    row.draggable = true;
     row.classList.toggle('can-receive-chart', draggedLibraryChartId !== '');
     row.setAttribute('aria-expanded', String(!isCollapsed));
     row.dataset.setlistDropId = setlist.id;
+    row.addEventListener('dragstart', (event) => {
+      if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
+      draggedLibraryChartId = '';
+      draggedSetlistItem = null;
+      draggedSetlistOrderIndex = setlistIndex;
+      event.dataTransfer?.setData('text/plain', `setlist-order:${setlistIndex}`);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer?.setDragImage(row, 12, 12);
+    });
+    row.addEventListener('dragend', () => {
+      draggedSetlistOrderIndex = null;
+      clearSetlistOrderPreview();
+    });
+    row.addEventListener('dragover', (event) => {
+      if (draggedSetlistOrderIndex === null) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      showSetlistOrderPreview(setlistIndex);
+    });
+    row.addEventListener('drop', (event) => {
+      if (draggedSetlistOrderIndex === null) return;
+      event.preventDefault();
+      const fromIndex = draggedSetlistOrderIndex;
+      draggedSetlistOrderIndex = null;
+      clearSetlistOrderPreview();
+      moveSetlist(fromIndex, setlistIndex);
+    });
     row.addEventListener('click', (event) => {
       if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
       if (isCollapsed) collapsedSetlistIds.delete(setlist.id);
@@ -755,6 +774,12 @@ function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
     menu.append(input, saveButton, cancelButton);
     return menu;
   }
+  const playButton = createButton('Play', 'chart-manage-small-action');
+  playButton.addEventListener('click', () => {
+    const targetUrl = new URL('./chart/index.html', window.location.href);
+    targetUrl.searchParams.set('setlist', setlist.id);
+    window.location.assign(targetUrl.toString());
+  });
   const renameButton = createButton('Rename', 'chart-manage-small-action');
   renameButton.addEventListener('click', () => {
     renamingSetlistId = setlist.id;
@@ -763,7 +788,7 @@ function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
   });
   const deleteButton = createButton(pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete', 'chart-manage-small-action chart-manage-danger');
   deleteButton.addEventListener('click', () => deleteSetlist(setlist));
-  menu.append(renameButton, deleteButton);
+  menu.append(playButton, renameButton, deleteButton);
   return menu;
 }
 
@@ -830,6 +855,18 @@ function moveSetlistItem(setlistId: string, fromIndex: number, toIndex: number) 
   if (!setlist || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
   activeSetlistItemMenuKey = '';
   updateSetlistItems(setlistId, reorderSetlistItems(setlist.items, fromIndex, toIndex), 'Setlist reordered.');
+}
+
+function moveSetlist(fromIndex: number, toIndex: number) {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= currentSetlists.length || toIndex >= currentSetlists.length || fromIndex === toIndex) return;
+  const nextSetlists = [...currentSetlists];
+  const [movedSetlist] = nextSetlists.splice(fromIndex, 1);
+  nextSetlists.splice(toIndex, 0, movedSetlist);
+  activeSetlistMenuId = '';
+  activeSetlistItemMenuKey = '';
+  persistSetlistChanges(nextSetlists.map((setlist) => setlist.id === movedSetlist.id
+    ? { ...setlist, updatedAt: new Date().toISOString() }
+    : setlist), 'Setlists reordered.');
 }
 
 function removeSetlistItem(setlistId: string, itemIndex: number) {
@@ -903,126 +940,6 @@ async function loadManageState() {
   currentSetlists = await loadPersistedSetlists();
   renderManageUi();
 }
-
-async function importFromRawText(rawText: string, sourceFile: string) {
-  const trimmedText = String(rawText || '').trim();
-  if (!trimmedText) {
-    setImportStatus('Paste an irealb:// link first.', true);
-    return;
-  }
-  try {
-    const documents = await importDocumentsFromIRealText({
-      rawText: trimmedText,
-      sourceFile,
-      importDocuments: ({ rawText, sourceFile: importedSourceFile = '' }) =>
-        createChartDocumentsFromIRealText({ rawText, sourceFile: importedSourceFile })
-    });
-    if (!documents.length) {
-      setImportStatus(`No charts imported from ${sourceFile}.`);
-      return;
-    }
-    const persistedLibrary = await persistChartLibrary({ documents, source: sourceFile, mergeWithExisting: true });
-    if (!persistedLibrary || persistedLibrary.documents.length === 0) throw new Error('The imported chart library could not be confirmed in persistent storage.');
-    currentDocuments = persistedLibrary.documents;
-    currentSource = persistedLibrary.source;
-    setImportStatus(formatImportSummary(persistedLibrary, documents.length, sourceFile));
-    renderManageUi();
-  } catch (error) {
-    setImportStatus(`Import failed: ${getErrorMessage(error)}`, true);
-  }
-}
-
-async function handleBackupFileSelection(event: Event & { target: HTMLInputElement | null }) {
-  const file = event.target?.files?.[0];
-  if (!file) return;
-  try {
-    await importFromRawText(await file.text(), file.name);
-  } catch (error) {
-    setImportStatus(`Import failed: ${getErrorMessage(error)}`, true);
-  } finally {
-    if (event.target) event.target.value = '';
-  }
-}
-
-async function handlePastedIRealLinkImport() {
-  const rawText = dom.irealLinkInput?.value || '';
-  try {
-    await importFromRawText(rawText, 'pasted-ireal-link');
-  } finally {
-    if (dom.irealLinkInput) {
-      dom.irealLinkInput.value = '';
-    }
-  }
-}
-
-async function importPendingMobileIRealLink() {
-  const pendingResult = await consumePendingIRealLinkResult();
-  const pendingIRealLink = pendingResult.url;
-  if (!pendingIRealLink && pendingResult.hadPendingMarker) {
-    setImportStatus(pendingResult.errorMessage ? `iReal link detected, but the captured text could not be loaded: ${pendingResult.errorMessage}` : 'iReal link detected, but the captured text could not be loaded. Open the forum charts and tap the link again.', true);
-    return;
-  }
-  if (!pendingIRealLink) return;
-  setImportStatus('iReal link captured. Importing charts...');
-  await importFromRawText(pendingIRealLink, 'pasted-ireal-link');
-}
-
-async function bindIncomingMobileIRealImports() {
-  if (!isNativePlatform()) return;
-  let appPlugin = null;
-  try {
-    const capacitorAppModule = await import('@capacitor/app');
-    appPlugin = capacitorAppModule?.App || null;
-  } catch (_error) {
-    appPlugin = window.Capacitor?.Plugins?.App || null;
-  }
-  if (!appPlugin?.addListener) return;
-  const handleIncomingUrl = (url: string) => {
-    if (!isIRealDeepLink(url)) return;
-    storePendingIRealLink(url);
-    setImportStatus('iReal link detected. Loading captured text...');
-    void importPendingMobileIRealLink();
-  };
-  try {
-    const launchUrl = await appPlugin.getLaunchUrl?.();
-    handleIncomingUrl(String(launchUrl?.url || ''));
-  } catch (_error) {
-    // Keep listener active.
-  }
-  appPlugin.addListener('appUrlOpen', ({ url }: { url?: string }) => handleIncomingUrl(String(url || '')));
-}
-
-function bindImportControls() {
-  if (!isNativePlatform()) return;
-  bindChartImportControls({
-    importIRealBackupButton: dom.importIRealBackupButton,
-    irealBackupInput: dom.irealBackupInput,
-    openIRealForumButton: dom.openIRealForumButton,
-    forumTracksUrl: IREAL_FORUM_TRACKS_URL,
-    setImportStatus,
-    onBackupFileSelection: handleBackupFileSelection,
-    onOpenForumTracks: () => openIrealBrowser({ url: IREAL_FORUM_TRACKS_URL, title: 'Click on a link to import' })
-  });
-}
-
-function bindWebIRealLinkImport() {
-  dom.importIRealLinkButton?.addEventListener('click', () => {
-    void handlePastedIRealLinkImport();
-  });
-  dom.irealLinkInput?.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    void handlePastedIRealLinkImport();
-  });
-}
-
-applyImportModeVisibility();
-bindImportControls();
-bindWebIRealLinkImport();
-void bindIncomingMobileIRealImports().then(() => {
-  if (!isNativePlatform()) return;
-  void importPendingMobileIRealLink();
-});
 
 dom.manageChartSearchInput?.addEventListener('input', renderManageCharts);
 [dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter].forEach((element) => {
