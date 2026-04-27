@@ -306,6 +306,7 @@ const pendingChartLayoutReasons = new Set<string>();
 let lastOpticalLayoutWidth = -1;
 let lastOpticalLayoutFontsReady = false;
 let didOpenRequestedMetadataPanel = false;
+let chartMetadataPopoverRenderId = 0;
 
 declare global {
   interface Window {
@@ -1739,6 +1740,7 @@ async function persistCurrentChartMetadataState(nextDocuments: ChartDocument[], 
 
 async function renderChartMetadataPopover() {
   if (!dom.chartMetadataPopover) return;
+  const renderId = ++chartMetadataPopoverRenderId;
   const chartDocument = state.currentChartDocument;
   dom.chartMetadataPopover.replaceChildren();
   if (!chartDocument) {
@@ -1747,9 +1749,9 @@ async function renderChartMetadataPopover() {
   }
   const allDocuments = state.fixtureLibrary?.documents || [chartDocument];
   const setlists = await loadPersistedSetlists();
+  if (renderId !== chartMetadataPopoverRenderId) return;
   const chartId = chartDocument.metadata.id;
   const sources = getChartSourceRefs(chartDocument).map((ref) => ref.name);
-  const tags = chartDocument.metadata.userTags || [];
   const memberships = getChartSetlistMembership(chartId, setlists);
   const facts = document.createElement('dl');
   facts.className = 'chart-metadata-facts';
@@ -1758,7 +1760,7 @@ async function renderChartMetadataPopover() {
     ['Composer', chartDocument.metadata.composer || 'None'],
     ['Style', chartDocument.metadata.styleReference || chartDocument.metadata.style || 'None'],
     ['Sources', sources.join(', ') || 'None'],
-    ['Tags', tags.join(', ') || 'None'],
+    // Tags are temporarily hidden from metadata.
     ['Setlists', memberships.map((setlist) => setlist.name).join(', ') || 'None']
   ].forEach(([label, value]) => {
     const valueElement = createChartMetadataText('dd', '', value);
@@ -1816,7 +1818,10 @@ async function renderChartMetadataPopover() {
     void submitSetlistChange();
   });
   syncSetlistControls();
-  dom.chartMetadataPopover.append(createChartMetadataText('h3', '', 'Setlists'), setlistSelect, newSetlistInput, addSetlistButton);
+  const setlistActionRow = document.createElement('div');
+  setlistActionRow.className = 'chart-metadata-setlist-action-row';
+  setlistActionRow.append(setlistSelect, addSetlistButton);
+  dom.chartMetadataPopover.append(createChartMetadataText('h3', '', 'Setlists'), setlistActionRow, newSetlistInput);
 
   const deletePreview = previewProtectedChartDelete({ documents: allDocuments, setlists, chartIds: [chartId] });
   const deleteButton = createChartMetadataButton('Delete chart');
@@ -1844,6 +1849,15 @@ function closeAllPopovers() {
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
   dom.chartMetadataButton?.setAttribute('aria-expanded', 'false');
   closeBottomPopovers();
+}
+
+function closeOpenPopovers() {
+  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.mixerPopover];
+  const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
+  if (!hasOpenPopover) return false;
+  closeAllPopovers();
+  syncMobileOverlayDrawerLayout();
+  return true;
 }
 
 function togglePopover(targetPopover: HTMLElement | null, otherPopover: HTMLElement | null) {
@@ -2245,6 +2259,7 @@ async function loadFixtures() {
         clearSelection: clearChartSelection,
         openOverlay,
         closeOverlay,
+        closeOpenPopovers,
         goToAdjacentChart: (direction) => chartNavigationController?.goToAdjacentChart(direction) ?? false
       }).bind();
     },

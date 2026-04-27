@@ -73,6 +73,7 @@ export function createChartGestureController({
   clearSelection,
   openOverlay,
   closeOverlay,
+  closeOpenPopovers,
   goToAdjacentChart
 }: {
   sheetGrid?: HTMLElement | null;
@@ -83,6 +84,7 @@ export function createChartGestureController({
   clearSelection?: () => void;
   openOverlay?: () => void;
   closeOverlay?: () => void;
+  closeOpenPopovers?: () => boolean;
   goToAdjacentChart?: (direction: number) => boolean;
 } = {}) {
   const gesture: {
@@ -166,6 +168,10 @@ export function createChartGestureController({
 
   function shouldClearSelectionOnTap(): boolean {
     return Boolean(hasActiveSelection?.() && canClearSelection?.() !== false);
+  }
+
+  function closePopoversBeforeOverlay(): boolean {
+    return Boolean(isChartOverlayOpen() && closeOpenPopovers?.());
   }
 
   function startSelection(barId: string): boolean {
@@ -277,6 +283,10 @@ export function createChartGestureController({
 
       if (gesture.mode === 'pending' && Math.max(absX, absY) <= TAP_TRIGGER_DISTANCE_PX) {
         suppressNextClick();
+        if (closePopoversBeforeOverlay()) {
+          resetGesture();
+          return;
+        }
         if (shouldClearSelectionOnTap()) {
           clearSelection?.();
         } else if (isChartOverlayOpen()) {
@@ -302,7 +312,9 @@ export function createChartGestureController({
         return;
       }
       if (isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target)) {
-        if (shouldClearSelectionOnTap()) {
+        if (closePopoversBeforeOverlay()) {
+          suppressNextClick();
+        } else if (shouldClearSelectionOnTap()) {
           clearSelection?.();
         } else {
           closeOverlay?.();
@@ -315,7 +327,9 @@ export function createChartGestureController({
       }
       if (isEditableTarget(event.target)) return;
       if (!isChartTapTarget(event.target)) return;
-      if (shouldClearSelectionOnTap()) {
+      if (closePopoversBeforeOverlay()) {
+        suppressNextClick();
+      } else if (shouldClearSelectionOnTap()) {
         clearSelection?.();
       } else if (isChartOverlayOpen()) {
         closeOverlay?.();
@@ -375,7 +389,9 @@ export function createChartGestureController({
       if (gesture.touchMoved) return;
       if (isEditableTarget(event.target)) return;
       if (gesture.touchStartedInOverlay) {
-        if (shouldClearSelectionOnTap()) {
+        if (closePopoversBeforeOverlay()) {
+          suppressNextClick();
+        } else if (shouldClearSelectionOnTap()) {
           clearSelection?.();
         } else {
           closeOverlay?.();
@@ -385,7 +401,9 @@ export function createChartGestureController({
         gesture.touchStartedInOverlay = false;
         return;
       }
-      if (shouldClearSelectionOnTap()) {
+      if (closePopoversBeforeOverlay()) {
+        suppressNextClick();
+      } else if (shouldClearSelectionOnTap()) {
         clearSelection?.();
       } else if (isChartOverlayOpen()) {
         closeOverlay?.();

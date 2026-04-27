@@ -74,33 +74,16 @@ function isNativePlatform() {
 }
 
 function getChartSubtitle(document: ChartDocument): string {
-  const asText = (value: unknown): string => {
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-    if (typeof value !== 'string') return '';
-    const trimmed = value.trim();
-    return trimmed;
-  };
+  return typeof document.metadata.composer === 'string' ? document.metadata.composer.trim() : '';
+}
 
-  const pushIfDistinct = (list: string[], value: unknown): void => {
-    const normalized = asText(value);
-    if (!normalized || list.includes(normalized)) return;
-    list.push(normalized);
-  };
-
-  const parts: string[] = [];
-  const metadata = document.metadata;
-
-  pushIfDistinct(parts, metadata.composer);
-  pushIfDistinct(parts, metadata.artist);
-  pushIfDistinct(parts, metadata.author);
-  pushIfDistinct(parts, metadata['leadArtist']);
-  pushIfDistinct(parts, metadata['albumArtist']);
-
-  pushIfDistinct(parts, metadata.styleReference);
-  pushIfDistinct(parts, metadata.style);
-
-  return parts.join(' - ');
-
+function updateChartEntrySubtitleVisibility(link: HTMLElement): void {
+  const title = link.querySelector<HTMLElement>('.home-list-title');
+  const meta = link.querySelector<HTMLElement>('.home-list-meta');
+  if (!title || !meta) return;
+  meta.hidden = true;
+  const gapWidth = Number.parseFloat(getComputedStyle(link).columnGap || '0') || 0;
+  meta.hidden = title.scrollWidth + gapWidth > link.clientWidth;
 }
 
 type ThemeHost = Window & {
@@ -182,7 +165,7 @@ function createChartLink(chartDocument: ChartDocument, className = 'home-list-li
   link.className = className;
   link.style.textDecoration = 'none';
   link.style.display = 'flex';
-  link.style.flexWrap = 'wrap';
+  link.style.flexWrap = 'nowrap';
   link.style.columnGap = '0.28rem';
   link.style.rowGap = '0.12rem';
   link.style.alignItems = 'baseline';
@@ -190,6 +173,7 @@ function createChartLink(chartDocument: ChartDocument, className = 'home-list-li
   const subtitle = getChartSubtitle(chartDocument);
   if (subtitle) {
     link.append(createTextElement('span', 'home-list-meta', subtitle));
+    requestAnimationFrame(() => updateChartEntrySubtitleVisibility(link));
   }
   return link;
 }
@@ -197,9 +181,11 @@ function createChartLink(chartDocument: ChartDocument, className = 'home-list-li
 function getAvailableChartListHeight(listElement: HTMLElement): number {
   const listTop = listElement.getBoundingClientRect().top;
   const footer = document.querySelector<HTMLElement>('.home-footer');
+  const actions = document.querySelector<HTMLElement>('.home-actions');
   const viewportHeight = getViewportHeightWithoutVirtualKeyboard();
   const footerTop = footer?.getBoundingClientRect().top || viewportHeight;
-  const visibleBottom = Math.min(footerTop, viewportHeight);
+  const actionsTop = actions?.getBoundingClientRect().top || viewportHeight;
+  const visibleBottom = Math.min(actionsTop, footerTop, viewportHeight);
   return Math.max(0, visibleBottom - listTop - 12);
 }
 

@@ -535,6 +535,18 @@ select {
   padding: 5px 8px;
 }
 
+.chart-metadata-setlist-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.chart-metadata-setlist-action-row select {
+  min-width: 0;
+  width: 100%;
+}
+
 .chart-metadata-facts {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

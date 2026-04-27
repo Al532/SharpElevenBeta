@@ -37,7 +37,8 @@ export default defineConfig({
       input: {
         index: resolve(repositoryRoot, 'index.html'),
         drill: resolve(repositoryRoot, 'drill.html'),
-        charts: resolve(repositoryRoot, 'charts.html')
+        setlists: resolve(repositoryRoot, 'setlists.html'),
+        library: resolve(repositoryRoot, 'library.html')
       }
     }
   }

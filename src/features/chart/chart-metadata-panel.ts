@@ -8,6 +8,8 @@ import {
   normalizeChartTextKey
 } from './chart-library.js';
 
+const SHOW_METADATA_TAG_CONTROLS = false;
+
 type MetadataPanelTarget =
   | {
       kind: 'single';
@@ -283,74 +285,77 @@ export function openChartMetadataPanel(options: ChartMetadataPanelOptions): void
       panel.append(summary);
     }
 
-    const tagSection = document.createElement('section');
-    tagSection.className = 'chart-metadata-section';
+    // Tags are temporarily hidden from metadata, but the editing block stays here for easy reactivation.
+    if (SHOW_METADATA_TAG_CONTROLS) {
+      const tagSection = document.createElement('section');
+      tagSection.className = 'chart-metadata-section';
 
-    const applyTagAction = (tag: string, shouldAdd: boolean, isPartial = false) => {
-      if (isPartial && options.target.kind === 'batch' && !hasConfirmedPartialTagEdit) {
-        const confirmed = window.confirm('This tag is only assigned to part of the selection. This action will modify the entire selection.');
-        if (!confirmed) return;
-        hasConfirmedPartialTagEdit = true;
-      }
-      if (options.target.kind === 'single') {
-        draftState = applySingleTargetDraft(draftState, chartIds[0], shouldAdd ? { addTags: [tag], createTag: tag } : { removeTags: [tag] });
-      } else {
-        draftState = applyBatchTargetDraft(draftState, chartIds, { kind: shouldAdd ? 'add-tag' : 'remove-tag', tag });
-      }
-      render();
-    };
+      const applyTagAction = (tag: string, shouldAdd: boolean, isPartial = false) => {
+        if (isPartial && options.target.kind === 'batch' && !hasConfirmedPartialTagEdit) {
+          const confirmed = window.confirm('This tag is only assigned to part of the selection. This action will modify the entire selection.');
+          if (!confirmed) return;
+          hasConfirmedPartialTagEdit = true;
+        }
+        if (options.target.kind === 'single') {
+          draftState = applySingleTargetDraft(draftState, chartIds[0], shouldAdd ? { addTags: [tag], createTag: tag } : { removeTags: [tag] });
+        } else {
+          draftState = applyBatchTargetDraft(draftState, chartIds, { kind: shouldAdd ? 'add-tag' : 'remove-tag', tag });
+        }
+        render();
+      };
 
-    const assignments = getTagAssignments(documents, state.documents);
-    const assignedTags = assignments.filter((assignment) => assignment.count > 0);
-    const availableTags = assignments.filter((assignment) => assignment.count === 0);
-    const tagHeading = document.createElement('div');
-    tagHeading.className = 'chart-metadata-inline-heading';
-    tagHeading.append(createTextElement('h3', '', 'Tags'));
-    if (assignedTags.length > 0) {
-      const selectedTagRow = document.createElement('div');
-      selectedTagRow.className = 'chart-metadata-chip-row';
-      for (const assignment of assignedTags) {
-        const isPartial = documents.length > 1 && assignment.count > 0 && assignment.count < documents.length;
-        const button = createButton(assignment.tag, `chart-manage-filter-chip chart-metadata-tag-chip is-active${isPartial ? ' is-partial' : ''}`);
-        button.setAttribute('aria-pressed', isPartial ? 'mixed' : 'true');
-        button.title = isPartial ? `${assignment.count}/${documents.length} selected charts` : 'Assigned to selected charts';
-        button.addEventListener('click', () => applyTagAction(assignment.tag, false, isPartial));
-        selectedTagRow.append(button);
+      const assignments = getTagAssignments(documents, state.documents);
+      const assignedTags = assignments.filter((assignment) => assignment.count > 0);
+      const availableTags = assignments.filter((assignment) => assignment.count === 0);
+      const tagHeading = document.createElement('div');
+      tagHeading.className = 'chart-metadata-inline-heading';
+      tagHeading.append(createTextElement('h3', '', 'Tags'));
+      if (assignedTags.length > 0) {
+        const selectedTagRow = document.createElement('div');
+        selectedTagRow.className = 'chart-metadata-chip-row';
+        for (const assignment of assignedTags) {
+          const isPartial = documents.length > 1 && assignment.count > 0 && assignment.count < documents.length;
+          const button = createButton(assignment.tag, `chart-metadata-chip chart-metadata-tag-chip is-active${isPartial ? ' is-partial' : ''}`);
+          button.setAttribute('aria-pressed', isPartial ? 'mixed' : 'true');
+          button.title = isPartial ? `${assignment.count}/${documents.length} selected charts` : 'Assigned to selected charts';
+          button.addEventListener('click', () => applyTagAction(assignment.tag, false, isPartial));
+          selectedTagRow.append(button);
+        }
+        tagHeading.append(selectedTagRow);
       }
-      tagHeading.append(selectedTagRow);
+      tagSection.append(tagHeading);
+
+      if (availableTags.length > 0) {
+        const availableTagList = document.createElement('div');
+        availableTagList.className = 'chart-metadata-add-row';
+        availableTagList.append(createTextElement('span', 'chart-metadata-tag-group-label', 'Add tag:'));
+        const availableTagRow = document.createElement('div');
+        availableTagRow.className = 'chart-metadata-chip-row';
+        for (const tag of sortTags(availableTags.map((assignment) => assignment.tag))) {
+          const button = createButton(tag, 'chart-metadata-chip chart-metadata-tag-chip');
+          button.setAttribute('aria-pressed', 'false');
+          button.addEventListener('click', () => applyTagAction(tag, true));
+          availableTagRow.append(button);
+        }
+        availableTagList.append(availableTagRow);
+        tagSection.append(availableTagList);
+      }
+
+      const tagInput = document.createElement('input');
+      tagInput.className = 'chart-metadata-input';
+      tagInput.type = 'text';
+      tagInput.placeholder = 'New tag name';
+      const addTagButton = createButton('Add tag');
+      addTagButton.addEventListener('click', () => {
+        const tag = tagInput.value.trim();
+        if (!tag) return;
+        applyTagAction(tag, true);
+      });
+      const tagEntryRow = createActionRow(tagInput, addTagButton);
+      tagEntryRow.classList.add('chart-metadata-tag-entry-row');
+      tagSection.append(tagEntryRow);
+      panel.append(tagSection);
     }
-    tagSection.append(tagHeading);
-
-    if (availableTags.length > 0) {
-      const availableTagList = document.createElement('div');
-      availableTagList.className = 'chart-metadata-add-row';
-      availableTagList.append(createTextElement('span', 'chart-metadata-tag-group-label', 'Add tag:'));
-      const availableTagRow = document.createElement('div');
-      availableTagRow.className = 'chart-metadata-chip-row';
-      for (const tag of sortTags(availableTags.map((assignment) => assignment.tag))) {
-        const button = createButton(tag, 'chart-manage-filter-chip chart-metadata-tag-chip');
-        button.setAttribute('aria-pressed', 'false');
-        button.addEventListener('click', () => applyTagAction(tag, true));
-        availableTagRow.append(button);
-      }
-      availableTagList.append(availableTagRow);
-      tagSection.append(availableTagList);
-    }
-
-    const tagInput = document.createElement('input');
-    tagInput.className = 'chart-manage-text-input chart-metadata-input';
-    tagInput.type = 'text';
-    tagInput.placeholder = 'New tag name';
-    const addTagButton = createButton('Add tag');
-    addTagButton.addEventListener('click', () => {
-      const tag = tagInput.value.trim();
-      if (!tag) return;
-      applyTagAction(tag, true);
-    });
-    const tagEntryRow = createActionRow(tagInput, addTagButton);
-    tagEntryRow.classList.add('chart-metadata-tag-entry-row');
-    tagSection.append(tagEntryRow);
-    panel.append(tagSection);
 
     const setlistSection = document.createElement('section');
     setlistSection.className = 'chart-metadata-section';
@@ -380,7 +385,7 @@ export function openChartMetadataPanel(options: ChartMetadataPanelOptions): void
       selectedSetlistRow.className = 'chart-metadata-chip-row';
       for (const assignment of assignedSetlists) {
         const isPartial = documents.length > 1 && assignment.count > 0 && assignment.count < documents.length;
-        const button = createButton(assignment.setlist.name, `chart-manage-filter-chip chart-metadata-tag-chip is-active${isPartial ? ' is-partial' : ''}`);
+        const button = createButton(assignment.setlist.name, `chart-metadata-chip chart-metadata-tag-chip is-active${isPartial ? ' is-partial' : ''}`);
         button.setAttribute('aria-pressed', isPartial ? 'mixed' : 'true');
         button.title = isPartial ? `${assignment.count}/${documents.length} selected charts` : 'Assigned to selected charts';
         button.addEventListener('click', () => applySetlistAction(assignment.setlist, false, isPartial));
@@ -397,7 +402,7 @@ export function openChartMetadataPanel(options: ChartMetadataPanelOptions): void
       const availableSetlistRow = document.createElement('div');
       availableSetlistRow.className = 'chart-metadata-chip-row';
       for (const assignment of availableSetlists) {
-        const button = createButton(assignment.setlist.name, 'chart-manage-filter-chip chart-metadata-tag-chip');
+        const button = createButton(assignment.setlist.name, 'chart-metadata-chip chart-metadata-tag-chip');
         button.setAttribute('aria-pressed', 'false');
         button.addEventListener('click', () => applySetlistAction(assignment.setlist, true));
         availableSetlistRow.append(button);
@@ -407,7 +412,7 @@ export function openChartMetadataPanel(options: ChartMetadataPanelOptions): void
     }
 
     const newSetlistInput = document.createElement('input');
-    newSetlistInput.className = 'chart-manage-text-input chart-metadata-input';
+    newSetlistInput.className = 'chart-metadata-input';
     newSetlistInput.type = 'text';
     newSetlistInput.placeholder = 'New setlist name';
     const createSetlistButton = createButton('Add setlist');

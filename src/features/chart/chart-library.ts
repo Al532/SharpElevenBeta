@@ -108,7 +108,6 @@ function normalizeSourceRef(ref: unknown): ChartSourceRef | null {
 
 function getSourceRefKey(ref: ChartSourceRef): string {
   return [
-    normalizeChartTextKey(ref.type),
     normalizeChartTextKey(ref.name),
     normalizeChartTextKey(ref.sourceFile),
     Number(ref.songIndex || 0),
@@ -151,11 +150,12 @@ export function getChartSourceRefs(document: ChartDocument | null | undefined): 
 
 function createImportedSourceRefs(document: ChartDocument): ChartSourceRef[] {
   const source = document.source || {};
+  const existingRefs = Array.isArray(source.sourceRefs) ? source.sourceRefs : [];
   const playlistName = String(source.playlistName || '').trim();
   const sourceFile = String(source.sourceFile || '').trim();
   const isLink = sourceFile.toLowerCase().includes('link') || sourceFile.toLowerCase().includes('pasted');
   const name = playlistName || sourceFile || 'Imported chart';
-  return mergeChartSourceRefs(getChartSourceRefs(document), [{
+  return mergeChartSourceRefs(existingRefs, [{
     type: isLink ? 'ireal-link' : playlistName ? 'ireal-bundle' : String(source.type || 'ireal-source'),
     name,
     sourceFile,

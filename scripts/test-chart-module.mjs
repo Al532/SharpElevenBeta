@@ -2786,6 +2786,28 @@ const normalizedSatinImport = await normalizeChartLibraryDocument(satinDoll);
 assert.equal(normalizedSatinImport.metadata.origin, 'imported', 'Imported chart normalization marks imported origin.');
 assert.equal(normalizedSatinImport.metadata.contentHashVersion, CHART_CONTENT_HASH_VERSION, 'Imported chart normalization records the active fingerprint version.');
 assert.ok(getChartSourceRefs(normalizedSatinImport).length >= 1, 'Imported chart normalization exposes source refs.');
+assert.equal(
+  getChartSourceRefs(await normalizeChartLibraryDocument(createChartDocument({
+    metadata: { id: 'jazz-source-dedupe', title: 'Jazz Source Dedupe', barCount: 1 },
+    source: { type: 'ireal-source', playlistName: 'Jazz 1460', sourceFile: 'jazz-1460.txt', songIndex: 1 },
+    bars: [{ id: 'bar-1', index: 1 }]
+  }))).map((ref) => ref.name).join(', '),
+  'Jazz 1460',
+  'Imported chart normalization does not duplicate playlist names as fallback and source refs.'
+);
+assert.equal(
+  getChartSourceRefs({
+    ...normalizedSatinImport,
+    source: {
+      sourceRefs: [
+        { type: 'ireal-source', name: 'Jazz 1460', sourceFile: 'jazz-1460.txt', songIndex: 1, importedTitle: 'Satin Doll', importedComposer: 'Duke Ellington' },
+        { type: 'ireal-bundle', name: 'Jazz 1460', sourceFile: 'jazz-1460.txt', songIndex: 1, importedTitle: 'Satin Doll', importedComposer: 'Duke Ellington' }
+      ]
+    }
+  }).map((ref) => ref.name).join(', '),
+  'Jazz 1460',
+  'Persisted source refs with only a type difference collapse to one displayed source.'
+);
 
 const alicePlan = createChartPlaybackPlanFromDocument(alice);
 assert.ok(alicePlan.entries.some(entry => entry.flags.includes('fine')), 'Alice playback reaches Fine.');

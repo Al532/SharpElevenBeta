@@ -124,26 +124,16 @@ function createMetadataButton(label: string, onClick: (event: MouseEvent) => voi
 }
 
 function getChartSubtitle(document: ChartDocument): string {
-  const asText = (value: unknown): string => {
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-    if (typeof value !== 'string') return '';
-    return value.trim();
-  };
-  const parts: string[] = [];
-  const pushIfDistinct = (value: unknown): void => {
-    const normalized = asText(value);
-    if (!normalized || parts.includes(normalized)) return;
-    parts.push(normalized);
-  };
-  const metadata = document.metadata;
-  pushIfDistinct(metadata.composer);
-  pushIfDistinct(metadata.artist);
-  pushIfDistinct(metadata.author);
-  pushIfDistinct(metadata['leadArtist']);
-  pushIfDistinct(metadata['albumArtist']);
-  pushIfDistinct(metadata.styleReference);
-  pushIfDistinct(metadata.style);
-  return parts.join(' - ');
+  return typeof document.metadata.composer === 'string' ? document.metadata.composer.trim() : '';
+}
+
+function updateChartEntrySubtitleVisibility(link: HTMLElement): void {
+  const title = link.querySelector<HTMLElement>('.home-list-title');
+  const meta = link.querySelector<HTMLElement>('.home-list-meta');
+  if (!title || !meta) return;
+  meta.hidden = true;
+  const gapWidth = Number.parseFloat(getComputedStyle(link).columnGap || '0') || 0;
+  meta.hidden = title.scrollWidth + gapWidth > link.clientWidth;
 }
 
 function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persistChartLibrary>>, fallbackCount: number, sourceFile: string) {
@@ -294,7 +284,7 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
     { label: 'None', value: FILTER_ACTION_NONE },
     ...values
   ].map(({ label, value }) => {
-    const button = createButton(label, 'chart-manage-filter-chip');
+    const button = createButton(label, 'setlists-filter-chip');
     const isFilterAction = value === FILTER_ACTION_ALL || value === FILTER_ACTION_NONE;
     const isActive = !isFilterAction && (isAllSelected || active.has(value));
     button.setAttribute('aria-pressed', String(isActive));
@@ -400,10 +390,10 @@ function renderManageCharts() {
     dom.manageLibrarySummary.hidden = !shouldSummarize;
     if (shouldSummarize) {
       const row = document.createElement('div');
-      row.className = 'home-list-link home-chart-entry chart-manage-summary-row';
+      row.className = 'home-list-link home-chart-entry setlists-summary-row';
       const summaryButton = document.createElement('button');
       summaryButton.type = 'button';
-      summaryButton.className = 'chart-manage-summary-open';
+      summaryButton.className = 'setlists-summary-open';
       summaryButton.append(createTextElement('span', 'home-list-title', `${documents.length} matching chart${documents.length === 1 ? '' : 's'}`));
       const metadataButton = createMetadataButton('Edit metadata for matching charts', (event) => {
         event.preventDefault();
@@ -422,7 +412,7 @@ function renderManageCharts() {
   for (const chartDocument of documents) {
     const item = document.createElement('li');
     const row = document.createElement('div');
-    row.className = 'home-list-link chart-manage-chart-row';
+    row.className = 'home-list-link setlists-chart-row';
     row.dataset.chartId = chartDocument.metadata.id;
     row.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
@@ -465,10 +455,13 @@ function renderManageCharts() {
       clearSetlistDropPreview();
     });
     const content = document.createElement('div');
-    content.className = 'chart-manage-chart-link';
+    content.className = 'setlists-chart-link';
     content.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
     const subtitle = getChartSubtitle(chartDocument);
-    if (subtitle) content.append(createTextElement('span', 'home-list-meta', subtitle));
+    if (subtitle) {
+      content.append(createTextElement('span', 'home-list-meta', subtitle));
+      requestAnimationFrame(() => updateChartEntrySubtitleVisibility(content));
+    }
     const menuButton = createMetadataButton(`Edit metadata for ${chartDocument.metadata.title || 'chart'}`, (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -593,12 +586,12 @@ function renderSetlists() {
 
   for (const [setlistIndex, setlist] of currentSetlists.entries()) {
     const item = document.createElement('li');
-    item.className = 'chart-manage-setlist-entry';
+    item.className = 'setlists-setlist-entry';
     item.dataset.setlistOrderIndex = String(setlistIndex);
     const isCollapsed = collapsedSetlistIds.has(setlist.id);
 
     const row = document.createElement('div');
-    row.className = 'home-list-link chart-manage-setlist-row';
+    row.className = 'home-list-link setlists-setlist-row';
     row.style.display = 'grid';
     row.style.gridTemplateColumns = 'minmax(0, 1fr) auto';
     row.style.alignItems = 'center';
@@ -653,7 +646,7 @@ function renderSetlists() {
     });
 
     const content = document.createElement('div');
-    content.className = 'chart-manage-setlist-open';
+    content.className = 'setlists-setlist-open';
     content.append(
       createTextElement('span', 'home-list-title', setlist.name),
       createTextElement('span', 'home-list-meta', `${setlist.items.length} ${pluralizeChartLabel(setlist.items.length)}`)
@@ -672,7 +665,7 @@ function renderSetlists() {
     if (activeSetlistMenuId === setlist.id) item.append(renderSetlistMenu(setlist));
 
     const childList = document.createElement('ul');
-    childList.className = 'home-list chart-manage-setlist-chart-list';
+    childList.className = 'home-list setlists-setlist-chart-list';
     childList.hidden = isCollapsed;
     childList.dataset.setlistDropId = setlist.id;
     childList.dataset.setlistChildListId = setlist.id;
@@ -692,7 +685,7 @@ function renderSetlists() {
       const childItem = document.createElement('li');
       const childMenuKey = `${setlist.id}:${index}`;
       const childRow = document.createElement('div');
-      childRow.className = 'home-list-link chart-manage-chart-row chart-manage-setlist-chart-row';
+      childRow.className = 'home-list-link setlists-chart-row setlists-setlist-chart-row';
       childRow.classList.toggle('can-receive-chart', draggedLibraryChartId !== '' || draggedSetlistItem?.setlistId === setlist.id);
       childRow.draggable = true;
       childRow.dataset.setlistId = setlist.id;
@@ -760,7 +753,7 @@ function renderSetlists() {
         else moveSetlistItem(setlist.id, draggedSetlistItem?.index ?? -1, index);
       });
       const childContent = document.createElement('div');
-      childContent.className = 'chart-manage-chart-link';
+      childContent.className = 'setlists-chart-link';
       childContent.append(createTextElement('span', 'home-list-title', chartDocument?.metadata.title || setlistItem.chartId));
 
       const removeButton = createMetadataButton(`Remove ${chartDocument?.metadata.title || 'chart'} from ${setlist.name}`, (event) => {
@@ -782,15 +775,15 @@ function renderSetlists() {
 
 function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
   const menu = document.createElement('div');
-  menu.className = 'chart-manage-setlist-menu';
+  menu.className = 'setlists-setlist-menu';
   if (renamingSetlistId === setlist.id) {
     const input = document.createElement('input');
-    input.className = 'chart-manage-text-input chart-manage-setlist-menu-input';
+    input.className = 'setlists-text-input setlists-setlist-menu-input';
     input.type = 'text';
     input.value = setlist.name;
     input.placeholder = 'Setlist name';
-    const saveButton = createButton('Validate', 'chart-manage-small-action');
-    const cancelButton = createButton('Cancel', 'chart-manage-small-action');
+    const saveButton = createButton('Validate', 'setlists-small-action');
+    const cancelButton = createButton('Cancel', 'setlists-small-action');
     const saveRename = () => renameSetlist(setlist, input.value);
     saveButton.addEventListener('click', saveRename);
     cancelButton.addEventListener('click', () => {
@@ -807,19 +800,19 @@ function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
     menu.append(input, saveButton, cancelButton);
     return menu;
   }
-  const playButton = createButton('Play', 'chart-manage-small-action');
+  const playButton = createButton('Play', 'setlists-small-action');
   playButton.addEventListener('click', () => {
     const targetUrl = new URL('./chart/index.html', window.location.href);
     targetUrl.searchParams.set('setlist', setlist.id);
     window.location.assign(targetUrl.toString());
   });
-  const renameButton = createButton('Rename', 'chart-manage-small-action');
+  const renameButton = createButton('Rename', 'setlists-small-action');
   renameButton.addEventListener('click', () => {
     renamingSetlistId = setlist.id;
     pendingDeleteSetlistId = '';
     renderSetlists();
   });
-  const deleteButton = createButton(pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete', 'chart-manage-small-action chart-manage-danger');
+  const deleteButton = createButton(pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete', 'setlists-small-action setlists-danger');
   deleteButton.addEventListener('click', () => deleteSetlist(setlist));
   menu.append(playButton, renameButton, deleteButton);
   return menu;
@@ -827,8 +820,8 @@ function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
 
 function renderSetlistItemMenu(setlistId: string, itemIndex: number): HTMLElement {
   const menu = document.createElement('div');
-  menu.className = 'chart-manage-setlist-menu chart-manage-setlist-item-menu';
-  const deleteButton = createButton('Delete from setlist', 'chart-manage-small-action chart-manage-danger');
+  menu.className = 'setlists-setlist-menu setlists-setlist-item-menu';
+  const deleteButton = createButton('Delete from setlist', 'setlists-small-action setlists-danger');
   deleteButton.addEventListener('click', () => {
     activeSetlistItemMenuKey = '';
     removeSetlistItem(setlistId, itemIndex);
@@ -840,13 +833,13 @@ function renderSetlistItemMenu(setlistId: string, itemIndex: number): HTMLElemen
 function renderCreateSetlistForm(): HTMLElement {
   const item = document.createElement('li');
   const row = document.createElement('div');
-  row.className = 'chart-manage-setlist-menu chart-manage-create-setlist-row';
+  row.className = 'setlists-setlist-menu setlists-create-setlist-row';
   const input = document.createElement('input');
-  input.className = 'chart-manage-text-input chart-manage-setlist-menu-input';
+  input.className = 'setlists-text-input setlists-setlist-menu-input';
   input.type = 'text';
   input.placeholder = 'New setlist name';
-  const addButton = createButton('Validate', 'chart-manage-small-action');
-  const cancelButton = createButton('Cancel', 'chart-manage-small-action');
+  const addButton = createButton('Validate', 'setlists-small-action');
+  const cancelButton = createButton('Cancel', 'setlists-small-action');
   const submit = () => {
     void createSetlist(input.value).catch((error) => setImportStatus(`Failed to create setlist: ${getErrorMessage(error)}`, true));
   };
@@ -961,8 +954,6 @@ async function createSetlist(rawName: string) {
 }
 
 function renderManageUi() {
-  renderFacets();
-  renderManageCharts();
   renderSetlists();
 }
 
@@ -975,6 +966,9 @@ async function loadManageState() {
 }
 
 dom.manageChartSearchInput?.addEventListener('input', renderManageCharts);
+window.addEventListener('resize', () => {
+  document.querySelectorAll<HTMLElement>('.setlists-chart-link').forEach(updateChartEntrySubtitleVisibility);
+});
 [dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter].forEach((element) => {
   element?.addEventListener('change', () => {
     const key = element.dataset.filterKey as ChartManageFilterKey | undefined;

@@ -519,7 +519,7 @@ async function bindIncomingMobileImports() {
     if (!isIRealDeepLink(url)) return false;
     const stored = storePendingIRealLink(url);
     if (!stored) return false;
-    const targetUrl = new URL('./charts.html', window.location.href);
+    const targetUrl = new URL('./index.html?import=charts', window.location.href);
     window.location.assign(targetUrl.href);
     return true;
   };
