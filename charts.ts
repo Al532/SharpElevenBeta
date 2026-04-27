@@ -26,6 +26,8 @@ const CHART_MANAGE_FILTER_KEYS = ['origin', 'source', 'tag', 'setlist'] as const
 const FILTER_ACTION_ALL = '__all__';
 const FILTER_ACTION_NONE = '__none__';
 const FILTER_TAG_NO_TAG = '__no_tag__';
+const FILTER_SOURCE_NO_SOURCE = '__no_source__';
+const FILTER_SETLIST_NO_SETLIST = '__no_setlist__';
 
 type ChartManageFilterKey = typeof CHART_MANAGE_FILTER_KEYS[number];
 type ChartManageFilterMode = 'all' | 'custom';
@@ -155,6 +157,12 @@ function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persist
   ].join(' - ');
 }
 
+function getDocumentSourceNames(document: ChartDocument): string[] {
+  return getChartSourceRefs(document)
+    .map((ref) => String(ref.name || '').trim())
+    .filter(Boolean);
+}
+
 function getFilteredManageDocuments(): ChartDocument[] {
   const query = dom.manageChartSearchInput?.value || '';
   const origins = activeManageFilters.origin;
@@ -170,12 +178,21 @@ function getFilteredManageDocuments(): ChartDocument[] {
       .filter((candidate) => setlistIds.has(candidate.id))
       .flatMap((setlist) => setlist.items.map((item) => item.chartId))
   );
+  const allSetlistChartIds = new Set(
+    currentSetlists.flatMap((setlist) => setlist.items.map((item) => item.chartId))
+  );
   let documents = query ? filterChartDocuments(currentDocuments, query) : [...currentDocuments];
   if ([hasOriginFilter && origins.size === 0, hasSourceFilter && sources.size === 0, hasTagFilter && tags.size === 0, hasSetlistFilter && setlistIds.size === 0].some(Boolean)) {
     return [];
   }
   if (hasOriginFilter) documents = documents.filter((document) => origins.has(document.metadata?.origin === 'user' ? 'user' : 'imported'));
-  if (hasSourceFilter) documents = documents.filter((document) => getChartSourceRefs(document).some((ref) => sources.has(ref.name)));
+  if (hasSourceFilter) {
+    documents = documents.filter((document) => {
+      const sourceNames = getDocumentSourceNames(document);
+      return (sourceNames.length === 0 && sources.has(FILTER_SOURCE_NO_SOURCE))
+        || sourceNames.some((sourceName) => sources.has(sourceName));
+    });
+  }
   if (hasTagFilter) {
     documents = documents.filter((document) => {
       const documentTags = (document.metadata?.userTags || []).map((tag) => String(tag || '').trim()).filter(Boolean);
@@ -183,7 +200,13 @@ function getFilteredManageDocuments(): ChartDocument[] {
         || documentTags.some((candidate) => tags.has(candidate));
     });
   }
-  if (hasSetlistFilter) documents = documents.filter((document) => setlistChartIds.has(document.metadata.id));
+  if (hasSetlistFilter) {
+    documents = documents.filter((document) => {
+      const chartId = String(document.metadata?.id || '');
+      return setlistChartIds.has(chartId)
+        || (!allSetlistChartIds.has(chartId) && setlistIds.has(FILTER_SETLIST_NO_SETLIST));
+    });
+  }
   return documents;
 }
 
@@ -216,7 +239,7 @@ function selectFilterValue(key: ChartManageFilterKey, value: string, values: Cha
     active.clear();
     getFilterOptionValues(values).forEach((optionValue) => active.add(optionValue));
   } else if (value === FILTER_ACTION_NONE) {
-    activeManageFilterModes[key] = 'all';
+    activeManageFilterModes[key] = 'custom';
     active.clear();
   } else if (activeManageFilterModes[key] === 'all') {
     activeManageFilterModes[key] = 'custom';
@@ -265,7 +288,6 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
   if (!host) return;
   const active = activeManageFilters[key];
   const isAllSelected = isFilterAllSelected(key, values);
-  const isFilterCleared = activeManageFilterModes[key] === 'all';
   host.replaceChildren();
   const buttons = [
     { label: 'All', value: FILTER_ACTION_ALL },
@@ -274,11 +296,7 @@ function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, 
   ].map(({ label, value }) => {
     const button = createButton(label, 'chart-manage-filter-chip');
     const isFilterAction = value === FILTER_ACTION_ALL || value === FILTER_ACTION_NONE;
-    const isActive = value === FILTER_ACTION_ALL
-      ? isAllSelected
-      : value === FILTER_ACTION_NONE
-        ? isFilterCleared
-        : !isFilterAction && active.has(value);
+    const isActive = !isFilterAction && (isAllSelected || active.has(value));
     button.setAttribute('aria-pressed', String(isActive));
     if (isActive) button.classList.add('is-active');
     button.addEventListener('click', () => selectFilterValue(key, value, values));
@@ -315,10 +333,25 @@ function renderFilterControl({
 
 function renderFacets() {
   const facets = listChartLibraryFacets(currentDocuments, currentSetlists);
+  const setlistedChartIds = new Set(
+    currentSetlists.flatMap((setlist) => setlist.items.map((item) => item.chartId))
+  );
+  const sourceOptions = [
+    ...facets.sources.map((source) => ({ label: source, value: source })),
+    currentDocuments.some((document) => getDocumentSourceNames(document).length === 0)
+      ? { label: 'No source', value: FILTER_SOURCE_NO_SOURCE }
+      : null
+  ].filter(Boolean) as ChartManageFilterOption[];
   const tagOptions = [
     ...facets.tags.map((tag) => ({ label: tag, value: tag })),
     currentDocuments.some((document) => (document.metadata?.userTags || []).map((tag) => String(tag || '').trim()).filter(Boolean).length === 0)
       ? { label: 'No tag', value: FILTER_TAG_NO_TAG }
+      : null
+  ].filter(Boolean) as ChartManageFilterOption[];
+  const setlistOptions = [
+    ...currentSetlists.map((setlist) => ({ label: setlist.name, value: setlist.id })),
+    currentDocuments.some((document) => !setlistedChartIds.has(String(document.metadata?.id || '')))
+      ? { label: 'No setlist', value: FILTER_SETLIST_NO_SETLIST }
       : null
   ].filter(Boolean) as ChartManageFilterOption[];
   const originOptions = [
@@ -339,7 +372,7 @@ function renderFacets() {
     select: dom.manageSourceFilter,
     chipHost: dom.manageSourceFilterChips,
     allLabel: 'All sources',
-    values: facets.sources.map((source) => ({ label: source, value: source }))
+    values: sourceOptions
   });
   renderFilterControl({
     key: 'tag',
@@ -355,7 +388,7 @@ function renderFacets() {
     select: dom.manageSetlistFilter,
     chipHost: dom.manageSetlistFilterChips,
     allLabel: 'All setlists',
-    values: currentSetlists.map((setlist) => ({ label: setlist.name, value: setlist.id }))
+    values: setlistOptions
   });
 }
 

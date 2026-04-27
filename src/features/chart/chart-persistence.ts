@@ -525,6 +525,18 @@ export function loadRecentChartIds(): string[] {
     .slice(0, RECENT_CHART_STORAGE_LIMIT);
 }
 
+export function loadPersistedRecentChartDocuments(): ChartDocument[] {
+  const chartUiSettings = loadChartUiSettings();
+  const recentChartDocumentsById = new Map(
+    normalizePersistedChartDocuments(chartUiSettings?.recentChartDocuments)
+      .map((document) => [document.metadata.id, document])
+  );
+
+  return loadRecentChartIds()
+    .map((chartId) => recentChartDocumentsById.get(chartId))
+    .filter((document): document is ChartDocument => Boolean(document));
+}
+
 export function persistChartId(
   chartId: string,
   { legacyStorageKey = '', chartDocument = null }: { legacyStorageKey?: string; chartDocument?: ChartDocument | null } = {}

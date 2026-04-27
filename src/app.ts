@@ -1522,6 +1522,9 @@ let schedulerTimer = null;
 let nextBeatTime = 0;   // audioCtx time of next beat
 let currentBeat = 0;    // 0-3 within current measure
 let currentChordIdx = 0; // index in padded progression
+let displayedCurrentBeat = 0; // beat committed to the display at audio time
+let displayedCurrentChordIdx = -1; // chord index committed to the display at audio time
+let displayedIsIntro = false; // intro state committed to the display at audio time
 let isIntro = true;      // true during count-in measure
 let currentKey = 0;
 let nextKeyValue = null;
@@ -2002,6 +2005,9 @@ const {
     currentBassPlan: createStateRef(() => currentBassPlan, (value) => { currentBassPlan = value; }),
     currentBeat: createStateRef(() => currentBeat, (value) => { currentBeat = value; }),
     currentChordIdx: createStateRef(() => currentChordIdx, (value) => { currentChordIdx = value; }),
+    displayedCurrentBeat: createStateRef(() => displayedCurrentBeat, (value) => { displayedCurrentBeat = value; }),
+    displayedCurrentChordIdx: createStateRef(() => displayedCurrentChordIdx, (value) => { displayedCurrentChordIdx = value; }),
+    displayedIsIntro: createStateRef(() => displayedIsIntro, (value) => { displayedIsIntro = value; }),
     currentCompingPlan: createStateRef(() => currentCompingPlan, (value) => { currentCompingPlan = value; }),
     currentKey: createStateRef(() => currentKey, (value) => { currentKey = value; }),
     currentKeyRepetition: createStateRef(() => currentKeyRepetition, (value) => { currentKeyRepetition = value; }),
@@ -2743,9 +2749,9 @@ const {
     lastPatternSelectValue: createStateRef(() => lastPatternSelectValue, (value) => { lastPatternSelectValue = value; }),
     isPlaying: createStateRef(() => isPlaying),
     isPaused: createStateRef(() => isPaused),
-    isIntro: createStateRef(() => isIntro),
-    currentBeat: createStateRef(() => currentBeat),
-    currentChordIdx: createStateRef(() => currentChordIdx),
+    isIntro: createStateRef(() => displayedIsIntro),
+    currentBeat: createStateRef(() => displayedCurrentBeat),
+    currentChordIdx: createStateRef(() => displayedCurrentChordIdx),
     currentKey: createStateRef(() => currentKey),
     audioContext: createStateRef(() => audioCtx)
   },

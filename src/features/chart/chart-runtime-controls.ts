@@ -35,40 +35,6 @@ type BindChartRuntimeControlsOptions = {
   onBeforeUnload?: EventListener | null
 };
 
-function bindSearchInput(input: HTMLInputElement | null | undefined, listener: EventListener | null | undefined): void {
-  if (!input || !listener) return;
-
-  let pendingFrame = 0;
-  let pendingTimer = 0;
-  const notify = (event: Event): void => {
-    listener.call(input, event);
-  };
-  const scheduleNotify = (event: Event): void => {
-    notify(event);
-
-    if (pendingFrame) {
-      window.cancelAnimationFrame(pendingFrame);
-    }
-    if (pendingTimer) {
-      window.clearTimeout(pendingTimer);
-    }
-
-    pendingFrame = window.requestAnimationFrame(() => {
-      pendingFrame = 0;
-      notify(event);
-    });
-    pendingTimer = window.setTimeout(() => {
-      pendingTimer = 0;
-      notify(event);
-    }, 80);
-  };
-
-  input.addEventListener('input', scheduleNotify);
-  input.addEventListener('search', scheduleNotify);
-  input.addEventListener('change', scheduleNotify);
-  input.addEventListener('compositionend', scheduleNotify);
-}
-
 /**
  * @param {BindChartRuntimeControlsOptions} [options]
  * @returns {void}
@@ -109,7 +75,7 @@ export function bindChartRuntimeControls({
   onSendSelectionToPractice,
   onBeforeUnload
 }: BindChartRuntimeControlsOptions = {}) {
-  bindSearchInput(chartSearchInput, onSearch);
+  chartSearchInput?.addEventListener('input', onSearch);
   fixtureSelect?.addEventListener('change', onFixtureChange);
   transposeSelect?.addEventListener('change', onTransposeChange);
   harmonyDisplayMode?.addEventListener('change', onHarmonyDisplayModeChange);

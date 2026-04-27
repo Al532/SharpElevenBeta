@@ -57,6 +57,9 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.isIntro = true;
     state.currentBeat = 0;
     state.currentChordIdx = 0;
+    state.displayedIsIntro = true;
+    state.displayedCurrentBeat = 0;
+    state.displayedCurrentChordIdx = -1;
     state.currentDisplaySide = 'left';
     state.keyPool = [];
     state.nextKeyValue = null;
@@ -96,6 +99,9 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     trackProgressionEvent('play_stop', getPlaybackAnalyticsProps());
     state.isPlaying = false;
     state.isPaused = false;
+    state.displayedIsIntro = false;
+    state.displayedCurrentBeat = 0;
+    state.displayedCurrentChordIdx = -1;
     setDisplayPlaceholderVisible(true);
     dom.startStop.textContent = 'Start';
     dom.startStop.classList.remove('running');

@@ -59,11 +59,16 @@ function isOverlayOpenTarget(target: EventTarget | null): boolean {
   );
 }
 
+function isChartOverlayOpen(): boolean {
+  return Boolean(document.querySelector('.chart-app.overlay-open'));
+}
+
 export function createChartGestureController({
   sheetGrid,
   selectionController,
   renderSelectionState,
   hasActiveSelection,
+  canClearSelection,
   clearSelection,
   openOverlay,
   closeOverlay,
@@ -73,6 +78,7 @@ export function createChartGestureController({
   selectionController?: ChartSelectionController;
   renderSelectionState?: () => void;
   hasActiveSelection?: () => boolean;
+  canClearSelection?: () => boolean;
   clearSelection?: () => void;
   openOverlay?: () => void;
   closeOverlay?: () => void;
@@ -157,8 +163,13 @@ export function createChartGestureController({
     gesture.suppressTapUntil = Date.now() + durationMs;
   }
 
+  function shouldClearSelectionOnTap(): boolean {
+    return Boolean(hasActiveSelection?.() && canClearSelection?.() !== false);
+  }
+
   function startSelection(barId: string): boolean {
     if (!barId) return false;
+    if (hasActiveSelection?.() && canClearSelection?.() === false) return false;
     selectionController?.selectBar(barId);
     gesture.mode = 'selecting';
     gesture.lastSelectedBarId = barId;
@@ -170,6 +181,7 @@ export function createChartGestureController({
 
   function extendSelectionAtPoint(clientX: number, clientY: number) {
     if (gesture.mode !== 'selecting') return;
+    if (hasActiveSelection?.() && canClearSelection?.() === false) return;
     const barCell = getBarCellFromPoint(clientX, clientY);
     const barId = barCell?.dataset.barId || '';
     if (!barId || barId === gesture.lastSelectedBarId) return;
@@ -264,8 +276,10 @@ export function createChartGestureController({
 
       if (gesture.mode === 'pending' && Math.max(absX, absY) <= TAP_TRIGGER_DISTANCE_PX) {
         suppressNextClick();
-        if (hasActiveSelection?.()) {
+        if (shouldClearSelectionOnTap()) {
           clearSelection?.();
+        } else if (isChartOverlayOpen()) {
+          closeOverlay?.();
         } else {
           openOverlay?.();
         }
@@ -287,7 +301,11 @@ export function createChartGestureController({
         return;
       }
       if (isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target)) {
-        closeOverlay?.();
+        if (shouldClearSelectionOnTap()) {
+          clearSelection?.();
+        } else {
+          closeOverlay?.();
+        }
         suppressNextClick();
         event.preventDefault();
         event.stopPropagation();
@@ -296,8 +314,10 @@ export function createChartGestureController({
       }
       if (isEditableTarget(event.target)) return;
       if (!isChartTapTarget(event.target)) return;
-      if (hasActiveSelection?.()) {
+      if (shouldClearSelectionOnTap()) {
         clearSelection?.();
+      } else if (isChartOverlayOpen()) {
+        closeOverlay?.();
       } else {
         openOverlay?.();
       }
@@ -354,14 +374,20 @@ export function createChartGestureController({
       if (gesture.touchMoved) return;
       if (isEditableTarget(event.target)) return;
       if (gesture.touchStartedInOverlay) {
-        closeOverlay?.();
+        if (shouldClearSelectionOnTap()) {
+          clearSelection?.();
+        } else {
+          closeOverlay?.();
+        }
         suppressNextClick();
         gesture.touchStartedInChart = false;
         gesture.touchStartedInOverlay = false;
         return;
       }
-      if (hasActiveSelection?.()) {
+      if (shouldClearSelectionOnTap()) {
         clearSelection?.();
+      } else if (isChartOverlayOpen()) {
+        closeOverlay?.();
       } else {
         openOverlay?.();
       }

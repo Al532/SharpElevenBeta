@@ -257,6 +257,7 @@ type ExtendedChartScreenState = ChartScreenState & {
     active: boolean
   },
   selectionLoopActive: boolean,
+  selectionLoopPlaybackPending: boolean,
   selectionLoopRestartPending: boolean
 };
 
@@ -286,6 +287,7 @@ const state: ExtendedChartScreenState = {
     active: false
   },
   selectionLoopActive: false,
+  selectionLoopPlaybackPending: false,
   selectionLoopRestartPending: false
 };
 
@@ -587,7 +589,7 @@ function getDisplayAliasQuality(quality: string, displayMode: string) {
 }
 
 function getAvailableDocuments(): ChartDocument[] {
-  return state.currentSearch || state.filteredDocuments.length > 0
+  return state.filteredDocuments.length > 0
     ? state.filteredDocuments
     : (state.fixtureLibrary?.documents || []);
 }
@@ -836,9 +838,14 @@ function hasActiveSelection() {
   return state.selectionController.getSelection().barIds.length > 0;
 }
 
+function canClearChartSelection() {
+  return !state.isPlaying && !state.isPaused && !state.selectionLoopPlaybackPending;
+}
+
 function setSelectionLoopActive(active: boolean) {
   state.selectionLoopActive = Boolean(active);
   if (!state.selectionLoopActive) {
+    state.selectionLoopPlaybackPending = false;
     state.selectionLoopRestartPending = false;
   }
 }
@@ -1110,9 +1117,22 @@ function renderSelectionMenu() {
     return;
   }
 
+  if (state.selectionLoopActive || state.selectionLoopPlaybackPending || state.isPlaying || state.isPaused) {
+    if (dom.selectionLoopButton) {
+      dom.selectionLoopButton.textContent = 'Loop';
+      dom.selectionLoopButton.classList.remove('is-active');
+    }
+    if (dom.selectionMenu) {
+      dom.selectionMenu.hidden = true;
+      dom.selectionMenu.setAttribute('aria-hidden', 'true');
+    }
+    return;
+  }
+
   if (dom.selectionMenu) {
     dom.selectionMenu.hidden = false;
     dom.selectionMenu.setAttribute('aria-hidden', 'false');
+    positionSelectionMenu();
   }
   if (dom.selectionLoopButton) {
     dom.selectionLoopButton.disabled = !hasSession;
@@ -1195,18 +1215,28 @@ async function startPlayback({ cancelSelectionLoop = true }: { cancelSelectionLo
   if (cancelSelectionLoop) {
     setSelectionLoopActive(false);
   }
-  const nextState = await getChartPlaybackController().startPlayback();
-  applyChartPlaybackState('isPlaying' in nextState
-    ? nextState
-    : { isPlaying: false, isPaused: false }, {
-    allowSelectionLoopRestart: false
-  });
-  startPlaybackPolling({
-    state,
-    intervalMs: PLAYBACK_STATE_POLL_INTERVAL_MS,
-    onTick: syncPlaybackState
-  });
-  syncPlaybackState();
+  const shouldMarkLoopPending = !cancelSelectionLoop && state.selectionLoopActive;
+  if (shouldMarkLoopPending) {
+    state.selectionLoopPlaybackPending = true;
+  }
+  try {
+    const nextState = await getChartPlaybackController().startPlayback();
+    applyChartPlaybackState('isPlaying' in nextState
+      ? nextState
+      : { isPlaying: false, isPaused: false }, {
+      allowSelectionLoopRestart: false
+    });
+    startPlaybackPolling({
+      state,
+      intervalMs: PLAYBACK_STATE_POLL_INTERVAL_MS,
+      onTick: syncPlaybackState
+    });
+    syncPlaybackState();
+  } finally {
+    if (shouldMarkLoopPending) {
+      state.selectionLoopPlaybackPending = false;
+    }
+  }
 }
 
 async function syncPlaybackSettings() {
@@ -1231,6 +1261,10 @@ function navigateToPracticeWithSelection() {
 }
 
 function clearChartSelection() {
+  if (!canClearChartSelection()) {
+    openOverlay();
+    return;
+  }
   const shouldStopLoopPlayback = state.selectionLoopActive && (state.isPlaying || state.isPaused);
   setSelectionLoopActive(false);
   state.selectionController.clear();
@@ -1246,6 +1280,11 @@ function clearChartSelection() {
 async function startSelectionLoop() {
   if (!hasActiveSelection() || !state.currentSelectionPracticeSession?.playback?.enginePatternString) return;
   setSelectionLoopActive(true);
+  state.selectionLoopPlaybackPending = true;
+  if (dom.selectionMenu) {
+    dom.selectionMenu.hidden = true;
+    dom.selectionMenu.setAttribute('aria-hidden', 'true');
+  }
   renderSelectionState();
   try {
     if (state.isPlaying || state.isPaused || state.activePlaybackEntryIndex >= 0) {
@@ -1257,8 +1296,10 @@ async function startSelectionLoop() {
     await startPlayback({
       cancelSelectionLoop: false
     });
+    state.selectionLoopPlaybackPending = false;
     closeOverlay();
   } catch (error) {
+    state.selectionLoopPlaybackPending = false;
     setSelectionLoopActive(false);
     renderSelectionState();
     if (dom.transportStatus) dom.transportStatus.textContent = `Playback error: ${getErrorMessage(error)}`;
@@ -1549,6 +1590,87 @@ function renderFixture() {
     dom.chartMetadataPopover?.removeAttribute('hidden');
     dom.chartMetadataButton?.setAttribute('aria-expanded', 'true');
   }
+}
+
+function getSelectedBarBounds(): DOMRect | null {
+  const selectedBarIds = new Set(state.selectionController.getSelection().barIds);
+  const selectedCells = Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-cell'))
+    .filter((element) => selectedBarIds.has(element.dataset.barId || ''));
+  if (selectedCells.length === 0) return null;
+
+  const rects = selectedCells
+    .map((element) => element.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.height > 0);
+  if (rects.length === 0) return null;
+
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const right = Math.max(...rects.map((rect) => rect.right));
+  const bottom = Math.max(...rects.map((rect) => rect.bottom));
+  return new DOMRect(left, top, right - left, bottom - top);
+}
+
+function getVisibleOverlayRect(element: Element | null | undefined): DOMRect | null {
+  if (!(element instanceof HTMLElement)) return null;
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const style = getComputedStyle(element);
+  if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) <= 0.01) return null;
+  return rect;
+}
+
+function getSelectionMenuVerticalBounds() {
+  const viewport = window.visualViewport;
+  const viewportHeight = viewport?.height || window.innerHeight || document.documentElement.clientHeight;
+  const viewportTop = viewport?.offsetTop || 0;
+  let top = viewportTop;
+  let bottom = viewportTop + viewportHeight;
+
+  if (dom.chartApp?.classList.contains('overlay-open')) {
+    const topBarRect = getVisibleOverlayRect(dom.chartTopOverlay?.querySelector('.chart-top-bar') || dom.chartTopOverlay);
+    const bottomOverlayRect = getVisibleOverlayRect(dom.chartBottomOverlay);
+    if (topBarRect) {
+      top = Math.max(top, topBarRect.bottom);
+    }
+    if (bottomOverlayRect) {
+      bottom = Math.min(bottom, bottomOverlayRect.top);
+    }
+  }
+
+  return { top, bottom };
+}
+
+function positionSelectionMenu() {
+  if (!dom.selectionMenu || dom.selectionMenu.hidden) return;
+  const selectionBounds = getSelectedBarBounds();
+  if (!selectionBounds) return;
+
+  const menuRect = dom.selectionMenu.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const viewportWidth = viewport?.width || window.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = viewport?.height || window.innerHeight || document.documentElement.clientHeight;
+  const viewportLeft = viewport?.offsetLeft || 0;
+  const viewportTop = viewport?.offsetTop || 0;
+  const margin = 8;
+  const menuWidth = Math.max(menuRect.width, 1);
+  const menuHeight = Math.max(menuRect.height, 1);
+  const preferredLeft = selectionBounds.left + (selectionBounds.width / 2);
+  const minLeft = viewportLeft + margin + (menuWidth / 2);
+  const maxLeft = viewportLeft + viewportWidth - margin - (menuWidth / 2);
+  const nextLeft = Math.max(minLeft, Math.min(maxLeft, preferredLeft));
+  const verticalBounds = getSelectionMenuVerticalBounds();
+  const topCandidate = selectionBounds.top - menuHeight - margin;
+  const bottomCandidate = selectionBounds.bottom + margin;
+  const topFits = topCandidate >= verticalBounds.top + margin;
+  const bottomFits = bottomCandidate + menuHeight <= verticalBounds.bottom - margin;
+  const availableAbove = selectionBounds.top - verticalBounds.top;
+  const availableBelow = verticalBounds.bottom - selectionBounds.bottom;
+  const nextTop = topFits && (!bottomFits || availableAbove >= availableBelow)
+    ? topCandidate
+    : Math.min(bottomCandidate, verticalBounds.bottom - menuHeight - margin);
+
+  dom.selectionMenu.style.left = `${nextLeft}px`;
+  dom.selectionMenu.style.top = `${Math.max(verticalBounds.top + margin, nextTop)}px`;
 }
 
 function createChartMetadataText(tagName: string, className: string, textContent: string): HTMLElement {
@@ -2040,7 +2162,9 @@ async function loadFixtures() {
             return;
           }
           try {
-            await startPlayback();
+            await startPlayback({
+              cancelSelectionLoop: !state.selectionLoopActive
+            });
             closeOverlay();
           } catch (error) {
             if (dom.transportStatus) dom.transportStatus.textContent = `Playback error: ${getErrorMessage(error)}`;
@@ -2049,7 +2173,10 @@ async function loadFixtures() {
           }
         },
         onStopClick: () => {
-          stopPlayback({ resetPosition: true });
+          stopPlayback({
+            resetPosition: true,
+            cancelSelectionLoop: !state.selectionLoopActive
+          });
         },
         onClearSelection: () => {
           clearChartSelection();
@@ -2063,12 +2190,17 @@ async function loadFixtures() {
         void startSelectionLoop();
       });
       dom.selectionCreateDrillButton?.addEventListener('click', navigateToPracticeWithSelection);
+      window.addEventListener('resize', positionSelectionMenu);
+      window.visualViewport?.addEventListener('resize', positionSelectionMenu);
+      window.visualViewport?.addEventListener('scroll', positionSelectionMenu);
+      dom.sheetGrid?.addEventListener('scroll', positionSelectionMenu, { passive: true });
       bindBottomControlPopovers();
       createChartGestureController({
         sheetGrid: dom.sheetGrid,
         selectionController: state.selectionController,
         renderSelectionState,
         hasActiveSelection,
+        canClearSelection: canClearChartSelection,
         clearSelection: clearChartSelection,
         openOverlay,
         closeOverlay,

@@ -396,7 +396,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.18rem;
   margin-top: clamp(1.2rem, 3vw, 2rem);
 }
 
@@ -547,6 +547,13 @@ body {
   list-style: none;
 }
 
+.home-list:has(> li > .home-chart-entry),
+.chart-manage-chart-list,
+.chart-manage-setlist-list,
+.chart-manage-setlist-chart-list {
+  gap: 0.45rem;
+}
+
 .home-search-field {
   display: block;
   margin: 0 0 0.75rem;
@@ -570,6 +577,26 @@ body {
   outline: 0;
   border-bottom-color: var(--ui-accent);
   background: color-mix(in srgb, var(--ui-surface) 82%, var(--ui-text) 18%);
+}
+
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0.45rem;
+  background: var(--ui-accent);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M18.3 5.7a1.2 1.2 0 0 0-1.7 0L12 10.3 7.4 5.7a1.2 1.2 0 1 0-1.7 1.7l4.6 4.6-4.6 4.6a1.2 1.2 0 1 0 1.7 1.7l4.6-4.6 4.6 4.6a1.2 1.2 0 0 0 1.7-1.7L13.7 12l4.6-4.6a1.2 1.2 0 0 0 0-1.7Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M18.3 5.7a1.2 1.2 0 0 0-1.7 0L12 10.3 7.4 5.7a1.2 1.2 0 1 0-1.7 1.7l4.6 4.6-4.6 4.6a1.2 1.2 0 1 0 1.7 1.7l4.6-4.6 4.6 4.6a1.2 1.2 0 0 0 1.7-1.7L13.7 12l4.6-4.6a1.2 1.2 0 0 0 0-1.7Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+input[type="search"]::-webkit-search-cancel-button:hover {
+  background: var(--ui-accent-cool);
 }
 
 .home-list-link,
@@ -626,6 +653,14 @@ body {
 .chart-manage-summary-row {
   position: relative;
   padding-right: 3.4rem;
+}
+
+.home-list-link.home-chart-entry,
+.home-list-link.chart-manage-chart-row,
+.home-list-link.chart-manage-setlist-row,
+.home-list-link.chart-manage-summary-row {
+  padding-top: 0.58rem;
+  padding-bottom: 0.58rem;
 }
 
 .home-chart-entry-link,
@@ -926,7 +961,7 @@ body {
 .chart-manage-setlist-list,
 .chart-manage-setlist-entry {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .chart-manage-setlist-chart-list {
@@ -941,7 +976,7 @@ body {
   position: relative;
   display: grid;
   grid-template-columns: 1.4rem minmax(0, 1fr);
-  row-gap: 0.5rem;
+  row-gap: 0.45rem;
 }
 
 .chart-manage-setlist-chart-list > li > .chart-manage-setlist-chart-row {
@@ -3805,7 +3840,8 @@ input[type="number"],
 
 .home-import-popup[hidden],
 .home-import-actions[hidden],
-.home-import-link-section[hidden] {
+.home-import-link-section[hidden],
+.home-import-backup-section[hidden] {
   display: none !important;
 }
 
@@ -3828,9 +3864,18 @@ input[type="number"],
 }
 
 .home-import-actions,
-.home-import-link-section {
+.home-import-link-section,
+.home-import-backup-section,
+.home-import-backup-actions {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.18rem;
+}
+
+.home-import-note {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
 .home-import-popup .home-primary-action {

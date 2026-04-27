@@ -52,9 +52,9 @@
   --chart-sheet-title: var(--chart-ink);
   --chart-sheet-text-alt: color-mix(in srgb, var(--chart-ink) 70%, white 30%);
   --chart-sheet-muted: color-mix(in srgb, var(--chart-ink) 78%, transparent 22%);
-  --chart-sheet-active: color-mix(in srgb, var(--ui-warning-bg) 90%, transparent 10%);
-  --chart-sheet-selected: color-mix(in srgb, var(--ui-overlay-backdrop) 72%, transparent 28%);
-  --chart-sheet-active-selected: linear-gradient(180deg, var(--chart-sheet-active), var(--chart-sheet-selected));
+  --chart-sheet-active: rgba(255, 232, 0, 0.56);
+  --chart-sheet-selected: rgba(255, 232, 0, 0.22);
+  --chart-sheet-active-selected: var(--chart-sheet-active);
   --chart-sheet-playback: color-mix(in srgb, var(--ui-warning-bg) 55%, transparent 45%);
   --chart-sheet-pill: var(--chart-ink);
   --chart-sheet-pill-text: #ffffff;
@@ -161,7 +161,7 @@ select {
 
 .chart-app.overlay-open .chart-mobile-backdrop {
   opacity: 1;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 /* --- Top overlay ------------------------------------------------- */
@@ -689,10 +689,10 @@ select {
 .chart-selection-menu {
   position: fixed;
   left: 50%;
-  bottom: max(20px, calc(env(safe-area-inset-bottom) + 14px));
+  top: 0;
   z-index: 180;
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateX(-50%);
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
@@ -700,18 +700,12 @@ select {
   display: none;
 }
 
-.chart-app.overlay-open .chart-selection-menu {
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, 14px);
-}
-
 .chart-selection-menu-card {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px;
-  border-radius: 14px;
+  padding: 6px;
+  border-radius: 8px;
   background: var(--chart-ui-menu);
   color: var(--chart-ui-text-inverse);
   box-shadow: 0 16px 32px var(--chart-ui-shadow-menu);
@@ -728,10 +722,10 @@ select {
 }
 
 .chart-selection-menu-button {
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--chart-ui-text-inverse);
   color: var(--blue-ui-dark);
   font-weight: 700;
@@ -748,12 +742,12 @@ select {
 }
 
 .chart-selection-menu-button-secondary {
-  background: var(--chart-ui-control-translucent-hover);
+  background: var(--chart-ui-accent);
   color: var(--chart-ui-text-inverse);
 }
 
 .chart-selection-menu-button-secondary:active {
-  background: var(--chart-ui-control-translucent);
+  background: var(--chart-ui-accent-strong);
 }
 
 .chart-selection-menu-button.is-active {
@@ -1642,20 +1636,15 @@ select {
   }
 
   .chart-selection-menu {
-    left: 12px;
-    right: 12px;
-    bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px));
-    transform: none;
-  }
-
-  .chart-app.overlay-open .chart-selection-menu {
-    transform: translateY(14px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
   }
 
   .chart-selection-menu-card {
-    display: grid;
-    grid-template-columns: 1fr;
-    width: 100%;
+    display: inline-flex;
+    width: max-content;
+    max-width: calc(100vw - 24px);
   }
 }
 
@@ -1664,7 +1653,7 @@ select {
 @media (max-width: 1200px) {
   .chart-app.overlay-open .chart-mobile-backdrop {
     opacity: 1;
-    pointer-events: auto;
+    pointer-events: none;
     background: transparent;
   }
 

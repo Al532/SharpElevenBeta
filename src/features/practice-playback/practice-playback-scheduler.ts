@@ -190,6 +190,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         const introNextKey = state.nextKeyValue;
         const introFirstChord = state.paddedChords[0];
         scheduleDisplay(state.nextBeatTime, () => {
+          state.displayedIsIntro = true;
+          state.displayedCurrentBeat = introB;
+          state.displayedCurrentChordIdx = -1;
           applyDisplaySideLayout();
           dom.keyDisplay.textContent = '';
           dom.chordDisplay.innerHTML = '';
@@ -297,6 +300,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       }
 
       const dispBeat = state.currentBeat;
+      const dispChordIdx = state.currentChordIdx;
       const dispChord = chord;
       const dispKey = state.currentKey;
       const dispNextKey = state.nextKeyValue;
@@ -309,6 +313,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const dispFollowingChord = state.paddedChords[state.currentChordIdx + 1] || null;
       const dispNextFollowingChord = state.nextRawChords[1] || null;
       scheduleDisplay(state.nextBeatTime, () => {
+        state.displayedIsIntro = false;
+        state.displayedCurrentBeat = dispBeat;
+        state.displayedCurrentChordIdx = dispChordIdx;
         if (!shouldShowNextPreview(dispKey, dispNextKey, dispRemainingBeats)) {
           dom.nextKeyDisplay.textContent = '';
           dom.nextChordDisplay.innerHTML = '';
