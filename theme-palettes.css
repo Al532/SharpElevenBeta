@@ -20,3 +20,14 @@
   --c-danger: #c86472;
   --c-highlight: #f4d85e; /* warm chart marker for selection and playback */
 }
+
+:root[data-theme="dark-jazz"] {
+  color-scheme: dark;
+
+  --c-bg: #1d1f20;
+  --c-text: #f5efe4;
+  --c-accent: #d18a34;
+  --c-secondary: #2d3032;
+  --c-danger: #df6e68;
+  --c-highlight: #f0bd58;
+}

@@ -92,7 +92,8 @@ type ThemeHost = Window & {
 
 const THEME_LABELS = new Map<string, string>([
   ['classic-paper', 'Classic Paper'],
-  ['blue-note', 'Blue Note']
+  ['blue-note', 'Blue Note'],
+  ['dark-jazz', 'Dark Jazz']
 ]);
 
 function getThemeLabel(paletteName: string): string {
@@ -381,8 +382,8 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     dom.chartSearchInput?.setAttribute(
       'placeholder',
       chartCount > 0
-        ? `Search ${chartCount} ${chartLabel} by title, composer, style, or tag`
-        : 'Search by title, composer, style, or tag'
+        ? `Search ${chartCount} ${chartLabel}`
+        : 'Search charts'
     );
   };
 
