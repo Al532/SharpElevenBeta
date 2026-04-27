@@ -587,7 +587,7 @@ function getDisplayAliasQuality(quality: string, displayMode: string) {
 }
 
 function getAvailableDocuments(): ChartDocument[] {
-  return state.filteredDocuments.length > 0
+  return state.currentSearch || state.filteredDocuments.length > 0
     ? state.filteredDocuments
     : (state.fixtureLibrary?.documents || []);
 }
