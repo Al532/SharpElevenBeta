@@ -712,6 +712,18 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.chart-manage-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chart-manage-section-heading h2 {
+  margin: 0;
+}
+
 .chart-manage-search {
   grid-column: 1 / -1;
   margin: 0;
@@ -860,6 +872,30 @@ body {
   margin-left: 0.9rem;
 }
 
+.chart-manage-chart-list.is-direct .chart-manage-chart-row {
+  padding-left: 0.9rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.chart-manage-chart-list.is-direct .chart-manage-chart-row:active {
+  cursor: grabbing;
+}
+
+.chart-manage-chart-list.is-direct .chart-manage-chart-row.is-dragging {
+  background: var(--ui-chip-bg-strong);
+}
+
+.chart-manage-chart-list.is-direct .chart-manage-chart-row.is-picked,
+.chart-manage-setlist-row.can-receive-chart,
+.chart-manage-setlist-chart-row.can-receive-chart {
+  background: var(--ui-chip-bg-strong);
+}
+
+.chart-manage-chart-list.is-direct .chart-manage-chart-link {
+  margin-left: 0;
+}
+
 .chart-manage-setlist-list,
 .chart-manage-setlist-entry {
   display: grid;
@@ -883,6 +919,15 @@ body {
   flex-wrap: wrap;
   gap: 0.45rem;
   margin-left: 1.8rem;
+}
+
+.chart-manage-create-setlist-row {
+  margin-left: 0;
+}
+
+.chart-manage-setlist-menu-input {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .chart-manage-small-action {
