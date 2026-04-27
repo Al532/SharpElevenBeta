@@ -14,12 +14,15 @@ import {
   loadPersistedSetlists,
   persistChartLibrary,
   persistSetlists,
+  removePersistedChartReferences,
   loadRecentChartIds,
   loadPersistedRecentChartDocuments,
   loadPersistedHomeChartSummary,
   saveHomeChartSummaryFromLibrary
 } from '../chart/chart-persistence.js';
 import {
+  applyBatchMetadataOperation,
+  applyPerChartMetadataUpdate,
   filterChartDocuments,
   getChartSourceRefs,
   importDocumentsFromIRealText,
@@ -29,10 +32,6 @@ import {
   bindChartImportControls,
   setChartImportStatus
 } from '../chart/chart-import-controls.js';
-import {
-  closeChartMetadataPanel,
-  openChartMetadataPanel
-} from '../chart/chart-metadata-panel.js';
 
 type HomePageDom = {
   chartSearchInput: HTMLInputElement | null;
@@ -88,6 +87,11 @@ function updateChartEntrySubtitleVisibility(link: HTMLElement): void {
 
 type ThemeHost = Window & {
   SharpElevenTheme?: SharpElevenThemeApi;
+};
+
+type ChartEntryMenuTarget = {
+  chartId: string;
+  anchor: HTMLElement;
 };
 
 const THEME_LABELS = new Map<string, string>([
@@ -187,7 +191,7 @@ function getAvailableChartListHeight(listElement: HTMLElement): number {
   const footerTop = footer?.getBoundingClientRect().top || viewportHeight;
   const actionsTop = actions?.getBoundingClientRect().top || viewportHeight;
   const visibleBottom = Math.min(actionsTop, footerTop, viewportHeight);
-  return Math.max(0, visibleBottom - listTop - 12);
+  return Math.max(0, visibleBottom - listTop - 4);
 }
 
 function getViewportHeightWithoutVirtualKeyboard(): number {
@@ -213,16 +217,7 @@ function getViewportHeightWithoutVirtualKeyboard(): number {
   return maxHomeViewportHeightWithoutVirtualKeyboard || viewportHeight;
 }
 
-function isHomePageOverflowing(): boolean {
-  const viewportHeight = getViewportHeightWithoutVirtualKeyboard();
-  const documentHeight = Math.ceil(Math.max(
-    document.documentElement.scrollHeight,
-    document.body?.scrollHeight || 0
-  ));
-  return documentHeight > viewportHeight + 1;
-}
-
-function createChartRow(chartDocument: ChartDocument, onMetadata: (chartId: string) => void): HTMLLIElement {
+function createChartRow(chartDocument: ChartDocument, onMenu: (target: ChartEntryMenuTarget) => void): HTMLLIElement {
   const item = document.createElement('li');
   const row = document.createElement('div');
   row.className = 'home-list-link home-chart-entry';
@@ -236,13 +231,15 @@ function createChartRow(chartDocument: ChartDocument, onMetadata: (chartId: stri
   const metadataButton = document.createElement('button');
   metadataButton.type = 'button';
   metadataButton.className = 'home-chart-entry-kebab';
-  metadataButton.setAttribute('aria-label', `Open metadata for ${chartDocument.metadata.title || 'chart'}`);
+  metadataButton.setAttribute('aria-label', `Open actions for ${chartDocument.metadata.title || 'chart'}`);
+  metadataButton.setAttribute('aria-haspopup', 'menu');
+  metadataButton.setAttribute('aria-expanded', 'false');
   metadataButton.addEventListener('pointerdown', (event) => event.stopPropagation());
   metadataButton.addEventListener('mousedown', (event) => event.stopPropagation());
   metadataButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    onMetadata(chartDocument.metadata.id);
+    onMenu({ chartId: chartDocument.metadata.id, anchor: metadataButton });
   });
   row.append(link, metadataButton);
   item.append(row);
@@ -275,7 +272,7 @@ function createChartPreviewRow(chartDocument: ChartDocument): HTMLLIElement {
   const metadataButton = document.createElement('button');
   metadataButton.type = 'button';
   metadataButton.className = 'home-chart-entry-kebab';
-  metadataButton.setAttribute('aria-label', `Open metadata for ${chartDocument.metadata.title || 'chart'}`);
+  metadataButton.setAttribute('aria-label', `Open actions for ${chartDocument.metadata.title || 'chart'}`);
   metadataButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -304,7 +301,7 @@ function renderHomeChartSummaryPreview(
     dom.chartSearchResults.append(createChartPreviewRow(chartDocument));
     const last = dom.chartSearchResults.lastElementChild;
     if (!last) break;
-    if (last.getBoundingClientRect().bottom > maxListBottom || isHomePageOverflowing()) {
+    if (last.getBoundingClientRect().bottom > maxListBottom) {
       last.remove();
       break;
     }
@@ -314,7 +311,7 @@ function renderHomeChartSummaryPreview(
 function renderChartSearch(
   documents: ChartDocument[],
   recentDocuments: ChartDocument[],
-  onMetadata: (chartId: string) => void,
+  onMenu: (target: ChartEntryMenuTarget) => void,
   dom: Pick<HomePageDom, 'chartSearchInput' | 'chartSearchResults' | 'chartSearchEmpty'>
 ): void {
   if (!dom.chartSearchResults) return;
@@ -328,16 +325,19 @@ function renderChartSearch(
 
   dom.chartSearchResults.replaceChildren();
   for (const chartDocument of matches) {
-    dom.chartSearchResults.append(createChartRow(chartDocument, onMetadata));
+    dom.chartSearchResults.append(createChartRow(chartDocument, onMenu));
     const last = dom.chartSearchResults.lastElementChild;
     if (!last) break;
-    if (last.getBoundingClientRect().bottom > maxListBottom || isHomePageOverflowing()) {
+    if (last.getBoundingClientRect().bottom > maxListBottom) {
       dom.chartSearchResults.lastElementChild?.remove();
       break;
     }
   }
 
-  while (dom.chartSearchResults.lastElementChild && isHomePageOverflowing()) {
+  while (
+    dom.chartSearchResults.lastElementChild
+    && dom.chartSearchResults.lastElementChild.getBoundingClientRect().bottom > maxListBottom
+  ) {
     dom.chartSearchResults.lastElementChild.remove();
   }
 
@@ -362,10 +362,20 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   let documents = persistedLibrary?.documents || [];
   let activeImportRunId = 0;
   let isHomeImportRunning = false;
-  const metadataPanel = document.createElement('div');
-  metadataPanel.className = 'chart-metadata-panel';
-  metadataPanel.hidden = true;
-  document.body.append(metadataPanel);
+  let activeChartMenu: ChartEntryMenuTarget | null = null;
+  let activeSetlistPopupChartId = '';
+  const chartEntryMenu = document.createElement('div');
+  chartEntryMenu.className = 'home-chart-entry-menu';
+  chartEntryMenu.hidden = true;
+  chartEntryMenu.setAttribute('role', 'menu');
+  chartEntryMenu.setAttribute('aria-label', 'Chart actions');
+  const setlistPopup = document.createElement('div');
+  setlistPopup.className = 'home-setlist-popup';
+  setlistPopup.hidden = true;
+  setlistPopup.setAttribute('role', 'dialog');
+  setlistPopup.setAttribute('aria-modal', 'true');
+  setlistPopup.setAttribute('aria-label', 'Add chart to setlist');
+  document.body.append(chartEntryMenu, setlistPopup);
 
   const getRecentDocuments = (): ChartDocument[] => {
     const documentsById = new Map(
@@ -389,7 +399,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
 
   const rerender = (): void => {
     updateChartSearchPlaceholder();
-    renderChartSearch(documents, getRecentDocuments(), openMetadata, dom);
+    renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, dom);
   };
 
   const persistMetadataState = async ({ documents: nextDocuments, setlists: nextSetlists }: { documents: ChartDocument[]; setlists: ChartSetlist[] }, _statusMessage: string): Promise<void> => {
@@ -400,12 +410,164 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     rerender();
   };
 
-  function openMetadata(chartId: string): void {
-    openChartMetadataPanel({
-      host: metadataPanel,
-      target: { kind: 'single', chartId },
-      getState: () => ({ documents, setlists }),
-      persistState: persistMetadataState
+  const closeChartEntryMenu = (): void => {
+    activeChartMenu?.anchor.setAttribute('aria-expanded', 'false');
+    activeChartMenu = null;
+    chartEntryMenu.hidden = true;
+    chartEntryMenu.replaceChildren();
+  };
+
+  const closeSetlistPopup = (): void => {
+    activeSetlistPopupChartId = '';
+    setlistPopup.hidden = true;
+    setlistPopup.replaceChildren();
+  };
+
+  const persistChartSetlistAssignment = async (chartId: string, patch: Parameters<typeof applyPerChartMetadataUpdate>[0]['patch'], statusMessage: string): Promise<void> => {
+    const result = applyPerChartMetadataUpdate({
+      documents,
+      setlists,
+      chartId,
+      patch
+    });
+    await persistMetadataState(result, statusMessage);
+    closeSetlistPopup();
+    closeChartEntryMenu();
+  };
+
+  const deleteChart = async (chartId: string): Promise<void> => {
+    const chartDocument = documents.find((document) => document.metadata?.id === chartId);
+    if (!chartDocument) return;
+    const confirmed = window.confirm(`Delete "${chartDocument.metadata.title || 'chart'}"?\n\nThis will remove it from the library and all setlists. This action cannot be undone.`);
+    if (!confirmed) return;
+    const result = applyBatchMetadataOperation({
+      documents,
+      setlists,
+      chartIds: [chartId],
+      operation: { kind: 'delete' }
+    });
+    removePersistedChartReferences([chartId]);
+    await persistMetadataState({ documents: result.documents, setlists: result.setlists }, 'Chart deleted.');
+    closeSetlistPopup();
+    closeChartEntryMenu();
+  };
+
+  const createMenuButton = (label: string, className = 'home-chart-entry-menu-item'): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.setAttribute('role', 'menuitem');
+    button.textContent = label;
+    return button;
+  };
+
+  const positionChartEntryMenu = (anchor: HTMLElement): void => {
+    const anchorRect = anchor.getBoundingClientRect();
+    const menuRect = chartEntryMenu.getBoundingClientRect();
+    const margin = 8;
+    const left = Math.min(
+      Math.max(margin, anchorRect.right - menuRect.width),
+      Math.max(margin, window.innerWidth - menuRect.width - margin)
+    );
+    const top = Math.min(
+      anchorRect.bottom + 4,
+      Math.max(margin, window.innerHeight - menuRect.height - margin)
+    );
+    chartEntryMenu.style.left = `${left}px`;
+    chartEntryMenu.style.top = `${top}px`;
+  };
+
+  function openChartEntryMenu(target: ChartEntryMenuTarget): void {
+    const chartDocument = documents.find((document) => document.metadata?.id === target.chartId);
+    if (!chartDocument) return;
+    const isSameMenu = activeChartMenu?.chartId === target.chartId && !chartEntryMenu.hidden;
+    closeSetlistPopup();
+    closeChartEntryMenu();
+    if (isSameMenu) return;
+
+    activeChartMenu = target;
+    target.anchor.setAttribute('aria-expanded', 'true');
+    const addButton = createMenuButton('Add to setlist');
+    addButton.addEventListener('click', () => {
+      closeChartEntryMenu();
+      openSetlistPopup(target.chartId);
+    });
+    const deleteButton = createMenuButton('Delete', 'home-chart-entry-menu-item is-danger');
+    deleteButton.addEventListener('click', () => void deleteChart(target.chartId));
+    chartEntryMenu.replaceChildren(addButton, deleteButton);
+    chartEntryMenu.hidden = false;
+    positionChartEntryMenu(target.anchor);
+    requestAnimationFrame(() => addButton.focus());
+  }
+
+  function openSetlistPopup(chartId: string): void {
+    const chartDocument = documents.find((document) => document.metadata?.id === chartId);
+    if (!chartDocument) return;
+    activeSetlistPopupChartId = chartId;
+
+    const card = document.createElement('div');
+    card.className = 'home-setlist-popup-card';
+    const header = document.createElement('div');
+    header.className = 'home-setlist-popup-header';
+    header.append(createTextElement('strong', '', 'Add to setlist'));
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'home-metadata-close';
+    closeButton.textContent = 'Close';
+    closeButton.addEventListener('click', closeSetlistPopup);
+    header.append(closeButton);
+
+    const title = createTextElement('p', 'home-setlist-popup-chart-title', chartDocument.metadata.title || 'Untitled chart');
+    const list = document.createElement('div');
+    list.className = 'home-setlist-popup-list';
+    const memberships = new Set(
+      setlists
+        .filter((setlist) => setlist.items.some((item) => item.chartId === chartId))
+        .map((setlist) => setlist.id)
+    );
+    if (setlists.length === 0) {
+      list.append(createTextElement('p', 'home-empty', 'No setlists yet.'));
+    } else {
+      for (const setlist of setlists) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'home-setlist-popup-option';
+        button.textContent = memberships.has(setlist.id) ? `${setlist.name} - already added` : setlist.name;
+        button.disabled = memberships.has(setlist.id);
+        button.addEventListener('click', () => {
+          void persistChartSetlistAssignment(chartId, { addSetlistIds: [setlist.id] }, 'Added chart to setlist.');
+        });
+        list.append(button);
+      }
+    }
+
+    const createRow = document.createElement('div');
+    createRow.className = 'home-setlist-popup-create-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'home-setlist-popup-input';
+    input.placeholder = 'New setlist name';
+    const createButton = document.createElement('button');
+    createButton.type = 'button';
+    createButton.className = 'home-primary-action';
+    createButton.textContent = 'Create';
+    const submitCreate = (): void => {
+      const name = input.value.trim();
+      if (!name || activeSetlistPopupChartId !== chartId) return;
+      void persistChartSetlistAssignment(chartId, { createSetlistName: name }, `Created "${name}".`);
+    };
+    createButton.addEventListener('click', submitCreate);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') submitCreate();
+      if (event.key === 'Escape') closeSetlistPopup();
+    });
+    createRow.append(input, createButton);
+    card.append(header, title, list, createRow);
+    setlistPopup.replaceChildren(card);
+    setlistPopup.hidden = false;
+    requestAnimationFrame(() => {
+      const firstSetlistButton = setlistPopup.querySelector<HTMLButtonElement>('.home-setlist-popup-option:not(:disabled)');
+      (firstSetlistButton || input).focus();
     });
   }
 
@@ -585,6 +747,14 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   dom.importChartsPopup?.addEventListener('click', (event) => {
     if (event.target === dom.importChartsPopup) closeImportPopup();
   });
+  setlistPopup.addEventListener('click', (event) => {
+    if (event.target === setlistPopup) closeSetlistPopup();
+  });
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Node)) return;
+    if (chartEntryMenu.contains(event.target) || activeChartMenu?.anchor.contains(event.target)) return;
+    closeChartEntryMenu();
+  });
   if (new URLSearchParams(window.location.search).get('import') === 'charts') openImportPopup();
   void bindIncomingMobileIRealImports().then(() => importPendingMobileIRealLink());
   rerender();
@@ -595,7 +765,8 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   window.addEventListener('pagehide', cancelActiveImport);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-      closeChartMetadataPanel(metadataPanel);
+      closeSetlistPopup();
+      closeChartEntryMenu();
       closeImportPopup();
     }
   });
