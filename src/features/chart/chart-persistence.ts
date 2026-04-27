@@ -537,6 +537,32 @@ export function loadPersistedRecentChartDocuments(): ChartDocument[] {
     .filter((document): document is ChartDocument => Boolean(document));
 }
 
+export function removePersistedChartReferences(chartIds: string[] = []): void {
+  const deletedIds = new Set(chartIds.map((chartId) => String(chartId || '').trim()).filter(Boolean));
+  if (deletedIds.size === 0) return;
+
+  const chartUiSettings = loadChartUiSettings();
+  const lastChartId = String(chartUiSettings?.lastChartId || '').trim();
+  const recentChartIds = loadRecentChartIds().filter((chartId) => !deletedIds.has(chartId));
+  const recentChartDocuments = normalizePersistedChartDocuments(chartUiSettings?.recentChartDocuments)
+    .filter((document) => !deletedIds.has(String(document.metadata?.id || '')));
+  const lastChartDocument = normalizePersistedChartDocument(chartUiSettings?.lastChartDocument);
+  const homeChartSummary = normalizeHomeChartSummary(chartUiSettings?.homeChartSummary);
+
+  saveChartUiSettings({
+    lastChartId: deletedIds.has(lastChartId) ? '' : lastChartId,
+    recentChartIds,
+    recentChartDocuments,
+    ...(lastChartDocument && deletedIds.has(String(lastChartDocument.metadata?.id || '')) ? { lastChartDocument: null } : {}),
+    ...(homeChartSummary ? {
+      homeChartSummary: {
+        ...homeChartSummary,
+        recentCharts: homeChartSummary.recentCharts.filter((chart) => !deletedIds.has(chart.id))
+      }
+    } : {})
+  });
+}
+
 export function persistChartId(
   chartId: string,
   { legacyStorageKey = '', chartDocument = null }: { legacyStorageKey?: string; chartDocument?: ChartDocument | null } = {}

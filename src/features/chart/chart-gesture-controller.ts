@@ -53,6 +53,7 @@ function isChartTapTarget(target: EventTarget | null): boolean {
 function isOverlayOpenTarget(target: EventTarget | null): boolean {
   const element = getTargetElement(target);
   if (!(element instanceof Element)) return false;
+  if (element.closest('.chart-metadata-popover')) return false;
   return Boolean(
     element.closest('.chart-app.overlay-open')
     && element.closest('.chart-mobile-backdrop, .chart-top-overlay, .chart-bottom-overlay')

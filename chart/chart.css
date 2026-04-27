@@ -513,13 +513,34 @@ select {
 
 .chart-metadata-popover {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+}
+
+.chart-metadata-popover h3 {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sheet-muted);
+}
+
+.chart-metadata-popover input,
+.chart-metadata-popover select {
+  min-height: 32px;
+  border: 0;
+  border-bottom: 2px solid var(--chart-ui-accent-surface-hover);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--chart-ui-text-inverse) 90%, var(--chart-ui-accent) 10%);
+  padding: 5px 8px;
 }
 
 .chart-metadata-facts {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 10px;
+  gap: 3px 10px;
+  font-size: 0.9rem;
+  line-height: 1.25;
 }
 
 .chart-metadata-facts dt {
@@ -535,19 +556,19 @@ select {
 .chart-metadata-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .chart-metadata-chip,
 .chart-metadata-small-action {
-  min-height: 32px;
+  min-height: 30px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--chart-ui-accent-surface);
   color: var(--blue-ui-dark);
   font: inherit;
   font-weight: 800;
-  padding: 6px 10px;
+  padding: 5px 9px;
   cursor: pointer;
 }
 
@@ -1676,7 +1697,7 @@ select {
     overflow: visible;
   }
 
-  .chart-top-bar > :not(.app-back-button):not(.chart-instrument-settings-wrap) {
+  .chart-top-bar > :not(.app-back-button):not(.chart-top-actions):not(.chart-instrument-settings-wrap) {
     display: none !important;
   }
 
@@ -1686,9 +1707,42 @@ select {
     color: var(--chart-ui-accent);
   }
 
+  .chart-top-actions {
+    display: flex;
+    width: auto;
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  .chart-top-actions > :not(#chart-metadata-wrap) {
+    display: none !important;
+  }
+
+  .chart-info-button {
+    background: transparent;
+    color: var(--chart-ui-accent);
+  }
+
+  .chart-metadata-popover {
+    position: fixed;
+    top: calc(max(4px, calc(env(safe-area-inset-top) + 1px)) + 36px);
+    left: 0;
+    right: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: calc(100dvh - 64px - env(safe-area-inset-bottom));
+    margin: 0;
+    padding: 10px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+    border-radius: 0;
+    background: var(--chart-ui-bottom-overlay);
+    box-shadow: none;
+    overflow-y: auto;
+  }
+
   .chart-instrument-settings-wrap {
     display: block;
-    margin-left: auto;
+    margin-left: 0;
   }
 
   .chart-gear-button {
