@@ -364,6 +364,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   let isHomeImportRunning = false;
   let activeChartMenu: ChartEntryMenuTarget | null = null;
   let activeSetlistPopupChartId = '';
+  let setlistPersistQueue = Promise.resolve();
   const chartEntryMenu = document.createElement('div');
   chartEntryMenu.className = 'home-chart-entry-menu';
   chartEntryMenu.hidden = true;
@@ -423,16 +424,32 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     setlistPopup.replaceChildren();
   };
 
-  const persistChartSetlistAssignment = async (chartId: string, patch: Parameters<typeof applyPerChartMetadataUpdate>[0]['patch'], statusMessage: string): Promise<void> => {
+  const persistSetlistsInBackground = (nextSetlists: ChartSetlist[], statusMessage: string): void => {
+    const snapshot = nextSetlists;
+    setlistPersistQueue = setlistPersistQueue
+      .catch(() => undefined)
+      .then(async () => {
+        const persistedSetlists = await persistSetlists(snapshot);
+        if (setlists === snapshot) setlists = persistedSetlists;
+        setImportStatus(statusMessage);
+      })
+      .catch((error) => {
+        setImportStatus(`Failed to update setlists: ${error instanceof Error ? error.message : String(error || 'Unknown error')}`, true);
+      });
+  };
+
+  const updateChartSetlistAssignment = (chartId: string, patch: Parameters<typeof applyPerChartMetadataUpdate>[0]['patch'], statusMessage: string): void => {
     const result = applyPerChartMetadataUpdate({
       documents,
       setlists,
       chartId,
       patch
     });
-    await persistMetadataState(result, statusMessage);
-    closeSetlistPopup();
-    closeChartEntryMenu();
+    setlists = result.setlists;
+    if (activeSetlistPopupChartId === chartId && patch.createSetlistName) {
+      renderSetlistPopup(chartId, 'input');
+    }
+    persistSetlistsInBackground(setlists, statusMessage);
   };
 
   const deleteChart = async (chartId: string): Promise<void> => {
@@ -500,10 +517,9 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     requestAnimationFrame(() => addButton.focus());
   }
 
-  function openSetlistPopup(chartId: string): void {
+  function renderSetlistPopup(chartId: string, focusTarget: 'first' | 'input' | 'none' = 'none'): void {
     const chartDocument = documents.find((document) => document.metadata?.id === chartId);
     if (!chartDocument) return;
-    activeSetlistPopupChartId = chartId;
 
     const card = document.createElement('div');
     card.className = 'home-setlist-popup-card';
@@ -529,15 +545,20 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       list.append(createTextElement('p', 'home-empty', 'No setlists yet.'));
     } else {
       for (const setlist of setlists) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'home-setlist-popup-option';
-        button.textContent = memberships.has(setlist.id) ? `${setlist.name} - already added` : setlist.name;
-        button.disabled = memberships.has(setlist.id);
-        button.addEventListener('click', () => {
-          void persistChartSetlistAssignment(chartId, { addSetlistIds: [setlist.id] }, 'Added chart to setlist.');
+        const label = document.createElement('label');
+        label.className = 'home-setlist-popup-option';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = memberships.has(setlist.id);
+        checkbox.addEventListener('change', () => {
+          updateChartSetlistAssignment(
+            chartId,
+            checkbox.checked ? { addSetlistIds: [setlist.id] } : { removeSetlistIds: [setlist.id] },
+            checkbox.checked ? 'Added chart to setlist.' : 'Removed chart from setlist.'
+          );
         });
-        list.append(button);
+        label.append(checkbox, createTextElement('span', '', setlist.name));
+        list.append(label);
       }
     }
 
@@ -554,7 +575,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     const submitCreate = (): void => {
       const name = input.value.trim();
       if (!name || activeSetlistPopupChartId !== chartId) return;
-      void persistChartSetlistAssignment(chartId, { createSetlistName: name }, `Created "${name}".`);
+      updateChartSetlistAssignment(chartId, { createSetlistName: name }, `Created "${name}".`);
     };
     createButton.addEventListener('click', submitCreate);
     input.addEventListener('keydown', (event) => {
@@ -565,10 +586,19 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     card.append(header, title, list, createRow);
     setlistPopup.replaceChildren(card);
     setlistPopup.hidden = false;
-    requestAnimationFrame(() => {
-      const firstSetlistButton = setlistPopup.querySelector<HTMLButtonElement>('.home-setlist-popup-option:not(:disabled)');
-      (firstSetlistButton || input).focus();
-    });
+    if (focusTarget === 'first') {
+      requestAnimationFrame(() => {
+        const firstSetlistCheckbox = setlistPopup.querySelector<HTMLInputElement>('.home-setlist-popup-option input');
+        (firstSetlistCheckbox || input).focus();
+      });
+    } else if (focusTarget === 'input') {
+      requestAnimationFrame(() => input.focus());
+    }
+  }
+
+  function openSetlistPopup(chartId: string): void {
+    activeSetlistPopupChartId = chartId;
+    renderSetlistPopup(chartId, 'first');
   }
 
   const setImportStatus = (message: string, isError = false): void => {
@@ -746,9 +776,6 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   dom.importCloseButton?.addEventListener('click', closeImportPopup);
   dom.importChartsPopup?.addEventListener('click', (event) => {
     if (event.target === dom.importChartsPopup) closeImportPopup();
-  });
-  setlistPopup.addEventListener('click', (event) => {
-    if (event.target === setlistPopup) closeSetlistPopup();
   });
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Node)) return;

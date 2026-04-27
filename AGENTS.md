@@ -93,11 +93,9 @@ Synced static assets:
 
 ### Visual Design
 
-- The repository's visual direction is flat, clean, and borderless by default.
-- Prefer structure through spacing, typography, alignment, subtle background contrast, and interaction states rather than visible borders, outlines, framed panels, or decorative cards.
-- Do not add card-heavy layouts, nested cards, boxed sections, thick dividers, bevels, shadows, or bordered controls unless there is a clear functional reason in the existing interface.
-- When a boundary is needed for usability, keep it minimal and consistent with the current design language: soft background separation, restrained dividers, or existing component patterns are preferred over new borders.
-- Before changing UI styles, inspect the nearby existing CSS/components and preserve this flat visual language across desktop and mobile.
+- Treat `docs/visual-theme.md` as the source of truth for the app's visual language, theme tokens, and palette workflow.
+- Before changing UI styles, inspect the nearby existing CSS/components and preserve the current music-library language: search-first, calm, spacious, soft controls, and minimal chrome.
+- Keep style edits in `public/` source files when a synced static asset exists, then sync generated root copies.
 
 ## On-Demand Workflows
 

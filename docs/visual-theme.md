@@ -3,12 +3,35 @@
 Sharp Eleven keeps `public/theme.css` for derived tokens and token wiring.
 The base theme palettes (`--c-*` source values) live in `public/theme-palettes.css`.
 
+## Visual Language
+
+Sharp Eleven is a music-library and practice tool, not a marketing site. The interface should feel calm, fast, and useful on a phone in a rehearsal context.
+
+The current home screen is the reference direction:
+
+- Search is the primary entry point. It should feel central and deliberate, not like an accessory control.
+- Use clear UI lettering for the product name in app chrome. Expressive brush wordmarks are better suited to splash, store, or promotional surfaces.
+- Prefer spacious, flat layouts with minimal chrome. Use typography, spacing, alignment, subtle surface contrast, and interaction states before adding visible borders or frames.
+- Rounded controls are allowed when they carry a functional role. The current pattern is soft rounded search fields and standalone rounded action tiles, not boxed page sections.
+- Avoid putting sections inside decorative containers. In particular, do not wrap the home action tiles in a parent card.
+- Use subtle shadows sparingly to lift tappable controls from the paper background. Shadows should not create hard dividers or card-heavy structure.
+- Lists should be light and scannable. Titles can be strong, but avoid oversized text that causes avoidable truncation.
+- Primary iconography should be simple line-art SVG, using `currentColor` and the theme accent where possible.
+- Keep the home page non-elastic and viewport-fitted unless a future home design intentionally introduces scroll.
+
+When extending this language to other screens, start with the closest existing pattern:
+
+- Home, library, and setlists share list/action/search vocabulary.
+- Chart and drill screens are working tools. Preserve density, legibility, and touch ergonomics before applying softer styling.
+- Prefer local, scoped CSS improvements over introducing a large design-system layer prematurely.
+
 ## Palettes
 
 The available palette names include:
 
 - `classic-paper`: the default visual language used by the app.
 - `blue-note`: the blue palette formerly named `iReal`.
+- `dark-jazz`: the dark companion palette for the current soft tile/search language.
 
 Use the browser console to test palettes:
 
