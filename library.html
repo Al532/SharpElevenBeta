@@ -39,10 +39,6 @@
       <section class="home-subsection" aria-labelledby="charts-library-title">
         <h2 id="charts-library-title">Manage library</h2>
         <div class="library-filter-grid">
-          <label class="home-search-field library-search">
-            <span class="sr-only">Search library</span>
-            <input id="manage-chart-search-input" type="search" placeholder="Filter charts to edit">
-          </label>
           <div id="manage-source-filter-row" class="library-filter-row" hidden>
             <span class="library-filter-label">Sources:</span>
             <select id="manage-source-filter" class="library-select" aria-label="Filter by source" hidden>
@@ -64,6 +60,10 @@
             </select>
             <div id="manage-setlist-filter-chips" class="library-filter-chips" aria-label="Filter by setlist" hidden></div>
           </div>
+          <label class="home-search-field library-search">
+            <span class="sr-only">Search library</span>
+            <input id="manage-chart-search-input" type="search" placeholder="Filter charts to edit">
+          </label>
         </div>
         <div id="manage-library-summary" class="library-results-entry" aria-live="polite"></div>
         <ul id="manage-chart-list" class="home-list library-chart-list" aria-label="Batch preview" hidden></ul>

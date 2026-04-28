@@ -1460,7 +1460,7 @@ async function renderChartMetadataPopover() {
   setlistSelect.append(new Option('New setlist', newSetlistOptionValue));
   const newSetlistInput = document.createElement('input');
   newSetlistInput.type = 'text';
-  newSetlistInput.placeholder = 'New setlist name';
+  newSetlistInput.placeholder = 'New setlist';
   const addSetlistButton = createChartMetadataButton('Add to setlist');
   const showPendingSetlistMembership = (setlistName: string) => {
     if (!setlistSummaryValue) return;

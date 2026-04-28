@@ -78,16 +78,17 @@ let draggedLibraryChartId = '';
 let setlistPointerStart: { x: number; y: number } | null = null;
 let setlistPointerCurrent: { x: number; y: number } | null = null;
 let setlistPointerId: number | null = null;
+let setlistPointerType = '';
 let setlistItemDragActivationTimer: ReturnType<typeof window.setTimeout> | null = null;
 let isSetlistItemDragActive = false;
+let isSetlistItemScrollActive = false;
 let isCreateSetlistVisible = false;
 let renamingSetlistId = '';
 let pendingDeleteSetlistId = '';
 const SETLIST_ITEM_DRAG_DELAY_MS = 240;
 const SETLIST_ITEM_TAP_DISTANCE_PX = 6;
-const SETLIST_ITEM_PRE_DRAG_SCROLL_DISTANCE_PX = 12;
-const LIBRARY_PREVIEW_ROW_HEIGHT_PX = 48;
-const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 24;
+const LIBRARY_PREVIEW_ROW_HEIGHT_PX = 40;
+const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 8;
 const CHART_MANAGEMENT_SESSION_CACHE_KEY = 'sharp-eleven-chart-management-session-cache-v1';
 const collapsedSetlistIds = new Set<string>();
 const filterState = createChartManagementFilterState();
@@ -247,8 +248,12 @@ function getLibraryBatchScopeLabel(documents: ChartDocument[]): string {
 function getLibraryPreviewPageSize(): number {
   if (!dom.manageChartList) return libraryPreviewPageSize;
   const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight;
+  const bodyRect = document.body?.getBoundingClientRect();
+  const bodyBottom = bodyRect ? Math.min(viewportHeight, bodyRect.bottom) : viewportHeight;
+  const bodyStyle = document.body ? getComputedStyle(document.body) : null;
+  const bodyPaddingBottom = bodyStyle ? Number.parseFloat(bodyStyle.paddingBottom) || 0 : 0;
   const listTop = dom.manageChartList.getBoundingClientRect().top;
-  const availableHeight = Math.max(0, viewportHeight - listTop - LIBRARY_PREVIEW_BOTTOM_GAP_PX);
+  const availableHeight = Math.max(0, bodyBottom - bodyPaddingBottom - listTop - LIBRARY_PREVIEW_BOTTOM_GAP_PX);
   const rowHeight = Number.parseFloat(getComputedStyle(dom.manageChartList).getPropertyValue('--library-chart-row-height')) || LIBRARY_PREVIEW_ROW_HEIGHT_PX;
   return Math.max(1, Math.floor(availableHeight / rowHeight));
 }
@@ -301,19 +306,24 @@ function renderLibraryBatchSummary(
   actionButton.addEventListener('click', openMatchingMetadataPanel);
 
   const previewLabel = documents.length > 0
-    ? `Showing ${previewStart + 1}-${previewEnd} of ${documents.length}`
+    ? `${previewStart + 1}-${previewEnd} / ${documents.length}`
     : 'Adjust filters';
-  const previousButton = createButton('Previous', 'library-preview-page-action');
+  const previousButton = createButton('Prev', 'library-preview-page-action');
   previousButton.disabled = previewStart <= 0;
+  previousButton.setAttribute('aria-label', 'Previous preview page');
   previousButton.addEventListener('click', () => goToLibraryPreviewPage(-1));
   const nextButton = createButton('Next', 'library-preview-page-action');
   nextButton.disabled = previewEnd >= documents.length;
+  nextButton.setAttribute('aria-label', 'Next preview page');
   nextButton.addEventListener('click', () => goToLibraryPreviewPage(1));
   const pager = document.createElement('div');
   pager.className = 'library-preview-pager';
   pager.hidden = documents.length <= pageSize;
   pager.append(previousButton, nextButton);
-  panel.append(countBlock, actionButton, createTextElement('span', 'library-batch-preview-label', previewLabel), pager);
+  const previewRow = document.createElement('div');
+  previewRow.className = 'library-batch-preview-row';
+  previewRow.append(createTextElement('span', 'library-batch-preview-label', previewLabel), pager);
+  panel.append(countBlock, actionButton, previewRow);
   dom.manageLibrarySummary.append(panel);
 }
 
@@ -540,13 +550,20 @@ function clearSetlistItemDragActivationTimer(): void {
   setlistItemDragActivationTimer = null;
 }
 
+function scrollSetlistsPageBy(deltaY: number): void {
+  const scrollingElement = document.scrollingElement || document.documentElement;
+  scrollingElement.scrollTop += deltaY;
+}
+
 function resetSetlistItemPointerDrag(row?: HTMLElement): void {
   clearSetlistItemDragActivationTimer();
   draggedSetlistItem = null;
   setlistPointerStart = null;
   setlistPointerCurrent = null;
   setlistPointerId = null;
+  setlistPointerType = '';
   isSetlistItemDragActive = false;
+  isSetlistItemScrollActive = false;
   row?.classList.remove('is-dragging');
   clearSetlistDropPreview();
 }
@@ -567,7 +584,9 @@ function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, force
   menu.setAttribute('aria-label', 'Setlist actions');
 
   const openButton = createMenuButton('Open');
+  openButton.disabled = setlist.items.length === 0;
   openButton.addEventListener('click', () => {
+    if (setlist.items.length === 0) return;
     openSetlistInChart(setlist.id);
   });
 
@@ -594,7 +613,7 @@ function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, force
   menu.replaceChildren(openButton, addChartButton, renameButton, deleteButton);
   menu.hidden = false;
   positionSetlistActionMenu(anchor);
-  requestAnimationFrame(() => openButton.focus());
+  requestAnimationFrame(() => (openButton.disabled ? addChartButton : openButton).focus());
 }
 
 function openSetlistItemActionMenu(setlist: ChartSetlist, itemIndex: number, anchor: HTMLElement): void {
@@ -703,7 +722,9 @@ function renderSetlists() {
   for (const setlist of currentSetlists) {
     const item = document.createElement('li');
     item.className = getPageClassName('setlist-entry');
-    const isCollapsed = collapsedSetlistIds.has(setlist.id);
+    const isEmptySetlist = setlist.items.length === 0;
+    const isCollapsed = isEmptySetlist || collapsedSetlistIds.has(setlist.id);
+    if (isEmptySetlist) collapsedSetlistIds.add(setlist.id);
 
     const row = document.createElement('div');
     row.className = `home-list-link ${getPageClassName('setlist-row')}`;
@@ -716,6 +737,10 @@ function renderSetlists() {
     row.dataset.setlistDropId = setlist.id;
     row.addEventListener('click', (event) => {
       if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
+      if (isEmptySetlist) {
+        collapsedSetlistIds.add(setlist.id);
+        return;
+      }
       if (isCollapsed) collapsedSetlistIds.delete(setlist.id);
       else collapsedSetlistIds.add(setlist.id);
       renderSetlists();
@@ -789,24 +814,41 @@ function renderSetlists() {
         setlistPointerStart = { x: event.clientX, y: event.clientY };
         setlistPointerCurrent = { x: event.clientX, y: event.clientY };
         setlistPointerId = event.pointerId;
+        setlistPointerType = event.pointerType;
         setlistItemDragActivationTimer = window.setTimeout(() => {
-          if (setlistPointerId !== event.pointerId || !setlistPointerStart) return;
+          if (setlistPointerId !== event.pointerId || !setlistPointerStart || isSetlistItemScrollActive) return;
+          const currentPoint = setlistPointerCurrent || setlistPointerStart;
+          const movedDistance = Math.hypot(currentPoint.x - setlistPointerStart.x, currentPoint.y - setlistPointerStart.y);
+          if (movedDistance > SETLIST_ITEM_TAP_DISTANCE_PX) return;
           draggedSetlistItem = { setlistId: setlist.id, index };
           isSetlistItemDragActive = true;
           childRow.classList.add('is-dragging');
           childRow.setPointerCapture(event.pointerId);
-          const currentPoint = setlistPointerCurrent || setlistPointerStart;
           const target = getSetlistDropTargetAtPoint(currentPoint.x, currentPoint.y);
           showSetlistDropPreview(target?.setlistId === setlist.id ? target : { setlistId: setlist.id, index });
         }, SETLIST_ITEM_DRAG_DELAY_MS);
       });
       childRow.addEventListener('pointermove', (event) => {
         if (setlistPointerId !== event.pointerId || !setlistPointerStart) return;
-        setlistPointerCurrent = { x: event.clientX, y: event.clientY };
-        const movedDistance = Math.hypot(event.clientX - setlistPointerStart.x, event.clientY - setlistPointerStart.y);
+        const previousPoint = setlistPointerCurrent || setlistPointerStart;
+        const nextPoint = { x: event.clientX, y: event.clientY };
+        setlistPointerCurrent = nextPoint;
+        const movedDistance = Math.hypot(nextPoint.x - setlistPointerStart.x, nextPoint.y - setlistPointerStart.y);
+        if (isSetlistItemScrollActive) {
+          event.preventDefault();
+          scrollSetlistsPageBy(previousPoint.y - nextPoint.y);
+          return;
+        }
         if (!isSetlistItemDragActive) {
-          if (movedDistance > SETLIST_ITEM_PRE_DRAG_SCROLL_DISTANCE_PX) {
-            resetSetlistItemPointerDrag(childRow);
+          if (movedDistance > SETLIST_ITEM_TAP_DISTANCE_PX) {
+            clearSetlistItemDragActivationTimer();
+            if (setlistPointerType === 'touch' || setlistPointerType === 'pen') {
+              isSetlistItemScrollActive = true;
+              event.preventDefault();
+              scrollSetlistsPageBy(previousPoint.y - nextPoint.y);
+            } else {
+              resetSetlistItemPointerDrag(childRow);
+            }
           }
           return;
         }
@@ -821,11 +863,14 @@ function renderSetlists() {
         const start = setlistPointerStart;
         const draggedItem = draggedSetlistItem;
         const wasDragActive = isSetlistItemDragActive;
+        const wasScrollActive = isSetlistItemScrollActive;
         draggedSetlistItem = null;
         setlistPointerStart = null;
         setlistPointerCurrent = null;
         setlistPointerId = null;
+        setlistPointerType = '';
         isSetlistItemDragActive = false;
+        isSetlistItemScrollActive = false;
         childRow.classList.remove('is-dragging');
         if (childRow.hasPointerCapture(event.pointerId)) childRow.releasePointerCapture(event.pointerId);
         const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
@@ -834,6 +879,10 @@ function renderSetlists() {
           ? Math.hypot(event.clientX - start.x, event.clientY - start.y)
           : 0;
         if (!wasDragActive) {
+          if (wasScrollActive) {
+            event.preventDefault();
+            return;
+          }
           if (movedDistance <= SETLIST_ITEM_TAP_DISTANCE_PX) {
             openSetlistInChart(setlist.id, setlistItem.chartId);
           }
@@ -930,7 +979,7 @@ function renderCreateSetlistForm(): HTMLElement {
   const input = document.createElement('input');
   input.className = `${getPageClassName('text-input')} ${getPageClassName('setlist-menu-input')}`;
   input.type = 'text';
-  input.placeholder = 'New setlist name';
+  input.placeholder = 'New setlist';
   const addButton = createButton('Validate', getPageClassName('small-action'));
   const cancelButton = createButton('Cancel', getPageClassName('small-action'));
   const submit = () => {

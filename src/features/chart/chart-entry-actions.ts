@@ -236,7 +236,7 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'home-setlist-popup-input';
-    input.placeholder = 'New setlist name';
+    input.placeholder = 'New setlist';
     const createButton = document.createElement('button');
     createButton.type = 'button';
     createButton.className = 'home-primary-action';

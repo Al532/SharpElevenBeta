@@ -413,7 +413,7 @@ export function openChartMetadataPanel(options: ChartMetadataPanelOptions): void
     const newSetlistInput = document.createElement('input');
     newSetlistInput.className = 'chart-metadata-input';
     newSetlistInput.type = 'text';
-    newSetlistInput.placeholder = 'New setlist name';
+    newSetlistInput.placeholder = 'New setlist';
     const createSetlistButton = createButton('Add setlist');
     createSetlistButton.addEventListener('click', () => {
       const name = newSetlistInput.value.trim();
