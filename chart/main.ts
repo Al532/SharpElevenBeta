@@ -256,6 +256,7 @@ let lastOpticalLayoutWidth = -1;
 let lastOpticalLayoutFontsReady = false;
 let didOpenRequestedMetadataPanel = false;
 let chartMetadataPopoverRenderId = 0;
+let chartTransitionCleanupTimer = 0;
 
 declare global {
   interface Window {
@@ -432,12 +433,36 @@ function bindChartNavigationControls() {
       }
     },
     renderFixture,
+    onAdjacentChartChange: animateAdjacentChartChange,
     previousChartButton: dom.previousChartButton,
     nextChartButton: dom.nextChartButton,
     sheetGrid: dom.sheetGrid,
     enableSwipeGestures: false
   }));
   chartNavigationController.bind();
+}
+
+function animateAdjacentChartChange(direction: number) {
+  const chartWorkspace = dom.chartApp?.querySelector<HTMLElement>('.chart-workspace');
+  if (!chartWorkspace) return;
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+
+  window.clearTimeout(chartTransitionCleanupTimer);
+  chartWorkspace.classList.remove('is-chart-transitioning', 'is-chart-slide-next', 'is-chart-slide-previous');
+  void chartWorkspace.offsetWidth;
+
+  chartWorkspace.classList.add(
+    'is-chart-transitioning',
+    direction > 0 ? 'is-chart-slide-next' : 'is-chart-slide-previous'
+  );
+
+  const cleanup = () => {
+    window.clearTimeout(chartTransitionCleanupTimer);
+    chartTransitionCleanupTimer = 0;
+    chartWorkspace.classList.remove('is-chart-transitioning', 'is-chart-slide-next', 'is-chart-slide-previous');
+  };
+  chartWorkspace.addEventListener('animationend', cleanup, { once: true });
+  chartTransitionCleanupTimer = window.setTimeout(cleanup, 260);
 }
 
 function setImportStatus(message: string, isError = false) {

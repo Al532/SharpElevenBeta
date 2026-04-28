@@ -39,6 +39,7 @@ export function createChartNavigationController({
   getSelectedId,
   setSelectedId,
   renderFixture,
+  onAdjacentChartChange,
   previousChartButton,
   nextChartButton,
   sheetGrid,
@@ -48,6 +49,7 @@ export function createChartNavigationController({
   getSelectedId?: () => string;
   setSelectedId?: (id: string) => void;
   renderFixture?: () => void;
+  onAdjacentChartChange?: (direction: number) => void;
   previousChartButton?: HTMLButtonElement | null;
   nextChartButton?: HTMLButtonElement | null;
   sheetGrid?: HTMLElement | null;
@@ -88,6 +90,7 @@ export function createChartNavigationController({
 
     setSelectedId?.(documents[nextIndex].metadata.id);
     renderFixture?.();
+    onAdjacentChartChange?.(step > 0 ? 1 : -1);
     return true;
   }
 
