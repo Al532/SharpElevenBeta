@@ -9,8 +9,6 @@ import {
   createEmptyChartSetlist,
   filterChartDocuments,
   getChartSetlistMembership,
-  getChartSourceRefs,
-  listChartLibraryFacets,
   reorderSetlistItems
 } from '../chart/chart-library.js';
 import type { ChartDocument, ChartSetlist } from '../../core/types/contracts';
@@ -18,23 +16,39 @@ import {
   closeChartMetadataPanel,
   openChartMetadataPanel
 } from '../chart/chart-metadata-panel.js';
-
-const CHIP_FILTER_OPTION_LIMIT = 12;
-const CHART_MANAGE_FILTER_KEYS = ['origin', 'source', 'tag', 'setlist'] as const;
-const FILTER_ACTION_ALL = '__all__';
-const FILTER_ACTION_NONE = '__none__';
-const FILTER_TAG_NO_TAG = '__no_tag__';
-const FILTER_SOURCE_NO_SOURCE = '__no_source__';
-const FILTER_SETLIST_NO_SETLIST = '__no_setlist__';
-
-type ChartManageFilterKey = typeof CHART_MANAGE_FILTER_KEYS[number];
-type ChartManageFilterMode = 'all' | 'custom';
-type ChartManageFilterOption = {
-  label: string;
-  value: string;
-};
-
-type ChartManagementMode = 'library' | 'setlists';
+import { createChartManagementDomRefs } from './chart-management-dom.js';
+import {
+  type ChartManageFilterKey,
+  type ChartManageFilterOption,
+  type ChartManagementMode,
+  type SetlistDragItem
+} from './chart-management-types.js';
+import {
+  createChartManagementFilterState,
+  getFilteredChartManagementDocuments,
+  getSelectFilterOptions,
+  renderChartManagementFacets,
+  selectChartManagementFilterValue
+} from './chart-management-filters.js';
+import {
+  createButton,
+  createMetadataButton,
+  createTextElement,
+  getChartSubtitle,
+  getErrorMessage,
+  pluralizeChartLabel,
+  setImportStatus,
+  updateChartEntrySubtitleVisibility
+} from './chart-management-view-helpers.js';
+import {
+  clearSetlistDropPreview,
+  clearSetlistOrderPreview,
+  getDraggedLibraryChartId as getDraggedLibraryChartIdFromEvent,
+  getSetlistDropTargetAtPoint,
+  hasDraggedLibraryChart as hasDraggedLibraryChartState,
+  showSetlistDropPreview,
+  showSetlistOrderPreview
+} from './chart-management-dnd.js';
 
 let activeMode: ChartManagementMode = 'library';
 
@@ -46,34 +60,16 @@ function getPageChartLinkSelector() {
   return `.${getPageClassName('chart-link')}`;
 }
 
-const dom = {
-  manageChartSearchInput: document.getElementById('manage-chart-search-input') as HTMLInputElement | null,
-  manageOriginFilterRow: document.getElementById('manage-origin-filter-row'),
-  manageOriginFilter: document.getElementById('manage-origin-filter') as HTMLSelectElement | null,
-  manageOriginFilterChips: document.getElementById('manage-origin-filter-chips'),
-  manageSourceFilterRow: document.getElementById('manage-source-filter-row'),
-  manageSourceFilter: document.getElementById('manage-source-filter') as HTMLSelectElement | null,
-  manageSourceFilterChips: document.getElementById('manage-source-filter-chips'),
-  manageTagFilterRow: document.getElementById('manage-tag-filter-row'),
-  manageTagFilter: document.getElementById('manage-tag-filter') as HTMLSelectElement | null,
-  manageTagFilterChips: document.getElementById('manage-tag-filter-chips'),
-  manageSetlistFilterRow: document.getElementById('manage-setlist-filter-row'),
-  manageSetlistFilter: document.getElementById('manage-setlist-filter') as HTMLSelectElement | null,
-  manageSetlistFilterChips: document.getElementById('manage-setlist-filter-chips'),
-  manageLibrarySummary: document.getElementById('manage-library-summary'),
-  manageChartList: document.getElementById('manage-chart-list'),
-  manageSetlistsSection: document.getElementById('manage-setlists-section'),
-  manageCreateSetlistButton: document.getElementById('manage-create-setlist-button') as HTMLButtonElement | null,
-  manageSetlistList: document.getElementById('manage-setlist-list'),
-  manageMetadataPanel: document.getElementById('manage-metadata-panel')
-};
+const dom = createChartManagementDomRefs(document);
 
 let currentDocuments: ChartDocument[] = [];
 let currentSource = 'imported library';
 let currentSetlists: ChartSetlist[] = [];
 let activeSetlistMenuId = '';
 let activeSetlistItemMenuKey = '';
-let draggedSetlistItem: { setlistId: string; index: number } | null = null;
+let setlistActionMenu: HTMLElement | null = null;
+let addChartPopup: HTMLElement | null = null;
+let draggedSetlistItem: SetlistDragItem | null = null;
 let draggedSetlistOrderIndex: number | null = null;
 let draggedLibraryChartId = '';
 let setlistPointerStart: { x: number; y: number } | null = null;
@@ -81,70 +77,7 @@ let isCreateSetlistVisible = false;
 let renamingSetlistId = '';
 let pendingDeleteSetlistId = '';
 const collapsedSetlistIds = new Set<string>();
-const activeManageFilters: Record<ChartManageFilterKey, Set<string>> = {
-  origin: new Set(),
-  source: new Set(),
-  tag: new Set(),
-  setlist: new Set()
-};
-const activeManageFilterModes: Record<ChartManageFilterKey, ChartManageFilterMode> = {
-  origin: 'all',
-  source: 'all',
-  tag: 'all',
-  setlist: 'all'
-};
-
-function setImportStatus(message: string, isError = false) {
-  if (isError) console.error(message);
-  else console.info(message);
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || 'Unknown error');
-}
-
-function pluralizeChartLabel(count: number) {
-  return `chart${count === 1 ? '' : 's'}`;
-}
-
-function createTextElement(tagName: string, className: string, textContent: string): HTMLElement {
-  const element = document.createElement(tagName);
-  element.className = className;
-  element.textContent = textContent;
-  return element;
-}
-
-function createButton(label: string, className = 'home-primary-action'): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = className;
-  button.textContent = label;
-  return button;
-}
-
-function createMetadataButton(label: string, onClick: (event: MouseEvent) => void): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'home-chart-entry-kebab';
-  button.setAttribute('aria-label', label);
-  button.addEventListener('pointerdown', (event) => event.stopPropagation());
-  button.addEventListener('mousedown', (event) => event.stopPropagation());
-  button.addEventListener('click', onClick);
-  return button;
-}
-
-function getChartSubtitle(document: ChartDocument): string {
-  return typeof document.metadata.composer === 'string' ? document.metadata.composer.trim() : '';
-}
-
-function updateChartEntrySubtitleVisibility(link: HTMLElement): void {
-  const title = link.querySelector<HTMLElement>('.home-list-title');
-  const meta = link.querySelector<HTMLElement>('.home-list-meta');
-  if (!title || !meta) return;
-  meta.hidden = true;
-  const gapWidth = Number.parseFloat(getComputedStyle(link).columnGap || '0') || 0;
-  meta.hidden = title.scrollWidth + gapWidth > link.clientWidth;
-}
+const filterState = createChartManagementFilterState();
 
 function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persistChartLibrary>>, fallbackCount: number, sourceFile: string) {
   const summary = persistedLibrary?.lastImportSummary;
@@ -157,238 +90,30 @@ function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persist
   ].join(' - ');
 }
 
-function getDocumentSourceNames(document: ChartDocument): string[] {
-  return getChartSourceRefs(document)
-    .map((ref) => String(ref.name || '').trim())
-    .filter(Boolean);
-}
-
 function getFilteredManageDocuments(): ChartDocument[] {
   const query = dom.manageChartSearchInput?.value || '';
-  const origins = activeManageFilters.origin;
-  const sources = activeManageFilters.source;
-  const tags = activeManageFilters.tag;
-  const setlistIds = activeManageFilters.setlist;
-  const hasOriginFilter = activeManageFilterModes.origin === 'custom';
-  const hasSourceFilter = activeManageFilterModes.source === 'custom';
-  const hasTagFilter = activeManageFilterModes.tag === 'custom';
-  const hasSetlistFilter = activeManageFilterModes.setlist === 'custom';
-  const setlistChartIds = new Set(
-    currentSetlists
-      .filter((candidate) => setlistIds.has(candidate.id))
-      .flatMap((setlist) => setlist.items.map((item) => item.chartId))
-  );
-  const allSetlistChartIds = new Set(
-    currentSetlists.flatMap((setlist) => setlist.items.map((item) => item.chartId))
-  );
-  let documents = query ? filterChartDocuments(currentDocuments, query) : [...currentDocuments];
-  if ([hasOriginFilter && origins.size === 0, hasSourceFilter && sources.size === 0, hasTagFilter && tags.size === 0, hasSetlistFilter && setlistIds.size === 0].some(Boolean)) {
-    return [];
-  }
-  if (hasOriginFilter) documents = documents.filter((document) => origins.has(document.metadata?.origin === 'user' ? 'user' : 'imported'));
-  if (hasSourceFilter) {
-    documents = documents.filter((document) => {
-      const sourceNames = getDocumentSourceNames(document);
-      return (sourceNames.length === 0 && sources.has(FILTER_SOURCE_NO_SOURCE))
-        || sourceNames.some((sourceName) => sources.has(sourceName));
-    });
-  }
-  if (hasTagFilter) {
-    documents = documents.filter((document) => {
-      const documentTags = (document.metadata?.userTags || []).map((tag) => String(tag || '').trim()).filter(Boolean);
-      return (documentTags.length === 0 && tags.has(FILTER_TAG_NO_TAG))
-        || documentTags.some((candidate) => tags.has(candidate));
-    });
-  }
-  if (hasSetlistFilter) {
-    documents = documents.filter((document) => {
-      const chartId = String(document.metadata?.id || '');
-      return setlistChartIds.has(chartId)
-        || (!allSetlistChartIds.has(chartId) && setlistIds.has(FILTER_SETLIST_NO_SETLIST));
-    });
-  }
-  return documents;
-}
-
-function getFilterOptionValues(values: ChartManageFilterOption[]) {
-  return values.map((option) => option.value);
-}
-
-function getSelectFilterOptions(select: HTMLSelectElement): ChartManageFilterOption[] {
-  return Array.from(select.options)
-    .filter((option) => option.value && option.value !== FILTER_ACTION_ALL && option.value !== FILTER_ACTION_NONE)
-    .map((option) => ({ label: option.textContent?.replace(/^Selected - /, '') || option.value, value: option.value }));
-}
-
-function isFilterAllSelected(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
-  const active = activeManageFilters[key];
-  return activeManageFilterModes[key] === 'custom'
-    && values.length > 0
-    && active.size === values.length
-    && values.every((option) => active.has(option.value));
-}
-
-function getSelectedFilterCount(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
-  return activeManageFilterModes[key] === 'all' ? 0 : isFilterAllSelected(key, values) ? values.length : activeManageFilters[key].size;
+  return getFilteredChartManagementDocuments({
+    documents: currentDocuments,
+    setlists: currentSetlists,
+    query,
+    filterState
+  });
 }
 
 function selectFilterValue(key: ChartManageFilterKey, value: string, values: ChartManageFilterOption[]) {
-  const active = activeManageFilters[key];
-  if (value === FILTER_ACTION_ALL) {
-    activeManageFilterModes[key] = 'custom';
-    active.clear();
-    getFilterOptionValues(values).forEach((optionValue) => active.add(optionValue));
-  } else if (value === FILTER_ACTION_NONE) {
-    activeManageFilterModes[key] = 'custom';
-    active.clear();
-  } else if (activeManageFilterModes[key] === 'all') {
-    activeManageFilterModes[key] = 'custom';
-    active.clear();
-    getFilterOptionValues(values).forEach((optionValue) => active.add(optionValue));
-    active.delete(value);
-  } else if (active.has(value)) {
-    active.delete(value);
-  } else {
-    active.add(value);
-  }
+  selectChartManagementFilterValue({ filterState, key, value, values });
   renderFacets();
   renderManageCharts();
 }
 
-function keepValidFilterValues(key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
-  const validValues = new Set(values.map((option) => option.value));
-  activeManageFilters[key].forEach((value) => {
-    if (!validValues.has(value)) activeManageFilters[key].delete(value);
-  });
-  if (values.length <= 1) {
-    activeManageFilterModes[key] = 'all';
-    activeManageFilters[key].clear();
-  }
-}
-
-function setElementHidden(element: HTMLElement | null, shouldHide: boolean) {
-  if (element) element.hidden = shouldHide;
-}
-
-function renderOptionList(select: HTMLSelectElement | null, label: string, values: ChartManageFilterOption[]) {
-  if (!select) return;
-  const active = activeManageFilters[select.dataset.filterKey as ChartManageFilterKey];
-  const allSelected = isFilterAllSelected(select.dataset.filterKey as ChartManageFilterKey, values);
-  const selectedCount = getSelectedFilterCount(select.dataset.filterKey as ChartManageFilterKey, values);
-  select.replaceChildren(new Option(`${selectedCount}/${values.length} selected`, ''));
-  select.append(new Option(label, FILTER_ACTION_ALL));
-  select.append(new Option('None', FILTER_ACTION_NONE));
-  for (const { label: optionLabel, value } of values) {
-    select.append(new Option(allSelected || active?.has(value) ? `Selected - ${optionLabel}` : optionLabel, value));
-  }
-  select.value = '';
-}
-
-function renderFilterChips(host: HTMLElement | null, key: ChartManageFilterKey, values: ChartManageFilterOption[]) {
-  if (!host) return;
-  const active = activeManageFilters[key];
-  const isAllSelected = isFilterAllSelected(key, values);
-  host.replaceChildren();
-  const buttons = [
-    { label: 'All', value: FILTER_ACTION_ALL },
-    { label: 'None', value: FILTER_ACTION_NONE },
-    ...values
-  ].map(({ label, value }) => {
-    const button = createButton(label, getPageClassName('filter-chip'));
-    const isFilterAction = value === FILTER_ACTION_ALL || value === FILTER_ACTION_NONE;
-    const isActive = !isFilterAction && (isAllSelected || active.has(value));
-    button.setAttribute('aria-pressed', String(isActive));
-    if (isActive) button.classList.add('is-active');
-    button.addEventListener('click', () => selectFilterValue(key, value, values));
-    return button;
-  });
-  host.append(...buttons);
-}
-
-function renderFilterControl({
-  key,
-  row,
-  select,
-  chipHost,
-  allLabel,
-  values
-}: {
-  key: ChartManageFilterKey;
-  row: HTMLElement | null;
-  select: HTMLSelectElement | null;
-  chipHost: HTMLElement | null;
-  allLabel: string;
-  values: ChartManageFilterOption[];
-}) {
-  keepValidFilterValues(key, values);
-  const shouldHide = values.length <= 1;
-  const shouldUseChips = !shouldHide && values.length <= CHIP_FILTER_OPTION_LIMIT;
-  if (select) select.dataset.filterKey = key;
-  renderOptionList(select, allLabel, values);
-  renderFilterChips(chipHost, key, values);
-  setElementHidden(row, shouldHide);
-  setElementHidden(select, shouldHide || shouldUseChips);
-  setElementHidden(chipHost, shouldHide || !shouldUseChips);
-}
-
 function renderFacets() {
-  const facets = listChartLibraryFacets(currentDocuments, currentSetlists);
-  const setlistedChartIds = new Set(
-    currentSetlists.flatMap((setlist) => setlist.items.map((item) => item.chartId))
-  );
-  const sourceOptions = [
-    ...facets.sources.map((source) => ({ label: source, value: source })),
-    currentDocuments.some((document) => getDocumentSourceNames(document).length === 0)
-      ? { label: 'No source', value: FILTER_SOURCE_NO_SOURCE }
-      : null
-  ].filter(Boolean) as ChartManageFilterOption[];
-  const tagOptions = [
-    ...facets.tags.map((tag) => ({ label: tag, value: tag })),
-    currentDocuments.some((document) => (document.metadata?.userTags || []).map((tag) => String(tag || '').trim()).filter(Boolean).length === 0)
-      ? { label: 'No tag', value: FILTER_TAG_NO_TAG }
-      : null
-  ].filter(Boolean) as ChartManageFilterOption[];
-  const setlistOptions = [
-    ...currentSetlists.map((setlist) => ({ label: setlist.name, value: setlist.id })),
-    currentDocuments.some((document) => !setlistedChartIds.has(String(document.metadata?.id || '')))
-      ? { label: 'No setlist', value: FILTER_SETLIST_NO_SETLIST }
-      : null
-  ].filter(Boolean) as ChartManageFilterOption[];
-  const originOptions = [
-    currentDocuments.some((document) => document.metadata?.origin !== 'user') ? { label: 'Imported', value: 'imported' } : null,
-    currentDocuments.some((document) => document.metadata?.origin === 'user') ? { label: 'User', value: 'user' } : null
-  ].filter(Boolean) as ChartManageFilterOption[];
-  renderFilterControl({
-    key: 'origin',
-    row: dom.manageOriginFilterRow,
-    select: dom.manageOriginFilter,
-    chipHost: dom.manageOriginFilterChips,
-    allLabel: 'All origins',
-    values: originOptions
-  });
-  renderFilterControl({
-    key: 'source',
-    row: dom.manageSourceFilterRow,
-    select: dom.manageSourceFilter,
-    chipHost: dom.manageSourceFilterChips,
-    allLabel: 'All sources',
-    values: sourceOptions
-  });
-  renderFilterControl({
-    key: 'tag',
-    row: dom.manageTagFilterRow,
-    select: dom.manageTagFilter,
-    chipHost: dom.manageTagFilterChips,
-    allLabel: 'All tags',
-    values: tagOptions
-  });
-  renderFilterControl({
-    key: 'setlist',
-    row: dom.manageSetlistFilterRow,
-    select: dom.manageSetlistFilter,
-    chipHost: dom.manageSetlistFilterChips,
-    allLabel: 'All setlists',
-    values: setlistOptions
+  renderChartManagementFacets({
+    documents: currentDocuments,
+    setlists: currentSetlists,
+    dom,
+    filterState,
+    getPageClassName,
+    onSelectFilterValue: selectFilterValue
   });
 }
 
@@ -520,65 +245,224 @@ function closeMetadataPanel() {
   closeChartMetadataPanel(dom.manageMetadataPanel);
 }
 
-function getDraggedLibraryChartId(event: DragEvent): string {
-  const payload = event.dataTransfer?.getData('text/plain') || '';
-  if (payload.startsWith('chart:')) return payload.slice('chart:'.length);
-  return draggedLibraryChartId;
+function createMenuButton(label: string, className = 'home-chart-entry-menu-item'): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  button.setAttribute('role', 'menuitem');
+  button.textContent = label;
+  return button;
+}
+
+function ensureSetlistActionMenu(): HTMLElement {
+  if (setlistActionMenu) return setlistActionMenu;
+  setlistActionMenu = document.createElement('div');
+  setlistActionMenu.className = 'home-chart-entry-menu setlists-action-menu';
+  setlistActionMenu.hidden = true;
+  setlistActionMenu.setAttribute('role', 'menu');
+  setlistActionMenu.setAttribute('aria-label', 'Setlist actions');
+  document.body.append(setlistActionMenu);
+  return setlistActionMenu;
+}
+
+function ensureAddChartPopup(): HTMLElement {
+  if (addChartPopup) return addChartPopup;
+  addChartPopup = document.createElement('div');
+  addChartPopup.className = 'home-setlist-popup setlists-add-chart-popup';
+  addChartPopup.hidden = true;
+  addChartPopup.setAttribute('role', 'dialog');
+  addChartPopup.setAttribute('aria-modal', 'true');
+  addChartPopup.setAttribute('aria-label', 'Add chart to setlist');
+  document.body.append(addChartPopup);
+  addChartPopup.addEventListener('click', (event) => {
+    if (event.target === addChartPopup) closeAddChartPopup();
+  });
+  return addChartPopup;
+}
+
+function positionSetlistActionMenu(anchor: HTMLElement): void {
+  const menu = ensureSetlistActionMenu();
+  const anchorRect = anchor.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const margin = 8;
+  const left = Math.min(
+    Math.max(margin, anchorRect.right - menuRect.width),
+    Math.max(margin, window.innerWidth - menuRect.width - margin)
+  );
+  const top = Math.min(
+    anchorRect.bottom + 4,
+    Math.max(margin, window.innerHeight - menuRect.height - margin)
+  );
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function closeSetlistActionMenu(): void {
+  document.querySelectorAll<HTMLElement>('.setlists-body .home-chart-entry-kebab[aria-expanded="true"]')
+    .forEach((button) => button.setAttribute('aria-expanded', 'false'));
+  activeSetlistMenuId = '';
+  activeSetlistItemMenuKey = '';
+  if (!setlistActionMenu) return;
+  setlistActionMenu.hidden = true;
+  setlistActionMenu.replaceChildren();
+}
+
+function closeAddChartPopup(): void {
+  if (!addChartPopup) return;
+  addChartPopup.hidden = true;
+  addChartPopup.replaceChildren();
 }
 
 function hasDraggedLibraryChart(event: DragEvent): boolean {
-  if (draggedSetlistOrderIndex !== null || draggedSetlistItem) return false;
-  return Boolean(draggedLibraryChartId);
-}
-
-function getSetlistDropTargetAtPoint(clientX: number, clientY: number): { setlistId: string; index?: number } | null {
-  const element = document.elementFromPoint(clientX, clientY);
-  const target = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-setlist-drop-id]') : null;
-  if (!target) return null;
-  const setlistId = target.dataset.setlistDropId || '';
-  if (!setlistId) return null;
-  const rawIndex = target.dataset.setlistDropIndex;
-  const index = rawIndex === undefined ? undefined : Number(rawIndex);
-  return Number.isFinite(index) ? { setlistId, index } : { setlistId };
-}
-
-function findSetlistChildList(setlistId: string): HTMLElement | undefined {
-  return Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-child-list-id]'))
-    .find((element) => element.dataset.setlistChildListId === setlistId);
-}
-
-function findSetlistDropRow(setlistId: string, index: number): HTMLElement | undefined {
-  return Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-drop-index]'))
-    .find((element) => element.dataset.setlistDropId === setlistId && Number(element.dataset.setlistDropIndex) === index);
-}
-
-function clearSetlistDropPreview() {
-  document.querySelectorAll('.has-drop-preview-before, .has-drop-preview-end').forEach((element) => {
-    element.classList.remove('has-drop-preview-before', 'has-drop-preview-end');
+  return hasDraggedLibraryChartState({
+    draggedSetlistOrderIndex,
+    draggedSetlistItem,
+    draggedLibraryChartId
   });
 }
 
-function clearSetlistOrderPreview() {
-  document.querySelectorAll('.has-setlist-order-preview-before').forEach((element) => {
-    element.classList.remove('has-setlist-order-preview-before');
-  });
-}
-
-function showSetlistOrderPreview(index: number) {
-  clearSetlistOrderPreview();
-  Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-order-index]'))
-    .find((element) => Number(element.dataset.setlistOrderIndex) === index)
-    ?.classList.add('has-setlist-order-preview-before');
-}
-
-function showSetlistDropPreview(target: { setlistId: string; index?: number } | null) {
-  clearSetlistDropPreview();
-  if (!target) return;
-  if (Number.isFinite(target.index)) {
-    findSetlistDropRow(target.setlistId, target.index as number)?.classList.add('has-drop-preview-before');
-  } else {
-    findSetlistChildList(target.setlistId)?.classList.add('has-drop-preview-end');
+function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, forceOpen = false): void {
+  const menu = ensureSetlistActionMenu();
+  const isSameMenu = activeSetlistMenuId === setlist.id && !menu.hidden;
+  if (!forceOpen) {
+    closeSetlistActionMenu();
+    closeAddChartPopup();
+    if (isSameMenu) return;
   }
+
+  activeSetlistMenuId = setlist.id;
+  anchor.setAttribute('aria-expanded', 'true');
+  menu.setAttribute('aria-label', 'Setlist actions');
+
+  const openButton = createMenuButton('Open');
+  openButton.addEventListener('click', () => {
+    const targetUrl = new URL('./chart/index.html', window.location.href);
+    targetUrl.searchParams.set('setlist', setlist.id);
+    window.location.assign(targetUrl.toString());
+  });
+
+  const addChartButton = createMenuButton('Add chart');
+  addChartButton.addEventListener('click', () => {
+    closeSetlistActionMenu();
+    openAddChartPopup(setlist.id);
+  });
+
+  const renameButton = createMenuButton('Rename');
+  renameButton.addEventListener('click', () => {
+    closeSetlistActionMenu();
+    renamingSetlistId = setlist.id;
+    pendingDeleteSetlistId = '';
+    renderSetlists();
+  });
+
+  const deleteButton = createMenuButton(
+    pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete',
+    'home-chart-entry-menu-item is-danger'
+  );
+  deleteButton.addEventListener('click', () => {
+    if (pendingDeleteSetlistId !== setlist.id) {
+      pendingDeleteSetlistId = setlist.id;
+      openSetlistActionMenu(setlist, anchor, true);
+      requestAnimationFrame(() => deleteButton.focus());
+      return;
+    }
+    deleteSetlist(setlist);
+  });
+
+  menu.replaceChildren(openButton, addChartButton, renameButton, deleteButton);
+  menu.hidden = false;
+  positionSetlistActionMenu(anchor);
+  requestAnimationFrame(() => openButton.focus());
+}
+
+function openSetlistItemActionMenu(setlist: ChartSetlist, itemIndex: number, anchor: HTMLElement): void {
+  const menu = ensureSetlistActionMenu();
+  const menuKey = `${setlist.id}:${itemIndex}`;
+  const isSameMenu = activeSetlistItemMenuKey === menuKey && !menu.hidden;
+  closeSetlistActionMenu();
+  closeAddChartPopup();
+  if (isSameMenu) return;
+
+  activeSetlistMenuId = '';
+  activeSetlistItemMenuKey = menuKey;
+  anchor.setAttribute('aria-expanded', 'true');
+  menu.setAttribute('aria-label', 'Setlist item actions');
+
+  const removeButton = createMenuButton('Remove from setlist');
+  removeButton.addEventListener('click', () => {
+    closeSetlistActionMenu();
+    removeSetlistItem(setlist.id, itemIndex);
+  });
+
+  menu.replaceChildren(removeButton);
+  menu.hidden = false;
+  positionSetlistActionMenu(anchor);
+  requestAnimationFrame(() => removeButton.focus());
+}
+
+function renderAddChartPopup(setlistId: string, query = ''): void {
+  const popup = ensureAddChartPopup();
+  const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
+  if (!setlist) {
+    closeAddChartPopup();
+    return;
+  }
+
+  const assignedChartIds = new Set(setlist.items.map((item) => item.chartId));
+  const availableDocuments = currentDocuments.filter((document) => !assignedChartIds.has(document.metadata.id));
+  const matchingDocuments = query ? filterChartDocuments(availableDocuments, query) : availableDocuments;
+
+  const card = document.createElement('div');
+  card.className = 'home-setlist-popup-card setlists-add-chart-card';
+
+  const header = document.createElement('div');
+  header.className = 'home-setlist-popup-header';
+  header.append(createTextElement('strong', '', 'Add chart'));
+  const closeButton = createButton('Close', 'home-metadata-close');
+  closeButton.addEventListener('click', closeAddChartPopup);
+  header.append(closeButton);
+
+  const title = createTextElement('p', 'home-setlist-popup-chart-title', setlist.name);
+  const searchLabel = document.createElement('label');
+  searchLabel.className = 'home-search-field setlists-add-chart-search';
+  const searchHint = createTextElement('span', 'sr-only', 'Search charts');
+  const searchInput = document.createElement('input');
+  searchInput.type = 'search';
+  searchInput.placeholder = 'Search charts';
+  searchInput.value = query;
+  searchInput.addEventListener('input', () => renderAddChartPopup(setlistId, searchInput.value));
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAddChartPopup();
+  });
+  searchLabel.append(searchHint, searchInput);
+
+  const list = document.createElement('div');
+  list.className = 'home-setlist-popup-list setlists-add-chart-list';
+  if (currentDocuments.length === 0) {
+    list.append(createTextElement('p', 'home-empty', 'No charts in library.'));
+  } else if (availableDocuments.length === 0) {
+    list.append(createTextElement('p', 'home-empty', 'All charts are already in this setlist.'));
+  } else if (matchingDocuments.length === 0) {
+    list.append(createTextElement('p', 'home-empty', 'No matching charts.'));
+  } else {
+    for (const chartDocument of matchingDocuments.slice(0, 40)) {
+      const button = createButton(chartDocument.metadata.title || 'Untitled chart', 'home-setlist-popup-option setlists-add-chart-option');
+      button.addEventListener('click', () => {
+        addChartToSetlist(setlist.id, chartDocument.metadata.id);
+        renderAddChartPopup(setlist.id, searchInput.value);
+      });
+      list.append(button);
+    }
+  }
+
+  card.append(header, title, searchLabel, list);
+  popup.replaceChildren(card);
+  popup.hidden = false;
+  requestAnimationFrame(() => searchInput.focus());
+}
+
+function openAddChartPopup(setlistId: string): void {
+  renderAddChartPopup(setlistId);
 }
 
 function renderSetlists() {
@@ -652,7 +536,7 @@ function renderSetlists() {
     row.addEventListener('drop', (event) => {
       event.preventDefault();
       clearSetlistDropPreview();
-      addChartToSetlist(setlist.id, getDraggedLibraryChartId(event));
+      addChartToSetlist(setlist.id, getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId));
     });
 
     const content = document.createElement('div');
@@ -665,14 +549,15 @@ function renderSetlists() {
     const menuButton = createMetadataButton(`Manage ${setlist.name}`, (event) => {
       event.preventDefault();
       event.stopPropagation();
-      activeSetlistMenuId = activeSetlistMenuId === setlist.id ? '' : setlist.id;
       activeSetlistItemMenuKey = '';
-      renderSetlists();
+      openSetlistActionMenu(setlist, menuButton);
     });
+    menuButton.setAttribute('aria-haspopup', 'menu');
+    menuButton.setAttribute('aria-expanded', 'false');
     row.append(content, menuButton);
     item.append(row);
 
-    if (activeSetlistMenuId === setlist.id) item.append(renderSetlistMenu(setlist));
+    if (renamingSetlistId === setlist.id) item.append(renderSetlistMenu(setlist));
 
     const childList = document.createElement('ul');
     childList.className = `home-list ${getPageClassName('setlist-chart-list')}`;
@@ -688,12 +573,11 @@ function renderSetlists() {
     childList.addEventListener('drop', (event) => {
       event.preventDefault();
       clearSetlistDropPreview();
-      addChartToSetlist(setlist.id, getDraggedLibraryChartId(event));
+      addChartToSetlist(setlist.id, getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId));
     });
     setlist.items.forEach((setlistItem, index) => {
       const chartDocument = documentsById.get(setlistItem.chartId);
       const childItem = document.createElement('li');
-      const childMenuKey = `${setlist.id}:${index}`;
       const childRow = document.createElement('div');
       childRow.className = `home-list-link ${getPageClassName('chart-row')} ${getPageClassName('setlist-chart-row')}`;
       childRow.classList.toggle('can-receive-chart', draggedLibraryChartId !== '' || draggedSetlistItem?.setlistId === setlist.id);
@@ -758,7 +642,7 @@ function renderSetlists() {
       childRow.addEventListener('drop', (event) => {
         event.preventDefault();
         clearSetlistDropPreview();
-        const draggedChartId = getDraggedLibraryChartId(event);
+        const draggedChartId = getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId);
         if (draggedChartId) addChartToSetlist(setlist.id, draggedChartId, index);
         else moveSetlistItem(setlist.id, draggedSetlistItem?.index ?? -1, index);
       });
@@ -769,13 +653,12 @@ function renderSetlists() {
       const removeButton = createMetadataButton(`Remove ${chartDocument?.metadata.title || 'chart'} from ${setlist.name}`, (event) => {
         event.preventDefault();
         event.stopPropagation();
-        activeSetlistItemMenuKey = activeSetlistItemMenuKey === childMenuKey ? '' : childMenuKey;
-        activeSetlistMenuId = '';
-        renderSetlists();
+        openSetlistItemActionMenu(setlist, index, removeButton);
       });
+      removeButton.setAttribute('aria-haspopup', 'menu');
+      removeButton.setAttribute('aria-expanded', 'false');
       childRow.append(childContent);
       childItem.append(childRow, removeButton);
-      if (activeSetlistItemMenuKey === childMenuKey) childItem.append(renderSetlistItemMenu(setlist.id, index));
       childList.append(childItem);
     });
     item.append(childList);
@@ -786,57 +669,28 @@ function renderSetlists() {
 function renderSetlistMenu(setlist: ChartSetlist): HTMLElement {
   const menu = document.createElement('div');
   menu.className = getPageClassName('setlist-menu');
-  if (renamingSetlistId === setlist.id) {
-    const input = document.createElement('input');
-    input.className = `${getPageClassName('text-input')} ${getPageClassName('setlist-menu-input')}`;
-    input.type = 'text';
-    input.value = setlist.name;
-    input.placeholder = 'Setlist name';
-    const saveButton = createButton('Validate', getPageClassName('small-action'));
-    const cancelButton = createButton('Cancel', getPageClassName('small-action'));
-    const saveRename = () => renameSetlist(setlist, input.value);
-    saveButton.addEventListener('click', saveRename);
-    cancelButton.addEventListener('click', () => {
-      renamingSetlistId = '';
-      renderSetlists();
-    });
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') saveRename();
-      if (event.key === 'Escape') {
-        renamingSetlistId = '';
-        renderSetlists();
-      }
-    });
-    menu.append(input, saveButton, cancelButton);
-    return menu;
-  }
-  const playButton = createButton('Play', getPageClassName('small-action'));
-  playButton.addEventListener('click', () => {
-    const targetUrl = new URL('./chart/index.html', window.location.href);
-    targetUrl.searchParams.set('setlist', setlist.id);
-    window.location.assign(targetUrl.toString());
-  });
-  const renameButton = createButton('Rename', getPageClassName('small-action'));
-  renameButton.addEventListener('click', () => {
-    renamingSetlistId = setlist.id;
-    pendingDeleteSetlistId = '';
+  const input = document.createElement('input');
+  input.className = `${getPageClassName('text-input')} ${getPageClassName('setlist-menu-input')}`;
+  input.type = 'text';
+  input.value = setlist.name;
+  input.placeholder = 'Setlist name';
+  const saveButton = createButton('Validate', getPageClassName('small-action'));
+  const cancelButton = createButton('Cancel', getPageClassName('small-action'));
+  const saveRename = () => renameSetlist(setlist, input.value);
+  saveButton.addEventListener('click', saveRename);
+  cancelButton.addEventListener('click', () => {
+    renamingSetlistId = '';
     renderSetlists();
   });
-  const deleteButton = createButton(pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete', `${getPageClassName('small-action')} ${getPageClassName('danger')}`);
-  deleteButton.addEventListener('click', () => deleteSetlist(setlist));
-  menu.append(playButton, renameButton, deleteButton);
-  return menu;
-}
-
-function renderSetlistItemMenu(setlistId: string, itemIndex: number): HTMLElement {
-  const menu = document.createElement('div');
-  menu.className = `${getPageClassName('setlist-menu')} ${getPageClassName('setlist-item-menu')}`;
-  const deleteButton = createButton('Delete from setlist', `${getPageClassName('small-action')} ${getPageClassName('danger')}`);
-  deleteButton.addEventListener('click', () => {
-    activeSetlistItemMenuKey = '';
-    removeSetlistItem(setlistId, itemIndex);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') saveRename();
+    if (event.key === 'Escape') {
+      renamingSetlistId = '';
+      renderSetlists();
+    }
   });
-  menu.append(deleteButton);
+  menu.append(input, saveButton, cancelButton);
+  requestAnimationFrame(() => input.focus());
   return menu;
 }
 
@@ -947,6 +801,8 @@ function deleteSetlist(setlist: ChartSetlist) {
     renderSetlists();
     return;
   }
+  closeSetlistActionMenu();
+  closeAddChartPopup();
   activeSetlistMenuId = '';
   activeSetlistItemMenuKey = '';
   pendingDeleteSetlistId = '';
@@ -993,13 +849,24 @@ function bindChartManagementEvents() {
     });
   });
   dom.manageCreateSetlistButton?.addEventListener('click', () => {
+    closeSetlistActionMenu();
+    closeAddChartPopup();
     isCreateSetlistVisible = !isCreateSetlistVisible;
     renamingSetlistId = '';
     pendingDeleteSetlistId = '';
     renderSetlists();
   });
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Node)) return;
+    if (setlistActionMenu?.contains(event.target)) return;
+    if (event.target instanceof HTMLElement && event.target.closest('.setlists-setlist-row .home-chart-entry-kebab')) return;
+    closeSetlistActionMenu();
+  });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeMetadataPanel();
+    if (event.key !== 'Escape') return;
+    closeMetadataPanel();
+    closeSetlistActionMenu();
+    closeAddChartPopup();
   });
 }
 

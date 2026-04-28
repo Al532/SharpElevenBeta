@@ -42,6 +42,7 @@ Keep here:
 - Mode switching and shell-level DOM references.
 - Environment, analytics, mobile back navigation, and pending mobile imports.
 - Native/mobile integration points that shape the app shell.
+- Mobile iReal import redirects that belong to the app shell rather than Drill UI.
 
 Refactor signals:
 
@@ -55,6 +56,7 @@ Responsibility: the lead-sheet module and the increasingly central user workflow
 Keep here:
 
 - Chart import controls, library state, persistence, fixture loading, and navigation.
+- Chart library import flow, including import timing, apply/persist behavior, and default-library handoff.
 - Chart rendering, selection, gestures, and screen state.
 - Standalone chart screen DOM reference factories and focused screen wiring helpers.
 - Standalone chart screen URL/localStorage persistence helpers.
@@ -75,6 +77,7 @@ Responsibility: chart library and setlist management pages shared by
 Keep here:
 
 - Shared library/setlist page bootstrap, DOM wiring, filtering, metadata panel integration, and setlist drag/reorder behavior.
+- Focused helper modules for page DOM refs, filter state/rendering, drag/drop previews, and shared view helpers.
 - Page-mode differences between the library view and setlists view when the behavior is otherwise identical.
 - Small root entrypoints that only select the page mode.
 
@@ -127,6 +130,7 @@ Responsibility: practice arrangement generation and voicing support independent 
 Keep here:
 
 - Comping engine, piano comping, and string comping.
+- Small shared comping utility helpers when they serve arrangement algorithms without owning music-domain policy.
 - Practice voicing runtime and its root-app assembly.
 - Walking bass generation and root-app assembly.
 

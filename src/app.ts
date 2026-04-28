@@ -76,7 +76,7 @@ import {
 } from './features/drill/drill-root-app-adapters.js';
 import { initializeAppShell } from './features/app/app-shell.js';
 import { createMobileBackNavigationController } from './features/app/app-mobile-back-navigation.js';
-import { isIRealDeepLink, storePendingIRealLink } from './features/app/app-pending-mobile-import.js';
+import { bindIncomingMobileIRealImports } from './features/app/app-mobile-ireal-imports.js';
 import { consumePendingPracticeSessionIntoUi } from './features/drill/drill-session-import.js';
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
@@ -507,38 +507,6 @@ if (typeof MutationObserver !== 'undefined') {
       attributeFilter: ['open']
     });
   }
-}
-
-async function bindIncomingMobileImports() {
-  if (!window.Capacitor?.isNativePlatform?.()) return;
-  let appPlugin = null;
-  try {
-    const capacitorAppModule = await import('@capacitor/app');
-    appPlugin = capacitorAppModule?.App || null;
-  } catch (_error) {
-    appPlugin = window.Capacitor?.Plugins?.App || null;
-  }
-  if (!appPlugin?.addListener) return;
-
-  const redirectToChartImport = (url) => {
-    if (!isIRealDeepLink(url)) return false;
-    const stored = storePendingIRealLink(url);
-    if (!stored) return false;
-    const targetUrl = new URL('./index.html?import=charts', window.location.href);
-    window.location.assign(targetUrl.href);
-    return true;
-  };
-
-  try {
-    const launchUrl = await appPlugin.getLaunchUrl?.();
-    redirectToChartImport(launchUrl?.url || '');
-  } catch (_error) {
-    // Ignore launch URL failures and keep the listener active.
-  }
-
-  appPlugin.addListener('appUrlOpen', ({ url }) => {
-    redirectToChartImport(url);
-  });
 }
 
 function escapeHtml(value: unknown) {
@@ -2515,7 +2483,7 @@ async function initializeApp() {
   await drillUiBootstrap.initializeScreen();
 }
 
-void bindIncomingMobileImports();
+void bindIncomingMobileIRealImports();
 
 const drillUiBootstrap = createDrillUiBootstrapDrillRootAppAssembly({
   screenDom: dom,

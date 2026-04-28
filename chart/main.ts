@@ -21,7 +21,6 @@ import {
 } from './index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
 import {
-  hasPersistedChartDocumentIndex,
   loadPersistedChartDocument,
   loadPersistedChartDocumentById,
   loadPersistedChartLibrary,
@@ -83,7 +82,6 @@ import {
   createChartImportControlsBindings,
   createChartImportStatusBindings,
   createChartLayoutObserversBindings,
-  createChartLibraryImportBindings,
   createChartMetaBindings,
   createChartMixerBindings,
   createChartNavigationBindings,
@@ -117,6 +115,7 @@ import {
   updateChartMixerOutputs
 } from '../src/features/chart/chart-screen-state.js';
 import { createChartScreenDomRefs } from '../src/features/chart/chart-screen-dom.js';
+import { createChartLibraryImportFlow } from '../src/features/chart/chart-library-import-flow.js';
 import {
   applyChartDisplayCssVariables,
   measureChartTextScaleCompensation,
@@ -435,156 +434,23 @@ function setImportStatus(message: string, isError = false) {
   })) as [HTMLElement | null, string, boolean]);
 }
 
-async function importDocumentsFromIRealText(rawText: string, sourceFile = '') {
-  const startedAt = getChartRenderPerfNow();
-  return importChartDocumentsFromIRealText(createChartLibraryImportBindings({
-    rawText,
-    sourceFile,
-    importDocuments: createChartDocumentsFromIRealText
-  })).finally(() => {
-    logChartRenderPerf('importDocumentsFromIRealText', startedAt, {
-      sourceFile
-    });
-  });
-}
-
-function renderImportedLibrary({
-  documents,
-  source,
-  preferredId,
-  statusMessage,
-  renderSelectedChart = true
-}: {
-  documents: ChartDocument[],
-  source: string,
-  preferredId?: string | null,
-  statusMessage?: string,
-  renderSelectedChart?: boolean
-}) {
-  state.fixtureLibrary = {
-    source,
-    documents
-  };
-  state.filteredDocuments = [...documents];
-  state.currentLibrarySourceLabel = String(source || '');
-  if (dom.chartSearchInput) {
-    dom.chartSearchInput.value = '';
-  }
-  state.currentSearch = '';
-  renderChartSelector(preferredId);
-  if (renderSelectedChart) {
-    renderFixture();
-  }
-  setImportStatus(statusMessage || `Loaded ${documents.length} charts from ${source}.`);
-
-  const requestedPlaylist = getRequestedPlaylist();
-  if (requestedPlaylist && dom.chartSearchInput) {
-    dom.chartSearchInput.value = requestedPlaylist;
-    applySearchFilter();
-  }
-}
-
-async function persistImportedLibraryInBackground({
-  documents,
-  source,
-  mergeWithExisting
-}: {
-  documents: ChartDocument[],
-  source: string,
-  mergeWithExisting: boolean
-}) {
-  const startedAt = getChartRenderPerfNow();
-  try {
-    await persistChartLibrary({
-      documents,
-      source,
-      mergeWithExisting
-    });
-  } catch (error) {
-    console.warn('Failed to persist chart library after initial render.', error);
-  } finally {
-    logChartRenderPerf('persistChartLibrary', startedAt, {
-      source,
-      mergeWithExisting,
-      background: true
-    });
-  }
-}
-
-async function backfillChartDocumentIndexInBackground({
-  documents,
-  source
-}: {
-  documents: ChartDocument[],
-  source: string
-}) {
-  const hasDocumentIndex = await hasPersistedChartDocumentIndex();
-  if (hasDocumentIndex) return;
-  await persistImportedLibraryInBackground({
-    documents,
-    source,
-    mergeWithExisting: false
-  });
-}
-
-async function applyImportedLibrary({ documents, source, preferredId = null, statusMessage = '' }: {
-  documents: ChartDocument[],
-  source: string,
-  preferredId?: string | null,
-  statusMessage?: string
-}): Promise<void> {
-  let nextDocuments = documents;
-  const isBundledDefaultLibrary = source === 'bundled default library';
-
-  if (documents.length > 0) {
-    const shouldMerge = !isBundledDefaultLibrary;
-
-    if (isBundledDefaultLibrary) {
-      renderImportedLibrary({
-        documents: nextDocuments,
-        source,
-        preferredId,
-        statusMessage
-      });
-      void persistImportedLibraryInBackground({
-        documents,
-        source,
-        mergeWithExisting: shouldMerge
-      });
-      return;
-    }
-
-    const startedAt = getChartRenderPerfNow();
-    const persistedLibrary = await persistChartLibrary({
-        documents,
-        source,
-        mergeWithExisting: shouldMerge
-      }).finally(() => {
-        logChartRenderPerf('persistChartLibrary', startedAt, {
-          source,
-          mergeWithExisting: shouldMerge,
-          background: false
-        });
-      });
-
-    if (!persistedLibrary) {
-      throw new Error('The imported chart library could not be confirmed in persistent storage.');
-    }
-
-    if (persistedLibrary.documents.length === 0) {
-      throw new Error('The imported chart library could not be confirmed in persistent storage.');
-    }
-
-    nextDocuments = persistedLibrary.documents;
-    source = persistedLibrary.source;
-  }
-  renderImportedLibrary({
-    documents: nextDocuments,
-    source,
-    preferredId,
-    statusMessage
-  });
-}
+const {
+  importDocumentsFromIRealText,
+  renderImportedLibrary,
+  backfillChartDocumentIndexInBackground,
+  applyImportedLibrary
+} = createChartLibraryImportFlow({
+  state,
+  dom,
+  importDocuments: createChartDocumentsFromIRealText,
+  renderChartSelector,
+  renderFixture,
+  setImportStatus,
+  getRequestedPlaylist,
+  applySearchFilter,
+  getChartRenderPerfNow,
+  logChartRenderPerf
+});
 
 function getPlaybackSettings(): PlaybackSettings {
   return {

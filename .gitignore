@@ -24,5 +24,7 @@ Thumbs.db
 .vscode/
 .idea/
 
+.codex-chrome-profile*/
+
 parsing-projects/
 tmp/

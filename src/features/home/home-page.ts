@@ -577,20 +577,27 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       list.append(createTextElement('p', 'home-empty', 'No setlists yet.'));
     } else {
       for (const setlist of setlists) {
-        const label = document.createElement('label');
-        label.className = 'home-setlist-popup-option';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = memberships.has(setlist.id);
-        checkbox.addEventListener('change', () => {
+        const isAssigned = memberships.has(setlist.id);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'home-setlist-popup-option';
+        button.classList.toggle('is-selected', isAssigned);
+        button.setAttribute('aria-pressed', String(isAssigned));
+        const setlistName = createTextElement('span', 'home-setlist-popup-option-label', setlist.name);
+        const checkmark = createTextElement('span', 'home-setlist-popup-check', '\u2713');
+        checkmark.setAttribute('aria-hidden', 'true');
+        button.addEventListener('click', () => {
+          const shouldAdd = button.getAttribute('aria-pressed') !== 'true';
+          button.classList.toggle('is-selected', shouldAdd);
+          button.setAttribute('aria-pressed', String(shouldAdd));
           updateChartSetlistAssignment(
             chartId,
-            checkbox.checked ? { addSetlistIds: [setlist.id] } : { removeSetlistIds: [setlist.id] },
-            checkbox.checked ? 'Added chart to setlist.' : 'Removed chart from setlist.'
+            shouldAdd ? { addSetlistIds: [setlist.id] } : { removeSetlistIds: [setlist.id] },
+            shouldAdd ? 'Added chart to setlist.' : 'Removed chart from setlist.'
           );
         });
-        label.append(checkbox, createTextElement('span', '', setlist.name));
-        list.append(label);
+        button.append(setlistName, checkmark);
+        list.append(button);
       }
     }
 
@@ -620,8 +627,8 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     setlistPopup.hidden = false;
     if (focusTarget === 'first') {
       requestAnimationFrame(() => {
-        const firstSetlistCheckbox = setlistPopup.querySelector<HTMLInputElement>('.home-setlist-popup-option input');
-        (firstSetlistCheckbox || input).focus();
+        const firstSetlistButton = setlistPopup.querySelector<HTMLButtonElement>('.home-setlist-popup-option');
+        (firstSetlistButton || input).focus();
       });
     } else if (focusTarget === 'input') {
       requestAnimationFrame(() => input.focus());
