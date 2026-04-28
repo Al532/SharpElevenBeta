@@ -7,15 +7,13 @@ export function getDraggedLibraryChartId(event: DragEvent, fallbackChartId = '')
 }
 
 export function hasDraggedLibraryChart({
-  draggedSetlistOrderIndex,
   draggedSetlistItem,
   draggedLibraryChartId
 }: {
-  draggedSetlistOrderIndex: number | null;
   draggedSetlistItem: SetlistDragItem | null;
   draggedLibraryChartId: string;
 }): boolean {
-  if (draggedSetlistOrderIndex !== null || draggedSetlistItem) return false;
+  if (draggedSetlistItem) return false;
   return Boolean(draggedLibraryChartId);
 }
 
@@ -27,7 +25,11 @@ export function getSetlistDropTargetAtPoint(clientX: number, clientY: number): S
   if (!setlistId) return null;
   const rawIndex = target.dataset.setlistDropIndex;
   const index = rawIndex === undefined ? undefined : Number(rawIndex);
-  return Number.isFinite(index) ? { setlistId, index } : { setlistId };
+  if (!Number.isFinite(index)) return { setlistId };
+
+  const bounds = target.getBoundingClientRect();
+  const insertAfter = clientY > bounds.top + bounds.height / 2;
+  return { setlistId, index: (index as number) + (insertAfter ? 1 : 0) };
 }
 
 function findSetlistChildList(setlistId: string): HTMLElement | undefined {
@@ -46,24 +48,13 @@ export function clearSetlistDropPreview() {
   });
 }
 
-export function clearSetlistOrderPreview() {
-  document.querySelectorAll('.has-setlist-order-preview-before').forEach((element) => {
-    element.classList.remove('has-setlist-order-preview-before');
-  });
-}
-
-export function showSetlistOrderPreview(index: number) {
-  clearSetlistOrderPreview();
-  Array.from(document.querySelectorAll<HTMLElement>('[data-setlist-order-index]'))
-    .find((element) => Number(element.dataset.setlistOrderIndex) === index)
-    ?.classList.add('has-setlist-order-preview-before');
-}
-
 export function showSetlistDropPreview(target: SetlistDropTarget | null) {
   clearSetlistDropPreview();
   if (!target) return;
   if (Number.isFinite(target.index)) {
-    findSetlistDropRow(target.setlistId, target.index as number)?.classList.add('has-drop-preview-before');
+    const dropRow = findSetlistDropRow(target.setlistId, target.index as number);
+    if (dropRow) dropRow.classList.add('has-drop-preview-before');
+    else findSetlistChildList(target.setlistId)?.classList.add('has-drop-preview-end');
   } else {
     findSetlistChildList(target.setlistId)?.classList.add('has-drop-preview-end');
   }

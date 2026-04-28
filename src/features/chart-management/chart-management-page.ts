@@ -43,12 +43,10 @@ import {
 } from './chart-management-view-helpers.js';
 import {
   clearSetlistDropPreview,
-  clearSetlistOrderPreview,
   getDraggedLibraryChartId as getDraggedLibraryChartIdFromEvent,
   getSetlistDropTargetAtPoint,
   hasDraggedLibraryChart as hasDraggedLibraryChartState,
-  showSetlistDropPreview,
-  showSetlistOrderPreview
+  showSetlistDropPreview
 } from './chart-management-dnd.js';
 
 let activeMode: ChartManagementMode = 'library';
@@ -71,7 +69,6 @@ let activeSetlistItemMenuKey = '';
 let setlistActionMenu: HTMLElement | null = null;
 let addChartPopup: HTMLElement | null = null;
 let draggedSetlistItem: SetlistDragItem | null = null;
-let draggedSetlistOrderIndex: number | null = null;
 let draggedLibraryChartId = '';
 let setlistPointerStart: { x: number; y: number } | null = null;
 let setlistPointerCurrent: { x: number; y: number } | null = null;
@@ -423,9 +420,44 @@ function closeSetlistActionMenu(): void {
     .forEach((button) => button.setAttribute('aria-expanded', 'false'));
   activeSetlistMenuId = '';
   activeSetlistItemMenuKey = '';
+  pendingDeleteSetlistId = '';
   if (!setlistActionMenu) return;
   setlistActionMenu.hidden = true;
+  setlistActionMenu.classList.remove('is-confirming-delete');
+  setlistActionMenu.setAttribute('role', 'menu');
+  setlistActionMenu.setAttribute('aria-label', 'Setlist actions');
   setlistActionMenu.replaceChildren();
+}
+
+function renderSetlistDeleteConfirmation(setlist: ChartSetlist, anchor: HTMLElement): void {
+  const menu = ensureSetlistActionMenu();
+  pendingDeleteSetlistId = setlist.id;
+  activeSetlistMenuId = setlist.id;
+  activeSetlistItemMenuKey = '';
+  anchor.setAttribute('aria-expanded', 'true');
+  menu.classList.add('is-confirming-delete');
+  menu.setAttribute('role', 'dialog');
+  menu.setAttribute('aria-label', 'Confirm setlist delete');
+
+  const confirmation = document.createElement('div');
+  confirmation.className = 'home-chart-entry-confirm';
+  const title = createTextElement('strong', 'home-chart-entry-confirm-title', `Delete "${setlist.name}"?`);
+  const message = createTextElement('p', 'home-chart-entry-confirm-message', 'Charts stay in your library.');
+  const actions = document.createElement('div');
+  actions.className = 'home-chart-entry-confirm-actions';
+  const cancelButton = createMenuButton('Cancel');
+  const confirmButton = createMenuButton('Delete', 'home-chart-entry-menu-item is-danger is-confirm-delete');
+  cancelButton.addEventListener('click', closeSetlistActionMenu);
+  confirmButton.addEventListener('click', () => {
+    if (pendingDeleteSetlistId !== setlist.id) return;
+    deleteSetlist(setlist);
+  });
+  actions.append(cancelButton, confirmButton);
+  confirmation.append(title, message, actions);
+  menu.replaceChildren(confirmation);
+  menu.hidden = false;
+  positionSetlistActionMenu(anchor);
+  requestAnimationFrame(() => cancelButton.focus());
 }
 
 function closeAddChartPopup(): void {
@@ -436,7 +468,6 @@ function closeAddChartPopup(): void {
 
 function hasDraggedLibraryChart(event: DragEvent): boolean {
   return hasDraggedLibraryChartState({
-    draggedSetlistOrderIndex,
     draggedSetlistItem,
     draggedLibraryChartId
   });
@@ -482,6 +513,8 @@ function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, force
 
   activeSetlistMenuId = setlist.id;
   anchor.setAttribute('aria-expanded', 'true');
+  menu.classList.remove('is-confirming-delete');
+  menu.setAttribute('role', 'menu');
   menu.setAttribute('aria-label', 'Setlist actions');
 
   const openButton = createMenuButton('Open');
@@ -503,18 +536,10 @@ function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, force
     renderSetlists();
   });
 
-  const deleteButton = createMenuButton(
-    pendingDeleteSetlistId === setlist.id ? 'Confirm delete' : 'Delete',
-    'home-chart-entry-menu-item is-danger'
-  );
-  deleteButton.addEventListener('click', () => {
-    if (pendingDeleteSetlistId !== setlist.id) {
-      pendingDeleteSetlistId = setlist.id;
-      openSetlistActionMenu(setlist, anchor, true);
-      requestAnimationFrame(() => deleteButton.focus());
-      return;
-    }
-    deleteSetlist(setlist);
+  const deleteButton = createMenuButton('Delete', 'home-chart-entry-menu-item is-danger');
+  deleteButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    renderSetlistDeleteConfirmation(setlist, anchor);
   });
 
   menu.replaceChildren(openButton, addChartButton, renameButton, deleteButton);
@@ -626,10 +651,9 @@ function renderSetlists() {
   }
   const documentsById = new Map(currentDocuments.map((document) => [document.metadata.id, document]));
 
-  for (const [setlistIndex, setlist] of currentSetlists.entries()) {
+  for (const setlist of currentSetlists) {
     const item = document.createElement('li');
     item.className = getPageClassName('setlist-entry');
-    item.dataset.setlistOrderIndex = String(setlistIndex);
     const isCollapsed = collapsedSetlistIds.has(setlist.id);
 
     const row = document.createElement('div');
@@ -638,37 +662,9 @@ function renderSetlists() {
     row.style.gridTemplateColumns = 'minmax(0, 1fr) auto';
     row.style.alignItems = 'center';
     row.style.columnGap = '0.65rem';
-    row.draggable = true;
     row.classList.toggle('can-receive-chart', draggedLibraryChartId !== '');
     row.setAttribute('aria-expanded', String(!isCollapsed));
     row.dataset.setlistDropId = setlist.id;
-    row.addEventListener('dragstart', (event) => {
-      if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
-      draggedLibraryChartId = '';
-      draggedSetlistItem = null;
-      draggedSetlistOrderIndex = setlistIndex;
-      event.dataTransfer?.setData('text/plain', `setlist-order:${setlistIndex}`);
-      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer?.setDragImage(row, 12, 12);
-    });
-    row.addEventListener('dragend', () => {
-      draggedSetlistOrderIndex = null;
-      clearSetlistOrderPreview();
-    });
-    row.addEventListener('dragover', (event) => {
-      if (draggedSetlistOrderIndex === null) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-      showSetlistOrderPreview(setlistIndex);
-    });
-    row.addEventListener('drop', (event) => {
-      if (draggedSetlistOrderIndex === null) return;
-      event.preventDefault();
-      const fromIndex = draggedSetlistOrderIndex;
-      draggedSetlistOrderIndex = null;
-      clearSetlistOrderPreview();
-      moveSetlist(fromIndex, setlistIndex);
-    });
     row.addEventListener('click', (event) => {
       if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
       if (isCollapsed) collapsedSetlistIds.delete(setlist.id);
@@ -682,6 +678,7 @@ function renderSetlists() {
       showSetlistDropPreview({ setlistId: setlist.id });
     });
     row.addEventListener('drop', (event) => {
+      if (!hasDraggedLibraryChart(event)) return;
       event.preventDefault();
       clearSetlistDropPreview();
       addChartToSetlist(setlist.id, getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId));
@@ -720,8 +717,9 @@ function renderSetlists() {
     });
     childList.addEventListener('drop', (event) => {
       event.preventDefault();
+      const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
       clearSetlistDropPreview();
-      addChartToSetlist(setlist.id, getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId));
+      addChartToSetlist(setlist.id, getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId), dropTarget?.index);
     });
     setlist.items.forEach((setlistItem, index) => {
       const chartDocument = documentsById.get(setlistItem.chartId);
@@ -795,7 +793,7 @@ function renderSetlists() {
         event.preventDefault();
         if (!draggedItem) return;
         if (!dropTarget || dropTarget.setlistId !== draggedItem.setlistId) return;
-        moveSetlistItem(draggedItem.setlistId, draggedItem.index, dropTarget.index ?? setlist.items.length - 1);
+        moveSetlistItem(draggedItem.setlistId, draggedItem.index, dropTarget.index ?? setlist.items.length);
       });
       childRow.addEventListener('pointercancel', (event) => {
         if (childRow.hasPointerCapture(event.pointerId)) childRow.releasePointerCapture(event.pointerId);
@@ -815,15 +813,18 @@ function renderSetlists() {
         if (draggedSetlistItem?.setlistId === setlist.id || hasDraggedLibraryChart(event)) {
           event.preventDefault();
           if (event.dataTransfer) event.dataTransfer.dropEffect = draggedLibraryChartId ? 'copy' : 'move';
-          showSetlistDropPreview({ setlistId: setlist.id, index });
+          const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
+          showSetlistDropPreview(dropTarget?.setlistId === setlist.id ? dropTarget : { setlistId: setlist.id, index });
         }
       });
       childRow.addEventListener('drop', (event) => {
         event.preventDefault();
+        const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
         clearSetlistDropPreview();
         const draggedChartId = getDraggedLibraryChartIdFromEvent(event, draggedLibraryChartId);
-        if (draggedChartId) addChartToSetlist(setlist.id, draggedChartId, index);
-        else moveSetlistItem(setlist.id, draggedSetlistItem?.index ?? -1, index);
+        const beforeIndex = dropTarget?.setlistId === setlist.id ? dropTarget.index : index;
+        if (draggedChartId) addChartToSetlist(setlist.id, draggedChartId, beforeIndex);
+        else moveSetlistItem(setlist.id, draggedSetlistItem?.index ?? -1, beforeIndex ?? index);
       });
       const childContent = document.createElement('div');
       childContent.className = getPageClassName('chart-link');
@@ -836,8 +837,8 @@ function renderSetlists() {
       });
       removeButton.setAttribute('aria-haspopup', 'menu');
       removeButton.setAttribute('aria-expanded', 'false');
-      childRow.append(childContent);
-      childItem.append(childRow, removeButton);
+      childRow.append(childContent, removeButton);
+      childItem.append(childRow);
       childList.append(childItem);
     });
     item.append(childList);
@@ -922,23 +923,17 @@ function updateSetlistItems(setlistId: string, items: ChartSetlist['items'], sta
     : setlist), statusMessage);
 }
 
-function moveSetlistItem(setlistId: string, fromIndex: number, toIndex: number) {
-  const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
-  if (!setlist || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
-  activeSetlistItemMenuKey = '';
-  updateSetlistItems(setlistId, reorderSetlistItems(setlist.items, fromIndex, toIndex), 'Setlist reordered.');
+function getReorderDestinationIndex(fromIndex: number, beforeIndex: number, itemCount: number): number {
+  const clampedBeforeIndex = Math.max(0, Math.min(beforeIndex, itemCount));
+  return clampedBeforeIndex > fromIndex ? clampedBeforeIndex - 1 : clampedBeforeIndex;
 }
 
-function moveSetlist(fromIndex: number, toIndex: number) {
-  if (fromIndex < 0 || toIndex < 0 || fromIndex >= currentSetlists.length || toIndex >= currentSetlists.length || fromIndex === toIndex) return;
-  const nextSetlists = [...currentSetlists];
-  const [movedSetlist] = nextSetlists.splice(fromIndex, 1);
-  nextSetlists.splice(toIndex, 0, movedSetlist);
-  activeSetlistMenuId = '';
+function moveSetlistItem(setlistId: string, fromIndex: number, beforeIndex: number) {
+  const setlist = currentSetlists.find((candidate) => candidate.id === setlistId);
+  const toIndex = getReorderDestinationIndex(fromIndex, beforeIndex, setlist?.items.length || 0);
+  if (!setlist || fromIndex < 0 || beforeIndex < 0 || fromIndex === toIndex) return;
   activeSetlistItemMenuKey = '';
-  persistSetlistChanges(nextSetlists.map((setlist) => setlist.id === movedSetlist.id
-    ? { ...setlist, updatedAt: new Date().toISOString() }
-    : setlist), 'Setlists reordered.');
+  updateSetlistItems(setlistId, reorderSetlistItems(setlist.items, fromIndex, toIndex), 'Setlist reordered.');
 }
 
 function removeSetlistItem(setlistId: string, itemIndex: number) {
@@ -978,11 +973,6 @@ function renameSetlist(setlist: ChartSetlist, rawName: string) {
 }
 
 function deleteSetlist(setlist: ChartSetlist) {
-  if (pendingDeleteSetlistId !== setlist.id) {
-    pendingDeleteSetlistId = setlist.id;
-    renderSetlists();
-    return;
-  }
   closeSetlistActionMenu();
   closeAddChartPopup();
   activeSetlistMenuId = '';

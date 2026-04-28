@@ -391,6 +391,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   let isHomeImportRunning = false;
   let activeChartMenu: ChartEntryMenuTarget | null = null;
   let activeSetlistPopupChartId = '';
+  let pendingDeleteChartId = '';
   let setlistPersistQueue = Promise.resolve();
   const chartEntryMenu = document.createElement('div');
   chartEntryMenu.className = 'home-chart-entry-menu';
@@ -447,7 +448,11 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const closeChartEntryMenu = (): void => {
     activeChartMenu?.anchor.setAttribute('aria-expanded', 'false');
     activeChartMenu = null;
+    pendingDeleteChartId = '';
     chartEntryMenu.hidden = true;
+    chartEntryMenu.classList.remove('is-confirming-delete');
+    chartEntryMenu.setAttribute('role', 'menu');
+    chartEntryMenu.setAttribute('aria-label', 'Chart actions');
     chartEntryMenu.replaceChildren();
   };
 
@@ -488,8 +493,6 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const deleteChart = async (chartId: string): Promise<void> => {
     const chartDocument = documents.find((document) => document.metadata?.id === chartId);
     if (!chartDocument) return;
-    const confirmed = window.confirm(`Delete "${chartDocument.metadata.title || 'chart'}"?\n\nThis will remove it from the library and all setlists. This action cannot be undone.`);
-    if (!confirmed) return;
     const result = applyBatchMetadataOperation({
       documents,
       setlists,
@@ -527,6 +530,35 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     chartEntryMenu.style.top = `${top}px`;
   };
 
+  function renderChartDeleteConfirmation(target: ChartEntryMenuTarget, chartDocument: ChartDocument): void {
+    pendingDeleteChartId = target.chartId;
+    activeChartMenu = target;
+    target.anchor.setAttribute('aria-expanded', 'true');
+    chartEntryMenu.classList.add('is-confirming-delete');
+    chartEntryMenu.setAttribute('role', 'dialog');
+    chartEntryMenu.setAttribute('aria-label', 'Confirm chart delete');
+
+    const confirmation = document.createElement('div');
+    confirmation.className = 'home-chart-entry-confirm';
+    const title = createTextElement('strong', 'home-chart-entry-confirm-title', `Delete "${chartDocument.metadata.title || 'chart'}"?`);
+    const message = createTextElement('p', 'home-chart-entry-confirm-message', 'Removes it from the library and all setlists.');
+    const actions = document.createElement('div');
+    actions.className = 'home-chart-entry-confirm-actions';
+    const cancelButton = createMenuButton('Cancel');
+    const confirmButton = createMenuButton('Delete', 'home-chart-entry-menu-item is-danger is-confirm-delete');
+    cancelButton.addEventListener('click', closeChartEntryMenu);
+    confirmButton.addEventListener('click', () => {
+      if (pendingDeleteChartId !== target.chartId) return;
+      void deleteChart(target.chartId);
+    });
+    actions.append(cancelButton, confirmButton);
+    confirmation.append(title, message, actions);
+    chartEntryMenu.replaceChildren(confirmation);
+    chartEntryMenu.hidden = false;
+    positionChartEntryMenu(target.anchor);
+    requestAnimationFrame(() => cancelButton.focus());
+  }
+
   function openChartEntryMenu(target: ChartEntryMenuTarget): void {
     const chartDocument = documents.find((document) => document.metadata?.id === target.chartId);
     if (!chartDocument) return;
@@ -543,8 +575,14 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       openSetlistPopup(target.chartId);
     });
     const deleteButton = createMenuButton('Delete', 'home-chart-entry-menu-item is-danger');
-    deleteButton.addEventListener('click', () => void deleteChart(target.chartId));
+    deleteButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      renderChartDeleteConfirmation(target, chartDocument);
+    });
     chartEntryMenu.replaceChildren(addButton, deleteButton);
+    chartEntryMenu.classList.remove('is-confirming-delete');
+    chartEntryMenu.setAttribute('role', 'menu');
+    chartEntryMenu.setAttribute('aria-label', 'Chart actions');
     chartEntryMenu.hidden = false;
     positionChartEntryMenu(target.anchor);
     requestAnimationFrame(() => addButton.focus());
