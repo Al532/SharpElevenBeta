@@ -8,7 +8,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
         registerPlugin(IrealBrowserPlugin.class);
         super.onCreate(savedInstanceState);
     }

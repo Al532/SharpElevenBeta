@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.View;
@@ -38,11 +39,13 @@ public class IrealBrowserActivity extends AppCompatActivity {
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.parseColor("#F7F1E6"));
         getWindow().setNavigationBarColor(Color.parseColor("#F7F1E6"));
+        applyLightSystemBars();
         setContentView(R.layout.activity_ireal_browser);
+        applyTopSafeAreaInset(findViewById(R.id.ireal_browser_root));
 
         progressBar = findViewById(R.id.ireal_browser_progress);
         bannerTitleView = findViewById(R.id.ireal_browser_banner_title);
@@ -223,6 +226,32 @@ public class IrealBrowserActivity extends AppCompatActivity {
             }
         }
         return builder.toString();
+    }
+
+    private void applyLightSystemBars() {
+        int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        getWindow().getDecorView().setSystemUiVisibility(flags);
+    }
+
+    private void applyTopSafeAreaInset(@NonNull View rootView) {
+        int initialLeft = rootView.getPaddingLeft();
+        int initialTop = rootView.getPaddingTop();
+        int initialRight = rootView.getPaddingRight();
+        int initialBottom = rootView.getPaddingBottom();
+
+        rootView.setOnApplyWindowInsetsListener((view, insets) -> {
+            view.setPadding(
+                initialLeft,
+                initialTop + insets.getSystemWindowInsetTop(),
+                initialRight,
+                initialBottom
+            );
+            return insets;
+        });
+        rootView.requestApplyInsets();
     }
 
     @Override

@@ -4,6 +4,10 @@ import {
   applyBatchMetadataOperation,
   applyPerChartMetadataUpdate
 } from './chart-library.js';
+import {
+  positionChartEntryMenu,
+  type ChartEntryMenuPlacement
+} from './chart-entry-menu-positioning.js';
 
 export type ChartEntryMenuTarget = {
   chartId: string;
@@ -62,6 +66,8 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
   let activeChartMenu: ChartEntryMenuTarget | null = null;
   let activeSetlistPopupChartId = '';
   let pendingDeleteChartId = '';
+  let activeMenuPlacement: ChartEntryMenuPlacement = 'anchored';
+  let pendingMenuPositionFrame = 0;
 
   const chartEntryMenu = document.createElement('div');
   chartEntryMenu.className = 'home-chart-entry-menu';
@@ -82,6 +88,11 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
     activeChartMenu?.anchor.setAttribute('aria-expanded', 'false');
     activeChartMenu = null;
     pendingDeleteChartId = '';
+    activeMenuPlacement = 'anchored';
+    if (pendingMenuPositionFrame) {
+      window.cancelAnimationFrame(pendingMenuPositionFrame);
+      pendingMenuPositionFrame = 0;
+    }
     chartEntryMenu.hidden = true;
     chartEntryMenu.classList.remove('is-confirming-delete');
     chartEntryMenu.setAttribute('role', 'menu');
@@ -133,25 +144,24 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
     closeAll();
   };
 
-  const positionMenu = (anchor: HTMLElement): void => {
-    const anchorRect = anchor.getBoundingClientRect();
-    const menuRect = chartEntryMenu.getBoundingClientRect();
-    const margin = 8;
-    const left = Math.min(
-      Math.max(margin, anchorRect.right - menuRect.width),
-      Math.max(margin, window.innerWidth - menuRect.width - margin)
-    );
-    const top = Math.min(
-      anchorRect.bottom + 4,
-      Math.max(margin, window.innerHeight - menuRect.height - margin)
-    );
-    chartEntryMenu.style.left = `${left}px`;
-    chartEntryMenu.style.top = `${top}px`;
+  const positionMenu = (anchor: HTMLElement, placement: ChartEntryMenuPlacement): void => {
+    positionChartEntryMenu(chartEntryMenu, anchor, placement);
+  };
+
+  const scheduleActiveMenuPosition = (): void => {
+    if (activeMenuPlacement !== 'centered-dialog') return;
+    if (pendingMenuPositionFrame || !activeChartMenu || chartEntryMenu.hidden) return;
+    pendingMenuPositionFrame = window.requestAnimationFrame(() => {
+      pendingMenuPositionFrame = 0;
+      if (!activeChartMenu || chartEntryMenu.hidden) return;
+      positionMenu(activeChartMenu.anchor, activeMenuPlacement);
+    });
   };
 
   function renderChartDeleteConfirmation(target: ChartEntryMenuTarget, chartDocument: ChartDocument): void {
     pendingDeleteChartId = target.chartId;
     activeChartMenu = target;
+    activeMenuPlacement = 'centered-dialog';
     target.anchor.setAttribute('aria-expanded', 'true');
     chartEntryMenu.classList.add('is-confirming-delete');
     chartEntryMenu.setAttribute('role', 'dialog');
@@ -174,7 +184,8 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
     confirmation.append(title, message, actions);
     chartEntryMenu.replaceChildren(confirmation);
     chartEntryMenu.hidden = false;
-    positionMenu(target.anchor);
+    positionMenu(target.anchor, activeMenuPlacement);
+    scheduleActiveMenuPosition();
     requestAnimationFrame(() => cancelButton.focus());
   }
 
@@ -279,6 +290,7 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
     if (isSameMenu) return;
 
     activeChartMenu = target;
+    activeMenuPlacement = 'anchored';
     target.anchor.setAttribute('aria-expanded', 'true');
     const addButton = createMenuButton('Add to setlist');
     addButton.addEventListener('click', () => {
@@ -295,9 +307,12 @@ export function createChartEntryActionsController(options: ChartEntryActionsCont
     chartEntryMenu.setAttribute('role', 'menu');
     chartEntryMenu.setAttribute('aria-label', 'Chart actions');
     chartEntryMenu.hidden = false;
-    positionMenu(target.anchor);
+    positionMenu(target.anchor, activeMenuPlacement);
     requestAnimationFrame(() => addButton.focus());
   };
+
+  window.addEventListener('resize', scheduleActiveMenuPosition);
+  window.visualViewport?.addEventListener('resize', scheduleActiveMenuPosition);
 
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Node)) return;

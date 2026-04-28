@@ -51,58 +51,62 @@
   <div id="app">
     <header class="app-header">
       <h1>Drill mode</h1>
-      <p class="app-subtitle">Practice a progression in every key, in random order.</p>
+      <p class="app-subtitle">Dear beta testers, this is where it all started: I use this tool every day to practice progressions through every key. And yes, it is still a bit of a mess.</p>
     </header>
 
     <main class="app-layout">
-      <section class="surface-block surface-display" aria-label="Current progression">
-        <details class="display-key-picker" id="key-picker">
-          <summary id="selected-keys-summary" class="selected-keys-summary" aria-live="polite">Keys</summary>
-          <div id="key-picker-backdrop" class="display-key-picker-backdrop" aria-hidden="true"></div>
-          <div class="display-key-picker-panel">
-            <div class="display-key-picker-header">
-              <button type="button" id="close-key-picker" class="display-key-picker-close">Close</button>
+      <section class="drill-stage" aria-label="Practice surface">
+        <section class="surface-block surface-display" aria-label="Current progression">
+          <details class="display-key-picker" id="key-picker">
+            <summary id="selected-keys-summary" class="selected-keys-summary" aria-live="polite">Keys</summary>
+            <div id="key-picker-backdrop" class="display-key-picker-backdrop" aria-hidden="true"></div>
+            <div class="display-key-picker-panel">
+              <div class="display-key-picker-header">
+                <button type="button" id="close-key-picker" class="display-key-picker-close">Close</button>
+              </div>
+              <div class="key-picker-actions">
+                <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
+                <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
+                <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
+                <button type="button" id="save-key-preset" class="secondary-button key-picker-action">Save preset</button>
+                <button type="button" id="load-key-preset" class="secondary-button key-picker-action">Load preset</button>
+              </div>
+              <div id="key-checkboxes"></div>
             </div>
-            <div class="key-picker-actions">
-              <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
-              <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
-              <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
-              <button type="button" id="save-key-preset" class="secondary-button key-picker-action">Save preset</button>
-              <button type="button" id="load-key-preset" class="secondary-button key-picker-action">Load preset</button>
-            </div>
-            <div id="key-checkboxes"></div>
-          </div>
-        </details>
+          </details>
           <div id="display">
             <div id="display-placeholder" class="display-placeholder">
               <p id="display-placeholder-message">Choose a progression, then press Start.</p>
             </div>
             <div id="display-columns">
-            <div id="current-header" class="col-header"></div>
-            <div id="next-header" class="col-header hidden">Next</div>
-            <div id="key-display"></div>
-            <div id="next-key-display" class="hidden"></div>
-            <div id="chord-display"></div>
-            <div id="next-chord-display" class="hidden"></div>
+              <div id="current-header" class="col-header"></div>
+              <div id="next-header" class="col-header hidden">Next</div>
+              <div id="key-display"></div>
+              <div id="next-key-display" class="hidden"></div>
+              <div id="chord-display"></div>
+              <div id="next-chord-display" class="hidden"></div>
             </div>
             <div id="beat-indicator">
               <span class="beat-dot" data-beat="0"></span>
               <span class="beat-dot" data-beat="1"></span>
               <span class="beat-dot" data-beat="2"></span>
-            <span class="beat-dot" data-beat="3"></span>
+              <span class="beat-dot" data-beat="3"></span>
+            </div>
+          </div>
+        </section>
+
+        <div class="drill-transport-panel">
+          <div id="transport-buttons" aria-label="Playback controls">
+            <button id="start-stop">Start</button>
+            <button id="pause" class="hidden">Pause</button>
+          </div>
+
+          <div class="transport-tempo">
+            <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
+            <input type="range" id="tempo-slider" min="40" max="300" value="120">
           </div>
         </div>
       </section>
-
-      <div id="transport-buttons" aria-label="Playback controls">
-        <button id="start-stop">Start</button>
-        <button id="pause" class="hidden">Pause</button>
-      </div>
-
-      <div class="transport-tempo">
-        <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
-        <input type="range" id="tempo-slider" min="40" max="300" value="120">
-      </div>
 
       <section id="controls" class="controls-layout" aria-label="Trainer settings">
         <div class="control-panel">

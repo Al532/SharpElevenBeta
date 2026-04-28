@@ -7,23 +7,26 @@ import {
   removePersistedChartReferences
 } from '../chart/chart-persistence.js';
 import {
+  applyBatchMetadataOperation,
   createEmptyChartSetlist,
   filterChartDocuments,
   getChartSourceRefs,
   getChartSetlistMembership,
+  previewProtectedChartDelete,
   reorderSetlistItems
 } from '../chart/chart-library.js';
 import type { ChartDocument, ChartSetlist } from '../../core/types/contracts';
 import {
-  closeChartMetadataPanel,
-  openChartMetadataPanel
-} from '../chart/chart-metadata-panel.js';
-import {
   createChartEntryActionsController,
   createChartEntryMenuButton
 } from '../chart/chart-entry-actions.js';
+import {
+  positionChartEntryMenu,
+  type ChartEntryMenuPlacement
+} from '../chart/chart-entry-menu-positioning.js';
 import { createChartManagementDomRefs } from './chart-management-dom.js';
 import {
+  FILTER_SOURCE_USER_CHARTS,
   type ChartManageFilterKey,
   type ChartManageFilterOption,
   type ChartManagementMode,
@@ -72,6 +75,9 @@ let currentSetlists: ChartSetlist[] = [];
 let activeSetlistMenuId = '';
 let activeSetlistItemMenuKey = '';
 let setlistActionMenu: HTMLElement | null = null;
+let setlistActionMenuAnchor: HTMLElement | null = null;
+let setlistActionMenuPlacement: ChartEntryMenuPlacement = 'anchored';
+let pendingSetlistActionMenuPositionFrame = 0;
 let addChartPopup: HTMLElement | null = null;
 let draggedSetlistItem: SetlistDragItem | null = null;
 let draggedLibraryChartId = '';
@@ -95,6 +101,8 @@ const filterState = createChartManagementFilterState();
 let libraryPreviewStartIndex = 0;
 let libraryPreviewPageSize = 1;
 let libraryPreviewResizeFrame = 0;
+let libraryDeleteReviewIncludesSetlisted = false;
+let libraryDeleteReviewConfirmationVisible = false;
 let chartEntryActions: ReturnType<typeof createChartEntryActionsController> | null = null;
 
 type ChartManagementCachedDocument = {
@@ -113,6 +121,16 @@ type ChartManagementSessionCache = {
   documents: ChartManagementCachedDocument[];
   setlists: ChartSetlist[];
   savedAt: number;
+};
+
+type DeleteReviewPlan = {
+  activeSourceName: string;
+  deleteDocuments: ChartDocument[];
+  protectedDocuments: ChartDocument[];
+  setlistedDeleteDocuments: ChartDocument[];
+  skippedDocuments: ChartDocument[];
+  sourceRefOnlyDocuments: ChartDocument[];
+  setlistEntryDeleteCount: number;
 };
 
 function toCachedDocument(document: ChartDocument): ChartManagementCachedDocument | null {
@@ -245,6 +263,13 @@ function getLibraryBatchScopeLabel(documents: ChartDocument[]): string {
   return hasActiveLibraryScope() ? 'Current filters' : 'Entire library';
 }
 
+function getActiveLibraryDeleteSourceName(): string {
+  if (filterState.activeModes.source !== 'custom') return '';
+  const activeSources = Array.from(filterState.activeFilters.source).filter(Boolean);
+  if (activeSources.length !== 1 || activeSources[0] === FILTER_SOURCE_USER_CHARTS) return '';
+  return activeSources[0];
+}
+
 function getLibraryPreviewPageSize(): number {
   if (!dom.manageChartList) return libraryPreviewPageSize;
   const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight;
@@ -300,10 +325,11 @@ function renderLibraryBatchSummary(
     createTextElement('span', 'library-batch-count-meta', getLibraryBatchScopeLabel(documents))
   );
 
-  const actionButton = createButton('Batch edit', 'library-batch-action');
+  const activeSourceName = getActiveLibraryDeleteSourceName();
+  const actionButton = createButton(activeSourceName ? 'Review cleanup' : 'Review delete', 'library-batch-action');
   actionButton.disabled = documents.length === 0;
-  actionButton.setAttribute('aria-label', 'Edit all matching charts');
-  actionButton.addEventListener('click', openMatchingMetadataPanel);
+  actionButton.setAttribute('aria-label', activeSourceName ? 'Review cleaning up the active source' : 'Review deleting all matching charts');
+  actionButton.addEventListener('click', openLibraryDeleteReviewPanel);
 
   const previewLabel = documents.length > 0
     ? `${previewStart + 1}-${previewEnd} / ${documents.length}`
@@ -394,32 +420,310 @@ function persistChartEntrySetlists(nextSetlists: ChartSetlist[], statusMessage: 
     });
 }
 
-function openMetadataPanel(chartId: string) {
-  if (!dom.manageMetadataPanel) return;
-  openChartMetadataPanel({
-    host: dom.manageMetadataPanel,
-    target: { kind: 'single', chartId },
-    getState: () => ({ documents: currentDocuments, setlists: currentSetlists }),
-    persistState: persistMetadataState
-  });
+function getChartId(document: ChartDocument): string {
+  return String(document.metadata?.id || '').trim();
 }
 
-function openMatchingMetadataPanel() {
-  if (!dom.manageMetadataPanel) return;
-  openChartMetadataPanel({
-    host: dom.manageMetadataPanel,
-    target: {
-      kind: 'batch',
-      title: 'Matching charts',
-      getChartIds: () => getFilteredManageDocuments().map((document) => document.metadata.id)
-    },
-    getState: () => ({ documents: currentDocuments, setlists: currentSetlists }),
-    persistState: persistMetadataState
-  });
+function getChartSetlists(document: ChartDocument): ChartSetlist[] {
+  const chartId = getChartId(document);
+  return chartId ? getChartSetlistMembership(chartId, currentSetlists) : [];
 }
 
-function closeMetadataPanel() {
-  closeChartMetadataPanel(dom.manageMetadataPanel);
+function getSetlistEntryCount(documents: ChartDocument[]): number {
+  const selectedIds = new Set(documents.map(getChartId).filter(Boolean));
+  if (selectedIds.size === 0) return 0;
+  return currentSetlists.reduce((count, setlist) => count + setlist.items.filter((item) => selectedIds.has(item.chartId)).length, 0);
+}
+
+function getDeleteReviewDocuments(documents: ChartDocument[], includeSetlisted: boolean): DeleteReviewPlan {
+  const activeSourceName = getActiveLibraryDeleteSourceName();
+  const chartIds = documents.map(getChartId).filter(Boolean);
+  const preview = previewProtectedChartDelete({
+    documents,
+    setlists: currentSetlists,
+    chartIds,
+    activeSourceName
+  });
+  const setlistedDocuments = documents.filter((document) => getChartSetlists(document).length > 0);
+  const setlistedIds = new Set(setlistedDocuments.map(getChartId).filter(Boolean));
+  const sourceRefOnlyIds = new Set(preview.sourceRefOnlyChartIds);
+  const rawDeleteIds = new Set(preview.deletedChartIds);
+  const protectedDeleteIds = includeSetlisted
+    ? new Set<string>()
+    : new Set(Array.from(rawDeleteIds).filter((chartId) => setlistedIds.has(chartId)));
+  const deleteIds = new Set(Array.from(rawDeleteIds).filter((chartId) => !protectedDeleteIds.has(chartId)));
+  const knownAffectedIds = new Set([...rawDeleteIds, ...sourceRefOnlyIds]);
+  const deleteDocuments = documents.filter((document) => deleteIds.has(getChartId(document)));
+  const protectedDocuments = documents.filter((document) => protectedDeleteIds.has(getChartId(document)));
+  const setlistedDeleteDocuments = documents.filter((document) => rawDeleteIds.has(getChartId(document)) && setlistedIds.has(getChartId(document)));
+  const sourceRefOnlyDocuments = documents.filter((document) => sourceRefOnlyIds.has(getChartId(document)));
+  const skippedDocuments = activeSourceName
+    ? documents.filter((document) => {
+      const chartId = getChartId(document);
+      return chartId && !knownAffectedIds.has(chartId);
+    })
+    : [];
+  return {
+    activeSourceName,
+    setlistedDeleteDocuments,
+    protectedDocuments,
+    skippedDocuments,
+    sourceRefOnlyDocuments,
+    deleteDocuments,
+    setlistEntryDeleteCount: getSetlistEntryCount(deleteDocuments)
+  };
+}
+
+function getSetlistUsageRows(documents: ChartDocument[]): Array<{ setlist: ChartSetlist; count: number }> {
+  const selectedIds = new Set(documents.map(getChartId).filter(Boolean));
+  return currentSetlists
+    .map((setlist) => ({
+      setlist,
+      count: setlist.items.filter((item) => selectedIds.has(item.chartId)).length
+    }))
+    .filter((row) => row.count > 0)
+    .sort((left, right) => right.count - left.count || left.setlist.name.localeCompare(right.setlist.name, 'en', { sensitivity: 'base' }));
+}
+
+function closeLibraryDeleteReviewPanel(): void {
+  libraryDeleteReviewIncludesSetlisted = false;
+  libraryDeleteReviewConfirmationVisible = false;
+  if (!dom.manageMetadataPanel) return;
+  dom.manageMetadataPanel.classList.remove('library-delete-review-host');
+  dom.manageMetadataPanel.hidden = true;
+  dom.manageMetadataPanel.removeAttribute('role');
+  dom.manageMetadataPanel.removeAttribute('aria-modal');
+  dom.manageMetadataPanel.removeAttribute('aria-label');
+  dom.manageMetadataPanel.replaceChildren();
+}
+
+function createDeleteReviewStat(label: string, value: string): HTMLElement {
+  const item = document.createElement('div');
+  item.className = `library-delete-review-stat${label === 'Will delete' ? ' is-primary' : ''}`;
+  item.append(
+    createTextElement('strong', 'library-delete-review-stat-value', value),
+    createTextElement('span', 'library-delete-review-stat-label', label)
+  );
+  return item;
+}
+
+function createDeleteReviewDocumentList(documents: ChartDocument[], className: string): HTMLElement {
+  const list = document.createElement('ul');
+  list.className = className;
+  for (const chartDocument of documents.slice(0, 6)) {
+    const item = document.createElement('li');
+    item.append(createTextElement('span', 'library-delete-review-usage-name', chartDocument.metadata?.title || 'Untitled chart'));
+    list.append(item);
+  }
+  if (documents.length > 6) {
+    const more = document.createElement('li');
+    more.className = 'library-delete-review-more';
+    more.textContent = `${documents.length - 6} more charts`;
+    list.append(more);
+  }
+  return list;
+}
+
+function renderLibraryDeleteReviewPanel(): void {
+  if (!dom.manageMetadataPanel) return;
+  const documents = getFilteredManageDocuments();
+  const {
+    activeSourceName,
+    deleteDocuments,
+    protectedDocuments,
+    setlistedDeleteDocuments,
+    skippedDocuments,
+    sourceRefOnlyDocuments,
+    setlistEntryDeleteCount
+  } = getDeleteReviewDocuments(documents, libraryDeleteReviewIncludesSetlisted);
+  const usageRows = getSetlistUsageRows(libraryDeleteReviewIncludesSetlisted ? deleteDocuments : protectedDocuments);
+  const deleteCount = deleteDocuments.length;
+  const sourceRefOnlyCount = sourceRefOnlyDocuments.length;
+  const affectedCount = deleteCount + sourceRefOnlyCount;
+  const reviewTitle = activeSourceName ? 'Review source cleanup' : 'Review delete';
+
+  const panel = document.createElement('section');
+  panel.className = 'chart-metadata-panel-content library-delete-review-panel';
+  panel.setAttribute('aria-label', reviewTitle);
+
+  const header = document.createElement('div');
+  header.className = 'library-delete-review-header';
+  const heading = document.createElement('div');
+  heading.append(
+    createTextElement('h2', 'chart-metadata-title library-delete-review-title', reviewTitle),
+    createTextElement('p', 'library-delete-review-scope', getLibraryBatchScopeLabel(documents))
+  );
+  header.append(heading);
+  panel.append(header);
+
+  if (documents.length === 0) {
+    panel.append(createTextElement('p', 'home-empty chart-metadata-empty', 'No matching charts.'));
+  } else {
+    const stats = document.createElement('div');
+    stats.className = 'library-delete-review-stats';
+    stats.append(
+      createDeleteReviewStat('Matching', String(documents.length)),
+      createDeleteReviewStat('Will delete', String(deleteCount)),
+      ...(sourceRefOnlyCount > 0 ? [createDeleteReviewStat('Source refs', String(sourceRefOnlyCount))] : []),
+      ...(protectedDocuments.length > 0 ? [createDeleteReviewStat('Protected', String(protectedDocuments.length))] : []),
+      ...(setlistEntryDeleteCount > 0 ? [createDeleteReviewStat('Setlist entries', String(setlistEntryDeleteCount))] : [])
+    );
+    panel.append(stats);
+
+    if (activeSourceName && sourceRefOnlyCount > 0) {
+      const sourceNote = document.createElement('p');
+      sourceNote.className = 'library-delete-review-note';
+      sourceNote.textContent = `${sourceRefOnlyCount} matching ${pluralizeChartLabel(sourceRefOnlyCount)} also belong to another source. They will stay in the library; only "${activeSourceName}" will be removed from their sources.`;
+      panel.append(sourceNote);
+    }
+
+    if (setlistedDeleteDocuments.length > 0) {
+      const guard = document.createElement('label');
+      guard.className = 'library-delete-review-guard';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = libraryDeleteReviewIncludesSetlisted;
+      checkbox.addEventListener('change', () => {
+        libraryDeleteReviewIncludesSetlisted = checkbox.checked;
+        libraryDeleteReviewConfirmationVisible = false;
+        renderLibraryDeleteReviewPanel();
+      });
+      const guardText = document.createElement('span');
+      guardText.append(
+        createTextElement('strong', '', 'Also delete charts used in setlists'),
+        createTextElement('span', '', 'Off by default so setlists do not lose songs during library cleanup.')
+      );
+      guard.append(checkbox, guardText);
+      panel.append(guard);
+    }
+
+    if (sourceRefOnlyDocuments.length > 0) {
+      const sourceCleanup = document.createElement('section');
+      sourceCleanup.className = 'library-delete-review-usage';
+      sourceCleanup.append(
+        createTextElement('h3', 'library-delete-review-section-title', 'Source references that will be removed'),
+        createDeleteReviewDocumentList(sourceRefOnlyDocuments, 'library-delete-review-usage-list library-delete-review-document-list')
+      );
+      panel.append(sourceCleanup);
+    }
+
+    if (usageRows.length > 0) {
+      const usage = document.createElement('section');
+      usage.className = 'library-delete-review-usage';
+      usage.append(createTextElement(
+        'h3',
+        'library-delete-review-section-title',
+        libraryDeleteReviewIncludesSetlisted ? 'Setlist entries that will be removed' : 'Setlist usage protected'
+      ));
+      const usageList = document.createElement('ul');
+      usageList.className = 'library-delete-review-usage-list';
+      for (const row of usageRows.slice(0, 6)) {
+        const item = document.createElement('li');
+        item.append(
+          createTextElement('span', 'library-delete-review-usage-name', row.setlist.name),
+          createTextElement('span', 'library-delete-review-usage-count', `${row.count} ${pluralizeChartLabel(row.count)}`)
+        );
+        usageList.append(item);
+      }
+      if (usageRows.length > 6) {
+        const more = document.createElement('li');
+        more.className = 'library-delete-review-more';
+        more.textContent = `${usageRows.length - 6} more setlists`;
+        usageList.append(more);
+      }
+      usage.append(usageList);
+      panel.append(usage);
+    }
+
+    if (skippedDocuments.length > 0) {
+      const skipped = document.createElement('p');
+      skipped.className = 'library-delete-review-note';
+      skipped.textContent = `${skippedDocuments.length} matching ${pluralizeChartLabel(skippedDocuments.length)} will be skipped because they do not belong to the active source.`;
+      panel.append(skipped);
+    }
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'chart-metadata-footer-actions library-delete-review-actions';
+  const cancelButton = createButton('Cancel', 'chart-metadata-cancel');
+  cancelButton.addEventListener('click', closeLibraryDeleteReviewPanel);
+  const deleteButton = createButton(
+    affectedCount > 0
+      ? libraryDeleteReviewConfirmationVisible
+        ? deleteCount > 0
+          ? 'Confirm delete'
+          : 'Confirm update'
+        : deleteCount > 0 && sourceRefOnlyCount > 0
+          ? 'Apply changes'
+          : deleteCount > 0
+            ? `Delete ${deleteCount}`
+            : `Update ${sourceRefOnlyCount}`
+      : 'Nothing to delete',
+    libraryDeleteReviewConfirmationVisible ? 'chart-metadata-danger-confirm' : 'chart-metadata-danger-action'
+  );
+  deleteButton.disabled = affectedCount === 0;
+  deleteButton.addEventListener('click', () => {
+    if (!libraryDeleteReviewConfirmationVisible) {
+      libraryDeleteReviewConfirmationVisible = true;
+      renderLibraryDeleteReviewPanel();
+      return;
+    }
+    void deleteReviewedCharts(deleteDocuments, sourceRefOnlyDocuments, protectedDocuments.length, setlistEntryDeleteCount, activeSourceName);
+  });
+  footer.append(cancelButton, deleteButton);
+  panel.append(footer);
+
+  dom.manageMetadataPanel.replaceChildren(panel);
+  dom.manageMetadataPanel.classList.add('library-delete-review-host');
+  dom.manageMetadataPanel.hidden = false;
+  dom.manageMetadataPanel.setAttribute('role', 'dialog');
+  dom.manageMetadataPanel.setAttribute('aria-modal', 'true');
+  dom.manageMetadataPanel.setAttribute('aria-label', reviewTitle);
+  requestAnimationFrame(() => cancelButton.focus());
+}
+
+function openLibraryDeleteReviewPanel(): void {
+  libraryDeleteReviewIncludesSetlisted = false;
+  libraryDeleteReviewConfirmationVisible = false;
+  renderLibraryDeleteReviewPanel();
+}
+
+async function deleteReviewedCharts(
+  deleteDocuments: ChartDocument[],
+  sourceRefOnlyDocuments: ChartDocument[],
+  protectedCount: number,
+  setlistEntryDeleteCount: number,
+  activeSourceName: string
+): Promise<void> {
+  if (deleteDocuments.length === 0 && sourceRefOnlyDocuments.length === 0) return;
+  const deleteChartIds = deleteDocuments.map(getChartId).filter(Boolean);
+  const sourceRefOnlyChartIds = sourceRefOnlyDocuments.map(getChartId).filter(Boolean);
+  const chartIds = [...deleteChartIds, ...sourceRefOnlyChartIds];
+  const result = applyBatchMetadataOperation({
+    documents: currentDocuments,
+    setlists: currentSetlists,
+    chartIds,
+    operation: {
+      kind: 'delete',
+      ...(activeSourceName ? { activeSourceName } : {})
+    }
+  });
+  if (deleteChartIds.length > 0) removePersistedChartReferences(deleteChartIds);
+  const actionMessages = [
+    deleteChartIds.length > 0 ? `Deleted ${deleteChartIds.length} ${pluralizeChartLabel(deleteChartIds.length)}` : '',
+    sourceRefOnlyChartIds.length > 0 ? `Updated ${sourceRefOnlyChartIds.length} source reference${sourceRefOnlyChartIds.length === 1 ? '' : 's'}` : ''
+  ].filter(Boolean);
+  const protectedMessage = protectedCount > 0
+    ? ` ${protectedCount} ${pluralizeChartLabel(protectedCount)} used in setlists kept.`
+    : '';
+  const setlistMessage = setlistEntryDeleteCount > 0
+    ? ` Removed ${setlistEntryDeleteCount} setlist entr${setlistEntryDeleteCount === 1 ? 'y' : 'ies'}.`
+    : '';
+  await persistMetadataState(
+    { documents: result.documents, setlists: result.setlists },
+    `${actionMessages.join('. ')}.${protectedMessage}${setlistMessage}`
+  );
+  closeLibraryDeleteReviewPanel();
 }
 
 function createMenuButton(label: string, className = 'home-chart-entry-menu-item'): HTMLButtonElement {
@@ -459,19 +763,17 @@ function ensureAddChartPopup(): HTMLElement {
 
 function positionSetlistActionMenu(anchor: HTMLElement): void {
   const menu = ensureSetlistActionMenu();
-  const anchorRect = anchor.getBoundingClientRect();
-  const menuRect = menu.getBoundingClientRect();
-  const margin = 8;
-  const left = Math.min(
-    Math.max(margin, anchorRect.right - menuRect.width),
-    Math.max(margin, window.innerWidth - menuRect.width - margin)
-  );
-  const top = Math.min(
-    anchorRect.bottom + 4,
-    Math.max(margin, window.innerHeight - menuRect.height - margin)
-  );
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
+  positionChartEntryMenu(menu, anchor, setlistActionMenuPlacement);
+}
+
+function scheduleSetlistActionMenuPosition(): void {
+  if (setlistActionMenuPlacement !== 'centered-dialog') return;
+  if (pendingSetlistActionMenuPositionFrame || !setlistActionMenuAnchor || !setlistActionMenu || setlistActionMenu.hidden) return;
+  pendingSetlistActionMenuPositionFrame = window.requestAnimationFrame(() => {
+    pendingSetlistActionMenuPositionFrame = 0;
+    if (!setlistActionMenuAnchor || !setlistActionMenu || setlistActionMenu.hidden) return;
+    positionSetlistActionMenu(setlistActionMenuAnchor);
+  });
 }
 
 function closeSetlistActionMenu(): void {
@@ -480,6 +782,12 @@ function closeSetlistActionMenu(): void {
   activeSetlistMenuId = '';
   activeSetlistItemMenuKey = '';
   pendingDeleteSetlistId = '';
+  setlistActionMenuAnchor = null;
+  setlistActionMenuPlacement = 'anchored';
+  if (pendingSetlistActionMenuPositionFrame) {
+    window.cancelAnimationFrame(pendingSetlistActionMenuPositionFrame);
+    pendingSetlistActionMenuPositionFrame = 0;
+  }
   if (!setlistActionMenu) return;
   setlistActionMenu.hidden = true;
   setlistActionMenu.classList.remove('is-confirming-delete');
@@ -493,6 +801,8 @@ function renderSetlistDeleteConfirmation(setlist: ChartSetlist, anchor: HTMLElem
   pendingDeleteSetlistId = setlist.id;
   activeSetlistMenuId = setlist.id;
   activeSetlistItemMenuKey = '';
+  setlistActionMenuAnchor = anchor;
+  setlistActionMenuPlacement = 'centered-dialog';
   anchor.setAttribute('aria-expanded', 'true');
   menu.classList.add('is-confirming-delete');
   menu.setAttribute('role', 'dialog');
@@ -516,6 +826,7 @@ function renderSetlistDeleteConfirmation(setlist: ChartSetlist, anchor: HTMLElem
   menu.replaceChildren(confirmation);
   menu.hidden = false;
   positionSetlistActionMenu(anchor);
+  scheduleSetlistActionMenuPosition();
   requestAnimationFrame(() => cancelButton.focus());
 }
 
@@ -578,6 +889,8 @@ function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, force
   }
 
   activeSetlistMenuId = setlist.id;
+  setlistActionMenuAnchor = anchor;
+  setlistActionMenuPlacement = 'anchored';
   anchor.setAttribute('aria-expanded', 'true');
   menu.classList.remove('is-confirming-delete');
   menu.setAttribute('role', 'menu');
@@ -626,6 +939,8 @@ function openSetlistItemActionMenu(setlist: ChartSetlist, itemIndex: number, anc
 
   activeSetlistMenuId = '';
   activeSetlistItemMenuKey = menuKey;
+  setlistActionMenuAnchor = anchor;
+  setlistActionMenuPlacement = 'anchored';
   anchor.setAttribute('aria-expanded', 'true');
   menu.setAttribute('aria-label', 'Setlist item actions');
 
@@ -1120,13 +1435,17 @@ function bindChartManagementEvents() {
     renderManageCharts();
   });
   window.addEventListener('resize', () => {
+    scheduleSetlistActionMenuPosition();
     if (activeMode === 'library') {
       scheduleLibraryPreviewLayout();
       return;
     }
     document.querySelectorAll<HTMLElement>(getPageChartLinkSelector()).forEach(updateChartEntrySubtitleVisibility);
   });
-  window.visualViewport?.addEventListener('resize', scheduleLibraryPreviewLayout);
+  window.visualViewport?.addEventListener('resize', () => {
+    scheduleSetlistActionMenuPosition();
+    scheduleLibraryPreviewLayout();
+  });
   [dom.manageSourceFilter, dom.manageStyleFilter, dom.manageSetlistFilter].forEach((element) => {
     element?.addEventListener('change', () => {
       const key = element.dataset.filterKey as ChartManageFilterKey | undefined;
@@ -1150,7 +1469,7 @@ function bindChartManagementEvents() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    closeMetadataPanel();
+    closeLibraryDeleteReviewPanel();
     chartEntryActions?.closeAll();
     closeSetlistActionMenu();
     closeAddChartPopup();
