@@ -20,6 +20,8 @@ export function createPracticePlaybackSchedulerHelpers(helpers: PracticePlayback
     getBassMidi: helpers.getBassMidi,
     getBeatsPerChord: helpers.getBeatsPerChord,
     getChordsPerBar: helpers.getChordsPerBar,
+    getPlaybackMeasurePlan: helpers.getPlaybackMeasurePlan,
+    getMeasureInfoForChordIndex: helpers.getMeasureInfoForChordIndex,
     getCompingStyle: helpers.getCompingStyle,
     getCurrentPatternString: helpers.getCurrentPatternString,
     getPatternKeyOverridePitchClass: helpers.getPatternKeyOverridePitchClass,

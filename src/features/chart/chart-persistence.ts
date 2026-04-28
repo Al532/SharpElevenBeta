@@ -708,7 +708,7 @@ export async function persistChartLibrary({
 }): Promise<ChartLibraryPayload | null> {
   const normalizedLibrary = await normalizePersistedChartLibrary({
     source,
-    documents: await Promise.all(documents.map((document) => normalizeChartLibraryDocument(document)))
+    documents
   });
 
   if (!normalizedLibrary) {
@@ -762,14 +762,14 @@ export async function persistChartLibrary({
       const transaction = database.transaction(storeNames, 'readwrite');
       const transactionDone = waitForTransaction(transaction);
       const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
-      await waitForRequest(store.put(mergedLibrary, IMPORTED_CHART_LIBRARY_KEY));
+      store.put(mergedLibrary, IMPORTED_CHART_LIBRARY_KEY);
       if (database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) {
         const documentStore = transaction.objectStore(CHART_DOCUMENT_STORE_NAME);
-        await waitForRequest(documentStore.clear());
+        documentStore.clear();
         for (const document of mergedLibrary.documents) {
           const documentId = String(document?.metadata?.id || '').trim();
           if (!documentId) continue;
-          await waitForRequest(documentStore.put(document, documentId));
+          documentStore.put(document, documentId);
         }
       }
       await transactionDone;

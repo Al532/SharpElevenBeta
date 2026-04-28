@@ -47,6 +47,7 @@ export function createPlaybackAudioPlaybackAppContext({
     drumModeFullSwing: constants.drumModeFullSwing,
     drumRideSampleUrls: constants.drumRideSampleUrls,
     getDrumsMode: playbackSettings.getDrumsMode,
+    getDrumSwingRatio: playbackSettings.getDrumSwingRatio,
     getSwingRatio: playbackSettings.getSwingRatio
   });
 }

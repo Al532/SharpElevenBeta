@@ -21,6 +21,7 @@ type DrillNextPreviewConstants = {
 
 type DrillNextPreviewHelpers = {
   getSecondsPerBeat?: () => number;
+  getBeatsPerBar?: () => number;
   refreshDisplayedHarmony?: () => void;
   formatNumber?: (value: unknown, maximumFractionDigits?: number) => string;
 };
@@ -62,6 +63,7 @@ export function createDrillNextPreviewRootAppFacade({
   } = constants;
   const {
     getSecondsPerBeat = () => 0.5,
+    getBeatsPerBar = () => 4,
     refreshDisplayedHarmony = () => {},
     formatNumber = (value, maximumFractionDigits = 2) => new Intl.NumberFormat('en-US', {
       maximumFractionDigits,
@@ -84,7 +86,7 @@ export function createDrillNextPreviewRootAppFacade({
   }
 
   function barsToSeconds(bars) {
-    return normalizeNextPreviewLeadValue(bars) * 4 * getSecondsPerBeat();
+    return normalizeNextPreviewLeadValue(bars) * Math.max(1, getBeatsPerBar()) * getSecondsPerBeat();
   }
 
   function secondsToBars(seconds) {
@@ -94,7 +96,7 @@ export function createDrillNextPreviewRootAppFacade({
         ? getNextPreviewLeadValue()
         : DEFAULT_NEXT_PREVIEW_LEAD_BARS;
     }
-    return normalizeNextPreviewLeadValue(parsed / (4 * getSecondsPerBeat()));
+    return normalizeNextPreviewLeadValue(parsed / (Math.max(1, getBeatsPerBar()) * getSecondsPerBeat()));
   }
 
   function getNextPreviewInputUnit() {

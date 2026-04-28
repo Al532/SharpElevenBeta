@@ -1,4 +1,10 @@
 
+import {
+  distributeMeterItemsToBeatSlots,
+  getMetricBeatStrengths,
+  parseQuarterTimeSignature
+} from '../../core/music/meter.js';
+
 const DEFAULT_ONE_CHORD_TAG = 'one:';
 const DEFAULT_ONE_CHORD_QUALITIES = Object.freeze([
   '6', 'maj7', 'lyd', 'm7', 'm9', 'm6', 'mb6', 'mMaj7', 'm7b5', 'dim7',
@@ -76,10 +82,18 @@ type PatternAnalysisResult = PatternBase & {
   usesBarLines: boolean;
   resolvedChordsPerBar: number | null;
   expandedMeasures: PracticePatternToken[][] | null;
+  playbackMeasures: PracticePatternMeasure[] | null;
   tokens: string[];
   chords: PracticePatternToken[];
   invalidTokens: string[];
   errorMessage: string | null;
+};
+
+type PracticePatternMeasure = {
+  timeSignature: string;
+  beatsPerBar: number;
+  beatStrengths: string[];
+  chords: PracticePatternToken[];
 };
 
 type CreatePracticePatternAnalysisOptions = {
@@ -550,6 +564,71 @@ export function createPracticePatternAnalysis({
       .flatMap((token) => (/^[%/]+$/.test(token) ? token.split('') : [token]));
   }
 
+  function extractLeadingTimeSignature(body: string) {
+    const normalized = String(body || '').trim();
+    const match = normalized.match(/^time\s*:\s*(\d+\/4)(?:\s*\|\s*|\s+)?(.*)$/i);
+    if (!match) {
+      return {
+        timeSignature: '4/4',
+        body: normalized
+      };
+    }
+
+    return {
+      timeSignature: parseQuarterTimeSignature(match[1]).timeSignature,
+      body: String(match[2] || '').trim()
+    };
+  }
+
+  function extractMeasureTimeSignature(segment: string, activeTimeSignature: string) {
+    const normalized = String(segment || '').trim();
+    const match = normalized.match(/^@(\d+\/4)\s*(.*)$/);
+    if (!match) {
+      return {
+        timeSignature: activeTimeSignature,
+        body: normalized
+      };
+    }
+
+    return {
+      timeSignature: parseQuarterTimeSignature(match[1], activeTimeSignature).timeSignature,
+      body: String(match[2] || '').trim()
+    };
+  }
+
+  function tokenizeDrillMeasureItems(segment: string): string[][] {
+    const normalized = String(segment || '')
+      .replace(/([()])/g, ' $1 ')
+      .trim();
+    const tokens = tokenizeDrillSegment(normalized);
+    const items: string[][] = [];
+    let currentGroup: string[] | null = null;
+
+    for (const token of tokens) {
+      if (token === '(') {
+        if (currentGroup) items.push(currentGroup);
+        currentGroup = [];
+        continue;
+      }
+      if (token === ')') {
+        if (currentGroup && currentGroup.length > 0) items.push(currentGroup);
+        currentGroup = null;
+        continue;
+      }
+      if (currentGroup) {
+        currentGroup.push(token);
+      } else {
+        items.push([token]);
+      }
+    }
+
+    if (currentGroup && currentGroup.length > 0) {
+      items.push(currentGroup);
+    }
+
+    return items;
+  }
+
   function containsRejectedQuality(_token: string): boolean {
     return false;
   }
@@ -566,6 +645,7 @@ export function createPracticePatternAnalysis({
         usesBarLines: false,
         resolvedChordsPerBar: null,
         expandedMeasures: null,
+        playbackMeasures: null,
         tokens: oneChordSpec.qualities,
         chords: oneChordSpec.qualities.length > 0 ? [createOneChordToken(oneChordSpec.qualities[0])] : [],
         invalidTokens: oneChordSpec.invalidTokens,
@@ -580,6 +660,7 @@ export function createPracticePatternAnalysis({
         usesBarLines: false,
         resolvedChordsPerBar: null,
         expandedMeasures: null,
+        playbackMeasures: null,
         tokens: [],
         chords: [],
         invalidTokens: [],
@@ -587,80 +668,91 @@ export function createPracticePatternAnalysis({
       };
     }
 
-    const usesBarLines = base.body.includes('|');
-    const tokens = base.body ? tokenizeDrillSegment(base.body.replace(/\|+/g, ' ')) : [];
-    const chords = [];
-    const invalidTokens = [];
+    const timedBase = extractLeadingTimeSignature(base.body);
+    const usesBarLines = timedBase.body.includes('|') || /^time\s*:/i.test(base.body);
+    const tokens = timedBase.body ? tokenizeDrillSegment(timedBase.body.replace(/\|+/g, ' ')) : [];
+    const chords: PracticePatternToken[] = [];
+    const invalidTokens: string[] = [];
 
     if (usesBarLines) {
-      const measures = expandRepeatedMeasureStrings(base.body);
-      const expandedMeasures = [];
+      const measures = expandRepeatedMeasureStrings(timedBase.body);
+      const expandedMeasures: PracticePatternToken[][] = [];
+      const playbackMeasures: PracticePatternMeasure[] = [];
 
-      let previousChord = null;
+      let previousChord: PracticePatternToken | null = null;
+      let activeTimeSignature = timedBase.timeSignature;
       measures.forEach((measure, index) => {
-        const measureTokens = tokenizeDrillSegment(measure);
-        const measureChords = [];
+        const timedMeasure = extractMeasureTimeSignature(measure, activeTimeSignature);
+        activeTimeSignature = timedMeasure.timeSignature;
+        const measureItems = tokenizeDrillMeasureItems(timedMeasure.body);
+        const parsedItems: PracticePatternToken[][] = [];
 
-        for (const token of measureTokens) {
-          if (token === '%' || token === '/') {
-            if (measureChords.length > 0) {
-              const repeated = { ...measureChords[measureChords.length - 1] };
-              measureChords.push(repeated);
-              previousChord = repeated;
-            } else if (previousChord) {
-              const repeated = { ...previousChord };
-              measureChords.push(repeated);
-              previousChord = repeated;
+        for (const itemTokens of measureItems) {
+          const itemChords: PracticePatternToken[] = [];
+          for (const token of itemTokens) {
+            if (token === '%' || token === '/') {
+              if (itemChords.length > 0) {
+                const repeated = { ...itemChords[itemChords.length - 1] };
+                itemChords.push(repeated);
+                previousChord = repeated;
+              } else if (previousChord) {
+                const repeated = { ...previousChord };
+                itemChords.push(repeated);
+                previousChord = repeated;
+              } else {
+                invalidTokens.push(`${token} (measure ${index + 1})`);
+              }
+              continue;
+            }
+
+            const parsed = parseToken(token, base.basePitchClass);
+            if (parsed) {
+              itemChords.push(parsed);
+              previousChord = parsed;
+            } else if (containsRejectedQuality(token)) {
+              invalidTokens.push(`${token} (use m, m7, or m9; richer harmony may be applied by context)`);
             } else {
               invalidTokens.push(`${token} (measure ${index + 1})`);
             }
-            continue;
           }
-
-          const parsed = parseToken(token, base.basePitchClass);
-          if (parsed) {
-            measureChords.push(parsed);
-            previousChord = parsed;
-          } else if (containsRejectedQuality(token)) {
-            invalidTokens.push(`${token} (use m, m7, or m9; richer harmony may be applied by context)`);
-          } else {
-            invalidTokens.push(`${token} (measure ${index + 1})`);
-          }
+          if (itemChords.length > 0) parsedItems.push(itemChords);
         }
 
-        if (measureChords.length === 0) return;
-        expandedMeasures.push(measureChords.map((chord) => ({ ...chord })));
-        if (measureChords.length === 1) {
-          chords.push(
-            { ...measureChords[0] },
-            { ...measureChords[0] },
-            { ...measureChords[0] },
-            { ...measureChords[0] }
-          );
-          return;
-        }
-        if (measureChords.length === 2) {
-          chords.push(
-            { ...measureChords[0] },
-            { ...measureChords[0] },
-            { ...measureChords[1] },
-            { ...measureChords[1] }
-          );
-          return;
-        }
-        if (measureChords.length === 4) {
-          measureChords.forEach((chord) => chords.push({ ...chord }));
-          return;
+        if (parsedItems.length === 0) return;
+
+        const meter = parseQuarterTimeSignature(activeTimeSignature);
+        const isExplicitBeatGrid = parsedItems.length === meter.numerator
+          && parsedItems.every((item) => item.length === 1);
+        const distribution = isExplicitBeatGrid
+          ? { beatSlots: parsedItems.map((item) => item[0]), errors: [] }
+          : distributeMeterItemsToBeatSlots(parsedItems, meter.timeSignature);
+        if (distribution.errors.length > 0) {
+          distribution.errors.forEach((error) => invalidTokens.push(`${error} (measure ${index + 1})`));
         }
 
-        invalidTokens.push(`measure ${index + 1} has ${measureChords.length} chords (use 1, 2, or 4 per bar)`);
+        const beatSlots = distribution.beatSlots.map((chord) => ({ ...chord }));
+        if (beatSlots.length === 0) return;
+        expandedMeasures.push(beatSlots.map((chord) => ({ ...chord })));
+        playbackMeasures.push({
+          timeSignature: meter.timeSignature,
+          beatsPerBar: meter.numerator,
+          beatStrengths: getMetricBeatStrengths(meter.numerator),
+          chords: beatSlots.map((chord) => ({ ...chord }))
+        });
+        beatSlots.forEach((chord) => chords.push({ ...chord }));
       });
 
       return {
         ...base,
         usesBarLines,
-        resolvedChordsPerBar: 4,
+        body: timedBase.body,
+        resolvedChordsPerBar: playbackMeasures.length > 0
+          ? (playbackMeasures.every((measure) => measure.beatsPerBar === playbackMeasures[0].beatsPerBar)
+            ? playbackMeasures[0].beatsPerBar
+            : null)
+          : 4,
         expandedMeasures,
+        playbackMeasures,
         tokens,
         chords,
         invalidTokens,
@@ -689,6 +781,7 @@ export function createPracticePatternAnalysis({
       usesBarLines,
       resolvedChordsPerBar: null,
       expandedMeasures: null,
+      playbackMeasures: null,
       tokens,
       chords,
       invalidTokens,

@@ -41,6 +41,13 @@ type DrillDisplayHarmonyHelpersOptions = {
 
 type DrillPreviewTimingHelpersOptions = {
   getChordsPerBar?: () => number;
+  getPlaybackMeasurePlan?: () => Array<{
+    startChordIdx?: number;
+    endChordIdx?: number;
+    startBeat?: number;
+    endBeat?: number;
+    beatCount?: number;
+  }> | null;
   getSecondsPerBeat?: () => number;
   getNextPreviewLeadSeconds?: () => number;
   getCurrentChordIdx?: () => number;
@@ -266,6 +273,7 @@ export function createDrillHarmonyDisplayHelpers({
 
 export function createDrillPreviewTimingHelpers({
   getChordsPerBar = () => 1,
+  getPlaybackMeasurePlan = () => null,
   getSecondsPerBeat = () => 0.5,
   getNextPreviewLeadSeconds = () => 0,
   getCurrentChordIdx = () => 0,
@@ -278,6 +286,19 @@ export function createDrillPreviewTimingHelpers({
     chordCount = getChordCount()
   ) {
     if (!Number.isFinite(chordCount) || chordCount <= 0) return 0;
+    const measurePlan = getPlaybackMeasurePlan?.();
+    if (Array.isArray(measurePlan) && measurePlan.length > 0) {
+      const finalMeasure = measurePlan[measurePlan.length - 1];
+      const totalBeats = Number(finalMeasure?.endBeat ?? finalMeasure?.endChordIdx ?? chordCount);
+      const activeMeasure = measurePlan.find((measure) =>
+        chordIndex >= Number(measure?.startChordIdx || 0)
+        && chordIndex < Number(measure?.endChordIdx || 0)
+      );
+      const elapsedBeats = activeMeasure
+        ? Number(activeMeasure.startBeat || 0) + beatInMeasure
+        : chordIndex;
+      return Math.max(0, totalBeats - elapsedBeats);
+    }
     const chordsPerMeasure = getChordsPerBar();
     const totalMeasures = chordCount / chordsPerMeasure;
     const currentMeasure = Math.floor(chordIndex / chordsPerMeasure);

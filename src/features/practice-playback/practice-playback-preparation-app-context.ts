@@ -45,6 +45,7 @@ export function createPracticePlaybackPreparationAppContext({
     getCurrentKey: progressionState.getCurrentKey,
     getCurrentVoicingPlan: progressionState.getCurrentVoicingPlan,
     getBeatsPerChord: playbackSettings.getBeatsPerChord,
+    getChordsPerBar: playbackSettings.getChordsPerBar,
     getCompingStyle: playbackSettings.getCompingStyle,
     getTempoBpm: playbackSettings.getTempoBpm,
     isWalkingBassEnabled: playbackSettings.isWalkingBassEnabled,

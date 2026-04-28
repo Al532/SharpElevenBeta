@@ -1,4 +1,10 @@
 
+import {
+  createMetricGroups,
+  getMetricBeatStrengths
+} from '../../core/music/meter.js';
+import { getSwingOffbeatPositionBeats } from '../../core/music/swing-utils.js';
+
 type DrillMixerNodes = Record<string, GainNode>;
 
 type PlaybackAudioPlaybackRuntimeOptions = {
@@ -18,6 +24,7 @@ type PlaybackAudioPlaybackRuntimeOptions = {
   drumModeFullSwing?: string;
   drumRideSampleUrls?: string[];
   getDrumsMode?: () => string;
+  getDrumSwingRatio?: () => number;
   getSwingRatio?: () => number;
   initialRideSampleCursor?: number;
 };
@@ -40,6 +47,7 @@ type PlaybackAudioPlaybackRuntimeOptions = {
  * @param {string} [options.drumModeFullSwing]
  * @param {string[]} [options.drumRideSampleUrls]
  * @param {() => string} [options.getDrumsMode]
+ * @param {() => number} [options.getDrumSwingRatio]
  * @param {() => number} [options.getSwingRatio]
  * @param {number} [options.initialRideSampleCursor]
  */
@@ -60,6 +68,7 @@ export function createPlaybackAudioPlaybackRuntime({
   drumModeFullSwing = 'full_swing',
   drumRideSampleUrls = [],
   getDrumsMode = () => drumModeOff,
+  getDrumSwingRatio,
   getSwingRatio = () => 0,
   initialRideSampleCursor = Math.floor(Math.random() * Math.max(1, drumRideSampleUrls.length))
 }: PlaybackAudioPlaybackRuntimeOptions = {}) {
@@ -181,28 +190,43 @@ export function createPlaybackAudioPlaybackRuntime({
     playDrumSample(getNextRideSampleName(), time, gainValue * drumsGainMultiplier, playbackRate);
   }
 
-  function scheduleDrumsForBeat(time: number, beatIndex: number, spb: number) {
+  function getMetricLocalBeat(beatIndex: number, beatCount = 4) {
+    const groups = createMetricGroups(beatCount);
+    const group = groups.find((entry) => beatIndex >= entry.startBeat && beatIndex < entry.endBeat) || groups[0];
+    return Math.max(0, beatIndex - (group?.startBeat || 0));
+  }
+
+  function scheduleDrumsForBeat(
+    time: number,
+    beatIndex: number,
+    spb: number,
+    measureInfo: { beatCount?: number } | null = null
+  ) {
     const mode = getDrumsMode();
     if (mode === drumModeOff) return;
 
-    const isTwoOrFour = beatIndex === 1 || beatIndex === 3;
+    const beatCount = Math.max(1, Number(measureInfo?.beatCount || 4));
+    const beatStrengths = getMetricBeatStrengths(beatCount);
+    const isWeakBeat = beatStrengths[beatIndex] === 'weak';
     if (mode === drumModeMetronome24) {
-      if (isTwoOrFour) playClick(time, false);
+      if (isWeakBeat) playClick(time, false);
       return;
     }
 
     if (mode === drumModeHihats24) {
-      if (isTwoOrFour) playHiHat(time, true);
+      if (isWeakBeat) playHiHat(time, true);
       return;
     }
 
     if (mode === drumModeFullSwing) {
-      const rideMainGain = [0.23, 0.34, 0.2, 0.31][beatIndex] || 0.28;
-      const rideSkipGain = [0, 0.15, 0, 0.18][beatIndex] || 0;
-      const swingOffsetSeconds = spb * getSwingRatio();
+      const localBeat = getMetricLocalBeat(beatIndex, beatCount);
+      const rideMainGain = [0.18, 0.34, 0.15, 0.31][localBeat] || 0.28;
+      const rideSkipGain = [0, 0.2, 0, 0.23][localBeat] || 0;
+      const drumSwingRatio = typeof getDrumSwingRatio === 'function' ? getDrumSwingRatio() : getSwingRatio();
+      const swingOffsetSeconds = spb * getSwingOffbeatPositionBeats(drumSwingRatio);
 
       playRide(time, rideMainGain, beatIndex === 0 ? 1.01 : 1);
-      if (isTwoOrFour) {
+      if (isWeakBeat) {
         playRide(time + swingOffsetSeconds, rideSkipGain, 0.99);
         playHiHat(time, true);
       }

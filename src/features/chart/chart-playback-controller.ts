@@ -46,7 +46,27 @@ export function createChartPlaybackController({
     const chordIndex = Number(playbackState.currentChordIdx);
     if (!Number.isFinite(chordIndex) || chordIndex < 0) return -1;
 
-    return Math.floor(chordIndex / 4) % practiceBars.length;
+    let cursor = 0;
+    for (let index = 0; index < practiceBars.length; index += 1) {
+      const barBeatCount = Math.max(1, practiceBars[index]?.beatSlots?.length || 4);
+      if (chordIndex >= cursor && chordIndex < cursor + barBeatCount) {
+        return index;
+      }
+      cursor += barBeatCount;
+    }
+
+    const totalBeatCount = Math.max(1, cursor);
+    const loopedChordIndex = ((chordIndex % totalBeatCount) + totalBeatCount) % totalBeatCount;
+    cursor = 0;
+    for (let index = 0; index < practiceBars.length; index += 1) {
+      const barBeatCount = Math.max(1, practiceBars[index]?.beatSlots?.length || 4);
+      if (loopedChordIndex >= cursor && loopedChordIndex < cursor + barBeatCount) {
+        return index;
+      }
+      cursor += barBeatCount;
+    }
+
+    return -1;
   }
 
   function ensurePlaybackController(): PlaybackSessionController {

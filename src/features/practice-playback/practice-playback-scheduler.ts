@@ -19,6 +19,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getCompingStyle,
     getBeatsPerChord,
     getChordsPerBar,
+    getPlaybackMeasurePlan,
+    getMeasureInfoForChordIndex,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getSecondsPerBeat,
@@ -43,6 +45,22 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     trackProgressionOccurrence,
     updateBeatDots
   } = helpers;
+
+  function getMeasureInfo(chordIndex = state.currentChordIdx) {
+    return typeof getMeasureInfoForChordIndex === 'function'
+      ? getMeasureInfoForChordIndex(chordIndex)
+      : null;
+  }
+
+  function getMeasureBeatCount(chordIndex = state.currentChordIdx) {
+    const measureInfo = getMeasureInfo(chordIndex);
+    return Math.max(1, Number(measureInfo?.beatCount || 4));
+  }
+
+  function hasExplicitMeasurePlan() {
+    const plan = typeof getPlaybackMeasurePlan === 'function' ? getPlaybackMeasurePlan() : null;
+    return Array.isArray(plan) && plan.length > 0;
+  }
 
   function prepareNextProgression() {
     const carriedBassTargetMidi = state.pendingBassTargetMidi ?? null;
@@ -206,7 +224,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         });
 
         state.currentBeat++;
-        if (state.currentBeat >= 4) {
+        if (state.currentBeat >= getMeasureBeatCount(0)) {
           state.currentBeat = 0;
           state.isIntro = false;
         }
@@ -214,19 +232,28 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         continue;
       }
 
-      scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb);
+      const explicitMeasurePlan = hasExplicitMeasurePlan();
+      const measureInfo = getMeasureInfo(state.currentChordIdx);
+      const beatsPerMeasure = Math.max(1, Number(measureInfo?.beatCount || 4));
+      scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb, measureInfo);
 
       const chord = state.paddedChords[state.currentChordIdx];
       const noteDuration = beatsPerChord * spb;
       const chordsPerMeasure = chordsPerBar;
-      const windowStartBeats = Math.floor(state.currentChordIdx / chordsPerMeasure) * 4 + state.currentBeat;
+      const windowStartBeats = explicitMeasurePlan && measureInfo
+        ? measureInfo.startBeat + state.currentBeat
+        : Math.floor(state.currentChordIdx / chordsPerMeasure) * 4 + state.currentBeat;
       const windowEndBeats = windowStartBeats + 1;
       const beatStep = beatsPerChord;
       const measureProgressBeats = (state.currentChordIdx % chordsPerMeasure) * beatStep;
-      const isChordBeat = Math.abs(state.currentBeat - measureProgressBeats) < 0.001;
+      const isChordBeat = explicitMeasurePlan
+        ? true
+        : Math.abs(state.currentBeat - measureProgressBeats) < 0.001;
       const customBassEnabled = isWalkingBassEnabled();
       const measureStartChordIdx = Math.floor(state.currentChordIdx / chordsPerMeasure) * chordsPerMeasure;
-      const measureStartBeats = Math.floor(windowStartBeats / 4) * 4;
+      const measureStartBeats = explicitMeasurePlan && measureInfo
+        ? measureInfo.startBeat
+        : Math.floor(windowStartBeats / 4) * 4;
 
 
       if (customBassEnabled) {
@@ -340,12 +367,12 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       });
 
       state.currentBeat++;
-      if (state.currentBeat >= 4) {
+      if (state.currentBeat >= beatsPerMeasure) {
         state.currentBeat = 0;
       }
 
       const nextMeasureProgressBeats = ((state.currentChordIdx + 1) % chordsPerMeasure) * beatStep;
-      if (state.currentBeat === 0 || Math.abs(state.currentBeat - nextMeasureProgressBeats) < 0.001) {
+      if (explicitMeasurePlan || state.currentBeat === 0 || Math.abs(state.currentBeat - nextMeasureProgressBeats) < 0.001) {
         state.currentChordIdx++;
       }
 

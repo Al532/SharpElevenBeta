@@ -121,6 +121,12 @@ import { initializeEmbeddedPracticeRuntime } from '../src/features/drill/drill-e
 import { createPlaybackAudioRuntime } from '../src/features/playback-audio/playback-audio-runtime.ts';
 import { createEmbeddedPracticeRuntimeAppContextOptions } from '../src/features/drill/drill-embedded-runtime-app-context.ts';
 import { createPracticePatternAnalysis } from '../src/features/practice-patterns/practice-pattern-analysis.ts';
+import {
+  createMetricGroups,
+  distributeChordsToMeterBeatSlots,
+  getMetricBeatStrengths,
+  getMetricGroupPriority
+} from '../src/core/music/meter.ts';
 import { loadPracticePatternHelp } from '../src/features/practice-patterns/practice-pattern-help.ts';
 import { validatePracticeCustomPattern } from '../src/features/practice-patterns/practice-pattern-validation.ts';
 import { createDrillHarmonyDisplayHelpers } from '../src/features/drill/drill-display-runtime.ts';
@@ -135,6 +141,7 @@ import { createPracticePlaybackResourcesAppFacade } from '../src/features/practi
 import { createPracticePlaybackSettingsRuntime } from '../src/features/practice-playback/practice-playback-settings-runtime.ts';
 import { createDrillSessionAnalytics } from '../src/features/drill/drill-session-analytics.ts';
 import { createDrillKeyPoolRuntime } from '../src/features/drill/drill-key-pool-runtime.ts';
+import { createDrillTempoRuntimeRootAppAssembly } from '../src/features/drill/drill-tempo-runtime-root-app-assembly.ts';
 import { createPracticePlaybackRuntimeHost } from '../src/features/practice-playback/practice-playback-runtime-host.ts';
 import { createPracticeArrangementVoicingRuntime } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime.ts';
 import {
@@ -177,6 +184,12 @@ import {
 import { createPlaybackSamplePlaybackRuntime } from '../src/features/playback-audio/playback-sample-playback-runtime.ts';
 import { createPlaybackSamplePlaybackAppContext } from '../src/features/playback-audio/playback-sample-playback-app-context.ts';
 import { createPlaybackSamplePreloadAppContext } from '../src/features/playback-audio/playback-sample-preload-app-context.ts';
+import {
+  getDrumSwingRatioForTempoBpm,
+  getLightSwingRatioForTempoBpm,
+  getSwingOffbeatPositionBeats,
+  swingPercentToRatio
+} from '../src/core/music/swing-utils.ts';
 import { createPlaybackSamplePreloadRuntime } from '../src/features/playback-audio/playback-sample-preload-runtime.ts';
 import { createPlaybackScheduledAudioRuntime } from '../src/features/playback-audio/playback-scheduled-audio-runtime.ts';
 import { createPlaybackScheduledAudioAppContext } from '../src/features/playback-audio/playback-scheduled-audio-app-context.ts';
@@ -387,6 +400,36 @@ const drillPatternAnalysis = createPracticePatternAnalysis({
   defaultChordsPerBar: 1,
   supportedChordsPerBar: [1, 2, 4]
 });
+assert.deepEqual(
+  createMetricGroups(11).map((group) => group.size),
+  [3, 3, 3, 2],
+  'Meter helpers decompose 11/4 into as many groups of three as possible plus the remaining two.'
+);
+assert.deepEqual(
+  getMetricGroupPriority(createMetricGroups(11)),
+  [0, 2, 3, 1],
+  'Meter helpers prioritize first, central-right, then remaining groups from the end.'
+);
+assert.deepEqual(
+  distributeChordsToMeterBeatSlots(['C', 'F', 'G'], '4/4').beatSlots,
+  ['C', 'C', 'F', 'G'],
+  'Meter fallback puts the ambiguous extra 4/4 chord at the end.'
+);
+assert.deepEqual(
+  distributeChordsToMeterBeatSlots(['A', 'B'], '3/4').beatSlots,
+  ['A', 'A', 'B'],
+  'Meter fallback puts the ambiguous 3/4 change at the end of the group.'
+);
+assert.deepEqual(
+  getMetricBeatStrengths(3),
+  ['strong', 'weak', 'strong'],
+  'Meter helpers expose 3/4 strong-weak-strong beat strength.'
+);
+assert.deepEqual(
+  distributeChordsToMeterBeatSlots(['A', 'B', 'C', 'D'], '11/4').beatSlots,
+  ['A', 'A', 'A', 'D', 'D', 'D', 'B', 'B', 'B', 'C', 'C'],
+  'Meter fallback places four 11/4 chords in group priority order 1, 3, 4, then 2.'
+);
 assert.equal(
   drillPatternAnalysis.normalizePatternString('key: Eb\nDm7 - G7'),
   'key: Eb Dm7 G7',
@@ -411,6 +454,26 @@ assert.equal(
   drillPatternAnalysis.padProgression([{ semitones: 0 }, { semitones: 7 }, { semitones: 5 }], 2).length,
   4,
   'Drill pattern analysis pads odd progression lengths to an even number of measures.'
+);
+assert.deepEqual(
+  drillPatternAnalysis.analyzePattern('time: 3/4 | A B |').expandedMeasures.map((measure) => measure.map((chord) => chord.label)),
+  [['A', 'A', 'B']],
+  'Drill pattern analysis expands 3/4 measures with the end-populated fallback.'
+);
+assert.deepEqual(
+  drillPatternAnalysis.analyzePattern('key: C | C F G |').expandedMeasures.map((measure) => measure.map((chord) => chord.label)),
+  [['C', 'C', 'F', 'G']],
+  'Drill pattern analysis keeps the default 4/4 three-chord fallback.'
+);
+assert.deepEqual(
+  drillPatternAnalysis.analyzePattern('key: C | (C F) G |').expandedMeasures.map((measure) => measure.map((chord) => chord.label)),
+  [['C', 'F', 'G', 'G']],
+  'Drill pattern analysis lets parentheses force two chords into the first metric group.'
+);
+assert.deepEqual(
+  drillPatternAnalysis.analyzePattern('key: C | @3/4 A B | @4/4 C F G |').expandedMeasures.map((measure) => measure.map((chord) => chord.label)),
+  [['A', 'A', 'B'], ['C', 'C', 'F', 'G']],
+  'Drill pattern analysis supports per-measure X/4 overrides.'
 );
 const currentProgressionVoicingPlan = [{ id: 'current-voicing' }];
 const nextProgressionVoicingPlan = [{ id: 'next-voicing' }];
@@ -478,6 +541,39 @@ assert.deepEqual(
   drillKeyPoolRuntime.getEffectiveKeyPool(),
   Array.from({ length: 12 }, (_, index) => index),
   'Drill key-pool runtime falls back to the full chromatic pool when no keys are enabled.'
+);
+assert.equal(
+  getDrumSwingRatioForTempoBpm(160),
+  2,
+  'Swing utilities express ternary swing as a 2:1 long-to-short ratio.'
+);
+assert.ok(
+  Math.abs(getSwingOffbeatPositionBeats(2) - (2 / 3)) < 0.000001,
+  'Swing utilities convert the public 2:1 ratio to the historical two-thirds offbeat placement.'
+);
+assert.equal(
+  getLightSwingRatioForTempoBpm(160),
+  1.55,
+  'Swing utilities derive the lighter non-drum swing ratio from the drum curve.'
+);
+assert.ok(
+  Math.abs(swingPercentToRatio(66.6666667) - 2) < 0.000001,
+  'Swing utilities migrate the old 66.666 percent value to a 2:1 ratio.'
+);
+const tempoSwingRuntime = createDrillTempoRuntimeRootAppAssembly({
+  dom: {
+    tempoSlider: { value: '160' }
+  }
+});
+assert.equal(
+  tempoSwingRuntime.getDrumSwingRatio(),
+  2,
+  'Drill tempo runtime exposes the BPM-adaptive drum swing ratio.'
+);
+assert.equal(
+  tempoSwingRuntime.getSwingRatio(),
+  1.55,
+  'Drill tempo runtime exposes the lighter BPM-adaptive ratio for non-drum instruments.'
 );
 const drillHarmonyDisplayHelpers = createDrillHarmonyDisplayHelpers({
   keyNamesMajor: ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
@@ -1517,7 +1613,7 @@ const embeddedRuntimeAssembly = createDrillEmbeddedRuntimeAppAssembly({
     normalizeHarmonyDisplayMode: (value) => value
   },
   playbackSettings: {
-    getSwingRatio: () => 0.5,
+    getSwingRatio: () => 1,
     getCompingStyle: () => 'piano',
     getDrumsMode: () => 'full_swing',
     isWalkingBassEnabled: () => true,
@@ -1715,7 +1811,7 @@ const audioStackAssembly = createPlaybackAudioStackAppAssembly({
     },
     playbackSettings: {
       getDrumsMode: () => 'off',
-      getSwingRatio: () => 0.5
+      getDrumSwingRatio: () => 1
     },
     constants: {
       metronomeGainMultiplier: 1,
@@ -2147,7 +2243,7 @@ const audioPlaybackRuntime = createPlaybackAudioPlaybackRuntime({
   drumModeFullSwing: 'full_swing',
   drumRideSampleUrls: ['ride-0'],
   getDrumsMode: () => audioPlaybackMode,
-  getSwingRatio: () => 0.5,
+  getDrumSwingRatio: () => 1,
   initialRideSampleCursor: 0
 });
 audioPlaybackRuntime.initAudio();
@@ -2191,7 +2287,7 @@ const audioPlaybackAppContext = createPlaybackAudioPlaybackAppContext({
   },
   playbackSettings: {
     getDrumsMode: () => 'off',
-    getSwingRatio: () => 0.5
+    getDrumSwingRatio: () => 1
   },
   constants: {
     metronomeGainMultiplier: 1,
@@ -2464,7 +2560,7 @@ const playbackPreparationRuntime = createPracticePlaybackPreparationRuntime({
   getCompingStyle: () => 'piano',
   getTempoBpm: () => 140,
   isWalkingBassEnabled: () => true,
-  getSwingRatio: () => 0.6,
+  getSwingRatio: () => 1.6,
   getCurrentBassPlan: () => preparedCurrentBassPlan,
   setCurrentBassPlan: (value) => { preparedCurrentBassPlan = value; },
   getNextPaddedChordsForBass: () => [{ semitones: 5 }],
@@ -2554,7 +2650,7 @@ const playbackPreparationAppContext = createPracticePlaybackPreparationAppContex
     getCompingStyle: () => 'piano',
     getTempoBpm: () => 140,
     isWalkingBassEnabled: () => true,
-    getSwingRatio: () => 0.6
+    getSwingRatio: () => 1.6
   },
   runtime: {
     compingEngine: {
@@ -2735,6 +2831,67 @@ assert.equal(
   legacySlashSession.playback.enginePatternString,
   'key: C | Eb7/F Eb7/F Eb7/F Eb7/F |',
   'Chart playback rebuilds slash chords from structured root/quality/bass fields when persisted symbols contain stale suffixes.'
+);
+
+const threeFourSession = createPracticeSessionFromChartDocument(createChartDocument({
+  metadata: {
+    id: 'three-four',
+    title: 'Three Four',
+    primaryTimeSignature: '3/4',
+    barCount: 1
+  },
+  bars: [{
+    id: 'bar-1',
+    index: 1,
+    sectionId: 'A-1',
+    sectionLabel: 'A',
+    timeSignature: '3/4',
+    endings: [],
+    flags: [],
+    directives: [],
+    comments: [],
+    sourceEvent: null,
+    repeatedFromBar: null,
+    specialEvents: [],
+    annotationMisc: [],
+    spacerCount: 0,
+    chordSizes: [],
+    notation: {
+      kind: 'written',
+      tokens: []
+    },
+    playback: {
+      slots: [{
+        kind: 'chord',
+        symbol: 'A',
+        root: 'A',
+        quality: '',
+        bass: null,
+        displayPrefix: '',
+        alternate: null
+      }, {
+        kind: 'chord',
+        symbol: 'B',
+        root: 'B',
+        quality: '',
+        bass: null,
+        displayPrefix: '',
+        alternate: null
+      }],
+      overlaySlots: [],
+      cellSlots: []
+    }
+  }]
+}));
+assert.deepEqual(
+  threeFourSession.playback.bars[0].beatSlots,
+  ['A', 'A', 'B'],
+  'Chart playback expands a 3/4 two-chord bar to three beat slots by end-populated fallback.'
+);
+assert.equal(
+  threeFourSession.playback.enginePatternString,
+  'key: C | @3/4 A A B |',
+  'Chart playback preserves non-4/4 meter in the engine pattern string.'
 );
 
 const allTheThings = byTitle.get('All The Things You Are');
@@ -4315,7 +4472,7 @@ const embeddedRuntimeAppContextOptions = createEmbeddedPracticeRuntimeAppContext
     normalizeHarmonyDisplayMode: (value) => String(value || 'default')
   },
   playbackSettings: {
-    getSwingRatio: () => 0.6,
+    getSwingRatio: () => 1.6,
     getCompingStyle: () => 'piano',
     getDrumsMode: () => 'brushes',
     isWalkingBassEnabled: () => true,

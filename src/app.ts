@@ -297,6 +297,7 @@ let showNextColImpl: NoArgsFn = () => {};
 let hideNextColImpl: NoArgsFn = () => {};
 let applyCurrentHarmonyVisibilityImpl: NoArgsFn = () => {};
 let getSecondsPerBeatImpl: NoArgsFn<number> = () => 60 / 120;
+let getDrumSwingRatioImpl: NoArgsFn<number> = () => DEFAULT_SWING_RATIO;
 let getSwingRatioImpl: NoArgsFn<number> = () => DEFAULT_SWING_RATIO;
 let buildProgressionImpl: UnknownArgsFn<unknown[]> = () => [];
 let validateCustomPatternImpl: NoArgsFn<boolean> = () => true;
@@ -408,6 +409,10 @@ function syncPatternPreview() {
 
 function getSecondsPerBeat() {
   return getSecondsPerBeatImpl();
+}
+
+function getDrumSwingRatio() {
+  return getDrumSwingRatioImpl();
 }
 
 function getSwingRatio() {
@@ -810,6 +815,8 @@ const {
   getSelectedChordsPerBar,
   getPatternKeyOverridePitchClass,
   getChordsPerBar,
+  getPlaybackMeasurePlan,
+  getMeasureInfoForChordIndex,
   getBeatsPerChord,
   padProgression,
   canLoopTrimProgression,
@@ -1036,7 +1043,7 @@ const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
     },
     playbackSettings: {
       getDrumsMode,
-      getSwingRatio
+      getDrumSwingRatio
     },
     constants: {
       metronomeGainMultiplier: METRONOME_GAIN_MULTIPLIER,
@@ -1308,6 +1315,7 @@ const {
   playbackSettings: {
     getIsMinorMode: () => dom.majorMinor.checked,
     getBeatsPerChord,
+    getChordsPerBar,
     getCompingStyle,
     getTempoBpm: () => Number(dom.tempoSlider?.value || 120),
     isWalkingBassEnabled,
@@ -1443,6 +1451,7 @@ const {
   },
   previewTiming: {
     getChordsPerBar,
+    getPlaybackMeasurePlan,
     getSecondsPerBeat,
     getNextPreviewLeadSeconds,
     getCurrentChordIdx: () => currentChordIdx,
@@ -1543,6 +1552,7 @@ let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
 
 const {
   getSecondsPerBeat: tempoGetSecondsPerBeat,
+  getDrumSwingRatio: tempoGetDrumSwingRatio,
   getSwingRatio: tempoGetSwingRatio
 } = createDrillTempoRuntimeRootAppAssembly({
   dom,
@@ -1552,6 +1562,7 @@ const {
 });
 
 getSecondsPerBeatImpl = tempoGetSecondsPerBeat;
+getDrumSwingRatioImpl = tempoGetDrumSwingRatio;
 getSwingRatioImpl = tempoGetSwingRatio;
 
 let getNextPreviewLeadSecondsImpl: NoArgsFn<number> = () => 0;
@@ -1587,6 +1598,7 @@ const {
   },
   helpers: {
     getSecondsPerBeat,
+    getBeatsPerBar: getChordsPerBar,
     refreshDisplayedHarmony,
     formatNumber: (value, maximumFractionDigits = 2) => {
       const rounded = Math.round(Number(value || 0) * 100) / 100;
@@ -2067,6 +2079,8 @@ const {
     getBassMidi,
     getBeatsPerChord,
     getChordsPerBar,
+    getPlaybackMeasurePlan,
+    getMeasureInfoForChordIndex,
     getCompingStyle,
     getCurrentPatternString,
     getPatternKeyOverridePitchClass,

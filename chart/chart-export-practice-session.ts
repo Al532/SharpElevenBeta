@@ -16,7 +16,10 @@ import {
  * @returns {PracticeSessionExport}
  */
 export function createPracticeSessionExportFromPlaybackPlan(playbackPlan, chartDocument) {
-  const practiceBars = createPracticePlaybackBarsFromChartEntries(playbackPlan?.entries || []);
+  const practiceBars = createPracticePlaybackBarsFromChartEntries(
+    playbackPlan?.entries || [],
+    chartDocument?.metadata?.primaryTimeSignature || playbackPlan?.timeSignature || ''
+  );
   const bars = practiceBars.map((bar) => bar.symbols.join(' ')).filter(Boolean);
   const engineBars = practiceBars.map((bar) => bar.beatSlots.join(' ')).filter(Boolean);
   const patternString = buildLegacyPatternStringFromPracticeBars(practiceBars);

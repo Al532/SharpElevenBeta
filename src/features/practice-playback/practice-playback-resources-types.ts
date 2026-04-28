@@ -46,6 +46,7 @@ export type PracticePlaybackResourcesProgressionStateBindings = {
 export type PracticePlaybackResourcesSettingsBindings = {
   getIsMinorMode?: () => boolean;
   getBeatsPerChord?: () => number;
+  getChordsPerBar?: () => number;
   getCompingStyle?: () => string;
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
@@ -69,6 +70,7 @@ export type PracticePlaybackResourcesCompingEngine = {
       isMinor: boolean;
       voicingPlan: unknown[];
       beatsPerChord: number;
+      beatsPerBar?: number;
     };
     next: {
       chords: PracticePlaybackResourceChord[] | null;
@@ -76,6 +78,7 @@ export type PracticePlaybackResourcesCompingEngine = {
       isMinor: boolean;
       voicingPlan: PracticePlaybackVoicingPlan;
       beatsPerChord: number;
+      beatsPerBar?: number;
     };
   }) => PracticePlaybackPreparedPlans;
 };
@@ -85,6 +88,7 @@ export type PracticePlaybackResourcesWalkingBassGenerator = {
     chords: PracticePlaybackResourceChord[];
     key: number;
     beatsPerChord: number;
+    beatsPerBar?: number;
     tempoBpm: number;
     isMinor: boolean;
     initialPendingTargetMidi: number | null;

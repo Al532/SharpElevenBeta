@@ -57,7 +57,12 @@ export type PlaybackAudioPlaybackLike = {
   playHiHat?: (time: number, accent?: boolean) => void;
   getNextRideSampleName?: () => string;
   playRide?: (time: number, gainValue?: number, playbackRate?: number) => void;
-  scheduleDrumsForBeat?: (time: number, beatIndex: number, spb: number) => void;
+  scheduleDrumsForBeat?: (
+    time: number,
+    beatIndex: number,
+    spb: number,
+    measureInfo?: { beatCount?: number } | null
+  ) => void;
 };
 
 export type PlaybackSamplePlaybackLike = {
@@ -115,6 +120,7 @@ export type PlaybackAudioHelpersContext = {
 
 export type PracticePlaybackSettingsContext = {
   getDrumsMode?: () => string;
+  getDrumSwingRatio?: () => number;
   getSwingRatio?: () => number;
 };
 

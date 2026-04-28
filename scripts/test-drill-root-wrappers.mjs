@@ -131,7 +131,7 @@ function createCompingOptions() {
       getPreparedNextProgression: () => null,
       getPianoVoicingMode: () => 'piano',
       getSecondsPerBeat: () => 0.5,
-      getSwingRatio: () => 2 / 3,
+      getSwingRatio: () => 2,
       getVoicingAtIndex: () => null,
       playSample: () => null
     }
@@ -531,7 +531,7 @@ function testSharedPlaybackRootContextBuildsSubcontexts() {
     host: { getTempo: () => 120 },
     patternUi: { getCurrentPatternMode: () => 'major' },
     normalization: { normalizePatternString: (value) => value.trim() },
-    playbackSettings: { getSwingRatio: () => 2 / 3 },
+    playbackSettings: { getSwingRatio: () => 2 },
     embeddedPlaybackState: { isEmbeddedMode: true },
     embeddedPlaybackRuntime: { noteFadeout: 0.1 },
     embeddedTransportActions: {},

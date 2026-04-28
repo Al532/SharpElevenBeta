@@ -8,6 +8,7 @@ import {
   getSwingFirstSubdivisionDurationBeats,
   getSwingSecondSubdivisionDurationBeats,
 } from '../../core/music/swing-utils.js';
+import { getMetricBeatStrengths } from '../../core/music/meter.js';
 
 type PracticeArrangementWalkingBassVoicingConfig = {
   GUIDE_TONES?: Record<string, unknown>;
@@ -356,7 +357,7 @@ function chooseRepeatedNoteMidi(currentEvent, nextEvent, low, high) {
   return octaveOptions[0].midi;
 }
 
-function applyRepeatedNoteEffect(events, low, high, swingRatio = DEFAULT_SWING_RATIO) {
+function applyRepeatedNoteEffect(events, low, high, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4) {
   if (!Array.isArray(events) || events.length < 2) return events;
 
   const embellished = [];
@@ -367,7 +368,7 @@ function applyRepeatedNoteEffect(events, low, high, swingRatio = DEFAULT_SWING_R
   for (let index = 0; index < events.length; index += 1) {
     const currentEvent = events[index];
     const nextEvent = events[index + 1] || null;
-    const measureIndex = Math.floor(currentEvent.timeBeats / 4);
+    const measureIndex = Math.floor(currentEvent.timeBeats / Math.max(1, beatsPerBar));
     let shouldApplyEffect = false;
 
     if (nextEvent) {
@@ -407,22 +408,24 @@ function isWholeBeat(value) {
   return Math.abs(value - Math.round(value)) < 0.001;
 }
 
-function getMeasureBeatPosition(timeBeats) {
-  return ((Math.round(timeBeats) % 4) + 4) % 4;
+function getMeasureBeatPosition(timeBeats, beatsPerBar = 4) {
+  const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
+  return ((Math.round(timeBeats) % normalizedBeatsPerBar) + normalizedBeatsPerBar) % normalizedBeatsPerBar;
 }
 
-function isStrongToWeakBeatPair(leftEvent, rightEvent) {
+function isStrongToWeakBeatPair(leftEvent, rightEvent, beatsPerBar = 4) {
   if (!leftEvent || !rightEvent) return false;
   if (!isWholeBeat(leftEvent.timeBeats) || !isWholeBeat(rightEvent.timeBeats)) return false;
   if (Math.abs((rightEvent.timeBeats - leftEvent.timeBeats) - 1) > 0.001) return false;
 
-  const leftBeatPosition = getMeasureBeatPosition(leftEvent.timeBeats);
-  const rightBeatPosition = getMeasureBeatPosition(rightEvent.timeBeats);
-  return (leftBeatPosition === 0 || leftBeatPosition === 2)
-    && (rightBeatPosition === 1 || rightBeatPosition === 3);
+  const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
+  const strengths = getMetricBeatStrengths(normalizedBeatsPerBar);
+  const leftBeatPosition = getMeasureBeatPosition(leftEvent.timeBeats, normalizedBeatsPerBar);
+  const rightBeatPosition = getMeasureBeatPosition(rightEvent.timeBeats, normalizedBeatsPerBar);
+  return strengths[leftBeatPosition] === 'strong' && strengths[rightBeatPosition] === 'weak';
 }
 
-function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO) {
+function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4) {
   if (!Array.isArray(events) || events.length < 2) return events;
 
   const anticipated = events.map((event) => ({ ...event }));
@@ -431,7 +434,7 @@ function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO) {
   for (let index = 0; index < anticipated.length - 1; index += 1) {
     const currentEvent = anticipated[index];
     const nextEvent = anticipated[index + 1];
-    if (!isStrongToWeakBeatPair(currentEvent, nextEvent)) continue;
+    if (!isStrongToWeakBeatPair(currentEvent, nextEvent, beatsPerBar)) continue;
 
     const descendingInterval = currentEvent.midi - nextEvent.midi;
     if (descendingInterval < ANTICIPATION_EFFECT_MIN_DESCENDING_INTERVAL) continue;
@@ -1226,15 +1229,15 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     });
   }
 
-  function applyLineOrnaments(events, swingRatio = DEFAULT_SWING_RATIO, tempoBpm = 120) {
+  function applyLineOrnaments(events, swingRatio = DEFAULT_SWING_RATIO, tempoBpm = 120, beatsPerBar = 4) {
     const allowRepeatedNoteEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= REPEATED_NOTE_EFFECT_MAX_BPM + 1);
     const allowAnticipationEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= ANTICIPATION_EFFECT_MAX_BPM + 1);
 
     const embellishedEvents = allowRepeatedNoteEffect
-      ? applyRepeatedNoteEffect(events, BASS_LOW, BASS_HIGH, swingRatio)
+      ? applyRepeatedNoteEffect(events, BASS_LOW, BASS_HIGH, swingRatio, beatsPerBar)
       : events;
     return allowAnticipationEffect
-      ? applyAnticipationEffect(embellishedEvents, swingRatio)
+      ? applyAnticipationEffect(embellishedEvents, swingRatio, beatsPerBar)
       : embellishedEvents;
   }
 
@@ -1242,6 +1245,7 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     chords = [],
     key = 0,
     beatsPerChord = 1,
+    beatsPerBar = 4,
     tempoBpm = 120,
     isMinor = false,
     initialPendingTargetMidi = null,
@@ -1274,7 +1278,7 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
       pendingTargetMidi = previousEvent?.rank === 'approach' ? previousEvent.targetMidi : null;
     });
 
-    return applyLineOrnaments(events, swingRatio, tempoBpm);
+    return applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar);
   }
 
   return {

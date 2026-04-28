@@ -34,6 +34,7 @@ type PracticePlaybackPreparationRuntimeOptions = {
   getCurrentKey?: () => number;
   getCurrentVoicingPlan?: () => unknown[];
   getBeatsPerChord?: () => number;
+  getChordsPerBar?: () => number;
   getCompingStyle?: () => string;
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
@@ -62,6 +63,7 @@ type PracticePlaybackPreparationRuntimeOptions = {
  * @param {() => number} [options.getCurrentKey]
  * @param {() => unknown[]} [options.getCurrentVoicingPlan]
  * @param {() => number} [options.getBeatsPerChord]
+ * @param {() => number} [options.getChordsPerBar]
  * @param {() => string} [options.getCompingStyle]
  * @param {() => number} [options.getTempoBpm]
  * @param {() => boolean} [options.isWalkingBassEnabled]
@@ -88,6 +90,7 @@ export function createPracticePlaybackPreparationRuntime({
   getCurrentKey = () => 0,
   getCurrentVoicingPlan = () => [],
   getBeatsPerChord = () => 1,
+  getChordsPerBar = () => 4,
   getCompingStyle = () => 'off',
   getTempoBpm = () => 120,
   isWalkingBassEnabled = () => false,
@@ -147,6 +150,7 @@ export function createPracticePlaybackPreparationRuntime({
     currentPreviousTailBeats: number | null = null
   ) {
     const beatsPerChord = getBeatsPerChord();
+    const beatsPerBar = getChordsPerBar();
     const isMinor = getIsMinorMode();
     const { currentPlan, nextPlan } = compingEngine?.buildPreparedPlans({
       style: getCompingStyle(),
@@ -158,14 +162,16 @@ export function createPracticePlaybackPreparationRuntime({
         key: getCurrentKey(),
         isMinor,
         voicingPlan: getCurrentVoicingPlan(),
-        beatsPerChord
+        beatsPerChord,
+        beatsPerBar
       },
       next: {
         chords: getNextPaddedChords(),
         key: getNextKeyValue(),
         isMinor,
         voicingPlan: getNextVoicingPlan(),
-        beatsPerChord
+        beatsPerChord,
+        beatsPerBar
       }
     }) || { currentPlan: null, nextPlan: null };
     setCurrentCompingPlan(currentPlan);
@@ -188,6 +194,7 @@ export function createPracticePlaybackPreparationRuntime({
       chords: getPaddedChords(),
       key: getCurrentKey(),
       beatsPerChord: getBeatsPerChord(),
+      beatsPerBar: getChordsPerBar(),
       tempoBpm: getTempoBpm(),
       isMinor: getIsMinorMode(),
       initialPendingTargetMidi,

@@ -90,7 +90,10 @@ export function createPracticeSessionFromChartPlaybackPlan({
   selection?: PracticeSessionSelection | null;
   origin?: PracticeSessionOrigin | null;
 }): PracticeSessionSpec {
-  const bars = createPracticePlaybackBarsFromChartEntries(playbackPlan?.entries || []);
+  const bars = createPracticePlaybackBarsFromChartEntries(
+    playbackPlan?.entries || [],
+    chartDocument?.metadata?.primaryTimeSignature || playbackPlan?.timeSignature || ''
+  );
   const display: PracticeSessionDisplay = {
     sourceKey: chartDocument?.metadata?.sourceKey || '',
     displayKey: chartDocument?.metadata?.displayKey || chartDocument?.metadata?.sourceKey || '',

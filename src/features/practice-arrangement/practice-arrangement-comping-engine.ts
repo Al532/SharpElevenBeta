@@ -12,6 +12,7 @@ type PracticeArrangementCompingProgressionState = {
   key?: number | null;
   isMinor?: boolean;
   beatsPerChord: number;
+  beatsPerBar?: number;
   voicingPlan?: any[] | null;
 };
 
@@ -100,6 +101,7 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
         key: current.key,
         isMinor: current.isMinor,
         beatsPerChord: current.beatsPerChord,
+        beatsPerBar: current.beatsPerBar,
         nextFirstChord: next.chords[0] || null,
         nextKey: next.key,
         nextIsMinor: next.isMinor,
@@ -117,6 +119,7 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
         key: next.key,
         isMinor: next.isMinor,
         beatsPerChord: next.beatsPerChord,
+        beatsPerBar: next.beatsPerBar,
         nextFirstChord: null,
         nextKey: null,
         nextIsMinor: next.isMinor,

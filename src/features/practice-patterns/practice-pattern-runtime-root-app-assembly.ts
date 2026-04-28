@@ -38,6 +38,11 @@ type PracticePatternRuntimeConstants = {
 type PracticePatternAnalysis = {
   usesBarLines?: boolean;
   resolvedChordsPerBar?: number | null;
+  playbackMeasures?: Array<{
+    timeSignature?: string;
+    beatsPerBar?: number;
+    chords?: PracticePatternChord[];
+  }> | null;
 };
 
 type PracticePatternRuntimeHelpers = {
@@ -86,7 +91,7 @@ export function createPracticePatternRuntimeRootAppAssembly({
     shuffleArray = (value) => value,
     getCurrentPatternString = () => '',
     isOneChordModeActiveBase = () => false,
-    analyzePatternCached = () => ({ usesBarLines: false, resolvedChordsPerBar: null }),
+    analyzePatternCached = () => ({ usesBarLines: false, resolvedChordsPerBar: null, playbackMeasures: null }),
     normalizeChordsPerBar = (value: unknown): number => Number(value ?? 1),
     getPatternKeyOverridePitchClassBase = () => null,
     getBeatsPerChordBase = (value) => value,
@@ -161,7 +166,7 @@ export function createPracticePatternRuntimeRootAppAssembly({
 
     const analysis = analyzePatternCached(getCurrentPatternString());
     if (analysis.usesBarLines) {
-      dom.chordsPerBar.value = '4';
+      dom.chordsPerBar.value = String(analysis.resolvedChordsPerBar || 4);
       syncDoubleTimeToggle();
       return;
     }
@@ -182,14 +187,67 @@ export function createPracticePatternRuntimeRootAppAssembly({
 
   function getChordsPerBar(patternString = getCurrentPatternString()) {
     const analysis = analyzePatternCached(patternString);
-    return normalizeChordsPerBar(analysis.resolvedChordsPerBar ?? getSelectedChordsPerBar());
+    const resolved = Number(analysis.resolvedChordsPerBar);
+    if (analysis.usesBarLines && Number.isFinite(resolved) && resolved > 0) {
+      return resolved;
+    }
+    const firstMeasureBeats = Number(analysis.playbackMeasures?.[0]?.beatsPerBar);
+    if (analysis.usesBarLines && Number.isFinite(firstMeasureBeats) && firstMeasureBeats > 0) {
+      return firstMeasureBeats;
+    }
+    return normalizeChordsPerBar(getSelectedChordsPerBar());
+  }
+
+  function getPlaybackMeasurePlan(patternString = getCurrentPatternString()) {
+    const analysis = analyzePatternCached(patternString);
+    if (!analysis.usesBarLines || !Array.isArray(analysis.playbackMeasures) || analysis.playbackMeasures.length === 0) {
+      return null;
+    }
+
+    let startChordIdx = 0;
+    let startBeat = 0;
+    return analysis.playbackMeasures.map((measure, index) => {
+      const beatCount = Math.max(1, Number(measure?.beatsPerBar || measure?.chords?.length || 4));
+      const planMeasure = {
+        index,
+        timeSignature: measure?.timeSignature || `${beatCount}/4`,
+        beatCount,
+        startChordIdx,
+        endChordIdx: startChordIdx + beatCount,
+        startBeat,
+        endBeat: startBeat + beatCount
+      };
+      startChordIdx += beatCount;
+      startBeat += beatCount;
+      return planMeasure;
+    });
+  }
+
+  function getMeasureInfoForChordIndex(chordIndex = 0, patternString = getCurrentPatternString()) {
+    const plan = getPlaybackMeasurePlan(patternString);
+    if (!plan || plan.length === 0) return null;
+    const totalSlots = plan[plan.length - 1].endChordIdx;
+    const normalizedChordIndex = totalSlots > 0
+      ? ((Math.floor(Number(chordIndex) || 0) % totalSlots) + totalSlots) % totalSlots
+      : 0;
+    const measure = plan.find((entry) =>
+      normalizedChordIndex >= entry.startChordIdx && normalizedChordIndex < entry.endChordIdx
+    ) || plan[0];
+    return {
+      ...measure,
+      localBeat: normalizedChordIndex - measure.startChordIdx
+    };
   }
 
   function getBeatsPerChord(chordsPerBar = getChordsPerBar()) {
+    const analysis = analyzePatternCached(getCurrentPatternString());
+    if (analysis.usesBarLines) return 1;
     return getBeatsPerChordBase(chordsPerBar);
   }
 
   function padProgression(chords: PracticePatternChord[], chordsPerBar = getChordsPerBar()) {
+    const analysis = analyzePatternCached(getCurrentPatternString());
+    if (analysis.usesBarLines) return Array.isArray(chords) ? chords : [];
     return padProgressionBase(chords, chordsPerBar);
   }
 
@@ -251,6 +309,8 @@ export function createPracticePatternRuntimeRootAppAssembly({
     getSelectedChordsPerBar,
     getPatternKeyOverridePitchClass,
     getChordsPerBar,
+    getPlaybackMeasurePlan,
+    getMeasureInfoForChordIndex,
     getBeatsPerChord,
     padProgression,
     canLoopTrimProgression,

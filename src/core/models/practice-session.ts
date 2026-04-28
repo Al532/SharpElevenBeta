@@ -4,6 +4,8 @@ import type {
   PracticeSessionSpec
 } from '../types/contracts';
 
+import { distributeChordsToMeterBeatSlots, parseQuarterTimeSignature } from '../music/meter.js';
+
 function deepClone<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
 }
@@ -81,17 +83,16 @@ function normalizeSlotSymbol(slot: {
   return symbol;
 }
 
-function compressBeatSlotsToDrillBar(symbols: string[] = []): string[] {
+function compressBeatSlotsToDrillBar(symbols: string[] = [], timeSignature = '4/4'): string[] {
   const normalized = (symbols || []).filter(Boolean);
+  const meter = parseQuarterTimeSignature(timeSignature);
   if (normalized.length === 0) return [];
-  if (normalized.length === 1) return [normalized[0], normalized[0], normalized[0], normalized[0]];
-  if (normalized.length === 2) return [normalized[0], normalized[0], normalized[1], normalized[1]];
-  if (normalized.length === 4) return normalized;
+  if (normalized.length === meter.numerator) return normalized;
 
-  return Array.from({ length: 4 }, (_, beatIndex) => {
+  return Array.from({ length: meter.numerator }, (_, beatIndex) => {
     const sourceIndex = Math.min(
       normalized.length - 1,
-      Math.floor((beatIndex * normalized.length) / 4)
+      Math.floor((beatIndex * normalized.length) / meter.numerator)
     );
     return normalized[sourceIndex];
   });
@@ -108,7 +109,8 @@ function resolveBeatSlotsFromCellSlots(
       displayPrefix?: string;
       display_prefix?: string;
     } | null;
-  }> = []
+  }> = [],
+  timeSignature = '4/4'
 ): string[] {
   if (!Array.isArray(cellSlots) || cellSlots.length === 0) return [];
 
@@ -125,17 +127,18 @@ function resolveBeatSlotsFromCellSlots(
     }
   }
 
-  return compressBeatSlotsToDrillBar(resolved);
+  return compressBeatSlotsToDrillBar(resolved, timeSignature);
 }
 
 function resolveBeatSlotsFromPlaybackSlots(
-  playbackSlots: Array<{ symbol?: string }> = []
+  playbackSlots: Array<{ symbol?: string }> = [],
+  timeSignature = '4/4'
 ): string[] {
   const symbols = (playbackSlots || [])
     .map(normalizeSlotSymbol)
     .filter(Boolean);
 
-  return compressBeatSlotsToDrillBar(symbols);
+  return distributeChordsToMeterBeatSlots(symbols, timeSignature).beatSlots;
 }
 
 export function createPracticePlaybackBar({
@@ -173,8 +176,10 @@ export function createPracticePlaybackBar({
 }
 
 export function createPracticePlaybackBarsFromChartEntries(
-  entries: ChartPlaybackEntry[] = []
+  entries: ChartPlaybackEntry[] = [],
+  defaultTimeSignature = '4/4'
 ): PracticePlaybackBar[] {
+  let activeTimeSignature = parseQuarterTimeSignature(defaultTimeSignature).timeSignature;
   return (entries || []).map((entry, entryIndex) => {
     const sourceEntry = entry as ChartPlaybackEntry & {
       sourceEvent?: string | null;
@@ -183,17 +188,19 @@ export function createPracticePlaybackBarsFromChartEntries(
     const symbols = (sourceEntry?.playbackSlots || [])
       .map(normalizeSlotSymbol)
       .filter(Boolean);
-    const beatSlots = resolveBeatSlotsFromCellSlots(sourceEntry?.playbackCellSlots || []);
+    const timeSignature = parseQuarterTimeSignature(sourceEntry?.timeSignature || activeTimeSignature).timeSignature;
+    activeTimeSignature = timeSignature;
+    const beatSlots = resolveBeatSlotsFromCellSlots(sourceEntry?.playbackCellSlots || [], timeSignature);
     const resolvedBeatSlots = beatSlots.length > 0
       ? beatSlots
-      : resolveBeatSlotsFromPlaybackSlots(sourceEntry?.playbackSlots || []);
+      : resolveBeatSlotsFromPlaybackSlots(sourceEntry?.playbackSlots || [], timeSignature);
 
     return createPracticePlaybackBar({
       id: sourceEntry?.barId || `bar-${entryIndex + 1}`,
       index: Number(sourceEntry?.barIndex || entryIndex + 1),
       symbols,
       beatSlots: resolvedBeatSlots,
-      timeSignature: sourceEntry?.timeSignature || '',
+      timeSignature,
       sectionId: sourceEntry?.sectionId || '',
       sectionLabel: sourceEntry?.sectionLabel || '',
       metadata: {
@@ -216,8 +223,16 @@ export function buildLegacyEnginePatternStringFromPracticeBars(
   bars: PracticePlaybackBar[] = [],
   key = 'C'
 ): string {
+  let activeTimeSignature = '4/4';
   const engineBars = (bars || [])
-    .map((bar) => (bar?.beatSlots || []).filter(Boolean).join(' '))
+    .map((bar) => {
+      const body = (bar?.beatSlots || []).filter(Boolean).join(' ');
+      if (!body) return '';
+      const barTimeSignature = parseQuarterTimeSignature(bar?.timeSignature || activeTimeSignature).timeSignature;
+      const timePrefix = barTimeSignature !== activeTimeSignature ? `@${barTimeSignature} ` : '';
+      activeTimeSignature = barTimeSignature;
+      return `${timePrefix}${body}`;
+    })
     .filter(Boolean);
 
   return engineBars.length > 0 ? `key: ${key} | ${engineBars.join(' | ')} |` : '';

@@ -7,6 +7,7 @@ import {
   getSwingFirstSubdivisionDurationBeats,
   getSwingOffbeatPositionBeats,
 } from '../../core/music/swing-utils.js';
+import { getMetricBeatStrengths } from '../../core/music/meter.js';
 
 const PIANO_SHAPE_INVERSION_START_INDEX = 2;
 const INTERVAL_SEMITONES = {
@@ -272,21 +273,28 @@ function getInterpolatedWeightMap(baseWeights, highTempoWeights, tempoBpm) {
   return merged;
 }
 
-function getBeatPositionInMeasure(beatIndex) {
-  return beatIndex % 4;
+function getBeatPositionInMeasure(beatIndex, beatsPerBar = 4) {
+  const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
+  return ((beatIndex % normalizedBeatsPerBar) + normalizedBeatsPerBar) % normalizedBeatsPerBar;
 }
 
-function getNextOneOrThreeBeat(startBeat) {
-  for (let beat = Math.ceil(startBeat); beat <= Math.ceil(startBeat) + 8; beat++) {
-    const pos = getBeatPositionInMeasure(beat);
-    if ((pos === 0 || pos === 2) && beat >= startBeat) {
+function isMetricStrongBeat(beat, beatsPerBar = 4) {
+  const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
+  const strengths = getMetricBeatStrengths(normalizedBeatsPerBar);
+  return strengths[getBeatPositionInMeasure(beat, normalizedBeatsPerBar)] === 'strong';
+}
+
+function getNextOneOrThreeBeat(startBeat, beatsPerBar = 4) {
+  const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
+  for (let beat = Math.ceil(startBeat); beat <= Math.ceil(startBeat) + normalizedBeatsPerBar * 2; beat++) {
+    if (isMetricStrongBeat(beat, normalizedBeatsPerBar) && beat >= startBeat) {
       return beat;
     }
   }
-  return startBeat + 4;
+  return startBeat + normalizedBeatsPerBar;
 }
 
-function buildHarmonicBlocks(chords, beatsPerChord) {
+function buildHarmonicBlocks(chords, beatsPerChord, beatsPerBar = 4) {
   const blocks = [];
   let currentBlock = null;
 
@@ -308,8 +316,8 @@ function buildHarmonicBlocks(chords, beatsPerChord) {
   return blocks.map((block, index) => {
     const startBeat = block.startChordIdx * beatsPerChord;
     const endBeat = (block.endChordIdx + 1) * beatsPerChord;
-    const nextStrongBeat = getNextOneOrThreeBeat(startBeat + 1);
-    const usefulEndBeat = Math.min(endBeat, nextStrongBeat, startBeat + 4);
+    const nextStrongBeat = getNextOneOrThreeBeat(startBeat + 1, beatsPerBar);
+    const usefulEndBeat = Math.min(endBeat, nextStrongBeat, startBeat + beatsPerBar);
     return {
       ...block,
       startBeat,
@@ -504,6 +512,7 @@ function createPianoPlan({
   key = null,
   isMinor = false,
   beatsPerChord,
+  beatsPerBar = 4,
   secondsPerBeat = null,
   nextFirstChord = null,
   nextKey = null,
@@ -527,7 +536,7 @@ function createPianoPlan({
 
   const totalBeats = chords.length * beatsPerChord;
   const totalSlots = totalBeats * 2;
-  const blocks = buildHarmonicBlocks(chords, beatsPerChord);
+  const blocks = buildHarmonicBlocks(chords, beatsPerChord, beatsPerBar);
   const eventOptions = {
     blocks,
     totalBeats,
@@ -2312,6 +2321,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     key = null,
     isMinor = false,
     beatsPerChord,
+    beatsPerBar = 4,
     nextFirstChord,
     nextKey = null,
     nextIsMinor = false,
@@ -2328,6 +2338,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       key,
       isMinor,
       beatsPerChord,
+      beatsPerBar,
       secondsPerBeat,
       nextFirstChord,
       nextKey,
