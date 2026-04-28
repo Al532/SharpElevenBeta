@@ -99,8 +99,7 @@ const METADATA_SUMMARY_FIELDS: MetadataSummaryField[] = [
   { label: 'Key', getValue: (document) => document.metadata?.displayKey || document.metadata?.sourceKey },
   { label: 'Time', getValue: (document) => document.metadata?.primaryTimeSignature },
   { label: 'Tempo', getValue: (document) => document.metadata?.tempo || document.metadata?.defaultTempo },
-  { label: 'Origin', getValue: (document) => document.metadata?.origin },
-  { label: 'Sources', getValue: (document) => getChartSourceRefs(document).map((ref) => ref.name).filter(Boolean).join(', ') }
+  { label: 'Sources', getValue: (document) => getChartSourceRefs(document).map((ref) => ref.name).filter(Boolean).join(', ') || 'User chart' }
 ];
 
 function sortTags(tags: string[]): string[] {

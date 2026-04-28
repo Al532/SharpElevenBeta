@@ -1,15 +1,12 @@
 export function createChartManagementDomRefs(rootDocument: Document = document) {
   return {
     manageChartSearchInput: rootDocument.getElementById('manage-chart-search-input') as HTMLInputElement | null,
-    manageOriginFilterRow: rootDocument.getElementById('manage-origin-filter-row'),
-    manageOriginFilter: rootDocument.getElementById('manage-origin-filter') as HTMLSelectElement | null,
-    manageOriginFilterChips: rootDocument.getElementById('manage-origin-filter-chips'),
     manageSourceFilterRow: rootDocument.getElementById('manage-source-filter-row'),
     manageSourceFilter: rootDocument.getElementById('manage-source-filter') as HTMLSelectElement | null,
     manageSourceFilterChips: rootDocument.getElementById('manage-source-filter-chips'),
-    manageTagFilterRow: rootDocument.getElementById('manage-tag-filter-row'),
-    manageTagFilter: rootDocument.getElementById('manage-tag-filter') as HTMLSelectElement | null,
-    manageTagFilterChips: rootDocument.getElementById('manage-tag-filter-chips'),
+    manageStyleFilterRow: rootDocument.getElementById('manage-style-filter-row'),
+    manageStyleFilter: rootDocument.getElementById('manage-style-filter') as HTMLSelectElement | null,
+    manageStyleFilterChips: rootDocument.getElementById('manage-style-filter-chips'),
     manageSetlistFilterRow: rootDocument.getElementById('manage-setlist-filter-row'),
     manageSetlistFilter: rootDocument.getElementById('manage-setlist-filter') as HTMLSelectElement | null,
     manageSetlistFilterChips: rootDocument.getElementById('manage-setlist-filter-chips'),

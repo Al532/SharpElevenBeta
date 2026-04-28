@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Library - Sharp Eleven</title>
+  <title>Manage library - Sharp Eleven</title>
   <meta name="description" content="Manage the Sharp Eleven chart library.">
   <meta property="og:description" content="Manage the Sharp Eleven chart library.">
   <meta property="twitter:description" content="Manage the Sharp Eleven chart library.">
@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./library.ts"></script>
 </head>
-<body class="home-body">
+<body class="home-body library-body">
   <header class="home-header">
     <div class="home-header-leading">
       <a class="app-back-button" href="./index.html" aria-label="Back to home" title="Back to home">
@@ -37,19 +37,12 @@
   <main class="home-main library-main" aria-label="Manage library">
     <div class="home-stack">
       <section class="home-subsection" aria-labelledby="charts-library-title">
-        <h2 id="charts-library-title">Library</h2>
+        <h2 id="charts-library-title">Manage library</h2>
         <div class="library-filter-grid">
           <label class="home-search-field library-search">
             <span class="sr-only">Search library</span>
-            <input id="manage-chart-search-input" type="search" placeholder="Search title, composer, source, tag">
+            <input id="manage-chart-search-input" type="search" placeholder="Filter charts to edit">
           </label>
-          <div id="manage-origin-filter-row" class="library-filter-row" hidden>
-            <span class="library-filter-label">Origin:</span>
-            <select id="manage-origin-filter" class="library-select" aria-label="Filter by origin" hidden>
-              <option value="">All origins</option>
-            </select>
-            <div id="manage-origin-filter-chips" class="library-filter-chips" aria-label="Filter by origin" hidden></div>
-          </div>
           <div id="manage-source-filter-row" class="library-filter-row" hidden>
             <span class="library-filter-label">Sources:</span>
             <select id="manage-source-filter" class="library-select" aria-label="Filter by source" hidden>
@@ -57,12 +50,12 @@
             </select>
             <div id="manage-source-filter-chips" class="library-filter-chips" aria-label="Filter by source" hidden></div>
           </div>
-          <div id="manage-tag-filter-row" class="library-filter-row" hidden>
-            <span class="library-filter-label">Tags:</span>
-            <select id="manage-tag-filter" class="library-select" aria-label="Filter by tag" hidden>
-              <option value="">All tags</option>
+          <div id="manage-style-filter-row" class="library-filter-row" hidden>
+            <span class="library-filter-label">Style:</span>
+            <select id="manage-style-filter" class="library-select" aria-label="Filter by style" hidden>
+              <option value="">All styles</option>
             </select>
-            <div id="manage-tag-filter-chips" class="library-filter-chips" aria-label="Filter by tag" hidden></div>
+            <div id="manage-style-filter-chips" class="library-filter-chips" aria-label="Filter by style" hidden></div>
           </div>
           <div id="manage-setlist-filter-row" class="library-filter-row" hidden>
             <span class="library-filter-label">Setlists:</span>
@@ -72,8 +65,8 @@
             <div id="manage-setlist-filter-chips" class="library-filter-chips" aria-label="Filter by setlist" hidden></div>
           </div>
         </div>
-        <div id="manage-library-summary" class="library-results-entry"></div>
-        <ul id="manage-chart-list" class="home-list library-chart-list" aria-label="Managed charts" hidden></ul>
+        <div id="manage-library-summary" class="library-results-entry" aria-live="polite"></div>
+        <ul id="manage-chart-list" class="home-list library-chart-list" aria-label="Batch preview" hidden></ul>
       </section>
     </div>
   </main>

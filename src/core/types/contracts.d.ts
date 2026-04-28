@@ -4,7 +4,6 @@ export type ChartSchemaVersion = '1.0.0';
 export interface ChartMetadata {
   id: string;
   title: string;
-  origin?: 'imported' | 'user' | string;
   composer?: string;
   style?: string;
   styleReference?: string;

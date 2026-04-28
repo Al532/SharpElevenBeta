@@ -372,7 +372,7 @@ function mergePersistedChartLibrary(
   let userChartsIgnoredCount = 0;
 
   for (const existingDocument of normalizedExistingDocuments) {
-    if (existingDocument.metadata?.origin === 'user') {
+    if (getChartSourceRefs(existingDocument).length === 0) {
       userChartsIgnoredCount += 1;
       continue;
     }

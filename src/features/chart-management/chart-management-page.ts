@@ -3,7 +3,8 @@ import {
   loadPersistedChartLibrary,
   loadPersistedSetlists,
   persistChartLibrary,
-  persistSetlists
+  persistSetlists,
+  removePersistedChartReferences
 } from '../chart/chart-persistence.js';
 import {
   createEmptyChartSetlist,
@@ -17,6 +18,10 @@ import {
   closeChartMetadataPanel,
   openChartMetadataPanel
 } from '../chart/chart-metadata-panel.js';
+import {
+  createChartEntryActionsController,
+  createChartEntryMenuButton
+} from '../chart/chart-entry-actions.js';
 import { createChartManagementDomRefs } from './chart-management-dom.js';
 import {
   type ChartManageFilterKey,
@@ -81,15 +86,20 @@ let pendingDeleteSetlistId = '';
 const SETLIST_ITEM_DRAG_DELAY_MS = 240;
 const SETLIST_ITEM_TAP_DISTANCE_PX = 6;
 const SETLIST_ITEM_PRE_DRAG_SCROLL_DISTANCE_PX = 12;
+const LIBRARY_PREVIEW_ROW_HEIGHT_PX = 48;
+const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 24;
 const CHART_MANAGEMENT_SESSION_CACHE_KEY = 'sharp-eleven-chart-management-session-cache-v1';
 const collapsedSetlistIds = new Set<string>();
 const filterState = createChartManagementFilterState();
+let libraryPreviewStartIndex = 0;
+let libraryPreviewPageSize = 1;
+let libraryPreviewResizeFrame = 0;
+let chartEntryActions: ReturnType<typeof createChartEntryActionsController> | null = null;
 
 type ChartManagementCachedDocument = {
   id: string;
   title: string;
   composer?: string;
-  origin?: string;
   style?: string;
   styleReference?: string;
   userTags?: string[];
@@ -111,7 +121,6 @@ function toCachedDocument(document: ChartDocument): ChartManagementCachedDocumen
     id,
     title: String(document.metadata?.title || '').trim() || 'Untitled chart',
     composer: typeof document.metadata?.composer === 'string' ? document.metadata.composer : '',
-    origin: typeof document.metadata?.origin === 'string' ? document.metadata.origin : '',
     style: typeof document.metadata?.style === 'string' ? document.metadata.style : '',
     styleReference: typeof document.metadata?.styleReference === 'string' ? document.metadata.styleReference : '',
     userTags: Array.isArray(document.metadata?.userTags)
@@ -131,7 +140,6 @@ function createDocumentFromCache(cachedDocument: ChartManagementCachedDocument):
       id,
       title: String(cachedDocument.title || '').trim() || 'Untitled chart',
       composer: String(cachedDocument.composer || ''),
-      origin: String(cachedDocument.origin || 'imported'),
       style: String(cachedDocument.style || ''),
       styleReference: String(cachedDocument.styleReference || ''),
       userTags: Array.isArray(cachedDocument.userTags)
@@ -219,8 +227,94 @@ function getFilteredManageDocuments(): ChartDocument[] {
 
 function selectFilterValue(key: ChartManageFilterKey, value: string, values: ChartManageFilterOption[]) {
   selectChartManagementFilterValue({ filterState, key, value, values });
+  libraryPreviewStartIndex = 0;
   renderFacets();
   renderManageCharts();
+}
+
+function hasActiveLibraryScope(): boolean {
+  const hasQuery = Boolean(String(dom.manageChartSearchInput?.value || '').trim());
+  const hasFilters = Object.values(filterState.activeModes).some((mode) => mode === 'custom');
+  return hasQuery || hasFilters;
+}
+
+function getLibraryBatchScopeLabel(documents: ChartDocument[]): string {
+  if (currentDocuments.length === 0) return 'No charts in the library';
+  if (documents.length === 0) return 'No matching charts';
+  return hasActiveLibraryScope() ? 'Current filters' : 'Entire library';
+}
+
+function getLibraryPreviewPageSize(): number {
+  if (!dom.manageChartList) return libraryPreviewPageSize;
+  const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight;
+  const listTop = dom.manageChartList.getBoundingClientRect().top;
+  const availableHeight = Math.max(0, viewportHeight - listTop - LIBRARY_PREVIEW_BOTTOM_GAP_PX);
+  const rowHeight = Number.parseFloat(getComputedStyle(dom.manageChartList).getPropertyValue('--library-chart-row-height')) || LIBRARY_PREVIEW_ROW_HEIGHT_PX;
+  return Math.max(1, Math.floor(availableHeight / rowHeight));
+}
+
+function clampLibraryPreviewStart(documentsLength: number): number {
+  if (documentsLength <= 0) return 0;
+  const maxStart = Math.max(0, documentsLength - 1);
+  return Math.min(Math.max(0, libraryPreviewStartIndex), maxStart);
+}
+
+function goToLibraryPreviewPage(direction: -1 | 1) {
+  const documents = getFilteredManageDocuments();
+  libraryPreviewStartIndex = clampLibraryPreviewStart(documents.length) + direction * libraryPreviewPageSize;
+  renderManageCharts();
+}
+
+function scheduleLibraryPreviewLayout() {
+  if (activeMode !== 'library') return;
+  if (libraryPreviewResizeFrame) return;
+  libraryPreviewResizeFrame = window.requestAnimationFrame(() => {
+    libraryPreviewResizeFrame = 0;
+    renderManageCharts();
+    document.querySelectorAll<HTMLElement>(getPageChartLinkSelector()).forEach(updateChartEntrySubtitleVisibility);
+  });
+}
+
+function renderLibraryBatchSummary(
+  documents: ChartDocument[],
+  previewStart: number,
+  previewEnd: number,
+  pageSize: number
+) {
+  if (!dom.manageLibrarySummary) return;
+  dom.manageLibrarySummary.replaceChildren();
+  dom.manageLibrarySummary.hidden = false;
+
+  const panel = document.createElement('div');
+  panel.className = 'library-batch-panel';
+
+  const countBlock = document.createElement('div');
+  countBlock.className = 'library-batch-count';
+  countBlock.append(
+    createTextElement('strong', 'library-batch-count-title', `${documents.length} ${pluralizeChartLabel(documents.length)}`),
+    createTextElement('span', 'library-batch-count-meta', getLibraryBatchScopeLabel(documents))
+  );
+
+  const actionButton = createButton('Batch edit', 'library-batch-action');
+  actionButton.disabled = documents.length === 0;
+  actionButton.setAttribute('aria-label', 'Edit all matching charts');
+  actionButton.addEventListener('click', openMatchingMetadataPanel);
+
+  const previewLabel = documents.length > 0
+    ? `Showing ${previewStart + 1}-${previewEnd} of ${documents.length}`
+    : 'Adjust filters';
+  const previousButton = createButton('Previous', 'library-preview-page-action');
+  previousButton.disabled = previewStart <= 0;
+  previousButton.addEventListener('click', () => goToLibraryPreviewPage(-1));
+  const nextButton = createButton('Next', 'library-preview-page-action');
+  nextButton.disabled = previewEnd >= documents.length;
+  nextButton.addEventListener('click', () => goToLibraryPreviewPage(1));
+  const pager = document.createElement('div');
+  pager.className = 'library-preview-pager';
+  pager.hidden = documents.length <= pageSize;
+  pager.append(previousButton, nextButton);
+  panel.append(countBlock, actionButton, createTextElement('span', 'library-batch-preview-label', previewLabel), pager);
+  dom.manageLibrarySummary.append(panel);
 }
 
 function renderFacets() {
@@ -236,89 +330,28 @@ function renderFacets() {
 
 function renderManageCharts() {
   const documents = getFilteredManageDocuments();
-  const shouldSummarize = documents.length === 0 || documents.length > 5;
-  if (dom.manageLibrarySummary) {
-    dom.manageLibrarySummary.replaceChildren();
-    dom.manageLibrarySummary.hidden = !shouldSummarize;
-    if (shouldSummarize) {
-      const row = document.createElement('div');
-      row.className = `home-list-link home-chart-entry ${getPageClassName('summary-row')}`;
-      const summaryButton = document.createElement('button');
-      summaryButton.type = 'button';
-      summaryButton.className = getPageClassName('summary-open');
-      summaryButton.append(createTextElement('span', 'home-list-title', `${documents.length} matching chart${documents.length === 1 ? '' : 's'}`));
-      const metadataButton = createMetadataButton('Edit metadata for matching charts', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openMatchingMetadataPanel();
-      });
-      row.append(summaryButton, metadataButton);
-      dom.manageLibrarySummary.append(row);
-    }
-  }
+  renderLibraryBatchSummary(documents, 0, Math.min(documents.length, 1), 1);
   if (!dom.manageChartList) return;
-  dom.manageChartList.toggleAttribute('hidden', shouldSummarize);
-  dom.manageChartList.classList.toggle('is-direct', !shouldSummarize);
+  dom.manageChartList.toggleAttribute('hidden', documents.length === 0);
+  libraryPreviewPageSize = documents.length > 0 ? getLibraryPreviewPageSize() : 1;
+  libraryPreviewStartIndex = clampLibraryPreviewStart(documents.length);
+  const previewEnd = Math.min(documents.length, libraryPreviewStartIndex + libraryPreviewPageSize);
+  renderLibraryBatchSummary(documents, libraryPreviewStartIndex, previewEnd, libraryPreviewPageSize);
   dom.manageChartList.replaceChildren();
-  if (shouldSummarize) return;
-  for (const chartDocument of documents) {
+  for (const chartDocument of documents.slice(libraryPreviewStartIndex, previewEnd)) {
     const item = document.createElement('li');
     const row = document.createElement('div');
-    row.className = `home-list-link ${getPageClassName('chart-row')}`;
+    row.className = `home-list-link home-chart-entry ${getPageClassName('chart-row')}`;
     row.dataset.chartId = chartDocument.metadata.id;
-    row.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      draggedSetlistItem = null;
-      draggedLibraryChartId = chartDocument.metadata.id;
-      row.classList.add('is-dragging');
-      row.setPointerCapture(event.pointerId);
-    });
-    row.addEventListener('pointermove', (event) => {
-      if (!draggedLibraryChartId) return;
-      showSetlistDropPreview(getSetlistDropTargetAtPoint(event.clientX, event.clientY));
-    });
-    row.addEventListener('pointerup', (event) => {
-      const chartId = draggedLibraryChartId;
-      draggedLibraryChartId = '';
-      row.classList.remove('is-dragging');
-      const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
-      clearSetlistDropPreview();
-      if (!chartId) return;
-      if (!dropTarget) return;
-      addChartToSetlist(dropTarget.setlistId, chartId, dropTarget.index);
-    });
-    row.addEventListener('pointercancel', () => {
-      draggedLibraryChartId = '';
-      row.classList.remove('is-dragging');
-      clearSetlistDropPreview();
-    });
-    row.addEventListener('dragstart', (event) => {
-      draggedSetlistItem = null;
-      draggedLibraryChartId = chartDocument.metadata.id;
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'copy';
-        event.dataTransfer.setData('text/plain', `chart:${chartDocument.metadata.id}`);
-      }
-      event.dataTransfer?.setDragImage(row, 12, 12);
-    });
-    row.addEventListener('dragend', () => {
-      draggedLibraryChartId = '';
-      clearSetlistDropPreview();
-    });
     const content = document.createElement('div');
-    content.className = getPageClassName('chart-link');
+    content.className = `home-chart-entry-link ${getPageClassName('chart-link')}`;
     content.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
     const subtitle = getChartSubtitle(chartDocument);
     if (subtitle) {
       content.append(createTextElement('span', 'home-list-meta', subtitle));
       requestAnimationFrame(() => updateChartEntrySubtitleVisibility(content));
     }
-    const menuButton = createMetadataButton(`Edit metadata for ${chartDocument.metadata.title || 'chart'}`, (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openMetadataPanel(chartDocument.metadata.id);
-    });
+    const menuButton = createChartEntryMenuButton(chartDocument, (target) => chartEntryActions?.openMenu(target));
     row.append(content, menuButton);
     item.append(row);
     dom.manageChartList.append(item);
@@ -333,6 +366,22 @@ async function persistMetadataState({ documents, setlists }: { documents: ChartD
   writeChartManagementSessionCache();
   setImportStatus(statusMessage);
   renderManageUi();
+}
+
+function persistChartEntrySetlists(nextSetlists: ChartSetlist[], statusMessage: string): void {
+  currentSetlists = nextSetlists;
+  writeChartManagementSessionCache();
+  renderManageUi();
+  void persistSetlists(nextSetlists)
+    .then((persistedSetlists) => {
+      currentSetlists = persistedSetlists;
+      writeChartManagementSessionCache();
+      setImportStatus(statusMessage);
+      renderManageUi();
+    })
+    .catch((error) => {
+      setImportStatus(`Failed to update setlists: ${getErrorMessage(error)}`, true);
+    });
 }
 
 function openMetadataPanel(chartId: string) {
@@ -1017,11 +1066,19 @@ async function loadManageState() {
 }
 
 function bindChartManagementEvents() {
-  dom.manageChartSearchInput?.addEventListener('input', renderManageCharts);
+  dom.manageChartSearchInput?.addEventListener('input', () => {
+    libraryPreviewStartIndex = 0;
+    renderManageCharts();
+  });
   window.addEventListener('resize', () => {
+    if (activeMode === 'library') {
+      scheduleLibraryPreviewLayout();
+      return;
+    }
     document.querySelectorAll<HTMLElement>(getPageChartLinkSelector()).forEach(updateChartEntrySubtitleVisibility);
   });
-  [dom.manageOriginFilter, dom.manageSourceFilter, dom.manageTagFilter, dom.manageSetlistFilter].forEach((element) => {
+  window.visualViewport?.addEventListener('resize', scheduleLibraryPreviewLayout);
+  [dom.manageSourceFilter, dom.manageStyleFilter, dom.manageSetlistFilter].forEach((element) => {
     element?.addEventListener('change', () => {
       const key = element.dataset.filterKey as ChartManageFilterKey | undefined;
       if (!key || !element.value) return;
@@ -1045,6 +1102,7 @@ function bindChartManagementEvents() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     closeMetadataPanel();
+    chartEntryActions?.closeAll();
     closeSetlistActionMenu();
     closeAddChartPopup();
   });
@@ -1053,6 +1111,12 @@ function bindChartManagementEvents() {
 export function initializeChartManagementPage(mode: ChartManagementMode) {
   activeMode = mode;
   initializeSharpElevenTheme();
+  chartEntryActions = createChartEntryActionsController({
+    getState: () => ({ documents: currentDocuments, setlists: currentSetlists }),
+    persistState: persistMetadataState,
+    persistSetlists: persistChartEntrySetlists,
+    removeChartReferences: removePersistedChartReferences
+  });
   bindChartManagementEvents();
   renderCachedSetlistsIfAvailable();
   void loadManageState().catch((error) => {

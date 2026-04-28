@@ -154,7 +154,8 @@ function createImportedSourceRefs(document: ChartDocument): ChartSourceRef[] {
   const playlistName = String(source.playlistName || '').trim();
   const sourceFile = String(source.sourceFile || '').trim();
   const isLink = sourceFile.toLowerCase().includes('link') || sourceFile.toLowerCase().includes('pasted');
-  const name = playlistName || sourceFile || 'Imported chart';
+  const name = playlistName || sourceFile;
+  if (!name) return mergeChartSourceRefs(existingRefs, []);
   return mergeChartSourceRefs(existingRefs, [{
     type: isLink ? 'ireal-link' : playlistName ? 'ireal-bundle' : String(source.type || 'ireal-source'),
     name,
@@ -167,22 +168,20 @@ function createImportedSourceRefs(document: ChartDocument): ChartSourceRef[] {
 }
 
 export async function normalizeChartLibraryDocument(
-  document: ChartDocument,
-  { origin = 'imported' }: { origin?: 'imported' | 'user' | string } = {}
+  document: ChartDocument
 ): Promise<ChartDocument> {
-  const metadata = (document.metadata || {}) as Partial<ChartMetadata>;
-  const resolvedOrigin = String(metadata.origin || origin || 'imported');
-  const sourceRefs = resolvedOrigin === 'imported' ? createImportedSourceRefs(document) : [];
+  const metadata = (document.metadata || {}) as Partial<ChartMetadata> & { origin?: unknown };
+  const { origin: _origin, ...metadataWithoutOrigin } = metadata;
+  const sourceRefs = createImportedSourceRefs(document);
   const contentHash = String(metadata.contentHash || '') && metadata.contentHashVersion === CHART_CONTENT_HASH_VERSION
     ? String(metadata.contentHash)
     : await computeChartContentHash(document);
   return {
     ...document,
     metadata: {
-      ...metadata,
+      ...metadataWithoutOrigin,
       id: String(metadata.id || ''),
       title: String(metadata.title || ''),
-      origin: resolvedOrigin,
       contentHash,
       contentHashVersion: CHART_CONTENT_HASH_VERSION,
       titleKey: normalizeChartTextKey(metadata.title),
@@ -200,7 +199,7 @@ export async function normalizeChartLibraryDocument(
 }
 
 async function normalizeImportedDocuments(documents: ChartDocument[]): Promise<ChartDocument[]> {
-  return Promise.all(documents.map((document) => normalizeChartLibraryDocument(document, { origin: 'imported' })));
+  return Promise.all(documents.map((document) => normalizeChartLibraryDocument(document)));
 }
 
 function mergeDuplicateImportedDocuments(documents: ChartDocument[]): ChartDocument[] {
@@ -208,7 +207,7 @@ function mergeDuplicateImportedDocuments(documents: ChartDocument[]): ChartDocum
   const mergedDocuments: ChartDocument[] = [];
   for (const document of documents) {
     const hashKey = `${document.metadata?.contentHashVersion || ''}:${document.metadata?.contentHash || ''}`;
-    if (!document.metadata?.contentHash || document.metadata?.origin === 'user' || !hashKey.trim()) {
+    if (!document.metadata?.contentHash || !hashKey.trim()) {
       mergedDocuments.push(document);
       continue;
     }
@@ -354,12 +353,12 @@ export function removeChartSourceFromDocuments(
   let ignoredUserChartCount = 0;
 
   for (const document of documents) {
-    if (document.metadata?.origin === 'user') {
+    const sourceRefs = getChartSourceRefs(document);
+    if (sourceRefs.length === 0) {
       ignoredUserChartCount += 1;
       nextDocuments.push(document);
       continue;
     }
-    const sourceRefs = getChartSourceRefs(document);
     const nextSourceRefs = sourceRefs.filter((ref) => normalizeChartTextKey(ref.name) !== normalizedSourceName);
     if (nextSourceRefs.length === sourceRefs.length) {
       nextDocuments.push(document);
@@ -606,13 +605,13 @@ export function previewProtectedChartDelete({
 
   for (const document of selectedDocuments) {
     const chartId = String(document.metadata?.id || '');
-    if (normalizedSourceName && document.metadata?.origin === 'user') {
+    const refs = getChartSourceRefs(document);
+    if (normalizedSourceName && refs.length === 0) {
       skippedCount += 1;
       continue;
     }
-    const refs = getChartSourceRefs(document);
     const matchesActiveSource = normalizedSourceName && refs.some((ref) => normalizeChartTextKey(ref.name) === normalizedSourceName);
-    if (normalizedSourceName && document.metadata?.origin !== 'user' && matchesActiveSource && refs.length > 1) {
+    if (normalizedSourceName && matchesActiveSource && refs.length > 1) {
       protectedChartIds.push(chartId);
       sourceRefOnlyChartIds.push(chartId);
       continue;
