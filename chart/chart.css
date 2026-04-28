@@ -44,6 +44,9 @@
   --chart-ui-shadow-medium: var(--ui-shadow-color-soft);
   --chart-ui-shadow-popover: var(--ui-shadow-color-soft);
   --chart-ui-shadow-menu: var(--ui-shadow-color-strong);
+  --chart-ui-feedback-fill: color-mix(in srgb, var(--ui-highlight, #ffe978) 36%, transparent 64%);
+  --chart-ui-feedback-fill-strong: color-mix(in srgb, var(--ui-highlight, #ffe978) 64%, transparent 36%);
+  --chart-ui-feedback-glow: color-mix(in srgb, var(--ui-highlight, #ffe978) 28%, transparent 72%);
   --chart-status-error: var(--ui-danger);
   --chart-stage-bg: var(--chart-paper);
   --chart-sheet-bg: var(--chart-paper);
@@ -52,21 +55,13 @@
   --chart-sheet-title: var(--chart-ink);
   --chart-sheet-text-alt: color-mix(in srgb, var(--chart-ink) 70%, white 30%);
   --chart-sheet-muted: color-mix(in srgb, var(--chart-ink) 78%, transparent 22%);
-  --chart-sheet-active: rgba(255, 232, 0, 0.56);
-  --chart-sheet-selected: rgba(255, 232, 0, 0.22);
+  --chart-sheet-active: color-mix(in srgb, var(--ui-highlight) 56%, transparent 44%);
+  --chart-sheet-selected: color-mix(in srgb, var(--ui-highlight) 22%, transparent 78%);
   --chart-sheet-active-selected: var(--chart-sheet-active);
   --chart-sheet-playback: color-mix(in srgb, var(--ui-warning-bg) 55%, transparent 45%);
   --chart-sheet-pill: var(--chart-ink);
   --chart-sheet-pill-text: #ffffff;
   --chart-sheet-paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);
-  --blue-ui: var(--chart-ui-accent);
-  --blue-ui-dark: var(--chart-ui-accent-strong);
-  --blue-soft: var(--chart-ui-accent-soft);
-  --chart-overlay-bg: var(--chart-ui-overlay-solid);
-  --sheet-bg: var(--chart-sheet-bg);
-  --sheet-line: var(--chart-sheet-line);
-  --sheet-muted: var(--chart-sheet-muted);
-  --paper-shadow: var(--chart-sheet-paper-shadow);
   --chart-text-scale-compensation: 1;
   --chart-mobile-top-overlay-height: 0px;
   --chart-mobile-bottom-overlay-height: 0px;
@@ -288,20 +283,23 @@ select {
 }
 
 .chart-transport-button {
+  position: relative;
+  isolation: isolate;
   min-height: 40px;
   width: 100%;
   padding: 0 14px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--chart-ui-control-translucent);
   color: var(--chart-ui-accent);
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .chart-transport-play {
   background: var(--chart-ui-text-inverse);
-  color: var(--blue-ui-dark);
+  color: var(--chart-ui-accent-strong);
 }
 
 .chart-transport-button:disabled {
@@ -315,16 +313,19 @@ select {
 }
 
 .chart-bottom-control-button {
+  position: relative;
+  isolation: isolate;
   width: 100%;
   min-height: 40px;
   border: 0;
   border-bottom: 2px solid var(--chart-ui-inverse-border);
-  border-radius: 0;
+  border-radius: 999px;
   background: var(--chart-ui-field-on-accent);
   color: var(--chart-ui-accent);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .chart-bottom-popover {
@@ -431,7 +432,7 @@ select {
 
 .chart-settings-section h3 {
   margin: 0;
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.8rem;
@@ -445,23 +446,26 @@ select {
 /* --- Shared form controls ---------------------------------------- */
 
 .chart-action-button {
+  position: relative;
+  isolation: isolate;
   min-height: 38px;
   padding: 8px 12px;
   border: 0;
-  border-radius: 10px;
-  background: var(--blue-ui);
+  border-radius: 999px;
+  background: var(--chart-ui-accent);
   color: var(--chart-ui-text-inverse);
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .chart-action-button:active {
-  background: var(--blue-ui-dark);
+  background: var(--chart-ui-accent-strong);
 }
 
 .chart-action-button-secondary {
   background: var(--chart-ui-accent-surface);
-  color: var(--blue-ui-dark);
+  color: var(--chart-ui-accent-strong);
 }
 
 .chart-action-button-secondary:active {
@@ -469,6 +473,8 @@ select {
 }
 
 .chart-icon-button {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -479,11 +485,141 @@ select {
   border: 0;
   border-radius: 999px;
   background: var(--chart-ui-accent-surface);
-  color: var(--blue-ui-dark);
+  color: var(--chart-ui-accent-strong);
   cursor: pointer;
   line-height: 1;
-  overflow: hidden;
+  overflow: visible;
   outline-offset: -2px;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.chart-transport-button::after,
+.chart-bottom-control-button::after,
+.chart-action-button::after,
+.chart-icon-button::after,
+.chart-metadata-chip::after,
+.chart-metadata-small-action::after,
+.chart-selection-menu-button::after {
+  content: "";
+  display: none;
+}
+
+.chart-transport-button:focus,
+.chart-transport-button:focus-visible,
+.chart-bottom-control-button:focus,
+.chart-bottom-control-button:focus-visible,
+.chart-action-button:focus,
+.chart-action-button:focus-visible,
+.chart-icon-button:focus,
+.chart-icon-button:focus-visible,
+.chart-metadata-chip:focus,
+.chart-metadata-chip:focus-visible,
+.chart-metadata-small-action:focus,
+.chart-metadata-small-action:focus-visible,
+.chart-selection-menu-button:focus,
+.chart-selection-menu-button:focus-visible {
+  outline: 0;
+}
+
+.chart-transport-button[aria-expanded="true"],
+.chart-bottom-control-button[aria-expanded="true"],
+.chart-action-button[aria-expanded="true"],
+.chart-icon-button[aria-expanded="true"],
+.chart-metadata-chip[aria-expanded="true"],
+.chart-metadata-small-action[aria-expanded="true"],
+.chart-selection-menu-button[aria-expanded="true"] {
+  background: var(--chart-ui-feedback-fill-strong);
+  box-shadow: 0 0 0 7px var(--chart-ui-feedback-fill-strong);
+}
+
+.chart-transport-button[aria-expanded="true"]::after,
+.chart-bottom-control-button[aria-expanded="true"]::after,
+.chart-action-button[aria-expanded="true"]::after,
+.chart-icon-button[aria-expanded="true"]::after,
+.chart-metadata-chip[aria-expanded="true"]::after,
+.chart-metadata-small-action[aria-expanded="true"]::after,
+.chart-selection-menu-button[aria-expanded="true"]::after {
+  background: var(--chart-ui-feedback-fill-strong);
+  box-shadow: 0 0 0 5px var(--chart-ui-feedback-glow);
+  opacity: 1;
+  transform: scale(1);
+}
+
+.chart-transport-button.is-chart-action-feedback,
+.chart-bottom-control-button.is-chart-action-feedback,
+.chart-action-button.is-chart-action-feedback,
+.chart-icon-button.is-chart-action-feedback,
+.chart-metadata-chip.is-chart-action-feedback,
+.chart-metadata-small-action.is-chart-action-feedback,
+.chart-selection-menu-button.is-chart-action-feedback {
+  animation: chart-action-feedback-button 460ms ease-out;
+}
+
+.chart-transport-button.is-chart-action-feedback::after,
+.chart-bottom-control-button.is-chart-action-feedback::after,
+.chart-action-button.is-chart-action-feedback::after,
+.chart-icon-button.is-chart-action-feedback::after,
+.chart-metadata-chip.is-chart-action-feedback::after,
+.chart-metadata-small-action.is-chart-action-feedback::after,
+.chart-selection-menu-button.is-chart-action-feedback::after {
+  animation: chart-action-feedback-ring 460ms ease-out;
+}
+
+@keyframes chart-action-feedback-ring {
+  0% {
+    background: var(--chart-ui-feedback-fill-strong);
+    box-shadow: 0 0 0 0 var(--chart-ui-feedback-glow);
+    opacity: 0;
+    transform: scale(0.84);
+  }
+
+  34% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    background: var(--chart-ui-feedback-fill);
+    box-shadow: 0 0 0 8px transparent;
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes chart-action-feedback-button {
+  0% {
+    box-shadow: 0 0 0 0 var(--chart-ui-feedback-fill-strong);
+  }
+
+  34% {
+    box-shadow: 0 0 0 7px var(--chart-ui-feedback-fill-strong);
+  }
+
+  100% {
+    box-shadow: 0 0 0 11px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-transport-button.is-chart-action-feedback::after,
+  .chart-bottom-control-button.is-chart-action-feedback::after,
+  .chart-action-button.is-chart-action-feedback::after,
+  .chart-icon-button.is-chart-action-feedback::after,
+  .chart-metadata-chip.is-chart-action-feedback::after,
+  .chart-metadata-small-action.is-chart-action-feedback::after,
+  .chart-selection-menu-button.is-chart-action-feedback::after {
+    animation-duration: 1ms;
+  }
+
+  .chart-transport-button.is-chart-action-feedback,
+  .chart-bottom-control-button.is-chart-action-feedback,
+  .chart-action-button.is-chart-action-feedback,
+  .chart-icon-button.is-chart-action-feedback,
+  .chart-metadata-chip.is-chart-action-feedback,
+  .chart-metadata-small-action.is-chart-action-feedback,
+  .chart-selection-menu-button.is-chart-action-feedback {
+    animation-duration: 1ms;
+  }
 }
 
 .chart-gear-button::before {
@@ -522,7 +658,7 @@ select {
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
 }
 
 .chart-metadata-popover input,
@@ -556,7 +692,7 @@ select {
 }
 
 .chart-metadata-facts dt {
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-weight: 800;
 }
 
@@ -573,15 +709,18 @@ select {
 
 .chart-metadata-chip,
 .chart-metadata-small-action {
+  position: relative;
+  isolation: isolate;
   min-height: 30px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   background: var(--chart-ui-accent-surface);
-  color: var(--blue-ui-dark);
+  color: var(--chart-ui-accent-strong);
   font: inherit;
   font-weight: 800;
   padding: 5px 9px;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .chart-instrument-popover {
@@ -613,7 +752,7 @@ select {
 
 .chart-import-copy span,
 .chart-import-status {
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-size: 0.82rem;
 }
 
@@ -655,7 +794,7 @@ select {
 }
 
 .chart-select-field span {
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -700,7 +839,7 @@ select {
   display: flex;
   align-items: flex-end;
   min-height: 38px;
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-size: 0.82rem;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -755,14 +894,17 @@ select {
 }
 
 .chart-selection-menu-button {
+  position: relative;
+  isolation: isolate;
   min-height: 34px;
   padding: 0 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--chart-ui-text-inverse);
-  color: var(--blue-ui-dark);
+  color: var(--chart-ui-accent-strong);
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .chart-selection-menu-button:active {
@@ -784,15 +926,15 @@ select {
 }
 
 .chart-selection-menu-button.is-active {
-  background: linear-gradient(135deg, var(--blue-soft), var(--chart-ui-text-inverse));
-  color: var(--blue-ui-dark);
+  background: linear-gradient(135deg, var(--chart-ui-accent-soft), var(--chart-ui-text-inverse));
+  color: var(--chart-ui-accent-strong);
 }
 
 .chart-sheet-panel,
 .chart-card {
-  background: var(--sheet-bg);
+  background: var(--chart-sheet-bg);
   border-radius: 24px;
-  box-shadow: var(--paper-shadow);
+  box-shadow: var(--chart-sheet-paper-shadow);
 }
 
 .chart-sheet-panel {
@@ -834,7 +976,7 @@ select {
 }
 
 .chart-sheet-subtitle {
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-size: 0.92rem;
   text-align: right;
 }
@@ -898,7 +1040,7 @@ select {
   padding: 0 8px;
   border-radius: 6px;
   background: var(--chart-sheet-line);
-  color: var(--sheet-bg);
+  color: var(--chart-sheet-bg);
   font-weight: 700;
   font-size: 1.75rem;
   line-height: 1;
@@ -948,7 +1090,7 @@ select {
   height: var(--chart-bar-line-height);
   right: 0;
   width: 0;
-  border-right: 2px solid var(--sheet-line);
+  border-right: 2px solid var(--chart-sheet-line);
   z-index: 2;
 }
 
@@ -964,7 +1106,7 @@ select {
   height: var(--chart-bar-line-height);
   left: 0;
   width: 0;
-  border-left: 2px solid var(--sheet-line);
+  border-left: 2px solid var(--chart-sheet-line);
   z-index: 2;
 }
 
@@ -1240,7 +1382,7 @@ select {
   flex-wrap: wrap;
   justify-content: end;
   gap: 8px;
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-size: 0.9rem;
 }
 
@@ -1248,7 +1390,7 @@ select {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--chart-ui-accent-surface);
-  color: var(--blue-ui-dark);
+  color: var(--chart-ui-accent-strong);
 }
 
 /* --- Cards ------------------------------------------------------- */
@@ -1279,7 +1421,7 @@ select {
 }
 
 .chart-toggle input[type="checkbox"] {
-  accent-color: var(--blue-ui);
+  accent-color: var(--chart-ui-accent);
 }
 
 .chart-toggle-strong {
@@ -1300,7 +1442,7 @@ select {
 }
 
 .chart-slider-field > span {
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1335,7 +1477,7 @@ select {
 
 .chart-meta-list dt,
 #diagnostics-list {
-  color: var(--sheet-muted);
+  color: var(--chart-sheet-muted);
 }
 
 .chart-meta-list dd {
@@ -1681,7 +1823,7 @@ select {
   }
 }
 
-/* --- iReal-style playback overlay, first pass -------------------- */
+/* --- Chart playback overlay -------------------------------------- */
 
 @media (max-width: 1200px) {
   .chart-app.overlay-open .chart-mobile-backdrop {
@@ -1704,7 +1846,7 @@ select {
       2px
       max(18px, calc(env(safe-area-inset-left) + 12px));
     border-radius: 0;
-    background: var(--chart-overlay-bg);
+    background: var(--chart-ui-overlay-solid);
     box-shadow: none;
     overflow: visible;
   }
@@ -1784,7 +1926,7 @@ select {
       max(22px, calc(env(safe-area-inset-left) + 16px));
     border: 0;
     border-radius: 0;
-    background: var(--chart-overlay-bg);
+    background: var(--chart-ui-overlay-solid);
     color: var(--chart-ui-accent);
     box-shadow: none;
     overflow: visible;
@@ -1796,7 +1938,7 @@ select {
     gap: 12px;
   }
 
-  .chart-legacy-playback-setting,
+  .chart-drums-playback-setting,
   .chart-transport-meta,
   .chart-clear-selection-button {
     display: none !important;
@@ -1896,7 +2038,7 @@ select {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: center;
     gap: 8px;
-    margin-top: 18px;
+    margin-top: 12px;
   }
 
   .chart-mixer-popover-wrap {
@@ -1905,11 +2047,12 @@ select {
   }
 
   .chart-transport-button {
-    width: 100%;
-    height: 27px;
-    min-height: 27px;
+    justify-self: center;
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
     border: 0;
-    border-radius: 0;
+    border-radius: 999px;
     background: transparent;
     color: var(--chart-ui-accent);
     padding: 0;
@@ -1972,6 +2115,11 @@ select {
       radial-gradient(circle at 6.5px 10px, currentColor 0 4px, transparent 4.25px),
       radial-gradient(circle at 16.5px 19.5px, currentColor 0 4px, transparent 4.25px),
       radial-gradient(circle at 26.5px 13.5px, currentColor 0 4px, transparent 4.25px);
+  }
+
+  .chart-transport-button[aria-expanded="true"] {
+    background: var(--chart-ui-feedback-fill-strong);
+    box-shadow: 0 0 0 7px var(--chart-ui-feedback-glow);
   }
 
   .chart-workspace {

@@ -945,7 +945,7 @@ input[type="search"]::-webkit-search-cancel-button:hover {
 }
 
 .setlists-danger {
-  border-color: color-mix(in srgb, var(--chart-status-error, #c33) 60%, var(--ui-border) 40%);
+  border-color: color-mix(in srgb, var(--chart-status-error, var(--ui-danger)) 60%, var(--ui-border) 40%);
 }
 
 .setlists-main {
@@ -4497,24 +4497,16 @@ input[type="number"]:focus {
 
 .home-body {
   --home-control-radius: 0.65rem;
-  --home-action-tile-bg: color-mix(in srgb, var(--ui-surface) 70%, white 30%);
-  --home-action-tile-active-bg: color-mix(in srgb, var(--ui-surface) 52%, white 48%);
-  --home-action-tile-shadow: 0 10px 22px color-mix(in srgb, var(--ui-shadow-color-soft) 55%, transparent 45%);
-  --home-search-bg: color-mix(in srgb, var(--ui-surface) 70%, white 30%);
-  --home-search-shadow: 0 7px 18px color-mix(in srgb, var(--ui-shadow-color-soft) 48%, transparent 52%);
+  --home-action-tile-bg: var(--ui-control-bg);
+  --home-action-tile-active-bg: var(--ui-control-active-bg);
+  --home-action-tile-shadow: var(--ui-control-shadow);
+  --home-search-bg: var(--ui-control-bg);
+  --home-search-shadow: var(--ui-control-shadow-soft);
 }
 
 .home-body .home-header {
   min-height: 3.75rem;
   margin-bottom: clamp(0.45rem, 2vw, 1rem);
-}
-
-:root[data-theme="dark-jazz"] .home-body {
-  --home-action-tile-bg: #2b2e30;
-  --home-action-tile-active-bg: #343739;
-  --home-action-tile-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
-  --home-search-bg: #2b2e30;
-  --home-search-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
 }
 
 .home-body .home-subsection {
@@ -4677,7 +4669,7 @@ input[type="number"]:focus {
 @media (min-width: 761px) {
   .home-body {
     align-items: center;
-    background: color-mix(in srgb, var(--ui-bg) 82%, white 18%);
+    background: var(--ui-phone-frame-page-bg);
     position: relative;
   }
 
@@ -4692,7 +4684,7 @@ input[type="number"]:focus {
     border: 1px solid color-mix(in srgb, var(--ui-text) 14%, transparent 86%);
     border-radius: 1.35rem;
     background: var(--ui-bg);
-    box-shadow: 0 18px 42px color-mix(in srgb, var(--ui-shadow-color-soft) 55%, transparent 45%);
+    box-shadow: var(--ui-phone-frame-shadow);
     pointer-events: none;
     transform: translateX(-50%);
   }
@@ -5300,21 +5292,13 @@ input[type="number"]:focus {
   --drill-phone-width: min(100%, 42rem);
   --drill-control-radius: 0.72rem;
   --drill-display-radius: 1.05rem;
-  --drill-stage-bg: color-mix(in srgb, var(--ui-bg) 72%, var(--ui-surface) 28%);
-  --drill-control-bg: color-mix(in srgb, var(--ui-surface) 72%, var(--ui-bg) 28%);
-  --drill-control-active-bg: color-mix(in srgb, var(--ui-surface) 58%, var(--ui-accent) 12%);
-  --drill-line: color-mix(in srgb, var(--ui-text) 10%, transparent 90%);
-  --drill-line-strong: color-mix(in srgb, var(--ui-text) 16%, transparent 84%);
-  --drill-shadow: 0 14px 32px color-mix(in srgb, var(--ui-shadow-color-soft) 52%, transparent 48%);
-  background: color-mix(in srgb, var(--ui-bg) 88%, var(--ui-surface) 12%);
-}
-
-:root[data-theme="dark-jazz"] .drill-body {
-  --drill-stage-bg: #25282a;
-  --drill-control-bg: #2b2e30;
-  --drill-control-active-bg: #343739;
-  --drill-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
-  background: #202224;
+  --drill-stage-bg: var(--ui-stage-bg);
+  --drill-control-bg: var(--ui-control-bg);
+  --drill-control-active-bg: var(--ui-control-active-bg);
+  --drill-line: var(--ui-control-line);
+  --drill-line-strong: var(--ui-control-line-strong);
+  --drill-shadow: var(--ui-stage-shadow);
+  background: var(--ui-page-bg);
 }
 
 .drill-body #app {
@@ -5389,7 +5373,7 @@ input[type="number"]:focus {
   overflow: hidden;
   border-radius: var(--drill-display-radius);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--drill-stage-bg) 86%, white 14%), var(--drill-stage-bg)),
+    linear-gradient(180deg, var(--ui-stage-highlight), var(--drill-stage-bg)),
     var(--drill-stage-bg);
   box-shadow: var(--drill-shadow);
 }
@@ -5815,7 +5799,7 @@ input[type="number"]:focus {
     --drill-page-width: min(430px, 100vw);
     --drill-phone-width: min(430px, 100vw);
     align-items: center;
-    background: color-mix(in srgb, var(--ui-bg) 82%, white 18%);
+    background: var(--ui-phone-frame-page-bg);
     position: relative;
   }
 
@@ -5830,7 +5814,7 @@ input[type="number"]:focus {
     border: 1px solid color-mix(in srgb, var(--ui-text) 14%, transparent 86%);
     border-radius: 1.35rem;
     background: var(--ui-bg);
-    box-shadow: 0 18px 42px color-mix(in srgb, var(--ui-shadow-color-soft) 55%, transparent 45%);
+    box-shadow: var(--ui-phone-frame-shadow);
     pointer-events: none;
     transform: translateX(-50%);
   }

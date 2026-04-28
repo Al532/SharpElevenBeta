@@ -7,30 +7,6 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=1.1.44">
   <link rel="shortcut icon" href="./favicon.svg?v=1.1.44">
   <link rel="stylesheet" href="./style.css?v=1.1.44">
-  <script>
-    window.JAZZ_TRAINER_GOATCOUNTER_ENDPOINT = 'https://aminel.goatcounter.com/count';
-    window.goatcounter = window.goatcounter || {};
-    window.goatcounter.path = function demoAnalyticsPath(path) {
-      if (!path || path === location.pathname || path === location.pathname + location.search) {
-        return '/demo.html';
-      }
-      return path;
-    };
-    window.JAZZ_TRAINER_ENABLE_GOATCOUNTER = !(
-      location.hostname === 'localhost' ||
-      location.hostname === '127.0.0.1' ||
-      location.protocol === 'file:'
-    );
-  </script>
-  <script>
-    if (window.JAZZ_TRAINER_ENABLE_GOATCOUNTER) {
-      const analyticsScript = document.createElement('script');
-      analyticsScript.async = true;
-      analyticsScript.dataset.goatcounter = 'https://aminel.goatcounter.com/count';
-      analyticsScript.src = '//gc.zgo.at/count.js';
-      document.head.appendChild(analyticsScript);
-    }
-  </script>
 </head>
 <body class="demo-page">
   <div id="app" class="demo-app">

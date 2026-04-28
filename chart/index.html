@@ -35,7 +35,7 @@
             <div class="chart-popover chart-metadata-popover" id="chart-metadata-popover" hidden></div>
           </div>
           <div class="chart-popover-wrap" id="manage-charts-wrap">
-            <button type="button" id="manage-charts-button" class="chart-action-button chart-action-button-secondary">Manage charts</button>
+            <button type="button" id="manage-charts-button" class="chart-action-button chart-action-button-secondary" aria-haspopup="menu" aria-expanded="false">Manage charts</button>
             <div class="chart-popover" id="manage-charts-popover" hidden>
               <div id="chart-import-native-actions" class="chart-import-actions">
                 <button id="import-ireal-backup-button" type="button" class="chart-action-button">Import iReal backup</button>
@@ -85,7 +85,7 @@
               <input id="tempo-range" type="range" min="40" max="320" step="1" value="120">
             </div>
           </div>
-          <label class="chart-select-field chart-legacy-playback-setting">
+          <label class="chart-select-field chart-drums-playback-setting">
             <span>Drums</span>
             <select id="drums-select">
               <option value="off">Off</option>

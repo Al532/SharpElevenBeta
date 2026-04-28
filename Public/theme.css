@@ -2,21 +2,46 @@
 
 :root,
 :root[data-theme] {
-  /* Derived source aliases */
-  --c-surface: color-mix(in srgb, var(--c-bg) 72%, white 28%);
-  --c-text-weak: color-mix(in srgb, var(--c-text) 66%, var(--c-bg) 34%);
-  --c-border: color-mix(in srgb, var(--c-text) 38%, var(--c-bg) 62%);
-  --c-shadow: color-mix(in srgb, var(--c-text) 16%, transparent 84%);
+  /* Palette derivation */
+  --tone-paper: light-dark(white, black);
+  --tone-ink: light-dark(black, white);
+  --tone-raise: light-dark(white, var(--c-text));
+  --tone-shadow: light-dark(var(--c-text), black);
+
+  --c-surface: light-dark(
+    color-mix(in srgb, var(--c-bg) 72%, white 28%),
+    color-mix(in srgb, var(--c-bg) 94%, var(--c-text) 6%)
+  );
+  --c-text-weak: light-dark(
+    color-mix(in srgb, var(--c-text) 66%, var(--c-bg) 34%),
+    color-mix(in srgb, var(--c-text) 72%, var(--c-bg) 28%)
+  );
+  --c-border: light-dark(
+    color-mix(in srgb, var(--c-text) 38%, var(--c-bg) 62%),
+    color-mix(in srgb, var(--c-text) 18%, var(--c-bg) 82%)
+  );
+  --c-shadow: color-mix(in srgb, var(--tone-shadow) 16%, transparent 84%);
   --c-overlay: color-mix(in srgb, var(--c-surface) 72%, transparent 28%);
 
-  /* Core UI tokens (non-compat naming) */
+  /* Shared UI tokens */
   --ui-bg: var(--c-bg);
-  --ui-bg-elevated: color-mix(in srgb, var(--c-bg) 85%, var(--c-surface) 15%);
-  --ui-bg-gradient-end: color-mix(in srgb, var(--c-bg) 75%, black 25%);
+  --ui-page-bg: color-mix(in srgb, var(--c-bg) 88%, var(--c-surface) 12%);
+  --ui-phone-frame-page-bg: light-dark(
+    color-mix(in srgb, var(--c-bg) 82%, white 18%),
+    color-mix(in srgb, var(--c-bg) 90%, var(--c-surface) 10%)
+  );
+  --ui-bg-elevated: light-dark(
+    color-mix(in srgb, var(--c-bg) 85%, var(--c-surface) 15%),
+    color-mix(in srgb, var(--c-bg) 74%, var(--c-surface) 26%)
+  );
+  --ui-bg-gradient-end: color-mix(in srgb, var(--c-bg) 75%, var(--tone-ink) 25%);
   --ui-surface: var(--c-surface);
-  --ui-surface-strong: color-mix(in srgb, var(--c-surface) 88%, black 12%);
-  --ui-surface-control: color-mix(in srgb, var(--c-surface) 85%, black 15%);
-  --ui-surface-input: color-mix(in srgb, var(--c-surface) 70%, white 30%);
+  --ui-surface-strong: color-mix(in srgb, var(--c-surface) 88%, var(--tone-ink) 12%);
+  --ui-surface-control: color-mix(in srgb, var(--c-surface) 85%, var(--tone-ink) 15%);
+  --ui-surface-input: light-dark(
+    color-mix(in srgb, var(--c-surface) 70%, white 30%),
+    color-mix(in srgb, var(--c-surface) 94%, var(--c-text) 6%)
+  );
   --ui-surface-muted: color-mix(in srgb, var(--c-surface) 70%, var(--c-bg) 30%);
   --ui-text: var(--c-text);
   --ui-text-muted: var(--c-text-weak);
@@ -24,9 +49,9 @@
   --ui-text-faint: color-mix(in srgb, var(--c-text-weak) 75%, var(--c-bg) 25%);
   --ui-text-inverse: var(--c-bg);
   --ui-border: var(--c-border);
-  --ui-border-strong: color-mix(in srgb, var(--c-border) 78%, white 22%);
+  --ui-border-strong: color-mix(in srgb, var(--c-border) 78%, var(--tone-raise) 22%);
   --ui-accent: var(--c-accent);
-  --ui-accent-strong: color-mix(in srgb, var(--c-accent) 84%, black 16%);
+  --ui-accent-strong: color-mix(in srgb, var(--c-accent) 84%, var(--tone-ink) 16%);
   --ui-accent-warm: color-mix(in srgb, var(--c-accent) 86%, var(--c-secondary) 14%);
   --ui-accent-cool: color-mix(in srgb, var(--c-accent) 70%, var(--c-text) 30%);
   --ui-secondary: var(--c-secondary);
@@ -40,11 +65,53 @@
   --ui-shadow-strong: 0 24px 60px var(--ui-shadow-color-strong);
   --ui-glow-accent-subtle: color-mix(in srgb, var(--c-accent) 92%, transparent 8%);
   --ui-glow-accent: color-mix(in srgb, var(--c-accent) 84%, transparent 16%);
-  --ui-glow-cool: color-mix(in srgb, var(--ui-accent-strong) 84%, white 16%);
+  --ui-glow-cool: color-mix(in srgb, var(--ui-accent-strong) 84%, var(--tone-raise) 16%);
   --ui-overlay-backdrop: color-mix(in srgb, var(--c-overlay) 100%, transparent 0%);
   --ui-overlay-panel: color-mix(in srgb, var(--c-overlay) 80%, var(--c-bg) 20%);
-  --ui-overlay-card: linear-gradient(180deg, color-mix(in srgb, var(--c-overlay) 60%, black 40%) 0%, var(--ui-overlay-panel) 100%);
-  --ui-welcome-card: linear-gradient(135deg, color-mix(in srgb, var(--c-bg) 70%, var(--c-surface) 30%) 0%, color-mix(in srgb, var(--c-surface) 60%, black 40%) 100%);
+  --ui-overlay-card: linear-gradient(180deg, color-mix(in srgb, var(--c-overlay) 60%, var(--tone-ink) 40%) 0%, var(--ui-overlay-panel) 100%);
+  --ui-welcome-card: linear-gradient(135deg, color-mix(in srgb, var(--c-bg) 70%, var(--c-surface) 30%) 0%, color-mix(in srgb, var(--c-surface) 60%, var(--tone-ink) 40%) 100%);
+
+  /* Reusable controls and screen chrome */
+  --ui-stage-bg: light-dark(
+    color-mix(in srgb, var(--c-bg) 72%, var(--c-surface) 28%),
+    color-mix(in srgb, var(--c-bg) 45%, var(--c-surface) 55%)
+  );
+  --ui-stage-highlight: light-dark(
+    color-mix(in srgb, var(--ui-stage-bg) 86%, white 14%),
+    color-mix(in srgb, var(--ui-stage-bg) 94%, var(--c-text) 6%)
+  );
+  --ui-control-bg: light-dark(
+    color-mix(in srgb, var(--c-surface) 70%, white 30%),
+    var(--c-surface)
+  );
+  --ui-control-active-bg: light-dark(
+    color-mix(in srgb, var(--c-surface) 52%, white 48%),
+    color-mix(in srgb, var(--c-surface) 96%, var(--c-text) 4%)
+  );
+  --ui-control-muted-bg: color-mix(in srgb, var(--ui-control-bg) 72%, transparent 28%);
+  --ui-control-line: color-mix(in srgb, var(--ui-text) 10%, transparent 90%);
+  --ui-control-line-strong: color-mix(in srgb, var(--ui-text) 16%, transparent 84%);
+  --ui-control-shadow-color: light-dark(
+    color-mix(in srgb, var(--ui-shadow-color-soft) 55%, transparent 45%),
+    color-mix(in srgb, black 18%, transparent 82%)
+  );
+  --ui-control-shadow-color-soft: light-dark(
+    color-mix(in srgb, var(--ui-shadow-color-soft) 48%, transparent 52%),
+    color-mix(in srgb, black 18%, transparent 82%)
+  );
+  --ui-control-shadow: 0 10px 22px var(--ui-control-shadow-color);
+  --ui-control-shadow-soft: 0 7px 18px var(--ui-control-shadow-color-soft);
+  --ui-stage-shadow: 0 14px 32px light-dark(
+    color-mix(in srgb, var(--ui-shadow-color-soft) 52%, transparent 48%),
+    color-mix(in srgb, black 20%, transparent 80%)
+  );
+  --ui-phone-frame-shadow: 0 18px 42px color-mix(in srgb, var(--ui-shadow-color-soft) 55%, transparent 45%);
+  --ui-inset-border: color-mix(in srgb, white 12%, transparent 88%);
+  --ui-inset-border-strong: color-mix(in srgb, white 18%, transparent 82%);
+  --ui-inset-border-hover: color-mix(in srgb, white 22%, transparent 78%);
+  --ui-translucent-surface: color-mix(in srgb, white 4%, transparent 96%);
+  --ui-translucent-surface-hover: color-mix(in srgb, white 8%, transparent 92%);
+
   --ui-chip-bg: color-mix(in srgb, var(--c-accent) 14%, transparent 86%);
   --ui-chip-bg-hover: color-mix(in srgb, var(--c-accent) 20%, transparent 80%);
   --ui-chip-bg-subtle: color-mix(in srgb, var(--c-accent) 10%, transparent 90%);
@@ -65,25 +132,25 @@
   --ui-warning-border-hover: color-mix(in srgb, var(--c-accent) 56%, var(--c-secondary) 44%);
   --ui-warning-text: var(--c-accent);
   --ui-highlight: var(--c-highlight);
-  --ui-white-border: color-mix(in srgb, white 12%, transparent 88%);
-  --ui-white-border-hover: color-mix(in srgb, white 22%, transparent 78%);
-  --ui-white-surface: color-mix(in srgb, white 4%, transparent 96%);
-  --ui-white-surface-hover: color-mix(in srgb, white 8%, transparent 92%);
+  --ui-white-border: var(--ui-inset-border);
+  --ui-white-border-hover: var(--ui-inset-border-hover);
+  --ui-white-surface: var(--ui-translucent-surface);
+  --ui-white-surface-hover: var(--ui-translucent-surface-hover);
   --ui-text-decoration: color-mix(in srgb, var(--c-text) 18%, transparent 82%);
   --ui-text-decoration-hover: color-mix(in srgb, var(--c-text) 45%, transparent 55%);
 
-  --key-white-text: color-mix(in srgb, #17324e 70%, var(--c-text) 30%);
-  --key-white-selected-text: color-mix(in srgb, #102437 70%, var(--c-text) 30%);
-  --key-white-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(223, 233, 244, 0.92));
+  --key-white-text: color-mix(in srgb, var(--ui-accent-cool) 58%, var(--c-text) 42%);
+  --key-white-selected-text: color-mix(in srgb, var(--ui-accent-cool) 70%, var(--c-text) 30%);
+  --key-white-bg: linear-gradient(180deg, color-mix(in srgb, white 98%, var(--c-secondary) 2%), color-mix(in srgb, var(--c-secondary) 42%, white 58%));
   --key-white-selected-bg: linear-gradient(180deg, color-mix(in srgb, var(--c-secondary) 88%, white 12%), var(--c-secondary));
-  --key-black-text: #f4f7fb;
-  --key-black-bg: linear-gradient(180deg, rgba(34, 48, 64, 0.98), rgba(9, 15, 22, 0.98));
+  --key-black-text: color-mix(in srgb, white 96%, var(--c-secondary) 4%);
+  --key-black-bg: linear-gradient(180deg, color-mix(in srgb, var(--c-text) 72%, var(--c-bg) 28%), color-mix(in srgb, black 78%, var(--c-bg) 22%));
   --key-black-selected-bg: linear-gradient(180deg, var(--c-accent), var(--ui-accent-strong));
 
-  /* Chart selection stays deliberately outside app theme palettes. */
-  --chart-sheet-active: rgba(255, 232, 0, 0.56) !important;
-  --chart-sheet-selected: rgba(255, 232, 0, 0.22) !important;
-  --chart-sheet-active-selected: rgba(255, 232, 0, 0.56) !important;
+  /* Chart selection follows the palette highlight while remaining sheet-local. */
+  --chart-sheet-active: color-mix(in srgb, var(--ui-highlight) 56%, transparent 44%) !important;
+  --chart-sheet-selected: color-mix(in srgb, var(--ui-highlight) 22%, transparent 78%) !important;
+  --chart-sheet-active-selected: color-mix(in srgb, var(--ui-highlight) 56%, transparent 44%) !important;
   --chart-sheet-playback: color-mix(in srgb, var(--ui-highlight) 86%, transparent 14%) !important;
 }
 

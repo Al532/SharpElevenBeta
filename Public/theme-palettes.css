@@ -2,6 +2,7 @@
 :root[data-theme="classic-paper"] {
   color-scheme: light;
 
+  /* Six source colors: page, text, accent, support, danger, chart marker. */
   --c-bg: #f5f1e6;
   --c-text: #1a1a1a;
   --c-accent: #c19a6b;
@@ -18,7 +19,7 @@
   --c-accent: #0f6fae;
   --c-secondary: #c7dff4;
   --c-danger: #c86472;
-  --c-highlight: #f4d85e; /* warm chart marker for selection and playback */
+  --c-highlight: #f4d85e;
 }
 
 :root[data-theme="dark-jazz"] {

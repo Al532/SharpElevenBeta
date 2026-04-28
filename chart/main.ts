@@ -257,6 +257,9 @@ let lastOpticalLayoutFontsReady = false;
 let didOpenRequestedMetadataPanel = false;
 let chartMetadataPopoverRenderId = 0;
 let chartTransitionCleanupTimer = 0;
+const CHART_ACTION_FEEDBACK_CLASS = 'is-chart-action-feedback';
+const CHART_ACTION_FEEDBACK_DURATION_MS = 520;
+const chartActionFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
 
 declare global {
   interface Window {
@@ -331,6 +334,41 @@ function setInstrumentTransposition(value: string | number, { render = false }: 
       if (dom.transportStatus) dom.transportStatus.textContent = `Playback settings error: ${getErrorMessage(error)}`;
     });
   }
+}
+
+function syncChartPopoverButtonStates() {
+  dom.manageChartsButton?.setAttribute('aria-expanded', dom.manageChartsPopover && !dom.manageChartsPopover.hidden ? 'true' : 'false');
+  dom.chartMetadataButton?.setAttribute('aria-expanded', dom.chartMetadataPopover && !dom.chartMetadataPopover.hidden ? 'true' : 'false');
+  dom.instrumentSettingsButton?.setAttribute('aria-expanded', dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden ? 'true' : 'false');
+  dom.tempoButton?.setAttribute('aria-expanded', dom.tempoPopover && !dom.tempoPopover.hidden ? 'true' : 'false');
+  dom.mixerButton?.setAttribute('aria-expanded', dom.mixerPopover && !dom.mixerPopover.hidden ? 'true' : 'false');
+}
+
+function shouldFlashChartActionFeedback(button: HTMLButtonElement) {
+  if (button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
+  return button.getAttribute('aria-haspopup') !== 'menu';
+}
+
+function flashChartActionFeedback(button: HTMLButtonElement) {
+  window.clearTimeout(chartActionFeedbackTimers.get(button));
+  button.classList.remove(CHART_ACTION_FEEDBACK_CLASS);
+  void button.offsetWidth;
+  button.classList.add(CHART_ACTION_FEEDBACK_CLASS);
+  chartActionFeedbackTimers.set(button, window.setTimeout(() => {
+    button.classList.remove(CHART_ACTION_FEEDBACK_CLASS);
+    chartActionFeedbackTimers.delete(button);
+  }, CHART_ACTION_FEEDBACK_DURATION_MS));
+}
+
+function bindChartButtonFeedback() {
+  dom.chartApp?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest('button');
+    if (!(button instanceof HTMLButtonElement) || !dom.chartApp?.contains(button)) return;
+    if (shouldFlashChartActionFeedback(button)) {
+      flashChartActionFeedback(button);
+    }
+  }, true);
 }
 
 function persistPlaybackSettings() {
@@ -604,6 +642,7 @@ function closeBottomPopovers() {
   if (dom.tempoButton) dom.tempoButton.setAttribute('aria-expanded', 'false');
   if (dom.mixerPopover) dom.mixerPopover.hidden = true;
   if (dom.mixerButton) dom.mixerButton.setAttribute('aria-expanded', 'false');
+  syncChartPopoverButtonStates();
 }
 
 function isMetadataPopoverActive() {
@@ -626,7 +665,7 @@ function bindBottomControlPopovers() {
     }) as { popovers: Array<HTMLElement | null> }).popovers);
     dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
     if (dom.tempoPopover) dom.tempoPopover.hidden = !willOpen;
-    dom.tempoButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    syncChartPopoverButtonStates();
     syncMobileOverlayDrawerLayout();
   });
 
@@ -649,7 +688,7 @@ function bindBottomControlPopovers() {
     if (dom.tempoPopover) dom.tempoPopover.hidden = true;
     dom.tempoButton?.setAttribute('aria-expanded', 'false');
     if (dom.mixerPopover) dom.mixerPopover.hidden = !willOpen;
-    dom.mixerButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    syncChartPopoverButtonStates();
     syncMobileOverlayDrawerLayout();
   });
 
@@ -1320,7 +1359,7 @@ function renderFixture() {
     openOverlay();
     void renderChartMetadataPopover();
     dom.chartMetadataPopover?.removeAttribute('hidden');
-    dom.chartMetadataButton?.setAttribute('aria-expanded', 'true');
+    syncChartPopoverButtonStates();
   }
 }
 
@@ -1546,6 +1585,7 @@ async function renderChartMetadataPopover() {
     removePersistedChartReferences(deletedIds);
     await persistCurrentChartMetadataState(result.documents, result.setlists, 'Chart deleted.', nextPreferredDocument?.metadata.id || null);
     dom.chartMetadataPopover?.setAttribute('hidden', '');
+    syncChartPopoverButtonStates();
   });
   dom.chartMetadataPopover.append(deleteButton);
 }
@@ -1557,6 +1597,7 @@ function closeAllPopovers() {
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
   dom.chartMetadataButton?.setAttribute('aria-expanded', 'false');
   closeBottomPopovers();
+  syncChartPopoverButtonStates();
 }
 
 function closeOpenPopovers() {
@@ -1575,7 +1616,7 @@ function togglePopover(targetPopover: HTMLElement | null, otherPopover: HTMLElem
   popovers: [targetPopover, otherPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]
   }) as { targetPopover: HTMLElement | null, popovers: Array<HTMLElement | null> };
   toggleChartPopover(bindings.targetPopover, bindings.popovers);
-  dom.instrumentSettingsButton?.setAttribute('aria-expanded', dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden ? 'true' : 'false');
+  syncChartPopoverButtonStates();
   syncMobileOverlayDrawerLayout();
 }
 
@@ -1680,6 +1721,7 @@ function closeOverlay() {
   }));
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
   dom.chartMetadataButton?.setAttribute('aria-expanded', 'false');
+  syncChartPopoverButtonStates();
   syncMobileOverlayDrawerLayout();
 }
 
@@ -1999,7 +2041,10 @@ async function loadFixtures() {
       };
       bindings.mobileMenuToggle?.addEventListener('click', bindings.onOpenOverlay);
       bindings.mobileBackdrop?.addEventListener('click', bindings.onCloseOverlay);
-      bindings.manageChartsButton?.addEventListener('click', bindings.onManageChartsToggle);
+      bindings.manageChartsButton?.addEventListener('click', () => {
+        bindings.onManageChartsToggle();
+        syncChartPopoverButtonStates();
+      });
       dom.chartMetadataButton?.addEventListener('click', () => {
         closeBottomPopovers();
         const wasOpen = Boolean(dom.chartMetadataPopover && !dom.chartMetadataPopover.hidden);
@@ -2008,7 +2053,7 @@ async function loadFixtures() {
           void renderChartMetadataPopover();
           dom.chartMetadataPopover?.removeAttribute('hidden');
         }
-        dom.chartMetadataButton?.setAttribute('aria-expanded', !wasOpen ? 'true' : 'false');
+        syncChartPopoverButtonStates();
         syncMobileOverlayDrawerLayout();
       });
       dom.instrumentSettingsButton?.addEventListener('click', () => {
@@ -2016,7 +2061,7 @@ async function loadFixtures() {
         const wasOpen = Boolean(dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden);
         closeAllChartPopovers([dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover]);
         if (!wasOpen) dom.instrumentSettingsPopover?.removeAttribute('hidden');
-        dom.instrumentSettingsButton?.setAttribute('aria-expanded', !wasOpen ? 'true' : 'false');
+        syncChartPopoverButtonStates();
         syncMobileOverlayDrawerLayout();
       });
       dom.instrumentTransposeSelect?.addEventListener('change', () => {
@@ -2056,6 +2101,7 @@ async function loadFixtures() {
 applyChartDisplayCssVariables();
 chartTextScaleCompensation = measureChartTextScaleCompensation();
 installChartDebugApi();
+bindChartButtonFeedback();
 
 loadFixtures().catch((error) => {
   if (dom.transportStatus) {

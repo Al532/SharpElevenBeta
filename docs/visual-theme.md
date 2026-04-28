@@ -30,7 +30,7 @@ When extending this language to other screens, start with the closest existing p
 The available palette names include:
 
 - `classic-paper`: the default visual language used by the app.
-- `blue-note`: the blue palette formerly named `iReal`.
+- `blue-note`: the cool blue alternate palette.
 - `dark-jazz`: the dark companion palette for the current soft tile/search language.
 
 Use the browser console to test palettes:
@@ -52,7 +52,7 @@ The base palette is intentionally minimal: 6 source tokens in `theme-palettes.cs
 - State: `--c-highlight` (highlighter yellow used for chart selection and playback highlights)
 - Status UI: `--c-danger`
 
-`--c-surface` is intentionally derived from the theme background and accent rather than maintained as an independent source. The remaining `--c-*` names are compatibility aliases derived from source colors. All other variables are aliases or derived via `color-mix`.
+`--c-surface` is intentionally derived from the theme background and text rather than maintained as an independent source. The remaining `--c-*` names are derived aliases. `--tone-*` helpers handle light/dark mixing, and all app, home, drill, and chart UI colors should flow through the derived `--ui-*` layer in `public/theme.css`; avoid adding palette-specific component selectors such as `:root[data-theme="..."] .some-component`.
 
 ### Add a new palette (one file)
 
@@ -81,6 +81,7 @@ SharpElevenTheme.listPalettes();
 - Keep `public/theme.css` for computed tokens and shared wiring; `public/theme-palettes.css` holds base `--c-*` source values.
 - Keep chart sheet colors in `chart/chart.css` under `--chart-sheet-*`; chart menus and overlays use shared `--ui-*` tokens.
 - Avoid adding selector-migration aliases; source-level `--c-*` aliases may stay when they document derived theme semantics.
+- Prefer adapting shared tokens with `light-dark()` and `color-mix()` in `public/theme.css` over hard-coded dark/light overrides in component CSS.
 
 ## Accepted Exceptions
 

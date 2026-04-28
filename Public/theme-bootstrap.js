@@ -1,8 +1,7 @@
 (function applyStoredSharpElevenTheme(globalScope) {
   var storageKey = 'sharp-eleven-theme';
   var defaultPalette = 'classic-paper';
-  var legacyPaletteNames = { current: defaultPalette, iReal: 'blue-note' };
-  var availablePalettes = { 'classic-paper': true, 'blue-note': true };
+  var availablePalettes = { 'classic-paper': true, 'blue-note': true, 'dark-jazz': true };
   var storedPalette;
   var paletteName;
 
@@ -12,7 +11,7 @@
     storedPalette = null;
   }
 
-  paletteName = legacyPaletteNames[storedPalette] || storedPalette || defaultPalette;
+  paletteName = storedPalette || defaultPalette;
   if (!availablePalettes[paletteName]) {
     paletteName = defaultPalette;
   }

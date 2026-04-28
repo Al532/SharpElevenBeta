@@ -1,8 +1,7 @@
 (function initializeSharpElevenTheme(globalScope) {
   var storageKey = 'sharp-eleven-theme';
   var defaultPalette = 'classic-paper';
-  var knownPalettes = [defaultPalette, 'blue-note'];
-  var legacyPaletteNames = { current: defaultPalette, iReal: 'blue-note' };
+  var knownPalettes = [defaultPalette, 'blue-note', 'dark-jazz'];
   var themeDataSelector = /:root\s*\[[^\]]*data-theme\s*=\s*["']([^"']+)["']\]/i;
   var root = document.documentElement;
   function listThemeNamesFromStylesheets() {
@@ -92,8 +91,7 @@
 
   function normalizePaletteName(value) {
     if (typeof value !== 'string') return null;
-    var normalizedValue = legacyPaletteNames[value] || value;
-    return isPaletteName(normalizedValue) ? normalizedValue : null;
+    return isPaletteName(value) ? value : null;
   }
 
   function readStoredPalette() {

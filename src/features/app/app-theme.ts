@@ -1,10 +1,6 @@
 const THEME_STORAGE_KEY = 'sharp-eleven-theme';
 const DEFAULT_PALETTE = 'classic-paper';
-const KNOWN_PALETTES = [DEFAULT_PALETTE, 'blue-note'];
-const LEGACY_PALETTE_NAMES = new Map<string, string>([
-  ['current', DEFAULT_PALETTE],
-  ['iReal', 'blue-note']
-]);
+const KNOWN_PALETTES = [DEFAULT_PALETTE, 'blue-note', 'dark-jazz'];
 const THEME_DATA_SELECTOR_RE = /:root\s*\[[^\]]*data-theme\s*=\s*["']([^"']+)["']\]/i;
 const EXPLORATION_DEPTH_LIMIT = 12;
 
@@ -81,8 +77,7 @@ function isPaletteName(value: unknown): value is SharpElevenPaletteName {
 
 function normalizePaletteName(value: unknown): SharpElevenPaletteName | null {
   if (typeof value !== 'string') return null;
-  const normalizedValue = LEGACY_PALETTE_NAMES.get(value) ?? value;
-  return isPaletteName(normalizedValue) ? normalizedValue : null;
+  return isPaletteName(value) ? value : null;
 }
 
 function readStoredPalette(storage: Storage | undefined): SharpElevenPaletteName {

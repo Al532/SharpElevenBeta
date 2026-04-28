@@ -258,9 +258,9 @@
           <select id="categorySelect" aria-label="Filtrer par groupe">
             <option value="all">Tous</option>
             <option value="--c-">--c- (base + aliases)</option>
+            <option value="--tone-">--tone- (helpers)</option>
             <option value="--ui-">--ui- (semantique UI)</option>
             <option value="--chart-">--chart- (chart)</option>
-            <option value="--sheet-">--sheet- (chart)</option>
             <option value="--key-">--key- (piano)</option>
           </select>
         </div>
@@ -388,9 +388,9 @@
         '--ui-warning-border-hover': 'Bordure avertissement hover.',
         '--ui-warning-text': 'Texte avertissement.',
         '--ui-white-border': 'Contour blanc subtil.',
-        '--ui-white-border-hover': 'Contour blanc au survol.',
-        '--ui-white-surface': 'Surface blanche tres discrte.',
-        '--ui-white-surface-hover': 'Surface blanche accentuee hover.',
+        '--ui-white-border-hover': 'Alias historique du contour inset hover.',
+        '--ui-white-surface': 'Alias historique de surface translucide.',
+        '--ui-white-surface-hover': 'Alias historique de surface translucide hover.',
         '--ui-text-decoration': 'Trait decoratif faible.',
         '--ui-text-decoration-hover': 'Trait decoratif hover.',
         '--key-white-text': 'Texte touches blanches au clavier.',
@@ -418,18 +418,14 @@
         '--chart-sheet-active-selected': 'Fond hybride actif + selection.',
         '--chart-sheet-playback': 'Couleur d etat playback.',
         '--chart-sheet-pill': 'Couleur de pill (badge/marker) feuille.',
-        '--chart-sheet-pill-text': 'Couleur de texte des pills.',
-        '--sheet-bg': 'Alias feuille chart (compat legacy).',
-        '--sheet-line': 'Alias lignes feuille chart (compat legacy).',
-        '--sheet-muted': 'Alias texte mute feuille (compat legacy).',
-        '--paper-shadow': 'Ombre de feuille chart.'
+        '--chart-sheet-pill-text': 'Couleur de texte des pills.'
       };
 
       const descriptionPrefixes = [
         { prefix: '--c-', label: 'Couleur de base ou alias derive.' },
+        { prefix: '--tone-', label: 'Helper interne light/dark utilise par les tokens derives.' },
         { prefix: '--ui-', label: 'Token semantique UI derive depuis les tokens source.' },
         { prefix: '--chart-', label: 'Token specifique chart.' },
-        { prefix: '--sheet-', label: 'Alias feuille chart (legacy).' },
         { prefix: '--key-', label: 'Token piano (blanc/noir).' }
       ];
 
@@ -519,9 +515,9 @@
 
       function categorize(tokenName) {
         if (tokenName.startsWith('--c-')) return '--c-';
+        if (tokenName.startsWith('--tone-')) return '--tone-';
         if (tokenName.startsWith('--ui-')) return '--ui-';
         if (tokenName.startsWith('--chart-')) return '--chart-';
-        if (tokenName.startsWith('--sheet-')) return '--sheet-';
         if (tokenName.startsWith('--key-')) return '--key-';
         return 'other';
       }
