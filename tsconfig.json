@@ -13,6 +13,8 @@
   "include": [
     "src/**/*.ts",
     "chart/**/*.ts",
+    "library.ts",
+    "setlists.ts",
     "src/**/*.d.ts"
   ]
 }

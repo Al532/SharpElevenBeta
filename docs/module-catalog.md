@@ -4,7 +4,7 @@ This catalog records the current module ownership map. Keep it practical: it
 should help future consolidation, renaming, and refactoring decisions without
 becoming a second codebase.
 
-Last reviewed: 2026-04-24.
+Last reviewed: 2026-04-28.
 
 ## Naming Baseline
 
@@ -56,6 +56,9 @@ Keep here:
 
 - Chart import controls, library state, persistence, fixture loading, and navigation.
 - Chart rendering, selection, gestures, and screen state.
+- Standalone chart screen DOM reference factories and focused screen wiring helpers.
+- Standalone chart screen URL/localStorage persistence helpers.
+- Runtime chart display CSS helpers used by the standalone screen.
 - Chart playback controls and chart-to-practice-session export.
 
 Refactor signals:
@@ -64,20 +67,22 @@ Refactor signals:
 - Playback bridge code is reusable by non-chart callers.
 - Chart rendering state and practice playback state start sharing vocabulary accidentally.
 
-### `chart`
+### `src/features/chart-management`
 
-Responsibility: chart domain primitives that can run outside the app UI.
+Responsibility: chart library and setlist management pages shared by
+`library.ts` and `setlists.ts`.
 
 Keep here:
 
-- iReal import/decoding, chart interpretation, harmony, contextual qualities, and practice-session export.
-- Node-facing exports used by tests or tooling.
-- Pure domain logic that does not depend on app DOM.
+- Shared library/setlist page bootstrap, DOM wiring, filtering, metadata panel integration, and setlist drag/reorder behavior.
+- Page-mode differences between the library view and setlists view when the behavior is otherwise identical.
+- Small root entrypoints that only select the page mode.
 
 Refactor signals:
 
-- UI assumptions appear in chart domain code.
-- Practice-session contracts are duplicated in `src/features/chart`.
+- Library-only or setlists-only behavior becomes large enough to deserve a focused submodule.
+- Drag/drop or metadata panel logic becomes reusable by the main chart screen.
+- Root `library.ts` or `setlists.ts` gain behavior beyond calling the shared page initializer.
 
 ### `chart`
 
@@ -87,10 +92,13 @@ Keep here:
 
 - Chart import/decoding, interpretation, harmony, contextual qualities, and practice-session export.
 - The standalone chart screen entrypoint, chart sheet CSS, and chart fixtures.
+- Node-facing exports used by tests or tooling.
+- Pure domain logic that does not depend on app DOM.
 
 Refactor signals:
 
 - UI assumptions leak into pure chart domain helpers.
+- Practice-session contracts are duplicated in `src/features/chart`.
 
 ### `src/features/drill`
 

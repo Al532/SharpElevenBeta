@@ -22,17 +22,13 @@ import {
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
 import {
   hasPersistedChartDocumentIndex,
-  loadPersistedChartId as loadPersistedChartIdFromStorage,
   loadPersistedChartDocument,
   loadPersistedChartDocumentById,
   loadPersistedChartLibrary,
   loadPersistedSetlists,
   persistChartLibrary,
   persistSetlists,
-  removePersistedChartReferences,
-  loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
-  persistChartId as persistChartIdToStorage,
-  persistPlaybackSettings as persistChartPlaybackSettings
+  removePersistedChartReferences
 } from '../src/features/chart/chart-persistence.js';
 import {
   applyBatchMetadataOperation,
@@ -120,6 +116,22 @@ import {
   renderChartSelectionUi,
   updateChartMixerOutputs
 } from '../src/features/chart/chart-screen-state.js';
+import { createChartScreenDomRefs } from '../src/features/chart/chart-screen-dom.js';
+import {
+  applyChartDisplayCssVariables,
+  measureChartTextScaleCompensation,
+  syncChartCutoutPadding
+} from '../src/features/chart/chart-display-css.js';
+import {
+  getRequestedPlaylist,
+  getRequestedSetlistId,
+  loadPersistedChartId,
+  loadPersistedInstrumentTransposition,
+  loadPersistedPlaybackSettings,
+  persistChartId as persistChartScreenId,
+  persistInstrumentTransposition as persistChartInstrumentTransposition,
+  persistPlaybackSettings as persistChartScreenPlaybackSettings
+} from '../src/features/chart/chart-screen-persistence.js';
 import { renderChordSymbolHtml } from '../src/core/music/chord-symbol-display.js';
 import voicingConfig from '../src/core/music/voicing-config.js';
 import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
@@ -129,9 +141,6 @@ const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = '../parsing-projects/ireal/sources/jazz-1460.txt';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
-const LAST_CHART_STORAGE_KEY = 'sharp-eleven-chart-last-chart-id';
-const PLAYBACK_SETTINGS_STORAGE_KEY = 'sharp-eleven-chart-playback-settings';
-const INSTRUMENT_TRANSPOSITION_STORAGE_KEY = 'sharp-eleven-chart-instrument-transposition';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
@@ -139,7 +148,6 @@ const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
 const DEFAULT_COMPING_STYLE = 'piano';
 const DEFAULT_BAR_GROUP_SIZE = CHART_DISPLAY_CONFIG.layout.barsPerRow;
-const CHART_TEXT_SCALE_COMPENSATION_CSS_VAR = CHART_DISPLAY_CONFIG.textScaleCompensation.cssVarName;
 const CHART_RENDER_PERF_LOG_PREFIX = '[SharpEleven chart perf]';
 const CHART_RENDER_PERF_STORAGE_KEY = 'sharp-eleven-chart-render-perf';
 
@@ -168,79 +176,7 @@ function applyImportModeVisibility() {
   }
 }
 
-const dom = {
-  appModeBadge: document.getElementById('app-mode-badge'),
-  appModeDrillLink: document.getElementById('app-mode-drill-link') as HTMLAnchorElement | null,
-  appModeChartLink: document.getElementById('app-mode-chart-link') as HTMLAnchorElement | null,
-  chartSearchInput: document.getElementById('chart-search-input') as HTMLInputElement | null,
-  chartLibraryCount: document.getElementById('chart-library-count'),
-  importIRealBackupButton: document.getElementById('import-ireal-backup-button') as HTMLButtonElement | null,
-  openIRealForumButton: document.getElementById('open-ireal-forum-button') as HTMLButtonElement | null,
-  irealLinkInput: document.getElementById('ireal-link-input') as HTMLInputElement | null,
-  importIRealLinkButton: document.getElementById('import-ireal-link-button') as HTMLButtonElement | null,
-  irealImportActions: document.getElementById('chart-import-native-actions'),
-  irealLinkImportSection: document.getElementById('ireal-link-import-section'),
-  chartImportStatus: document.getElementById('chart-import-status'),
-  irealBackupInput: document.getElementById('ireal-backup-input') as HTMLInputElement | null,
-  fixtureSelect: document.getElementById('fixture-select') as HTMLSelectElement | null,
-  transposeSelect: document.getElementById('transpose-select') as HTMLSelectElement | null,
-  harmonyDisplayMode: document.getElementById('harmony-display-mode') as HTMLSelectElement | null,
-  useMajorTriangleSymbol: document.getElementById('use-major-triangle-symbol') as HTMLInputElement | null,
-  useHalfDiminishedSymbol: document.getElementById('use-half-diminished-symbol') as HTMLInputElement | null,
-  useDiminishedSymbol: document.getElementById('use-diminished-symbol') as HTMLInputElement | null,
-  tempoInput: document.getElementById('tempo-input') as HTMLInputElement | null,
-  tempoButton: document.getElementById('tempo-button') as HTMLButtonElement | null,
-  tempoButtonLabel: document.getElementById('tempo-button-label'),
-  tempoPopover: document.getElementById('tempo-popover'),
-  tempoPopoverValue: document.getElementById('tempo-popover-value'),
-  tempoRange: document.getElementById('tempo-range') as HTMLInputElement | null,
-  mixerButton: document.getElementById('chart-mixer-button') as HTMLButtonElement | null,
-  mixerPopover: document.getElementById('mixer-popover'),
-  sheetStyle: document.getElementById('sheet-style'),
-  sheetTitle: document.getElementById('sheet-title'),
-  sheetSubtitle: document.getElementById('sheet-subtitle'),
-  sheetTimeSignature: document.getElementById('sheet-time-signature'),
-  sheetKey: document.getElementById('sheet-key'),
-  previousChartButton: document.getElementById('previous-chart-button') as HTMLButtonElement | null,
-  nextChartButton: document.getElementById('next-chart-button') as HTMLButtonElement | null,
-  sheetGrid: document.getElementById('sheet-grid'),
-  chartMeta: document.getElementById('chart-meta'),
-  diagnosticsList: document.getElementById('diagnostics-list'),
-  transportStatus: document.getElementById('transport-status'),
-  transportPosition: document.getElementById('transport-position'),
-  playButton: document.getElementById('play-button') as HTMLButtonElement | null,
-  stopButton: document.getElementById('stop-button') as HTMLButtonElement | null,
-  compingStyleSelect: document.getElementById('comping-style-select') as HTMLSelectElement | null,
-  drumsSelect: document.getElementById('drums-select') as HTMLSelectElement | null,
-  walkingBassToggle: document.getElementById('walking-bass-toggle') as HTMLInputElement | null,
-  masterVolume: document.getElementById('master-volume') as HTMLInputElement | null,
-  masterVolumeValue: document.getElementById('master-volume-value'),
-  bassVolume: document.getElementById('bass-volume') as HTMLInputElement | null,
-  bassVolumeValue: document.getElementById('bass-volume-value'),
-  stringsVolume: document.getElementById('strings-volume') as HTMLInputElement | null,
-  stringsVolumeValue: document.getElementById('strings-volume-value'),
-  drumsVolume: document.getElementById('drums-volume') as HTMLInputElement | null,
-  drumsVolumeValue: document.getElementById('drums-volume-value'),
-  playbackBridgeFrame: document.getElementById('playback-bridge-frame') as HTMLIFrameElement | null,
-  selectionSummary: document.getElementById('selection-summary'),
-  clearSelectionButton: document.getElementById('clear-selection-button') as HTMLButtonElement | null,
-  sendSelectionToPracticeButton: document.getElementById('send-selection-to-practice-button') as HTMLButtonElement | null,
-  selectionMenu: document.getElementById('chart-selection-menu'),
-  selectionLoopButton: document.getElementById('selection-loop-button') as HTMLButtonElement | null,
-  selectionCreateDrillButton: document.getElementById('selection-create-drill-button') as HTMLButtonElement | null,
-  mobileMenuToggle: document.getElementById('mobile-menu-toggle') as HTMLButtonElement | null,
-  mobileBackdrop: document.getElementById('chart-mobile-backdrop'),
-  chartMetadataButton: document.getElementById('chart-metadata-button') as HTMLButtonElement | null,
-  chartMetadataPopover: document.getElementById('chart-metadata-popover'),
-  manageChartsButton: document.getElementById('manage-charts-button') as HTMLButtonElement | null,
-  manageChartsPopover: document.getElementById('manage-charts-popover'),
-  instrumentSettingsButton: document.getElementById('instrument-settings-button') as HTMLButtonElement | null,
-  instrumentSettingsPopover: document.getElementById('instrument-settings-popover'),
-  instrumentTransposeSelect: document.getElementById('instrument-transpose-select') as HTMLSelectElement | null,
-  chartTopOverlay: document.getElementById('chart-top-overlay'),
-  chartBottomOverlay: document.getElementById('chart-bottom-overlay'),
-  chartApp: document.querySelector<HTMLElement>('.chart-app')
-};
+const dom = createChartScreenDomRefs(document);
 
 initializeAppShell(createAppShellBindings({
   mode: 'chart',
@@ -328,99 +264,6 @@ declare global {
   }
 }
 
-function readSafeAreaInsets() {
-  const probe = document.createElement('div');
-  probe.style.position = 'fixed';
-  probe.style.inset = '0';
-  probe.style.visibility = 'hidden';
-  probe.style.pointerEvents = 'none';
-  probe.style.paddingTop = 'env(safe-area-inset-top)';
-  probe.style.paddingRight = 'env(safe-area-inset-right)';
-  probe.style.paddingBottom = 'env(safe-area-inset-bottom)';
-  probe.style.paddingLeft = 'env(safe-area-inset-left)';
-  document.body.appendChild(probe);
-  const computed = getComputedStyle(probe);
-  const insets = {
-    top: parseFloat(computed.paddingTop) || 0,
-    right: parseFloat(computed.paddingRight) || 0,
-    bottom: parseFloat(computed.paddingBottom) || 0,
-    left: parseFloat(computed.paddingLeft) || 0
-  };
-  probe.remove();
-  return insets;
-}
-
-function syncChartCutoutPadding() {
-  const extraPadding = CHART_DISPLAY_CONFIG.sheetHeader.cutoutSidePaddingPx;
-  const insets = readSafeAreaInsets();
-  const maxInset = Math.max(insets.top, insets.right, insets.bottom, insets.left);
-  const rootStyle = document.documentElement.style;
-  const isCutoutSide = (side: keyof typeof insets) => maxInset > 0 && insets[side] === maxInset;
-  (['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
-    rootStyle.setProperty(
-      `--chart-runtime-cutout-padding-${side}`,
-      side !== 'top' && isCutoutSide(side) ? `${extraPadding}px` : '0px'
-    );
-  });
-}
-
-function applyChartDisplayCssVariables() {
-  const rootStyle = document.documentElement.style;
-  const { rowSpacing, sheetHeader, barGeometry, chordSizing, displacement } = CHART_DISPLAY_CONFIG;
-
-  const setCssVar = (name: string, value: string | number) => {
-    rootStyle.setProperty(name, String(value));
-  };
-
-  setCssVar('--chart-config-row-gap-min', `${rowSpacing.minPx}px`);
-  setCssVar('--chart-config-sheet-bottom-margin', `${CHART_DISPLAY_CONFIG.layout.sheetBottomMarginPx}px`);
-  setCssVar('--chart-config-sheet-header-padding-top-portrait', `${sheetHeader.portraitTopPaddingPx}px`);
-  setCssVar('--chart-config-sheet-header-padding-top-landscape', `${sheetHeader.landscapeTopPaddingPx}px`);
-  setCssVar('--chart-config-cutout-side-padding', `${sheetHeader.cutoutSidePaddingPx}px`);
-  setCssVar('--chart-config-sheet-title-offset-x', `${sheetHeader.titleOffsetXPx}px`);
-
-  setCssVar('--chart-config-bar-cell-min-height', `${barGeometry.cellMinHeightPx}px`);
-  setCssVar('--chart-config-bar-cell-vertical-size', `${barGeometry.cellVerticalSizePx}px`);
-  setCssVar('--chart-config-bar-cell-bottom-margin', `${barGeometry.cellBottomMarginPx}px`);
-  setCssVar('--chart-config-bar-content-inset-x', `${displacement.contentHorizontalInsetPx}px`);
-  setCssVar('--chart-config-bar-line-height', `${barGeometry.barLine.heightPx}px`);
-  setCssVar('--chart-config-bar-body-size', `${chordSizing.baseRem}rem`);
-  syncChartCutoutPadding();
-}
-
-function measureChartTextScaleCompensation() {
-  const probe = document.createElement('div');
-  probe.textContent = CHART_DISPLAY_CONFIG.textScaleCompensation.probeText;
-  probe.style.position = 'fixed';
-  probe.style.left = '-9999px';
-  probe.style.top = '0';
-  probe.style.visibility = 'hidden';
-  probe.style.pointerEvents = 'none';
-  probe.style.fontSize = `${CHART_DISPLAY_CONFIG.textScaleCompensation.referenceFontSizePx}px`;
-  probe.style.lineHeight = '1';
-  probe.style.whiteSpace = 'nowrap';
-  document.body.appendChild(probe);
-  const computedFontPx = parseFloat(getComputedStyle(probe).fontSize);
-  probe.remove();
-
-  if (!computedFontPx || !Number.isFinite(computedFontPx)) {
-    chartTextScaleCompensation = 1;
-  } else {
-    chartTextScaleCompensation = Math.max(
-      CHART_DISPLAY_CONFIG.textScaleCompensation.minCompensation,
-      Math.min(
-        CHART_DISPLAY_CONFIG.textScaleCompensation.maxCompensation,
-        CHART_DISPLAY_CONFIG.textScaleCompensation.referenceFontSizePx / computedFontPx
-      )
-    );
-  }
-
-  document.documentElement.style.setProperty(
-    CHART_TEXT_SCALE_COMPENSATION_CSS_VAR,
-    chartTextScaleCompensation.toFixed(4)
-  );
-}
-
 let chartNavigationController: ReturnType<typeof createChartNavigationController> | null = null;
 
 const chartDirectPlaybackRuntimeHost = createChartDirectPlaybackRuntimeHost(createChartDirectPlaybackRuntimeHostBindings({
@@ -451,50 +294,12 @@ const playbackRuntimeContext = createChartPlaybackRuntimeContext(createChartPlay
   onPersistPlaybackSettings: persistPlaybackSettings
 }));
 
-function loadPersistedChartId() {
-  const requestedChartId = new URLSearchParams(window.location.search).get('chart');
-  if (requestedChartId) return requestedChartId;
-
-  return loadPersistedChartIdFromStorage({
-    legacyStorageKey: LAST_CHART_STORAGE_KEY
-  });
-}
-
-function getRequestedPlaylist() {
-  return new URLSearchParams(window.location.search).get('playlist') || '';
-}
-
-function getRequestedSetlistId() {
-  return new URLSearchParams(window.location.search).get('setlist') || '';
-}
-
 function persistChartId(chartId: string, chartDocument = state.currentChartDocument) {
-  persistChartIdToStorage(chartId, {
-    legacyStorageKey: LAST_CHART_STORAGE_KEY,
-    chartDocument
-  });
-}
-
-function loadPersistedPlaybackSettings() {
-  return loadPersistedChartPlaybackSettings({
-    legacyStorageKey: PLAYBACK_SETTINGS_STORAGE_KEY
-  });
-}
-
-function loadPersistedInstrumentTransposition() {
-  try {
-    return window.localStorage.getItem(INSTRUMENT_TRANSPOSITION_STORAGE_KEY) || '0';
-  } catch {
-    return '0';
-  }
+  persistChartScreenId(chartId, chartDocument);
 }
 
 function persistInstrumentTransposition() {
-  try {
-    window.localStorage.setItem(INSTRUMENT_TRANSPOSITION_STORAGE_KEY, dom.instrumentTransposeSelect?.value || '0');
-  } catch {
-    // Ignore storage failures so the chart remains usable in restricted contexts.
-  }
+  persistChartInstrumentTransposition(dom.instrumentTransposeSelect?.value || '0');
 }
 
 function setInstrumentTransposition(value: string | number, { render = false }: { render?: boolean } = {}) {
@@ -515,13 +320,12 @@ function setInstrumentTransposition(value: string | number, { render = false }: 
 }
 
 function persistPlaybackSettings() {
-  persistChartPlaybackSettings({
+  persistChartScreenPlaybackSettings({
     playbackSettings: getPlaybackSettings(),
     harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
     useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
-    useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false,
-    legacyStorageKey: PLAYBACK_SETTINGS_STORAGE_KEY
+    useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
   });
 }
 
@@ -2338,7 +2142,7 @@ async function loadFixtures() {
 }
 
 applyChartDisplayCssVariables();
-measureChartTextScaleCompensation();
+chartTextScaleCompensation = measureChartTextScaleCompensation();
 installChartDebugApi();
 
 loadFixtures().catch((error) => {
