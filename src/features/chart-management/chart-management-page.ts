@@ -117,7 +117,6 @@ type ChartManagementCachedDocument = {
   composer?: string;
   style?: string;
   styleReference?: string;
-  userTags?: string[];
   sourceRefs?: ChartDocument['source']['sourceRefs'];
 };
 
@@ -157,9 +156,6 @@ function toCachedDocument(document: ChartDocument): ChartManagementCachedDocumen
     composer: typeof document.metadata?.composer === 'string' ? document.metadata.composer : '',
     style: typeof document.metadata?.style === 'string' ? document.metadata.style : '',
     styleReference: typeof document.metadata?.styleReference === 'string' ? document.metadata.styleReference : '',
-    userTags: Array.isArray(document.metadata?.userTags)
-      ? document.metadata.userTags.map((tag) => String(tag || '').trim()).filter(Boolean)
-      : [],
     sourceRefs: getChartSourceRefs(document)
   };
 }
@@ -175,10 +171,7 @@ function createDocumentFromCache(cachedDocument: ChartManagementCachedDocument):
       title: String(cachedDocument.title || '').trim() || 'Untitled chart',
       composer: String(cachedDocument.composer || ''),
       style: String(cachedDocument.style || ''),
-      styleReference: String(cachedDocument.styleReference || ''),
-      userTags: Array.isArray(cachedDocument.userTags)
-        ? cachedDocument.userTags.map((tag) => String(tag || '').trim()).filter(Boolean)
-        : []
+      styleReference: String(cachedDocument.styleReference || '')
     },
     source: {
       sourceRefs,

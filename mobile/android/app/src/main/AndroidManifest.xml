@@ -30,6 +30,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="irealb" />
+                <data android:scheme="irealbook" />
             </intent-filter>
 
         </activity>

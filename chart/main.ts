@@ -1444,7 +1444,6 @@ async function renderChartMetadataPopover() {
     ['Composer', chartDocument.metadata.composer || 'None'],
     ['Style', chartDocument.metadata.styleReference || chartDocument.metadata.style || 'None'],
     ['Sources', sources.join(', ') || 'User chart'],
-    // Tags are temporarily hidden from metadata.
     ['Setlists', memberships.map((setlist) => setlist.name).join(', ') || 'None']
   ].forEach(([label, value]) => {
     const valueElement = createChartMetadataText('dd', '', value);
@@ -1790,6 +1789,10 @@ async function importPendingMobileIRealLink() {
 
   await handlePastedChartIRealLinkImport({
     rawText: pendingIRealLink,
+    importContext: {
+      origin: pendingResult.importOrigin || (pendingResult.hadPendingMarker ? 'unknown' : undefined),
+      referrerUrl: pendingResult.referrerUrl
+    },
     importDocumentsFromIRealText,
     applyImportedLibrary,
     setImportStatus

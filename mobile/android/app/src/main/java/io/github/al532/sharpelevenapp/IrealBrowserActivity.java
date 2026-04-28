@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -31,7 +32,9 @@ public class IrealBrowserActivity extends AppCompatActivity {
 
     public static final String EXTRA_TITLE = "browserTitle";
     public static final String EXTRA_URL = "browserUrl";
+    public static final String EXTRA_PENDING_HTML_KEY = "pendingHtmlKey";
 
+    private View bannerView;
     private ProgressBar progressBar;
     private TextView bannerTitleView;
     private WebView webView;
@@ -41,16 +44,18 @@ public class IrealBrowserActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
         super.onCreate(savedInstanceState);
+        configureSystemWindowLayout();
         getWindow().setStatusBarColor(Color.parseColor("#F7F1E6"));
         getWindow().setNavigationBarColor(Color.parseColor("#F7F1E6"));
         applyLightSystemBars();
         setContentView(R.layout.activity_ireal_browser);
-        applyTopSafeAreaInset(findViewById(R.id.ireal_browser_root));
 
         progressBar = findViewById(R.id.ireal_browser_progress);
+        bannerView = findViewById(R.id.ireal_browser_banner);
         bannerTitleView = findViewById(R.id.ireal_browser_banner_title);
         webView = findViewById(R.id.ireal_browser_webview);
         findViewById(R.id.ireal_browser_close_button).setOnClickListener(view -> finish());
+        bannerTitleView.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateBrowserBannerHeight());
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -109,9 +114,10 @@ public class IrealBrowserActivity extends AppCompatActivity {
         if (scheme == null) {
             return false;
         }
-        if ("irealb".equalsIgnoreCase(scheme)) {
+        if ("irealb".equalsIgnoreCase(scheme) || "irealbook".equalsIgnoreCase(scheme)) {
             try {
-                PendingIrealImportStore.persist(this, uri.toString());
+                String referrerUrl = webView == null || webView.getUrl() == null ? "" : webView.getUrl();
+                PendingIrealImportStore.persist(this, uri.toString(), referrerUrl, resolveImportOrigin(referrerUrl));
             } catch (IOException error) {
                 return false;
             }
@@ -129,12 +135,48 @@ public class IrealBrowserActivity extends AppCompatActivity {
         return false;
     }
 
+    @NonNull
+    private String resolveImportOrigin(String referrerUrl) {
+        if (referrerUrl == null || referrerUrl.isBlank()) {
+            return "unknown";
+        }
+        Uri referrer = Uri.parse(referrerUrl);
+        String scheme = referrer.getScheme();
+        String host = referrer.getHost();
+        if (host != null) {
+            String normalizedHost = host.toLowerCase();
+            if ("irealpro.com".equals(normalizedHost) || normalizedHost.endsWith(".irealpro.com")) {
+                return "ireal-forum";
+            }
+        }
+        if ("content".equalsIgnoreCase(scheme) || "file".equalsIgnoreCase(scheme)) {
+            return "ireal-backup";
+        }
+        if (referrerUrl.toLowerCase().contains("localhost/shared-import")) {
+            return "ireal-backup";
+        }
+        return "ireal-backup";
+    }
+
     private boolean loadInitialContent(Intent intent) {
         String explicitTitle = intent.getStringExtra(EXTRA_TITLE);
         String resolvedTitle = explicitTitle == null || explicitTitle.isBlank()
             ? getString(R.string.ireal_browser_title)
             : explicitTitle;
         bannerTitleView.setText(resolvedTitle);
+
+        String pendingHtmlKey = intent.getStringExtra(EXTRA_PENDING_HTML_KEY);
+        PendingIrealHtmlStore.PendingHtml pendingHtml = PendingIrealHtmlStore.consume(pendingHtmlKey);
+        if (pendingHtml != null && !pendingHtml.html.isBlank()) {
+            webView.loadDataWithBaseURL(
+                pendingHtml.baseUrl,
+                pendingHtml.html,
+                "text/html",
+                "utf-8",
+                null
+            );
+            return true;
+        }
 
         if (Intent.ACTION_SEND.equals(intent.getAction())) {
             Uri sharedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
@@ -215,6 +257,21 @@ public class IrealBrowserActivity extends AppCompatActivity {
         return fallbackTitle;
     }
 
+    private void updateBrowserBannerHeight() {
+        if (bannerView == null || bannerTitleView == null) {
+            return;
+        }
+        int extraLines = Math.max(0, bannerTitleView.getLineCount() - 1);
+        int targetMinHeight = dpToPx(82 + (extraLines * 22));
+        if (bannerView.getMinimumHeight() != targetMinHeight) {
+            bannerView.setMinimumHeight(targetMinHeight);
+        }
+    }
+
+    private int dpToPx(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
     @NonNull
     private String readText(@NonNull InputStream stream) throws IOException {
         StringBuilder builder = new StringBuilder();
@@ -236,22 +293,16 @@ public class IrealBrowserActivity extends AppCompatActivity {
         getWindow().getDecorView().setSystemUiVisibility(flags);
     }
 
-    private void applyTopSafeAreaInset(@NonNull View rootView) {
-        int initialLeft = rootView.getPaddingLeft();
-        int initialTop = rootView.getPaddingTop();
-        int initialRight = rootView.getPaddingRight();
-        int initialBottom = rootView.getPaddingBottom();
-
-        rootView.setOnApplyWindowInsetsListener((view, insets) -> {
-            view.setPadding(
-                initialLeft,
-                initialTop + insets.getSystemWindowInsetTop(),
-                initialRight,
-                initialBottom
-            );
-            return insets;
-        });
-        rootView.requestApplyInsets();
+    private void configureSystemWindowLayout() {
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(true);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams params = getWindow().getAttributes();
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
+            getWindow().setAttributes(params);
+        }
     }
 
     @Override

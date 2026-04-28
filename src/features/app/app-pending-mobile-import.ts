@@ -4,11 +4,13 @@ const PENDING_IREAL_LINK_STORAGE_KEY = 'jpt-pending-mobile-ireal-link';
 const NATIVE_PENDING_IREAL_LINK_MARKER = 'irealb://native-pending-import';
 
 type IrealBrowserPlugin = {
-  consumePendingIRealLink: () => Promise<{ url?: string | null }>
+  consumePendingIRealLink: () => Promise<{ url?: string | null, referrerUrl?: string | null, importOrigin?: string | null }>
 };
 
 type PendingIRealLinkResult = {
   url: string,
+  referrerUrl: string,
+  importOrigin: string,
   hadPendingMarker: boolean,
   errorMessage: string
 };
@@ -29,7 +31,7 @@ function getPendingIRealLinkStorageKey(storage = globalThis.localStorage) {
  * @returns {boolean}
  */
 export function isIRealDeepLink(rawUrl) {
-  return String(rawUrl || '').trim().toLowerCase().startsWith('irealb://');
+  return /^irealb(?:ook)?:\/\//i.test(String(rawUrl || '').trim());
 }
 
 /**
@@ -71,6 +73,8 @@ export async function consumePendingIRealLinkResult(storage = globalThis.localSt
     storage?.removeItem(getPendingIRealLinkStorageKey(storage));
     return {
       url: nativePendingValue.url,
+      referrerUrl: nativePendingValue.referrerUrl,
+      importOrigin: nativePendingValue.importOrigin,
       hadPendingMarker: true,
       errorMessage: ''
     };
@@ -79,6 +83,8 @@ export async function consumePendingIRealLinkResult(storage = globalThis.localSt
   if (!storage) {
     return {
       url: '',
+      referrerUrl: '',
+      importOrigin: '',
       hadPendingMarker: false,
       errorMessage: ''
     };
@@ -91,32 +97,42 @@ export async function consumePendingIRealLinkResult(storage = globalThis.localSt
   if (isNativePendingIRealLinkMarker(value)) {
     return {
       url: '',
+      referrerUrl: '',
+      importOrigin: '',
       hadPendingMarker: true,
       errorMessage: nativePendingValue.errorMessage || 'The native iReal link capture was empty.'
     };
   }
   return {
     url: value,
+    referrerUrl: '',
+    importOrigin: '',
     hadPendingMarker: false,
     errorMessage: ''
   };
 }
 
 /**
- * @returns {Promise<{ url: string, errorMessage: string }>}
+ * @returns {Promise<{ url: string, referrerUrl: string, importOrigin: string, errorMessage: string }>}
  */
 async function consumeNativePendingIRealLink() {
-  if (!Capacitor.isNativePlatform()) return { url: '', errorMessage: '' };
+  if (!Capacitor.isNativePlatform()) return { url: '', referrerUrl: '', importOrigin: '', errorMessage: '' };
   try {
     const result = await IrealBrowser.consumePendingIRealLink();
     const url = String(result?.url || '').trim();
+    const referrerUrl = String(result?.referrerUrl || '').trim();
+    const importOrigin = String(result?.importOrigin || '').trim();
     return {
       url: isIRealDeepLink(url) && !isNativePendingIRealLinkMarker(url) ? url : '',
+      referrerUrl,
+      importOrigin,
       errorMessage: ''
     };
   } catch (error) {
     return {
       url: '',
+      referrerUrl: '',
+      importOrigin: '',
       errorMessage: error instanceof Error ? error.message : String(error)
     };
   }

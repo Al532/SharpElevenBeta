@@ -7,15 +7,16 @@
     android:orientation="vertical">
 
     <LinearLayout
+        android:id="@+id/ireal_browser_banner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#F7F1E6"
         android:elevation="0dp"
         android:gravity="center_vertical"
-        android:minHeight="68dp"
+        android:minHeight="82dp"
         android:orientation="horizontal"
         android:paddingStart="16dp"
-        android:paddingTop="9dp"
+        android:paddingTop="22dp"
         android:paddingEnd="16dp"
         android:paddingBottom="9dp">
 
@@ -38,6 +39,9 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_weight="1"
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="3"
             android:text="@string/ireal_browser_title"
             android:textColor="#111111"
             android:textSize="16sp"

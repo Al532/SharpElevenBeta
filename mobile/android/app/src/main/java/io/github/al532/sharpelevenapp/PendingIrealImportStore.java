@@ -8,6 +8,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 final class PendingIrealImportStore {
 
@@ -18,14 +20,34 @@ final class PendingIrealImportStore {
     private PendingIrealImportStore() {
     }
 
-    static void persist(@NonNull Context context, @NonNull String rawText) throws IOException {
+    static final class PendingIrealImport {
+        final String url;
+        final String referrerUrl;
+        final String importOrigin;
+
+        PendingIrealImport(@NonNull String url, @NonNull String referrerUrl, @NonNull String importOrigin) {
+            this.url = url;
+            this.referrerUrl = referrerUrl;
+            this.importOrigin = importOrigin;
+        }
+    }
+
+    static void persist(@NonNull Context context, @NonNull String rawText, @NonNull String referrerUrl, @NonNull String importOrigin) throws IOException {
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("url", rawText);
+            payload.put("referrerUrl", referrerUrl);
+            payload.put("importOrigin", importOrigin);
+        } catch (JSONException error) {
+            throw new IOException("Failed to encode pending iReal import.", error);
+        }
         try (FileOutputStream stream = context.openFileOutput(FILE_NAME, Context.MODE_PRIVATE)) {
-            stream.write(rawText.getBytes(StandardCharsets.UTF_8));
+            stream.write(payload.toString().getBytes(StandardCharsets.UTF_8));
         }
     }
 
     @NonNull
-    static String consume(@NonNull Context context) throws IOException {
+    static PendingIrealImport consume(@NonNull Context context) throws IOException {
         String value;
         try (
             java.io.FileInputStream stream = context.openFileInput(FILE_NAME);
@@ -39,10 +61,19 @@ final class PendingIrealImportStore {
             }
             value = builder.toString();
         } catch (FileNotFoundException missingFile) {
-            return "";
+            return new PendingIrealImport("", "", "");
         }
 
         context.deleteFile(FILE_NAME);
-        return value;
+        try {
+            JSONObject payload = new JSONObject(value);
+            return new PendingIrealImport(
+                payload.optString("url", ""),
+                payload.optString("referrerUrl", ""),
+                payload.optString("importOrigin", "")
+            );
+        } catch (JSONException ignored) {
+            return new PendingIrealImport(value, "", "");
+        }
     }
 }

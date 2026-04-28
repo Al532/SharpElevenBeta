@@ -31,7 +31,6 @@ type ChartManagementDocumentRecord = {
   titleKey: string;
   composerKey: string;
   styleKey: string;
-  tagsKey: string;
   sourceKey: string;
 };
 
@@ -111,7 +110,6 @@ function getRecordSearchScore(record: ChartManagementDocumentRecord, normalizedQ
   if (record.titleKey.includes(normalizedQuery)) return 600;
   if (record.composerKey.includes(normalizedQuery)) return 400;
   if (record.styleKey.includes(normalizedQuery)) return 300;
-  if (record.tagsKey.includes(normalizedQuery)) return 250;
   if (record.sourceKey.includes(normalizedQuery)) return 150;
   return 0;
 }
@@ -148,7 +146,6 @@ export function createChartManagementDocumentIndex(documents: ChartDocument[] = 
       titleKey: normalizeChartTextKey(metadata.titleKey || metadata.title),
       composerKey: normalizeChartTextKey(metadata.composerKey || metadata.composer),
       styleKey: normalizeChartTextKey(metadata.styleReference || metadata.style || metadata.canonicalGroove),
-      tagsKey: (Array.isArray(metadata.userTags) ? metadata.userTags : []).map(normalizeChartTextKey).join(' '),
       sourceKey: sourceNames.map(normalizeChartTextKey).join(' ')
     };
   });

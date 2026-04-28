@@ -1,4 +1,5 @@
 import type { ChartDocument } from '../../core/types/contracts';
+import type { IRealImportContext } from './chart-library';
 
 export function setChartImportStatus(
   chartImportStatusElement: HTMLElement | null | undefined,
@@ -22,7 +23,7 @@ export async function importDefaultFixtureLibrary({
   sourceUrl?: string;
   rawText?: string;
   fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-  importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>;
+  importDocumentsFromIRealText?: (rawText: string, sourceFile: string, importContext?: IRealImportContext) => Promise<ChartDocument[]>;
   applyImportedLibrary?: (options: { documents: ChartDocument[]; source: string; preferredId?: string; statusMessage?: string }) => Promise<void> | void;
   loadPersistedChartId?: () => string;
 } = {}): Promise<void> {
@@ -56,7 +57,8 @@ export async function importDefaultFixtureLibrary({
 
     const importedDocuments = await importDocumentsFromIRealText?.(
       rawText,
-      sourceFile
+      sourceFile,
+      { origin: 'ireal-bundled-default' }
     ) || [];
 
     await applyImportedLibrary?.({
@@ -82,7 +84,7 @@ export async function handleChartBackupFileSelection({
   setImportStatus
 }: {
   event?: Event & { target: HTMLInputElement | null };
-  importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>;
+  importDocumentsFromIRealText?: (rawText: string, sourceFile: string, importContext?: IRealImportContext) => Promise<ChartDocument[]>;
   applyImportedLibrary?: (options: { documents: ChartDocument[]; source: string; statusMessage?: string }) => Promise<void> | void;
   setImportStatus?: (message: string, isError?: boolean) => void;
 } = {}): Promise<void> {
@@ -91,7 +93,9 @@ export async function handleChartBackupFileSelection({
 
   try {
     const rawText = await file.text();
-    const documents = await importDocumentsFromIRealText?.(rawText, file.name) || [];
+    const documents = await importDocumentsFromIRealText?.(rawText, file.name, {
+      origin: /\.(?:html?|xhtml)$/i.test(file.name) ? 'ireal-backup' : undefined
+    }) || [];
     await applyImportedLibrary?.({
       documents,
       source: file.name,
@@ -108,12 +112,14 @@ export async function handleChartBackupFileSelection({
 
 export async function handlePastedChartIRealLinkImport({
   rawText,
+  importContext,
   importDocumentsFromIRealText,
   applyImportedLibrary,
   setImportStatus
 }: {
   rawText?: string;
-  importDocumentsFromIRealText?: (rawText: string, sourceFile: string) => Promise<ChartDocument[]>;
+  importContext?: IRealImportContext;
+  importDocumentsFromIRealText?: (rawText: string, sourceFile: string, importContext?: IRealImportContext) => Promise<ChartDocument[]>;
   applyImportedLibrary?: (options: { documents: ChartDocument[]; source: string; statusMessage?: string }) => Promise<void> | void;
   setImportStatus?: (message: string, isError?: boolean) => void;
 } = {}): Promise<void> {
@@ -124,7 +130,7 @@ export async function handlePastedChartIRealLinkImport({
   }
 
   try {
-    const documents = await importDocumentsFromIRealText?.(trimmedText, 'pasted-ireal-link') || [];
+    const documents = await importDocumentsFromIRealText?.(trimmedText, 'pasted-ireal-link', importContext || { origin: 'pasted-link' }) || [];
     await applyImportedLibrary?.({
       documents,
       source: 'pasted iReal link',

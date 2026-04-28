@@ -87,13 +87,43 @@ function waitForTransaction(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+function queueLegacyChartUserTagCleanup(database: IDBDatabase, transaction: IDBTransaction): void {
+  if (database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)) {
+    const documentStore = transaction.objectStore(CHART_DOCUMENT_STORE_NAME);
+    const documentCursorRequest = documentStore.openCursor();
+    documentCursorRequest.onsuccess = () => {
+      const cursor = documentCursorRequest.result;
+      if (!cursor) return;
+      cursor.update(stripLegacyChartUserTags(cursor.value as ChartDocument));
+      cursor.continue();
+    };
+  }
+
+  if (database.objectStoreNames.contains(CHART_LIBRARY_STORE_NAME)) {
+    const libraryStore = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
+    const libraryCursorRequest = libraryStore.openCursor();
+    libraryCursorRequest.onsuccess = () => {
+      const cursor = libraryCursorRequest.result;
+      if (!cursor) return;
+      const payload = cursor.value as ChartLibraryPayload;
+      if (payload && typeof payload === 'object' && Array.isArray(payload.documents)) {
+        cursor.update({
+          ...payload,
+          documents: payload.documents.map(stripLegacyChartUserTags)
+        });
+      }
+      cursor.continue();
+    };
+  }
+}
+
 function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
   const indexedDbFactory = getIndexedDbFactory();
   if (!indexedDbFactory) return Promise.resolve(null);
 
   return new Promise((resolve, reject) => {
-      const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 3);
-    request.onupgradeneeded = () => {
+    const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 4);
+    request.onupgradeneeded = (event) => {
       const database = request.result;
       if (!database.objectStoreNames.contains(CHART_LIBRARY_STORE_NAME)) {
         database.createObjectStore(CHART_LIBRARY_STORE_NAME);
@@ -103,6 +133,9 @@ function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
       }
       if (!database.objectStoreNames.contains(CHART_SETLIST_STORE_NAME)) {
         database.createObjectStore(CHART_SETLIST_STORE_NAME);
+      }
+      if (event.oldVersion < 4 && request.transaction) {
+        queueLegacyChartUserTagCleanup(database, request.transaction);
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -146,11 +179,21 @@ function normalizeChartImportSummary(value: unknown): ChartImportSummary | undef
   };
 }
 
+function stripLegacyChartUserTags(document: ChartDocument): ChartDocument {
+  const metadata = document.metadata as Record<string, unknown> | undefined;
+  if (!metadata || !Object.prototype.hasOwnProperty.call(metadata, 'userTags')) return document;
+  const { userTags: _userTags, ...metadataWithoutUserTags } = metadata;
+  return {
+    ...document,
+    metadata: metadataWithoutUserTags as ChartDocument['metadata']
+  };
+}
+
 function normalizePersistedChartDocument(value: unknown): ChartDocument | null {
   if (!value || typeof value !== 'object') return null;
   const document = value as ChartDocument;
   if (!document.metadata?.id || !Array.isArray(document.bars) || document.bars.length === 0) return null;
-  return document;
+  return stripLegacyChartUserTags(document);
 }
 
 function normalizeSetlist(value: unknown): ChartSetlist | null {

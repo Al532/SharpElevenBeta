@@ -20,13 +20,10 @@ import { createEmbeddedPlaybackRuntime } from '../src/core/playback/embedded-pla
 import { createEmbeddedPlaybackApi } from '../src/core/playback/embedded-playback-api.ts';
 import { createEmbeddedPlaybackAssembly } from '../src/core/playback/embedded-playback-assembly.ts';
 import { createEmbeddedPlaybackApiClient } from '../src/core/playback/embedded-playback-api-client.ts';
-import { createEmbeddedPlaybackBridge } from '../src/core/playback/embedded-playback-bridge.ts';
 import { createEmbeddedPlaybackBridgeProvider } from '../src/core/playback/embedded-playback-bridge-provider.ts';
 import { createEmbeddedPlaybackRuntimeProvider } from '../src/core/playback/embedded-playback-runtime-provider.ts';
 import { publishDirectPlaybackGlobals, readDirectPlaybackGlobals } from '../src/core/playback/direct-playback-globals.ts';
 import { createDirectPlaybackOptionsClient } from '../src/core/playback/direct-playback-options-client.ts';
-import { createDirectPlaybackAssembly } from '../src/core/playback/direct-playback-assembly.ts';
-import { createDirectPlaybackAssemblyProvider } from '../src/core/playback/direct-playback-assembly-provider.ts';
 import { createDirectPlaybackBridgeProvider } from '../src/core/playback/direct-playback-bridge-provider.ts';
 import { createDirectPlaybackRuntime } from '../src/core/playback/direct-playback-runtime.ts';
 import { createDirectPlaybackRuntimeProvider } from '../src/core/playback/direct-playback-runtime-provider.ts';
@@ -37,7 +34,6 @@ import {
 } from '../src/core/playback/embedded-playback-globals.ts';
 import { createPracticePlaybackAssembly } from '../src/core/playback/practice-playback-assembly.ts';
 import { createPracticePlaybackAssemblyProvider } from '../src/core/playback/practice-playback-assembly-provider.ts';
-import { createPracticePlaybackBridgeProvider } from '../src/core/playback/practice-playback-bridge-provider.ts';
 import { createPracticePlaybackRuntime as createCorePracticePlaybackRuntime } from '../src/core/playback/practice-playback-runtime.ts';
 import { createPracticePlaybackRuntimeProvider } from '../src/core/playback/practice-playback-runtime-provider.ts';
 import { createEmbeddedPlaybackSessionAdapter } from '../src/core/playback/embedded-playback-session-adapter.ts';
@@ -53,7 +49,6 @@ import { createPlaybackRuntime } from '../src/core/playback/playback-runtime.ts'
 import { bootstrapEmbeddedPlaybackApi } from '../src/core/playback/embedded-playback-bootstrap.ts';
 import { createPublishedEmbeddedPlaybackAssembly } from '../src/core/playback/published-embedded-playback-assembly.ts';
 import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../src/core/playback/published-embedded-playback-assembly-provider.ts';
-import { createEmbeddedPlaybackApi as createFeatureEmbeddedPlaybackApi } from '../src/features/drill/drill-embedded-api.ts';
 import {
   createChartDirectPlaybackBridgeProvider,
   createChartPlaybackBridgeProviderForMode,
@@ -93,7 +88,6 @@ import {
 } from '../src/features/chart/chart-app-bindings.ts';
 import { createChartPlaybackRuntimeContextBindings } from '../src/features/chart/chart-playback-runtime-context-bindings.ts';
 import { createChartPlaybackRuntimeContext } from '../src/features/chart/chart-playback-runtime-context.ts';
-import { bindChartLifecycleEvents } from '../src/features/chart/chart-lifecycle.ts';
 import {
   applyPlaybackTransportState,
   startPlaybackPolling,
@@ -105,13 +99,12 @@ import {
   CHART_CONTENT_HASH_VERSION,
   applyBatchMetadataOperation,
   applyChartSetlistUpdate,
-  applyChartTagUpdate,
   applyPerChartMetadataUpdate,
   createEmptyChartSetlist,
   computeChartContentHash,
   filterChartDocuments,
   getChartSourceRefs,
-  previewBatchMetadataOperation,
+  importDocumentsFromIRealText,
   previewProtectedChartDelete,
   normalizeChartLibraryDocument,
   reorderSetlistItems,
@@ -193,7 +186,6 @@ import {
 import { createPlaybackSamplePreloadRuntime } from '../src/features/playback-audio/playback-sample-preload-runtime.ts';
 import { createPlaybackScheduledAudioRuntime } from '../src/features/playback-audio/playback-scheduled-audio-runtime.ts';
 import { createPlaybackScheduledAudioAppContext } from '../src/features/playback-audio/playback-scheduled-audio-app-context.ts';
-import { createDirectPlaybackController, createDirectPlaybackRuntime as createFeatureDirectPlaybackRuntime, createPracticePlaybackRuntime } from '../src/features/practice-playback/practice-playback-controller.ts';
 import { createPracticePlaybackEngineAppContext } from '../src/features/practice-playback/practice-playback-engine-app-context.ts';
 import { createPracticePlaybackRuntimeAppAssembly } from '../src/features/practice-playback/practice-playback-runtime-app-assembly.ts';
 import { createPracticePlaybackRuntimeHostAppBindings } from '../src/features/practice-playback/practice-playback-runtime-host-app-bindings.ts';
@@ -209,7 +201,6 @@ import {
   createPracticePlaybackAppBindings,
   createPracticePlaybackRuntimeAppBindings
 } from '../src/features/practice-playback/practice-playback-app-context.ts';
-import { createPracticePlaybackRuntimeAppBindings as createPracticePlaybackRuntimeHostAppContextBindings } from '../src/features/practice-playback/practice-playback-runtime-app-bindings.ts';
 import { createPracticeArrangementVoicingRuntimeAppBindings } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-app-bindings.ts';
 import { createPracticeArrangementWalkingBassAppBindings } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-app-bindings.ts';
 import { createWalkingBassGenerator } from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
@@ -336,41 +327,6 @@ const sourcePath = path.join(projectRoot, 'parsing-projects', 'ireal', 'sources'
     playbackRuntimeState.playbackPollTimer,
     null,
     'Chart playback runtime resets the poll timer slot after stopping polling.'
-  );
-}
-
-{
-  const listeners = new Map();
-  const visibilityListeners = new Map();
-  const chartState = {
-    playbackPollTimer: null,
-    isPlaying: true
-  };
-  let lifecycleTicks = 0;
-
-  bindChartLifecycleEvents({
-    lifecycleTarget: {
-      addEventListener(eventName, handler) {
-        listeners.set(eventName, handler);
-      }
-    },
-    visibilityTarget: {
-      hidden: false,
-      addEventListener(eventName, handler) {
-        visibilityListeners.set(eventName, handler);
-      }
-    },
-    state: chartState,
-    intervalMs: 180,
-    onTick: () => {
-      lifecycleTicks += 1;
-    }
-  });
-
-  assert.equal(
-    listeners.has('pagehide') && listeners.has('pageshow') && visibilityListeners.has('visibilitychange'),
-    true,
-    'Chart lifecycle bindings register background/foreground listeners for playback polling.'
   );
 }
 
@@ -2013,13 +1969,6 @@ assert.equal(
   'Drill shared-playback runtime app bindings preserve grouped embedded/direct runtime concerns before the shared playback boundary.'
 );
 assert.equal(
-  createPracticePlaybackRuntimeHostAppContextBindings({
-    constants: { scheduleAhead: 0.2 }
-  }).constants.scheduleAhead,
-  0.2,
-  'Practice playback-runtime app bindings preserve grouped runtime-host concerns before the shared host boundary.'
-);
-assert.equal(
   createPracticePlaybackResourcesRuntimeAppBindings({
     runtime: { compingEngine: { id: 'comping' } }
   }).runtime.compingEngine.id,
@@ -2950,7 +2899,7 @@ assert.notEqual(
   'Chart content fingerprints change when converted chart harmony changes.'
 );
 const normalizedSatinImport = await normalizeChartLibraryDocument(satinDoll);
-assert.equal(normalizedSatinImport.metadata.origin, 'imported', 'Imported chart normalization marks imported origin.');
+assert.equal(normalizedSatinImport.metadata.origin, undefined, 'Imported chart normalization strips legacy metadata origin.');
 assert.equal(normalizedSatinImport.metadata.contentHashVersion, CHART_CONTENT_HASH_VERSION, 'Imported chart normalization records the active fingerprint version.');
 assert.ok(getChartSourceRefs(normalizedSatinImport).length >= 1, 'Imported chart normalization exposes source refs.');
 assert.equal(
@@ -2959,7 +2908,7 @@ assert.equal(
     source: { type: 'ireal-source', playlistName: 'Jazz 1460', sourceFile: 'jazz-1460.txt', songIndex: 1 },
     bars: [{ id: 'bar-1', index: 1 }]
   }))).map((ref) => ref.name).join(', '),
-  'Jazz 1460',
+  'iReal bundle Jazz 1460',
   'Imported chart normalization does not duplicate playlist names as fallback and source refs.'
 );
 assert.equal(
@@ -2975,6 +2924,75 @@ assert.equal(
   'Jazz 1460',
   'Persisted source refs with only a type difference collapse to one displayed source.'
 );
+
+{
+  const makeImportedSourceDoc = ({ id, title, playlistName = '', sourceFile = 'incoming-link' }) => createChartDocument({
+    metadata: { id, title, barCount: 1 },
+    source: { type: 'ireal-source', playlistName, sourceFile, songIndex: 1 },
+    bars: [{ id: 'bar-1', index: 1 }]
+  });
+  const importWithDocuments = (documents, importContext = {}) => importDocumentsFromIRealText({
+    rawText: 'irealb://fixture',
+    sourceFile: 'pasted-ireal-link',
+    importContext,
+    importDocuments: async ({ sourceFile }) => documents.map((document) => ({
+      ...document,
+      source: {
+        ...document.source,
+        sourceFile
+      }
+    }))
+  });
+
+  const forumSingle = await importWithDocuments([
+    makeImportedSourceDoc({ id: 'forum-single', title: 'Forum Single' })
+  ], { referrerUrl: 'https://forums.irealpro.com/t/example' });
+  assert.deepEqual(
+    getChartSourceRefs(forumSingle[0]).map((ref) => ({ type: ref.type, name: ref.name, origin: ref.origin })),
+    [{ type: 'ireal-chart', name: 'iReal chart', origin: 'ireal-forum' }],
+    'Single charts imported from iReal forum pages are grouped under one iReal chart source.'
+  );
+
+  const forumBundle = await importWithDocuments([
+    makeImportedSourceDoc({ id: 'forum-bundle-a', title: 'Forum Bundle A', playlistName: 'Jazz 1460' }),
+    makeImportedSourceDoc({ id: 'forum-bundle-b', title: 'Forum Bundle B', playlistName: 'Jazz 1460' })
+  ], { referrerUrl: 'https://forums.irealpro.com/t/jazz-1460' });
+  assert.equal(
+    getChartSourceRefs(forumBundle[0])[0]?.name,
+    'iReal bundle Jazz 1460',
+    'Multi-chart imports from iReal forum pages display as named iReal bundles.'
+  );
+
+  const backupBundle = await importWithDocuments([
+    makeImportedSourceDoc({ id: 'backup-bundle-a', title: 'Backup Bundle A', playlistName: 'Jazz 1460' }),
+    makeImportedSourceDoc({ id: 'backup-bundle-b', title: 'Backup Bundle B', playlistName: 'Jazz 1460' })
+  ], { referrerUrl: 'https://localhost/shared-import/my-backup.html' });
+  assert.deepEqual(
+    getChartSourceRefs(backupBundle[0]).map((ref) => ({ type: ref.type, name: ref.name, origin: ref.origin })),
+    [{ type: 'ireal-backup', name: 'iReal backup Jazz 1460', origin: 'ireal-backup' }],
+    'Bundles clicked from non-iReal HTML display as iReal backup sources with the playlist name.'
+  );
+
+  const pastedBundle = await importWithDocuments([
+    makeImportedSourceDoc({ id: 'pasted-bundle-a', title: 'Pasted Bundle A', playlistName: 'Jazz 1460' }),
+    makeImportedSourceDoc({ id: 'pasted-bundle-b', title: 'Pasted Bundle B', playlistName: 'Jazz 1460' })
+  ], { origin: 'pasted-link' });
+  assert.equal(
+    getChartSourceRefs(pastedBundle[0])[0]?.name,
+    'Pasted link Jazz 1460',
+    'Pasted bundle links keep a distinct pasted-link source label.'
+  );
+
+  const nativePendingWithoutReferrer = await importWithDocuments([
+    makeImportedSourceDoc({ id: 'native-pending-a', title: 'Native Pending A', playlistName: 'Brazilian 220' }),
+    makeImportedSourceDoc({ id: 'native-pending-b', title: 'Native Pending B', playlistName: 'Brazilian 220' })
+  ], { origin: 'unknown' });
+  assert.deepEqual(
+    getChartSourceRefs(nativePendingWithoutReferrer[0]).map((ref) => ({ type: ref.type, name: ref.name, origin: ref.origin })),
+    [{ type: 'ireal-bundle', name: 'iReal bundle Brazilian 220', origin: 'unknown' }],
+    'Native pending iReal links without a referrer fall back to iReal bundle labels instead of pasted-link labels.'
+  );
+}
 
 const alicePlan = createChartPlaybackPlanFromDocument(alice);
 assert.ok(alicePlan.entries.some(entry => entry.flags.includes('fine')), 'Alice playback reaches Fine.');
@@ -3104,7 +3122,7 @@ const singleSourceChart = {
 const userChart = {
   ...searchableDocuments[1],
   metadata: { ...searchableDocuments[1].metadata, id: 'user-chart', origin: 'user' },
-  source: { sourceRefs: [{ type: 'ireal-bundle', name: 'Brazilian 220' }] }
+  source: { sourceRefs: [] }
 };
 const sourceRemoval = removeChartSourceFromDocuments([multiSourceChart, singleSourceChart, userChart], 'Brazilian 220');
 assert.equal(sourceRemoval.removedChartCount, 1, 'Source removal deletes imported charts that only belong to that source.');
@@ -3358,45 +3376,6 @@ assert.equal(
   embeddedPlaybackAssembly.embeddedApi.version,
   2,
   'Core embedded playback assembly exposes the legacy embedded API surface.'
-);
-const embeddedPlaybackBridge = createEmbeddedPlaybackBridge({
-  getTargetWindow() {
-    return /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi });
-  },
-  getHostFrame() {
-    return /** @type {any} */ ({ addEventListener() {}, removeEventListener() {} });
-  },
-  buildPatternPayload(sessionSpec, playbackSettings) {
-    return {
-      patternName: sessionSpec?.title || 'Untitled',
-      patternString: sessionSpec?.playback?.enginePatternString || '',
-      patternMode: 'both',
-      tempo: sessionSpec?.tempo || playbackSettings?.tempo || null,
-      transposition: playbackSettings?.transposition ?? null,
-      repetitionsPerKey: 1,
-      displayMode: playbackSettings?.displayMode ?? null,
-      harmonyDisplayMode: playbackSettings?.harmonyDisplayMode ?? null,
-      showBeatIndicator: playbackSettings?.showBeatIndicator ?? null,
-      hideCurrentHarmony: playbackSettings?.hideCurrentHarmony ?? null,
-      compingStyle: playbackSettings?.compingStyle ?? null,
-      drumsMode: playbackSettings?.drumsMode ?? null,
-      customMediumSwingBass: playbackSettings?.customMediumSwingBass ?? null,
-      masterVolume: playbackSettings?.masterVolume ?? null,
-      bassVolume: playbackSettings?.bassVolume ?? null,
-      stringsVolume: playbackSettings?.stringsVolume ?? null,
-      drumsVolume: playbackSettings?.drumsVolume ?? null
-    };
-  }
-});
-assert.equal(
-  embeddedPlaybackBridge.playbackController,
-  embeddedPlaybackBridge.playbackRuntime.ensurePlaybackController(),
-  'Embedded playback bridge materializes the same playback controller as its runtime.'
-);
-assert.equal(
-  await embeddedPlaybackBridge.playbackRuntime.ensureReady(),
-  embeddedApi,
-  'Embedded playback bridge keeps the embedded API client and runtime aligned.'
 );
 const embeddedPlaybackBridgeProvider = createEmbeddedPlaybackBridgeProvider({
   getTargetWindow() {
@@ -3888,7 +3867,7 @@ assert.equal(drillAdapterCalls.filter(call => call.kind === 'start').length, 1, 
 assert.equal(drillAdapterCalls.filter(call => call.kind === 'pause').length, 1, 'Practice playback adapter forwards pause through the shared playback-session boundary.');
 assert.equal(drillAdapterCalls.filter(call => call.kind === 'stop').length, 0, 'Practice playback adapter preserves the no-op stop behavior when playback is already stopped.');
 
-const PracticePlaybackRuntime = createPracticePlaybackRuntime({
+const PracticePlaybackRuntime = createCorePracticePlaybackRuntime({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'runtime-pattern', payload });
     return { ok: true, state: drillRuntimeState };
@@ -4015,37 +3994,6 @@ assert.equal(
   directAdapterCalls.some(call => call.kind === 'provider-load'),
   true,
   'Direct playback runtime provider can load a practice session through the direct session boundary.'
-);
-const PracticePlaybackBridgeProvider = createPracticePlaybackBridgeProvider({
-  applyEmbeddedPattern(payload) {
-    drillAdapterCalls.push({ kind: 'provider-bridge-pattern', payload });
-    return { ok: true, state: drillRuntimeState };
-  },
-  applyEmbeddedPlaybackSettings(settings) {
-    drillAdapterCalls.push({ kind: 'provider-bridge-settings', settings });
-    return settings;
-  },
-  getEmbeddedPlaybackState() {
-    return drillRuntimeState;
-  },
-  ensureWalkingBassGenerator: async () => {},
-  isPlaying: () => false,
-  getAudioContext: () => null,
-  noteFadeout: 0.1,
-  stopActiveChordVoices: () => {},
-  rebuildPreparedCompingPlans: () => {},
-  buildPreparedBassPlan: () => {},
-  getCurrentKey: () => 0,
-  preloadNearTermSamples: async () => {},
-  validateCustomPattern: () => true,
-  startPlayback: async () => {},
-  stopPlayback: () => {},
-  togglePausePlayback: () => {}
-});
-assert.equal(
-  PracticePlaybackBridgeProvider.getBridge(),
-  PracticePlaybackBridgeProvider.getBridge(),
-  'Practice playback bridge provider memoizes the direct runtime-backed bridge.'
 );
 const directPlaybackBridgeProvider = createDirectPlaybackBridgeProvider({
   applyEmbeddedPattern(payload) {
@@ -4943,24 +4891,6 @@ assert.equal(
   PracticePlaybackAssembly.playbackRuntime.ensurePlaybackController(),
   'Core practice playback assembly materializes the same controller as its runtime.'
 );
-const directPlaybackAssembly = createDirectPlaybackAssembly({
-  loadDirectSession(sessionSpec, playbackSettings) {
-    directAdapterCalls.push({ kind: 'assembly-load', sessionSpec, playbackSettings });
-    return { ok: true, state: drillRuntimeState };
-  },
-  updateDirectPlaybackSettings(playbackSettings) {
-    directAdapterCalls.push({ kind: 'assembly-settings', playbackSettings });
-    return { ok: true, state: drillRuntimeState };
-  },
-  getDirectPlaybackState() {
-    return drillRuntimeState;
-  }
-});
-assert.equal(
-  directPlaybackAssembly.playbackController,
-  directPlaybackAssembly.playbackRuntime.ensurePlaybackController(),
-  'Direct playback assembly materializes the same controller as its runtime.'
-);
 const PracticePlaybackAssemblyProvider = createPracticePlaybackAssemblyProvider({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'provider-assembly-pattern', payload });
@@ -4996,69 +4926,6 @@ assert.equal(
   PracticePlaybackAssemblyProvider.getAssembly().playbackController,
   PracticePlaybackAssemblyProvider.getAssembly().playbackRuntime.ensurePlaybackController(),
   'Practice playback assembly provider returns a stable assembly/controller pair.'
-);
-const directPlaybackAssemblyProvider = createDirectPlaybackAssemblyProvider({
-  loadDirectSession(sessionSpec, playbackSettings) {
-    directAdapterCalls.push({ kind: 'provider-assembly-load', sessionSpec, playbackSettings });
-    return { ok: true, state: drillRuntimeState };
-  },
-  updateDirectPlaybackSettings(playbackSettings) {
-    directAdapterCalls.push({ kind: 'provider-assembly-settings', playbackSettings });
-    return { ok: true, state: drillRuntimeState };
-  },
-  getDirectPlaybackState() {
-    return drillRuntimeState;
-  }
-});
-assert.equal(
-  directPlaybackAssemblyProvider.getAssembly(),
-  directPlaybackAssemblyProvider.getAssembly(),
-  'Direct playback assembly provider memoizes the direct assembly instance.'
-);
-assert.equal(
-  directPlaybackAssemblyProvider.getAssembly().playbackController,
-  directPlaybackAssemblyProvider.getAssembly().playbackRuntime.ensurePlaybackController(),
-  'Direct playback assembly provider returns a stable assembly/controller pair.'
-);
-assert.equal(
-  typeof createDirectPlaybackRuntime({
-    loadDirectSession() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    updateDirectPlaybackSettings() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    getDirectPlaybackState() {
-      return drillRuntimeState;
-    }
-  }).ensurePlaybackController,
-  typeof createFeatureDirectPlaybackRuntime({
-    loadDirectSession() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    updateDirectPlaybackSettings() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    getDirectPlaybackState() {
-      return drillRuntimeState;
-    }
-  }).ensurePlaybackController,
-  'Feature-level direct playback runtime alias stays wired to the shared runtime implementation.'
-);
-assert.equal(
-  typeof createDirectPlaybackController({
-    loadDirectSession() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    updateDirectPlaybackSettings() {
-      return { ok: true, state: drillRuntimeState };
-    },
-    getDirectPlaybackState() {
-      return drillRuntimeState;
-    }
-  }).start,
-  'function',
-  'Feature-level direct playback controller alias exposes the shared playback controller surface.'
 );
 const chartDirectRuntimeContext = createChartPlaybackRuntimeContext({
   state: {
@@ -5298,7 +5165,7 @@ const chartEmbeddedRuntimeContext = createChartPlaybackRuntimeContext({
 });
 chartEmbeddedRuntimeContext.getPlaybackBridgeProvider();
 assert.equal(embeddedBridgeFrameLookups, 1, 'Chart playback runtime context resolves the embedded bridge frame lazily.');
-const embeddedPlaybackApi = createFeatureEmbeddedPlaybackApi({
+const embeddedPlaybackApi = createEmbeddedPlaybackApi({
   playbackRuntime: PracticePlaybackRuntime,
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'embedded-api-pattern', payload });
@@ -5372,9 +5239,9 @@ const f9BassLine = walkingBassGenerator.buildLine({
 assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sustained F9 bar.');
 
 {
-  const makeChart = (id, title, { origin = 'imported', sourceRefs = [], tags = [] } = {}) => ({
+  const makeChart = (id, title, { origin = 'imported', sourceRefs = [] } = {}) => ({
     schemaVersion: '1.0.0',
-    metadata: { id, title, origin, userTags: tags, contentHash: `hash-${id}`, contentHashVersion: CHART_CONTENT_HASH_VERSION },
+    metadata: { id, title, origin, contentHash: `hash-${id}`, contentHashVersion: CHART_CONTENT_HASH_VERSION },
     source: { sourceRefs },
     sections: [{ id: 'A', label: 'A', barIds: ['b1'] }],
     bars: [{ id: 'b1', index: 0 }],
@@ -5384,7 +5251,7 @@ assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sust
   const sourceB = { type: 'ireal-bundle', name: 'Source B' };
   const multiSource = makeChart('multi', 'Multi Source', { sourceRefs: [sourceA, sourceB] });
   const singleSource = makeChart('single', 'Single Source', { sourceRefs: [sourceA] });
-  const userChart = makeChart('user', 'User Chart', { origin: 'user', sourceRefs: [], tags: ['practice'] });
+  const userChart = makeChart('user', 'User Chart', { origin: 'user', sourceRefs: [] });
   const setlists = [{
     id: 'setlist-one',
     name: 'Setlist One',
@@ -5427,34 +5294,16 @@ assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sust
   });
   assert.equal(explicitDeleteResult.documents.some((document) => document.metadata.id === 'user'), false, 'Non-source explicit delete can delete selected user charts after preview.');
 
-  const taggedChart = applyChartTagUpdate(userChart, { addTags: ['solo'], removeTags: ['practice'] });
-  assert.deepEqual(taggedChart.metadata.userTags, ['solo'], 'Per-chart metadata updates add and remove tags.');
   const addedToSetlist = applyChartSetlistUpdate('user', setlists, { addSetlistIds: ['setlist-one'] });
   assert.equal(addedToSetlist[0].items.some((item) => item.chartId === 'user'), true, 'Per-chart metadata updates add charts to setlists.');
   const createdFromPanel = applyPerChartMetadataUpdate({
     documents: [userChart],
     setlists,
     chartId: 'user',
-    patch: { createTag: 'new tag', createSetlistName: 'Empty then add' }
+    patch: { createSetlistName: 'Empty then add' }
   });
-  assert.equal(createdFromPanel.documents[0].metadata.userTags.includes('new tag'), true, 'Metadata panel can create a new tag and apply it.');
   assert.equal(createdFromPanel.setlists.some((setlist) => setlist.name === 'Empty then add' && setlist.items.some((item) => item.chartId === 'user')), true, 'Metadata panel can create a new setlist and add the chart.');
 
-  const batchTagPreview = previewBatchMetadataOperation({
-    documents: [multiSource, singleSource, userChart],
-    setlists,
-    chartIds: ['multi', 'user'],
-    operation: { kind: 'add-tag', tag: 'practice' }
-  });
-  assert.equal(batchTagPreview.alreadyHadCount, 1, 'Batch preview counts charts that already have the tag.');
-  assert.equal(batchTagPreview.affectedCount, 1, 'Batch preview counts charts affected by tag additions.');
-  const batchTagResult = applyBatchMetadataOperation({
-    documents: [multiSource, singleSource, userChart],
-    setlists,
-    chartIds: ['multi', 'single'],
-    operation: { kind: 'add-tag', tag: 'warmup' }
-  });
-  assert.equal(batchTagResult.documents.filter((document) => document.metadata.userTags.includes('warmup')).length, 2, 'Batch edit adds tags to selected charts.');
   const batchSetlistResult = applyBatchMetadataOperation({
     documents: [multiSource, singleSource, userChart],
     setlists,

@@ -8,7 +8,7 @@ import {
   isIRealDeepLink,
   storePendingIRealLink
 } from '../app/app-pending-mobile-import.js';
-import { openIrealBrowser } from '../app/ireal-browser.js';
+import { openIrealBrowser, openIrealHtml } from '../app/ireal-browser.js';
 import {
   loadPersistedChartLibrary,
   loadPersistedSetlists,
@@ -22,6 +22,7 @@ import {
 } from '../chart/chart-persistence.js';
 import {
   filterChartDocuments,
+  type IRealImportContext,
   importDocumentsFromIRealText,
   normalizeChartTextKey
 } from '../chart/chart-library.js';
@@ -44,7 +45,6 @@ type HomePageDom = {
   importCloseButton: HTMLButtonElement | null;
   importIRealBackupButton: HTMLButtonElement | null;
   irealBackupRestoreSection: HTMLElement | null;
-  irealBackupBackButton: HTMLButtonElement | null;
   irealBackupCloseButton: HTMLButtonElement | null;
   irealBackupFileButton: HTMLButtonElement | null;
   openIRealForumButton: HTMLButtonElement | null;
@@ -456,12 +456,15 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const showImportMainView = (): void => {
     applyImportModeVisibility();
     if (dom.irealBackupRestoreSection) dom.irealBackupRestoreSection.hidden = true;
+    if (dom.importCloseButton) dom.importCloseButton.hidden = false;
   };
 
   const showBackupRestoreView = (): void => {
     if (dom.irealImportActions) dom.irealImportActions.hidden = true;
     if (dom.irealLinkImportSection) dom.irealLinkImportSection.hidden = true;
     if (dom.irealBackupRestoreSection) dom.irealBackupRestoreSection.hidden = false;
+    if (dom.importCloseButton) dom.importCloseButton.hidden = true;
+    requestAnimationFrame(() => dom.irealBackupCloseButton?.focus());
   };
 
   const openImportPopup = (): void => {
@@ -492,7 +495,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     setImportStatus('');
   };
 
-  const importFromRawText = async (rawText: string, sourceFile: string): Promise<void> => {
+  const importFromRawText = async (rawText: string, sourceFile: string, importContext?: IRealImportContext): Promise<void> => {
     const trimmedText = String(rawText || '').trim();
     if (!trimmedText) {
       setImportStatus('Paste an irealb:// link first.', true);
@@ -507,6 +510,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       const importedDocuments = await importDocumentsFromIRealText({
         rawText: trimmedText,
         sourceFile,
+        importContext,
         importDocuments: ({ rawText: sourceText, sourceFile: importedSourceFile = '' }) =>
           createChartDocumentsFromIRealText({ rawText: sourceText, sourceFile: importedSourceFile })
       });
@@ -535,20 +539,29 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     }
   };
 
+  const handlePastedIRealLinkImport = async (): Promise<void> => {
+    const rawText = dom.irealLinkInput?.value || '';
+    if (dom.irealLinkInput) dom.irealLinkInput.value = '';
+    await importFromRawText(rawText, 'pasted-ireal-link', { origin: 'pasted-link' });
+  };
+
   const handleBackupFileSelection = async (event: Event & { target: HTMLInputElement | null }): Promise<void> => {
     const file = event.target?.files?.[0];
     if (!file) return;
     try {
-      await importFromRawText(await file.text(), file.name);
+      closeImportPopup();
+      setImportStatus(`Opening ${file.name}...`);
+      await openIrealHtml({
+        html: await file.text(),
+        title: file.name,
+        baseUrl: `https://localhost/shared-import/${encodeURIComponent(file.name)}`
+      });
+      setImportStatus('Backup opened. Tap an iReal link in the backup to import it.');
+    } catch (error) {
+      setImportStatus(`Could not open backup: ${error instanceof Error ? error.message : String(error || 'Unknown error')}`, true);
     } finally {
       if (event.target) event.target.value = '';
     }
-  };
-
-  const handlePastedIRealLinkImport = async (): Promise<void> => {
-    const rawText = dom.irealLinkInput?.value || '';
-    if (dom.irealLinkInput) dom.irealLinkInput.value = '';
-    await importFromRawText(rawText, 'pasted-ireal-link');
   };
 
   const importPendingMobileIRealLink = async (): Promise<void> => {
@@ -561,7 +574,10 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     }
     if (!pendingIRealLink) return;
     setImportStatus('iReal link captured. Importing charts...');
-    await importFromRawText(pendingIRealLink, 'pasted-ireal-link');
+    await importFromRawText(pendingIRealLink, 'pasted-ireal-link', {
+      origin: pendingResult.importOrigin || (pendingResult.hadPendingMarker ? 'unknown' : undefined),
+      referrerUrl: pendingResult.referrerUrl
+    });
   };
 
   const bindIncomingMobileIRealImports = async (): Promise<void> => {
@@ -604,7 +620,6 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     }
   });
   dom.importIRealBackupButton?.addEventListener('click', showBackupRestoreView);
-  dom.irealBackupBackButton?.addEventListener('click', showImportMainView);
   dom.irealBackupCloseButton?.addEventListener('click', closeImportPopup);
   dom.irealBackupFileButton?.addEventListener('click', () => dom.irealBackupInput?.click());
   dom.importIRealLinkButton?.addEventListener('click', () => void handlePastedIRealLinkImport());

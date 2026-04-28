@@ -36,6 +36,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(repositoryRoot, 'index.html'),
+        irealBackupViewer: resolve(repositoryRoot, 'ireal-backup-viewer.html'),
         drill: resolve(repositoryRoot, 'drill.html'),
         setlists: resolve(repositoryRoot, 'setlists.html'),
         library: resolve(repositoryRoot, 'library.html')

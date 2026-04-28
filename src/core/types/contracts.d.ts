@@ -16,14 +16,17 @@ export interface ChartMetadata {
   contentHashVersion?: string;
   titleKey?: string;
   composerKey?: string;
-  userTags?: string[];
   [key: string]: unknown;
 }
 
 export interface ChartSourceRef {
-  type: 'ireal-bundle' | 'ireal-link' | 'ireal-source' | 'unknown' | string;
+  type: 'ireal-chart' | 'ireal-bundle' | 'ireal-backup' | 'pasted-link' | 'ireal-link' | 'ireal-source' | 'unknown' | string;
   name: string;
+  origin?: 'ireal-forum' | 'ireal-backup' | 'pasted-link' | 'ireal-bundled-default' | 'unknown' | string;
   sourceFile?: string;
+  referrerUrl?: string;
+  sourceSongCount?: number;
+  rawPlaylistName?: string;
   songIndex?: number;
   importedTitle?: string;
   importedComposer?: string;
@@ -492,13 +495,9 @@ export interface ChartDirectPlaybackRuntimeHost {
 export interface PracticePlaybackAssembly extends PlaybackRuntimeBindings {
   playbackRuntime: PlaybackRuntime;
 }
-export interface DirectPlaybackAssembly extends PracticePlaybackAssembly {}
 
 export interface PracticePlaybackAssemblyProvider extends PlaybackAssemblyProvider {
   getAssembly(): PracticePlaybackAssembly;
-}
-export interface DirectPlaybackAssemblyProvider extends PracticePlaybackAssemblyProvider {
-  getAssembly(): DirectPlaybackAssembly;
 }
 
 export interface EmbeddedPlaybackAssembly extends PlaybackRuntimeBindings {

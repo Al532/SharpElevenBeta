@@ -27,11 +27,31 @@ public class IrealBrowserPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openHtml(PluginCall call) {
+        String html = call.getString("html");
+        if (html == null || html.trim().isEmpty()) {
+            call.reject("Browser HTML is required.");
+            return;
+        }
+
+        String baseUrl = call.getString("baseUrl", "https://localhost/shared-import/");
+        String pendingHtmlKey = PendingIrealHtmlStore.put(html, baseUrl);
+
+        Intent intent = new Intent(getActivity(), IrealBrowserActivity.class);
+        intent.putExtra(IrealBrowserActivity.EXTRA_PENDING_HTML_KEY, pendingHtmlKey);
+        intent.putExtra(IrealBrowserActivity.EXTRA_TITLE, call.getString("title", ""));
+        getActivity().startActivity(intent);
+        call.resolve();
+    }
+
+    @PluginMethod
     public void consumePendingIRealLink(PluginCall call) {
         try {
-            String url = PendingIrealImportStore.consume(getContext());
+            PendingIrealImportStore.PendingIrealImport pendingImport = PendingIrealImportStore.consume(getContext());
             JSObject result = new JSObject();
-            result.put("url", url);
+            result.put("url", pendingImport.url);
+            result.put("referrerUrl", pendingImport.referrerUrl);
+            result.put("importOrigin", pendingImport.importOrigin);
             call.resolve(result);
         } catch (IOException error) {
             call.reject("Failed to load the pending iReal link.", error);

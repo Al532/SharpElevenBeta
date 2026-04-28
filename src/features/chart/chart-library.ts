@@ -2,6 +2,13 @@ import type { ChartDocument, ChartMetadata, ChartSetlist, ChartSetlistItem, Char
 
 export const CHART_CONTENT_HASH_VERSION = 'chart-document-fingerprint-v1';
 
+export type IRealImportOrigin = 'ireal-forum' | 'ireal-backup' | 'pasted-link' | 'ireal-bundled-default' | 'unknown';
+
+export type IRealImportContext = {
+  origin?: IRealImportOrigin | string;
+  referrerUrl?: string;
+};
+
 export function slugifyChartValue(value: unknown): string {
   return String(value || '')
     .toLowerCase()
@@ -32,6 +39,115 @@ function normalizeHashableValue(value: unknown): unknown {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(normalizeHashableValue(value));
+}
+
+function isIRealWebHost(hostname: string): boolean {
+  const normalizedHost = hostname.toLowerCase();
+  return normalizedHost === 'irealpro.com' || normalizedHost.endsWith('.irealpro.com');
+}
+
+function getOriginFromReferrerUrl(rawUrl: unknown): IRealImportOrigin | '' {
+  const value = String(rawUrl || '').trim();
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return isIRealWebHost(url.hostname) ? 'ireal-forum' : 'ireal-backup';
+    }
+    if (url.protocol === 'content:' || url.protocol === 'file:') return 'ireal-backup';
+  } catch {
+    // Fall through to conservative string checks below.
+  }
+  const normalized = value.toLowerCase();
+  if (normalized.includes('irealpro.com')) return 'ireal-forum';
+  if (normalized.startsWith('content:') || normalized.startsWith('file:') || normalized.includes('localhost/shared-import')) {
+    return 'ireal-backup';
+  }
+  return 'ireal-backup';
+}
+
+function isHtmlLikeSourceFile(value: unknown): boolean {
+  return /\.(?:html?|xhtml)(?:$|[?#])/i.test(String(value || '').trim());
+}
+
+function normalizeImportOrigin({
+  origin,
+  referrerUrl,
+  sourceFile
+}: {
+  origin?: unknown;
+  referrerUrl?: unknown;
+  sourceFile?: unknown;
+}): IRealImportOrigin {
+  const explicitOrigin = String(origin || '').trim();
+  if (['ireal-forum', 'ireal-backup', 'pasted-link', 'ireal-bundled-default', 'unknown'].includes(explicitOrigin)) {
+    return explicitOrigin as IRealImportOrigin;
+  }
+  const referrerOrigin = getOriginFromReferrerUrl(referrerUrl);
+  if (referrerOrigin) return referrerOrigin;
+  const normalizedSourceFile = String(sourceFile || '').trim().toLowerCase();
+  if (normalizedSourceFile.includes('pasted-ireal-link')) return 'pasted-link';
+  if (isHtmlLikeSourceFile(sourceFile)) return 'ireal-backup';
+  return 'unknown';
+}
+
+function appendSourceName(prefix: string, value: unknown): string {
+  const suffix = String(value || '').trim();
+  return suffix ? `${prefix} ${suffix}` : prefix;
+}
+
+function describeImportedIRealSource({
+  origin,
+  playlistName,
+  sourceFile,
+  sourceSongCount
+}: {
+  origin: IRealImportOrigin;
+  playlistName: string;
+  sourceFile: string;
+  sourceSongCount: number;
+}): { type: string; name: string } {
+  const hasKnownSongCount = Number.isFinite(sourceSongCount) && sourceSongCount > 0;
+  const isBundle = hasKnownSongCount ? sourceSongCount > 1 : Boolean(playlistName);
+
+  if (origin === 'ireal-backup') {
+    return {
+      type: 'ireal-backup',
+      name: appendSourceName('iReal backup', playlistName)
+    };
+  }
+
+  if (origin === 'pasted-link') {
+    return {
+      type: 'pasted-link',
+      name: appendSourceName('Pasted link', isBundle ? playlistName : '')
+    };
+  }
+
+  if (origin === 'ireal-forum' || origin === 'ireal-bundled-default') {
+    if (isBundle) {
+      return {
+        type: 'ireal-bundle',
+        name: appendSourceName('iReal bundle', playlistName || sourceFile)
+      };
+    }
+    return {
+      type: 'ireal-chart',
+      name: 'iReal chart'
+    };
+  }
+
+  if (isBundle) {
+    return {
+      type: 'ireal-bundle',
+      name: appendSourceName('iReal bundle', playlistName || sourceFile)
+    };
+  }
+
+  return {
+    type: 'ireal-chart',
+    name: 'iReal chart'
+  };
 }
 
 async function digestSha256(value: string): Promise<string> {
@@ -151,15 +267,31 @@ export function getChartSourceRefs(document: ChartDocument | null | undefined): 
 function createImportedSourceRefs(document: ChartDocument): ChartSourceRef[] {
   const source = document.source || {};
   const existingRefs = Array.isArray(source.sourceRefs) ? source.sourceRefs : [];
-  const playlistName = String(source.playlistName || '').trim();
+  const playlistName = String(source.rawPlaylistName || source.playlistName || '').trim();
   const sourceFile = String(source.sourceFile || '').trim();
-  const isLink = sourceFile.toLowerCase().includes('link') || sourceFile.toLowerCase().includes('pasted');
-  const name = playlistName || sourceFile;
+  const referrerUrl = String(source.referrerUrl || '').trim();
+  const origin = normalizeImportOrigin({
+    origin: source.importOrigin || source.origin,
+    referrerUrl,
+    sourceFile
+  });
+  const sourceSongCount = Number(source.sourceSongCount || 0);
+  const sourceDescription = describeImportedIRealSource({
+    origin,
+    playlistName,
+    sourceFile,
+    sourceSongCount
+  });
+  const name = sourceDescription.name;
   if (!name) return mergeChartSourceRefs(existingRefs, []);
   return mergeChartSourceRefs(existingRefs, [{
-    type: isLink ? 'ireal-link' : playlistName ? 'ireal-bundle' : String(source.type || 'ireal-source'),
+    type: sourceDescription.type,
+    origin,
     name,
     sourceFile,
+    referrerUrl,
+    rawPlaylistName: playlistName,
+    sourceSongCount,
     songIndex: Number(source.songIndex || 0),
     importedTitle: String(document.metadata?.title || ''),
     importedComposer: String(document.metadata?.composer || ''),
@@ -170,8 +302,8 @@ function createImportedSourceRefs(document: ChartDocument): ChartSourceRef[] {
 export async function normalizeChartLibraryDocument(
   document: ChartDocument
 ): Promise<ChartDocument> {
-  const metadata = (document.metadata || {}) as Partial<ChartMetadata> & { origin?: unknown };
-  const { origin: _origin, ...metadataWithoutOrigin } = metadata;
+  const metadata = (document.metadata || {}) as Partial<ChartMetadata> & { origin?: unknown; userTags?: unknown };
+  const { origin: _origin, userTags: _userTags, ...metadataWithoutOrigin } = metadata;
   const sourceRefs = createImportedSourceRefs(document);
   const contentHash = String(metadata.contentHash || '') && metadata.contentHashVersion === CHART_CONTENT_HASH_VERSION
     ? String(metadata.contentHash)
@@ -185,10 +317,7 @@ export async function normalizeChartLibraryDocument(
       contentHash,
       contentHashVersion: CHART_CONTENT_HASH_VERSION,
       titleKey: normalizeChartTextKey(metadata.title),
-      composerKey: normalizeChartTextKey(metadata.composer),
-      userTags: Array.isArray(metadata.userTags)
-        ? metadata.userTags.map((tag) => String(tag || '').trim()).filter(Boolean)
-        : []
+      composerKey: normalizeChartTextKey(metadata.composer)
     },
     source: {
       ...(document.source || {}),
@@ -230,7 +359,7 @@ export function extractIRealLinks(rawText: string): string[] {
   return [...new Set(matches)];
 }
 
-export function dedupeAndTagImportedDocuments(documents: ChartDocument[]): ChartDocument[] {
+export function assignUniqueImportedDocumentIds(documents: ChartDocument[]): ChartDocument[] {
   const seenIds = new Map<string, number>();
 
   return documents.map((document) => {
@@ -259,15 +388,23 @@ export function dedupeAndTagImportedDocuments(documents: ChartDocument[]): Chart
 export async function importDocumentsFromIRealText({
   rawText,
   sourceFile = '',
+  importContext,
   importDocuments
 }: {
   rawText?: string;
   sourceFile?: string;
+  importContext?: IRealImportContext;
   importDocuments?: (options: { rawText: string; sourceFile: string }) => Promise<ChartDocument[]>;
 } = {}): Promise<ChartDocument[]> {
   const links = extractIRealLinks(rawText || '');
   const sources = links.length > 0 ? links : [String(rawText || '')];
   const importedDocuments: ChartDocument[] = [];
+  const baseImportOrigin = normalizeImportOrigin({
+    origin: importContext?.origin,
+    referrerUrl: importContext?.referrerUrl,
+    sourceFile
+  });
+  const referrerUrl = String(importContext?.referrerUrl || '').trim();
 
   for (let index = 0; index < sources.length; index += 1) {
     const sourceText = sources[index];
@@ -276,12 +413,22 @@ export async function importDocumentsFromIRealText({
       rawText: sourceText,
       sourceFile: sourceLabel
     }) || [];
-    importedDocuments.push(...documents);
+    importedDocuments.push(...documents.map((document) => ({
+      ...document,
+      source: {
+        ...(document.source || {}),
+        importOrigin: baseImportOrigin,
+        referrerUrl,
+        rawPlaylistName: String(document.source?.playlistName || document.source?.rawPlaylistName || '').trim(),
+        sourceSongCount: documents.length,
+        originalImportSourceFile: sourceFile
+      }
+    })));
   }
 
-  const taggedDocuments = await normalizeImportedDocuments(dedupeAndTagImportedDocuments(importedDocuments));
+  const documentsWithUniqueIds = await normalizeImportedDocuments(assignUniqueImportedDocumentIds(importedDocuments));
 
-  return mergeDuplicateImportedDocuments(taggedDocuments)
+  return mergeDuplicateImportedDocuments(documentsWithUniqueIds)
     .sort((left, right) => {
       const titleComparison = String(left.metadata?.title || '').localeCompare(String(right.metadata?.title || ''), 'en', { sensitivity: 'base' });
       if (titleComparison !== 0) return titleComparison;
@@ -313,7 +460,6 @@ export function getChartSearchText(document: ChartDocument): string {
     metadata.styleReference,
     metadata.canonicalGroove,
     metadata.grooveReference,
-    ...(Array.isArray(metadata.userTags) ? metadata.userTags : []),
     ...sourceRefs.flatMap((ref) => [ref.name, ref.sourceFile])
   ].map(normalizeChartTextKey).filter(Boolean).join(' ');
 }
@@ -323,14 +469,12 @@ export function scoreChartSearchResult(document: ChartDocument, normalizedQuery:
   const titleKey = normalizeChartTextKey(metadata.titleKey || metadata.title);
   const composerKey = normalizeChartTextKey(metadata.composerKey || metadata.composer);
   const styleKey = normalizeChartTextKey(metadata.styleReference || metadata.style || metadata.canonicalGroove);
-  const tagsKey = (Array.isArray(metadata.userTags) ? metadata.userTags : []).map(normalizeChartTextKey).join(' ');
   const sourceKey = getChartSourceRefs(document).map((ref) => normalizeChartTextKey(ref.name)).join(' ');
   if (titleKey === normalizedQuery) return 1000;
   if (titleKey.startsWith(normalizedQuery)) return 800;
   if (titleKey.includes(normalizedQuery)) return 600;
   if (composerKey.includes(normalizedQuery)) return 400;
   if (styleKey.includes(normalizedQuery)) return 300;
-  if (tagsKey.includes(normalizedQuery)) return 250;
   if (sourceKey.includes(normalizedQuery)) return 150;
   return 0;
 }
@@ -388,24 +532,19 @@ export function removeChartSourceFromDocuments(
 }
 
 export type ChartLibraryFacetSummary = {
-  tags: string[];
   sources: string[];
   styles: string[];
   setlistMembershipByChartId: Map<string, ChartSetlist[]>;
 };
 
 export type ChartMetadataPatch = {
-  addTags?: string[];
-  removeTags?: string[];
   addSetlistIds?: string[];
   removeSetlistIds?: string[];
-  createTag?: string;
   createSetlistName?: string;
 };
 
 export type BatchMetadataOperation = {
-  kind: 'add-tag' | 'remove-tag' | 'add-setlist' | 'remove-setlist' | 'delete';
-  tag?: string;
+  kind: 'add-setlist' | 'remove-setlist' | 'delete';
   setlistId?: string;
   activeSourceName?: string;
 };
@@ -427,25 +566,6 @@ export type ProtectedDeletePreview = BatchOperationPreview & {
   sourceRefOnlyChartIds: string[];
 };
 
-export function normalizeChartTag(value: unknown): string {
-  return String(value || '').trim();
-}
-
-function normalizeDistinctChartTags(values: unknown[] = []): string[] {
-  const tagsByKey = new Map<string, string>();
-  for (const value of values) {
-    const tag = normalizeChartTag(value);
-    if (!tag) continue;
-    tagsByKey.set(normalizeChartTextKey(tag), tag);
-  }
-  return [...tagsByKey.values()].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
-}
-
-function chartHasTag(document: ChartDocument, tag: string): boolean {
-  const normalizedTag = normalizeChartTextKey(tag);
-  return (document.metadata?.userTags || []).some((existingTag) => normalizeChartTextKey(existingTag) === normalizedTag);
-}
-
 function chartStyleLabel(document: ChartDocument): string {
   return String(document.metadata?.styleReference || document.metadata?.style || document.metadata?.canonicalGroove || document.metadata?.grooveReference || '').trim();
 }
@@ -454,13 +574,11 @@ export function listChartLibraryFacets(
   documents: ChartDocument[] = [],
   setlists: ChartSetlist[] = []
 ): ChartLibraryFacetSummary {
-  const tags: string[] = [];
   const sources = new Set<string>();
   const styles = new Set<string>();
   const setlistMembershipByChartId = new Map<string, ChartSetlist[]>();
 
   for (const document of documents) {
-    tags.push(...(document.metadata?.userTags || []));
     for (const ref of getChartSourceRefs(document)) {
       const name = String(ref.name || '').trim();
       if (name) sources.add(name);
@@ -481,7 +599,6 @@ export function listChartLibraryFacets(
   }
 
   return {
-    tags: normalizeDistinctChartTags(tags),
     sources: [...sources].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' })),
     styles: [...styles].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' })),
     setlistMembershipByChartId
@@ -490,23 +607,6 @@ export function listChartLibraryFacets(
 
 export function getChartSetlistMembership(chartId: string, setlists: ChartSetlist[] = []): ChartSetlist[] {
   return setlists.filter((setlist) => setlist.items.some((item) => item.chartId === chartId));
-}
-
-export function applyChartTagUpdate(document: ChartDocument, patch: ChartMetadataPatch = {}): ChartDocument {
-  const existingTags = document.metadata?.userTags || [];
-  const removeKeys = new Set((patch.removeTags || []).map(normalizeChartTextKey));
-  const nextTags = normalizeDistinctChartTags([
-    ...existingTags.filter((tag) => !removeKeys.has(normalizeChartTextKey(tag))),
-    ...(patch.addTags || []),
-    patch.createTag || ''
-  ]);
-  return {
-    ...document,
-    metadata: {
-      ...document.metadata,
-      userTags: nextTags
-    }
-  };
 }
 
 function createEmptySetlist(name: string): ChartSetlist {
@@ -573,11 +673,8 @@ export function applyPerChartMetadataUpdate({
   chartId?: string;
   patch?: ChartMetadataPatch;
 }): { documents: ChartDocument[]; setlists: ChartSetlist[] } {
-  const nextDocuments = documents.map((document) => document.metadata.id === chartId
-    ? applyChartTagUpdate(document, patch)
-    : document);
   const nextSetlists = applyChartSetlistUpdate(chartId, setlists, patch);
-  return { documents: nextDocuments, setlists: nextSetlists };
+  return { documents, setlists: nextSetlists };
 }
 
 function getSelectedDocuments(documents: ChartDocument[], chartIds: string[]): ChartDocument[] {
@@ -699,13 +796,7 @@ export function previewBatchMetadataOperation({
       skippedCount += 1;
       continue;
     }
-    if (operation.kind === 'add-tag') {
-      if (chartHasTag(document, operation.tag || '')) alreadyHadCount += 1;
-      else affectedCount += 1;
-    } else if (operation.kind === 'remove-tag') {
-      if (chartHasTag(document, operation.tag || '')) affectedCount += 1;
-      else skippedCount += 1;
-    } else if (operation.kind === 'add-setlist') {
+    if (operation.kind === 'add-setlist') {
       const setlist = setlists.find((candidate) => candidate.id === operation.setlistId);
       if (!setlist) skippedCount += 1;
       else if (setlist.items.some((item) => item.chartId === chartId)) alreadyHadCount += 1;
@@ -745,18 +836,7 @@ export function applyBatchMetadataOperation({
   if (operation.kind === 'delete') {
     return applyProtectedChartDelete({ documents, setlists, chartIds, activeSourceName: operation.activeSourceName || '' });
   }
-  const selectedIds = new Set(chartIds);
-  let nextDocuments = documents;
   let nextSetlists = setlists;
-  if (operation.kind === 'add-tag' || operation.kind === 'remove-tag') {
-    nextDocuments = documents.map((document) => {
-      if (!selectedIds.has(String(document.metadata?.id || ''))) return document;
-      return applyChartTagUpdate(document, {
-        addTags: operation.kind === 'add-tag' ? [operation.tag || ''] : [],
-        removeTags: operation.kind === 'remove-tag' ? [operation.tag || ''] : []
-      });
-    });
-  }
   if (operation.kind === 'add-setlist' || operation.kind === 'remove-setlist') {
     for (const chartId of chartIds) {
       nextSetlists = applyChartSetlistUpdate(chartId, nextSetlists, {
@@ -765,7 +845,7 @@ export function applyBatchMetadataOperation({
       });
     }
   }
-  return { documents: nextDocuments, setlists: nextSetlists, preview };
+  return { documents, setlists: nextSetlists, preview };
 }
 
 export function reorderSetlistItems(

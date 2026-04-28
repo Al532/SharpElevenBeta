@@ -4,6 +4,7 @@ import {
   persistChartLibrary
 } from './chart-persistence.js';
 import {
+  type IRealImportContext,
   importDocumentsFromIRealText as importChartDocumentsFromIRealText
 } from './chart-library.js';
 import { createChartLibraryImportBindings } from './chart-app-bindings.js';
@@ -40,11 +41,12 @@ export function createChartLibraryImportFlow({
   getChartRenderPerfNow,
   logChartRenderPerf
 }: ChartLibraryImportFlowOptions) {
-  async function importDocumentsFromIRealText(rawText: string, sourceFile = '') {
+  async function importDocumentsFromIRealText(rawText: string, sourceFile = '', importContext?: IRealImportContext) {
     const startedAt = getChartRenderPerfNow();
     return importChartDocumentsFromIRealText(createChartLibraryImportBindings({
       rawText,
       sourceFile,
+      importContext,
       importDocuments
     })).finally(() => {
       logChartRenderPerf('importDocumentsFromIRealText', startedAt, {
