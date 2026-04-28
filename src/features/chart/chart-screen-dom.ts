@@ -3,6 +3,7 @@ export function createChartScreenDomRefs(rootDocument: Document = document) {
     appModeBadge: rootDocument.getElementById('app-mode-badge'),
     appModeDrillLink: rootDocument.getElementById('app-mode-drill-link') as HTMLAnchorElement | null,
     appModeChartLink: rootDocument.getElementById('app-mode-chart-link') as HTMLAnchorElement | null,
+    chartHomeButton: rootDocument.getElementById('chart-home-button') as HTMLAnchorElement | null,
     chartSearchInput: rootDocument.getElementById('chart-search-input') as HTMLInputElement | null,
     chartLibraryCount: rootDocument.getElementById('chart-library-count'),
     importIRealBackupButton: rootDocument.getElementById('import-ireal-backup-button') as HTMLButtonElement | null,

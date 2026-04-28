@@ -211,6 +211,7 @@ function createChartLink(chartDocument: ChartDocument, className = 'home-list-li
   const link = document.createElement('a');
   const targetUrl = new URL('./chart/index.html', window.location.href);
   targetUrl.searchParams.set('chart', chartDocument.metadata.id);
+  targetUrl.searchParams.set('from', 'home');
   link.href = targetUrl.toString();
   link.className = className;
   link.style.textDecoration = 'none';

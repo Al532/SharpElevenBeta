@@ -8,6 +8,7 @@ import {
 import {
   createEmptyChartSetlist,
   filterChartDocuments,
+  getChartSourceRefs,
   getChartSetlistMembership,
   reorderSetlistItems
 } from '../chart/chart-library.js';
@@ -73,11 +74,130 @@ let draggedSetlistItem: SetlistDragItem | null = null;
 let draggedSetlistOrderIndex: number | null = null;
 let draggedLibraryChartId = '';
 let setlistPointerStart: { x: number; y: number } | null = null;
+let setlistPointerCurrent: { x: number; y: number } | null = null;
+let setlistPointerId: number | null = null;
+let setlistItemDragActivationTimer: ReturnType<typeof window.setTimeout> | null = null;
+let isSetlistItemDragActive = false;
 let isCreateSetlistVisible = false;
 let renamingSetlistId = '';
 let pendingDeleteSetlistId = '';
+const SETLIST_ITEM_DRAG_DELAY_MS = 240;
+const SETLIST_ITEM_TAP_DISTANCE_PX = 6;
+const SETLIST_ITEM_PRE_DRAG_SCROLL_DISTANCE_PX = 12;
+const CHART_MANAGEMENT_SESSION_CACHE_KEY = 'sharp-eleven-chart-management-session-cache-v1';
 const collapsedSetlistIds = new Set<string>();
 const filterState = createChartManagementFilterState();
+
+type ChartManagementCachedDocument = {
+  id: string;
+  title: string;
+  composer?: string;
+  origin?: string;
+  style?: string;
+  styleReference?: string;
+  userTags?: string[];
+  sourceRefs?: ChartDocument['source']['sourceRefs'];
+};
+
+type ChartManagementSessionCache = {
+  version: 1;
+  source: string;
+  documents: ChartManagementCachedDocument[];
+  setlists: ChartSetlist[];
+  savedAt: number;
+};
+
+function toCachedDocument(document: ChartDocument): ChartManagementCachedDocument | null {
+  const id = String(document.metadata?.id || '').trim();
+  if (!id) return null;
+  return {
+    id,
+    title: String(document.metadata?.title || '').trim() || 'Untitled chart',
+    composer: typeof document.metadata?.composer === 'string' ? document.metadata.composer : '',
+    origin: typeof document.metadata?.origin === 'string' ? document.metadata.origin : '',
+    style: typeof document.metadata?.style === 'string' ? document.metadata.style : '',
+    styleReference: typeof document.metadata?.styleReference === 'string' ? document.metadata.styleReference : '',
+    userTags: Array.isArray(document.metadata?.userTags)
+      ? document.metadata.userTags.map((tag) => String(tag || '').trim()).filter(Boolean)
+      : [],
+    sourceRefs: getChartSourceRefs(document)
+  };
+}
+
+function createDocumentFromCache(cachedDocument: ChartManagementCachedDocument): ChartDocument | null {
+  const id = String(cachedDocument.id || '').trim();
+  if (!id) return null;
+  const sourceRefs = Array.isArray(cachedDocument.sourceRefs) ? cachedDocument.sourceRefs : [];
+  return {
+    schemaVersion: '1.0.0',
+    metadata: {
+      id,
+      title: String(cachedDocument.title || '').trim() || 'Untitled chart',
+      composer: String(cachedDocument.composer || ''),
+      origin: String(cachedDocument.origin || 'imported'),
+      style: String(cachedDocument.style || ''),
+      styleReference: String(cachedDocument.styleReference || ''),
+      userTags: Array.isArray(cachedDocument.userTags)
+        ? cachedDocument.userTags.map((tag) => String(tag || '').trim()).filter(Boolean)
+        : []
+    },
+    source: {
+      sourceRefs,
+      ...(sourceRefs[0]?.name ? { playlistName: sourceRefs[0].name } : {})
+    },
+    sections: [],
+    bars: [],
+    layout: null
+  };
+}
+
+function readChartManagementSessionCache(): ChartManagementSessionCache | null {
+  try {
+    const rawCache = window.sessionStorage.getItem(CHART_MANAGEMENT_SESSION_CACHE_KEY);
+    if (!rawCache) return null;
+    const cache = JSON.parse(rawCache) as Partial<ChartManagementSessionCache>;
+    if (cache.version !== 1 || !Array.isArray(cache.documents) || !Array.isArray(cache.setlists)) return null;
+    return {
+      version: 1,
+      source: String(cache.source || 'imported library'),
+      documents: cache.documents,
+      setlists: cache.setlists,
+      savedAt: Number(cache.savedAt || 0)
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeChartManagementSessionCache(): void {
+  const documents = currentDocuments
+    .map(toCachedDocument)
+    .filter((document): document is ChartManagementCachedDocument => Boolean(document));
+  const cache: ChartManagementSessionCache = {
+    version: 1,
+    source: currentSource,
+    documents,
+    setlists: currentSetlists,
+    savedAt: Date.now()
+  };
+  try {
+    window.sessionStorage.setItem(CHART_MANAGEMENT_SESSION_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Session cache is only an acceleration path; persistent storage remains authoritative.
+  }
+}
+
+function renderCachedSetlistsIfAvailable(): void {
+  if (activeMode !== 'setlists') return;
+  const cache = readChartManagementSessionCache();
+  if (!cache) return;
+  currentDocuments = cache.documents
+    .map(createDocumentFromCache)
+    .filter((document): document is ChartDocument => Boolean(document));
+  currentSource = cache.source;
+  currentSetlists = cache.setlists;
+  renderManageUi();
+}
 
 function formatImportSummary(persistedLibrary: Awaited<ReturnType<typeof persistChartLibrary>>, fallbackCount: number, sourceFile: string) {
   const summary = persistedLibrary?.lastImportSummary;
@@ -213,6 +333,7 @@ async function persistMetadataState({ documents, setlists }: { documents: ChartD
   currentDocuments = persistedLibrary?.documents || documents;
   currentSource = persistedLibrary?.source || currentSource;
   currentSetlists = await persistSetlists(setlists);
+  writeChartManagementSessionCache();
   setImportStatus(statusMessage);
   renderManageUi();
 }
@@ -321,6 +442,35 @@ function hasDraggedLibraryChart(event: DragEvent): boolean {
   });
 }
 
+function getSetlistChartUrl(setlistId: string, chartId = ''): string {
+  const targetUrl = new URL('./chart/index.html', window.location.href);
+  targetUrl.searchParams.set('setlist', setlistId);
+  if (chartId) targetUrl.searchParams.set('chart', chartId);
+  targetUrl.searchParams.set('from', 'setlists');
+  return targetUrl.toString();
+}
+
+function openSetlistInChart(setlistId: string, chartId = ''): void {
+  window.location.assign(getSetlistChartUrl(setlistId, chartId));
+}
+
+function clearSetlistItemDragActivationTimer(): void {
+  if (setlistItemDragActivationTimer === null) return;
+  window.clearTimeout(setlistItemDragActivationTimer);
+  setlistItemDragActivationTimer = null;
+}
+
+function resetSetlistItemPointerDrag(row?: HTMLElement): void {
+  clearSetlistItemDragActivationTimer();
+  draggedSetlistItem = null;
+  setlistPointerStart = null;
+  setlistPointerCurrent = null;
+  setlistPointerId = null;
+  isSetlistItemDragActive = false;
+  row?.classList.remove('is-dragging');
+  clearSetlistDropPreview();
+}
+
 function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, forceOpen = false): void {
   const menu = ensureSetlistActionMenu();
   const isSameMenu = activeSetlistMenuId === setlist.id && !menu.hidden;
@@ -336,9 +486,7 @@ function openSetlistActionMenu(setlist: ChartSetlist, anchor: HTMLElement, force
 
   const openButton = createMenuButton('Open');
   openButton.addEventListener('click', () => {
-    const targetUrl = new URL('./chart/index.html', window.location.href);
-    targetUrl.searchParams.set('setlist', setlist.id);
-    window.location.assign(targetUrl.toString());
+    openSetlistInChart(setlist.id);
   });
 
   const addChartButton = createMenuButton('Add chart');
@@ -581,7 +729,7 @@ function renderSetlists() {
       const childRow = document.createElement('div');
       childRow.className = `home-list-link ${getPageClassName('chart-row')} ${getPageClassName('setlist-chart-row')}`;
       childRow.classList.toggle('can-receive-chart', draggedLibraryChartId !== '' || draggedSetlistItem?.setlistId === setlist.id);
-      childRow.draggable = true;
+      childRow.draggable = false;
       childRow.dataset.setlistId = setlist.id;
       childRow.dataset.index = String(index);
       childRow.dataset.setlistDropId = setlist.id;
@@ -589,38 +737,69 @@ function renderSetlists() {
       childRow.addEventListener('pointerdown', (event) => {
         if (event.button !== 0) return;
         if (event.target instanceof HTMLElement && event.target.closest('.home-chart-entry-kebab')) return;
-        event.preventDefault();
+        resetSetlistItemPointerDrag();
         draggedLibraryChartId = '';
-        draggedSetlistItem = { setlistId: setlist.id, index };
         setlistPointerStart = { x: event.clientX, y: event.clientY };
-        childRow.classList.add('is-dragging');
-        childRow.setPointerCapture(event.pointerId);
+        setlistPointerCurrent = { x: event.clientX, y: event.clientY };
+        setlistPointerId = event.pointerId;
+        setlistItemDragActivationTimer = window.setTimeout(() => {
+          if (setlistPointerId !== event.pointerId || !setlistPointerStart) return;
+          draggedSetlistItem = { setlistId: setlist.id, index };
+          isSetlistItemDragActive = true;
+          childRow.classList.add('is-dragging');
+          childRow.setPointerCapture(event.pointerId);
+          const currentPoint = setlistPointerCurrent || setlistPointerStart;
+          const target = getSetlistDropTargetAtPoint(currentPoint.x, currentPoint.y);
+          showSetlistDropPreview(target?.setlistId === setlist.id ? target : { setlistId: setlist.id, index });
+        }, SETLIST_ITEM_DRAG_DELAY_MS);
       });
       childRow.addEventListener('pointermove', (event) => {
+        if (setlistPointerId !== event.pointerId || !setlistPointerStart) return;
+        setlistPointerCurrent = { x: event.clientX, y: event.clientY };
+        const movedDistance = Math.hypot(event.clientX - setlistPointerStart.x, event.clientY - setlistPointerStart.y);
+        if (!isSetlistItemDragActive) {
+          if (movedDistance > SETLIST_ITEM_PRE_DRAG_SCROLL_DISTANCE_PX) {
+            resetSetlistItemPointerDrag(childRow);
+          }
+          return;
+        }
         if (!draggedSetlistItem) return;
+        event.preventDefault();
         const target = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
         showSetlistDropPreview(target?.setlistId === draggedSetlistItem.setlistId ? target : null);
       });
       childRow.addEventListener('pointerup', (event) => {
+        if (setlistPointerId !== event.pointerId) return;
+        clearSetlistItemDragActivationTimer();
+        const start = setlistPointerStart;
         const draggedItem = draggedSetlistItem;
+        const wasDragActive = isSetlistItemDragActive;
         draggedSetlistItem = null;
+        setlistPointerStart = null;
+        setlistPointerCurrent = null;
+        setlistPointerId = null;
+        isSetlistItemDragActive = false;
         childRow.classList.remove('is-dragging');
+        if (childRow.hasPointerCapture(event.pointerId)) childRow.releasePointerCapture(event.pointerId);
         const dropTarget = getSetlistDropTargetAtPoint(event.clientX, event.clientY);
         clearSetlistDropPreview();
-        if (!draggedItem) return;
-        const movedDistance = setlistPointerStart
-          ? Math.hypot(event.clientX - setlistPointerStart.x, event.clientY - setlistPointerStart.y)
+        const movedDistance = start
+          ? Math.hypot(event.clientX - start.x, event.clientY - start.y)
           : 0;
-        setlistPointerStart = null;
-        if (movedDistance < 6) return;
+        if (!wasDragActive) {
+          if (movedDistance <= SETLIST_ITEM_TAP_DISTANCE_PX) {
+            openSetlistInChart(setlist.id, setlistItem.chartId);
+          }
+          return;
+        }
+        event.preventDefault();
+        if (!draggedItem) return;
         if (!dropTarget || dropTarget.setlistId !== draggedItem.setlistId) return;
         moveSetlistItem(draggedItem.setlistId, draggedItem.index, dropTarget.index ?? setlist.items.length - 1);
       });
-      childRow.addEventListener('pointercancel', () => {
-        draggedSetlistItem = null;
-        setlistPointerStart = null;
-        childRow.classList.remove('is-dragging');
-        clearSetlistDropPreview();
+      childRow.addEventListener('pointercancel', (event) => {
+        if (childRow.hasPointerCapture(event.pointerId)) childRow.releasePointerCapture(event.pointerId);
+        resetSetlistItemPointerDrag(childRow);
       });
       childRow.addEventListener('dragstart', (event) => {
         draggedLibraryChartId = '';
@@ -727,8 +906,11 @@ function renderCreateSetlistForm(): HTMLElement {
 
 function persistSetlistChanges(setlists: ChartSetlist[], statusMessage: string) {
   currentSetlists = setlists;
+  writeChartManagementSessionCache();
+  renderManageUi();
   void persistSetlists(currentSetlists).then((persistedSetlists) => {
     currentSetlists = persistedSetlists;
+    writeChartManagementSessionCache();
     setImportStatus(statusMessage);
     renderManageUi();
   }).catch((error) => setImportStatus(`Failed to update setlists: ${getErrorMessage(error)}`, true));
@@ -813,8 +995,12 @@ function deleteSetlist(setlist: ChartSetlist) {
 async function createSetlist(rawName: string) {
   const name = rawName.trim();
   if (!name) return;
-  currentSetlists = await persistSetlists([...currentSetlists, createEmptyChartSetlist(name)]);
+  currentSetlists = [...currentSetlists, createEmptyChartSetlist(name)];
   isCreateSetlistVisible = false;
+  writeChartManagementSessionCache();
+  renderManageUi();
+  currentSetlists = await persistSetlists(currentSetlists);
+  writeChartManagementSessionCache();
   setImportStatus(`Created setlist "${name}".`);
   renderManageUi();
 }
@@ -829,10 +1015,14 @@ function renderManageUi() {
 }
 
 async function loadManageState() {
-  const persistedLibrary = await loadPersistedChartLibrary();
+  const [persistedLibrary, persistedSetlists] = await Promise.all([
+    loadPersistedChartLibrary(),
+    loadPersistedSetlists()
+  ]);
   currentDocuments = persistedLibrary?.documents || [];
   currentSource = persistedLibrary?.source || 'imported library';
-  currentSetlists = await loadPersistedSetlists();
+  currentSetlists = persistedSetlists;
+  writeChartManagementSessionCache();
   renderManageUi();
 }
 
@@ -874,6 +1064,7 @@ export function initializeChartManagementPage(mode: ChartManagementMode) {
   activeMode = mode;
   initializeSharpElevenTheme();
   bindChartManagementEvents();
+  renderCachedSetlistsIfAvailable();
   void loadManageState().catch((error) => {
     setImportStatus(`Failed to load chart library: ${getErrorMessage(error)}`, true);
   });

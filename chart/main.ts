@@ -122,6 +122,9 @@ import {
   syncChartCutoutPadding
 } from '../src/features/chart/chart-display-css.js';
 import {
+  getChartBackHref,
+  getChartBackOrigin,
+  getRequestedChartId,
   getRequestedPlaylist,
   getRequestedSetlistId,
   loadPersistedChartId,
@@ -176,6 +179,17 @@ function applyImportModeVisibility() {
 }
 
 const dom = createChartScreenDomRefs(document);
+
+function applyChartBackTarget() {
+  const backOrigin = getChartBackOrigin();
+  if (!dom.chartHomeButton) return;
+  dom.chartHomeButton.href = getChartBackHref();
+  const label = backOrigin === 'setlists' ? 'Back to setlists' : 'Back to home';
+  dom.chartHomeButton.setAttribute('aria-label', label);
+  dom.chartHomeButton.setAttribute('title', label);
+}
+
+applyChartBackTarget();
 
 initializeAppShell(createAppShellBindings({
   mode: 'chart',
@@ -1692,10 +1706,14 @@ async function importDefaultFixtureLibrary() {
           .map((item) => documentsById.get(String(item.chartId || '')))
           .filter((document): document is ChartDocument => Boolean(document));
         if (setlistDocuments.length > 0) {
+          const requestedChartId = getRequestedChartId();
+          const preferredSetlistDocument = requestedChartId
+            ? setlistDocuments.find((document) => document.metadata.id === requestedChartId)
+            : null;
           renderImportedLibrary({
             documents: setlistDocuments,
             source: `setlist ${requestedSetlist.name}`,
-            preferredId: setlistDocuments[0].metadata.id,
+            preferredId: (preferredSetlistDocument || setlistDocuments[0]).metadata.id,
             statusMessage: `Loaded setlist "${requestedSetlist.name}" (${setlistDocuments.length} charts). Use previous and next to move manually.`,
             renderSelectedChart: true
           });
