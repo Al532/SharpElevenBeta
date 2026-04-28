@@ -33,11 +33,13 @@ import {
   type SetlistDragItem
 } from './chart-management-types.js';
 import {
+  createChartManagementDocumentIndex,
   createChartManagementFilterState,
   getFilteredChartManagementDocuments,
   getSelectFilterOptions,
   renderChartManagementFacets,
-  selectChartManagementFilterValue
+  selectChartManagementFilterValue,
+  type ChartManagementDocumentIndex
 } from './chart-management-filters.js';
 import {
   createButton,
@@ -70,6 +72,7 @@ function getPageChartLinkSelector() {
 const dom = createChartManagementDomRefs(document);
 
 let currentDocuments: ChartDocument[] = [];
+let isFullManageStateLoaded = false;
 let currentSource = 'imported library';
 let currentSetlists: ChartSetlist[] = [];
 let activeSetlistMenuId = '';
@@ -98,11 +101,14 @@ const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 8;
 const CHART_MANAGEMENT_SESSION_CACHE_KEY = 'sharp-eleven-chart-management-session-cache-v1';
 const collapsedSetlistIds = new Set<string>();
 const filterState = createChartManagementFilterState();
+let currentDocumentIndex: ChartManagementDocumentIndex = createChartManagementDocumentIndex([]);
 let libraryPreviewStartIndex = 0;
 let libraryPreviewPageSize = 1;
 let libraryPreviewResizeFrame = 0;
 let libraryDeleteReviewIncludesSetlisted = false;
 let libraryDeleteReviewConfirmationVisible = false;
+let libraryDeleteReviewConfirmationReadyAt = 0;
+let libraryDeleteReviewConfirmationTimer: ReturnType<typeof window.setTimeout> | null = null;
 let chartEntryActions: ReturnType<typeof createChartEntryActionsController> | null = null;
 
 type ChartManagementCachedDocument = {
@@ -132,6 +138,15 @@ type DeleteReviewPlan = {
   sourceRefOnlyDocuments: ChartDocument[];
   setlistEntryDeleteCount: number;
 };
+
+function setCurrentDocuments(documents: ChartDocument[]): void {
+  currentDocuments = documents;
+  currentDocumentIndex = createChartManagementDocumentIndex(documents);
+}
+
+function isManageActionReady(): boolean {
+  return isFullManageStateLoaded;
+}
 
 function toCachedDocument(document: ChartDocument): ChartManagementCachedDocument | null {
   const id = String(document.metadata?.id || '').trim();
@@ -211,13 +226,12 @@ function writeChartManagementSessionCache(): void {
   }
 }
 
-function renderCachedSetlistsIfAvailable(): void {
-  if (activeMode !== 'setlists') return;
+function renderCachedManageStateIfAvailable(): void {
   const cache = readChartManagementSessionCache();
   if (!cache) return;
-  currentDocuments = cache.documents
+  setCurrentDocuments(cache.documents
     .map(createDocumentFromCache)
-    .filter((document): document is ChartDocument => Boolean(document));
+    .filter((document): document is ChartDocument => Boolean(document)));
   currentSource = cache.source;
   currentSetlists = cache.setlists;
   renderManageUi();
@@ -238,6 +252,7 @@ function getFilteredManageDocuments(): ChartDocument[] {
   const query = dom.manageChartSearchInput?.value || '';
   return getFilteredChartManagementDocuments({
     documents: currentDocuments,
+    documentIndex: currentDocumentIndex,
     setlists: currentSetlists,
     query,
     filterState
@@ -327,8 +342,10 @@ function renderLibraryBatchSummary(
 
   const activeSourceName = getActiveLibraryDeleteSourceName();
   const actionButton = createButton(activeSourceName ? 'Review cleanup' : 'Review delete', 'library-batch-action');
-  actionButton.disabled = documents.length === 0;
-  actionButton.setAttribute('aria-label', activeSourceName ? 'Review cleaning up the active source' : 'Review deleting all matching charts');
+  actionButton.disabled = documents.length === 0 || !isManageActionReady();
+  actionButton.setAttribute('aria-label', !isManageActionReady()
+    ? 'Loading full chart data before library actions'
+    : activeSourceName ? 'Review cleaning up the active source' : 'Review deleting all matching charts');
   actionButton.addEventListener('click', openLibraryDeleteReviewPanel);
 
   const previewLabel = documents.length > 0
@@ -356,6 +373,7 @@ function renderLibraryBatchSummary(
 function renderFacets() {
   renderChartManagementFacets({
     documents: currentDocuments,
+    documentIndex: currentDocumentIndex,
     setlists: currentSetlists,
     dom,
     filterState,
@@ -374,6 +392,8 @@ function renderManageCharts() {
   const previewEnd = Math.min(documents.length, libraryPreviewStartIndex + libraryPreviewPageSize);
   renderLibraryBatchSummary(documents, libraryPreviewStartIndex, previewEnd, libraryPreviewPageSize);
   dom.manageChartList.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  const subtitleLinks: HTMLElement[] = [];
   for (const chartDocument of documents.slice(libraryPreviewStartIndex, previewEnd)) {
     const item = document.createElement('li');
     const row = document.createElement('div');
@@ -385,18 +405,29 @@ function renderManageCharts() {
     const subtitle = getChartSubtitle(chartDocument);
     if (subtitle) {
       content.append(createTextElement('span', 'home-list-meta', subtitle));
-      requestAnimationFrame(() => updateChartEntrySubtitleVisibility(content));
+      subtitleLinks.push(content);
     }
-    const menuButton = createChartEntryMenuButton(chartDocument, (target) => chartEntryActions?.openMenu(target));
+    const menuButton = createChartEntryMenuButton(chartDocument, (target) => {
+      if (!isManageActionReady()) return;
+      chartEntryActions?.openMenu(target);
+    });
+    menuButton.disabled = !isManageActionReady();
+    if (!isManageActionReady()) {
+      menuButton.setAttribute('aria-label', `Loading actions for ${chartDocument.metadata.title || 'chart'}`);
+    }
     row.append(content, menuButton);
     item.append(row);
-    dom.manageChartList.append(item);
+    fragment.append(item);
+  }
+  dom.manageChartList.append(fragment);
+  if (subtitleLinks.length > 0) {
+    requestAnimationFrame(() => subtitleLinks.forEach(updateChartEntrySubtitleVisibility));
   }
 }
 
 async function persistMetadataState({ documents, setlists }: { documents: ChartDocument[]; setlists: ChartSetlist[] }, statusMessage: string) {
   const persistedLibrary = await persistChartLibrary({ documents, source: currentSource, mergeWithExisting: false });
-  currentDocuments = persistedLibrary?.documents || documents;
+  setCurrentDocuments(persistedLibrary?.documents || documents);
   currentSource = persistedLibrary?.source || currentSource;
   currentSetlists = await persistSetlists(setlists);
   writeChartManagementSessionCache();
@@ -485,9 +516,21 @@ function getSetlistUsageRows(documents: ChartDocument[]): Array<{ setlist: Chart
     .sort((left, right) => right.count - left.count || left.setlist.name.localeCompare(right.setlist.name, 'en', { sensitivity: 'base' }));
 }
 
+function clearLibraryDeleteReviewConfirmationTimer(): void {
+  if (!libraryDeleteReviewConfirmationTimer) return;
+  window.clearTimeout(libraryDeleteReviewConfirmationTimer);
+  libraryDeleteReviewConfirmationTimer = null;
+}
+
+function resetLibraryDeleteReviewConfirmation(): void {
+  libraryDeleteReviewConfirmationVisible = false;
+  libraryDeleteReviewConfirmationReadyAt = 0;
+  clearLibraryDeleteReviewConfirmationTimer();
+}
+
 function closeLibraryDeleteReviewPanel(): void {
   libraryDeleteReviewIncludesSetlisted = false;
-  libraryDeleteReviewConfirmationVisible = false;
+  resetLibraryDeleteReviewConfirmation();
   if (!dom.manageMetadataPanel) return;
   dom.manageMetadataPanel.classList.remove('library-delete-review-host');
   dom.manageMetadataPanel.hidden = true;
@@ -524,6 +567,97 @@ function createDeleteReviewDocumentList(documents: ChartDocument[], className: s
   return list;
 }
 
+function getDeleteReviewActionLabel(deleteCount: number, sourceRefOnlyCount: number): string {
+  if (deleteCount > 0 && sourceRefOnlyCount > 0) return 'Apply changes';
+  if (deleteCount > 0) return `Delete ${deleteCount}`;
+  return `Update ${sourceRefOnlyCount}`;
+}
+
+function scheduleLibraryDeleteConfirmationRefresh(): void {
+  clearLibraryDeleteReviewConfirmationTimer();
+  if (!libraryDeleteReviewConfirmationVisible) return;
+  const remainingMs = libraryDeleteReviewConfirmationReadyAt - Date.now();
+  if (remainingMs <= 0) return;
+  libraryDeleteReviewConfirmationTimer = window.setTimeout(renderLibraryDeleteReviewPanel, Math.min(remainingMs, 1000));
+}
+
+function renderLibraryDeleteConfirmationPanel({
+  activeSourceName,
+  deleteDocuments,
+  protectedCount,
+  setlistEntryDeleteCount,
+  sourceRefOnlyDocuments
+}: {
+  activeSourceName: string;
+  deleteDocuments: ChartDocument[];
+  protectedCount: number;
+  setlistEntryDeleteCount: number;
+  sourceRefOnlyDocuments: ChartDocument[];
+}): void {
+  if (!dom.manageMetadataPanel) return;
+  const deleteCount = deleteDocuments.length;
+  const sourceRefOnlyCount = sourceRefOnlyDocuments.length;
+  const remainingMs = Math.max(0, libraryDeleteReviewConfirmationReadyAt - Date.now());
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  const canConfirm = remainingMs <= 0;
+  const title = deleteCount > 0
+    ? `Delete ${deleteCount} ${pluralizeChartLabel(deleteCount)}?`
+    : `Update ${sourceRefOnlyCount} source reference${sourceRefOnlyCount === 1 ? '' : 's'}?`;
+
+  const panel = document.createElement('section');
+  panel.className = 'chart-metadata-panel-content library-delete-review-panel library-delete-confirm-panel';
+  panel.setAttribute('aria-label', 'Confirm delete');
+
+  const header = document.createElement('div');
+  header.className = 'library-delete-review-header';
+  header.append(
+    createTextElement('h2', 'chart-metadata-title library-delete-review-title', title),
+    createTextElement('p', 'library-delete-review-scope', 'This action cannot be undone.')
+  );
+  panel.append(header);
+
+  const message = document.createElement('div');
+  message.className = 'library-delete-confirm-message';
+  const lines = [
+    deleteCount > 0 ? `This will permanently remove ${deleteCount} ${pluralizeChartLabel(deleteCount)} from the library.` : '',
+    sourceRefOnlyCount > 0 && activeSourceName
+      ? `${sourceRefOnlyCount} matching ${pluralizeChartLabel(sourceRefOnlyCount)} also belong to another source and will stay in the library; only "${activeSourceName}" will be removed from their sources.`
+      : '',
+    protectedCount > 0 ? `${protectedCount} ${pluralizeChartLabel(protectedCount)} used in setlists will stay protected.` : '',
+    setlistEntryDeleteCount > 0 ? `${setlistEntryDeleteCount} setlist entr${setlistEntryDeleteCount === 1 ? 'y' : 'ies'} will be removed.` : ''
+  ].filter(Boolean);
+  for (const line of lines) {
+    message.append(createTextElement('p', '', line));
+  }
+  panel.append(message);
+
+  const footer = document.createElement('div');
+  footer.className = 'chart-metadata-footer-actions library-delete-review-actions';
+  const cancelButton = createButton('Cancel', 'chart-metadata-cancel');
+  cancelButton.addEventListener('click', closeLibraryDeleteReviewPanel);
+  const confirmLabel = deleteCount > 0 ? 'Confirm delete' : 'Confirm update';
+  const confirmButton = createButton(
+    canConfirm ? confirmLabel : `${confirmLabel} (${remainingSeconds})`,
+    'chart-metadata-danger-confirm'
+  );
+  confirmButton.disabled = !canConfirm;
+  confirmButton.addEventListener('click', () => {
+    if (!canConfirm) return;
+    void deleteReviewedCharts(deleteDocuments, sourceRefOnlyDocuments, protectedCount, setlistEntryDeleteCount, activeSourceName);
+  });
+  footer.append(cancelButton, confirmButton);
+  panel.append(footer);
+
+  dom.manageMetadataPanel.replaceChildren(panel);
+  dom.manageMetadataPanel.classList.add('library-delete-review-host');
+  dom.manageMetadataPanel.hidden = false;
+  dom.manageMetadataPanel.setAttribute('role', 'dialog');
+  dom.manageMetadataPanel.setAttribute('aria-modal', 'true');
+  dom.manageMetadataPanel.setAttribute('aria-label', 'Confirm delete');
+  requestAnimationFrame(() => cancelButton.focus());
+  scheduleLibraryDeleteConfirmationRefresh();
+}
+
 function renderLibraryDeleteReviewPanel(): void {
   if (!dom.manageMetadataPanel) return;
   const documents = getFilteredManageDocuments();
@@ -541,6 +675,17 @@ function renderLibraryDeleteReviewPanel(): void {
   const sourceRefOnlyCount = sourceRefOnlyDocuments.length;
   const affectedCount = deleteCount + sourceRefOnlyCount;
   const reviewTitle = activeSourceName ? 'Review source cleanup' : 'Review delete';
+
+  if (libraryDeleteReviewConfirmationVisible) {
+    renderLibraryDeleteConfirmationPanel({
+      activeSourceName,
+      deleteDocuments,
+      protectedCount: protectedDocuments.length,
+      setlistEntryDeleteCount,
+      sourceRefOnlyDocuments
+    });
+    return;
+  }
 
   const panel = document.createElement('section');
   panel.className = 'chart-metadata-panel-content library-delete-review-panel';
@@ -585,7 +730,7 @@ function renderLibraryDeleteReviewPanel(): void {
       checkbox.checked = libraryDeleteReviewIncludesSetlisted;
       checkbox.addEventListener('change', () => {
         libraryDeleteReviewIncludesSetlisted = checkbox.checked;
-        libraryDeleteReviewConfirmationVisible = false;
+        resetLibraryDeleteReviewConfirmation();
         renderLibraryDeleteReviewPanel();
       });
       const guardText = document.createElement('span');
@@ -649,26 +794,15 @@ function renderLibraryDeleteReviewPanel(): void {
   cancelButton.addEventListener('click', closeLibraryDeleteReviewPanel);
   const deleteButton = createButton(
     affectedCount > 0
-      ? libraryDeleteReviewConfirmationVisible
-        ? deleteCount > 0
-          ? 'Confirm delete'
-          : 'Confirm update'
-        : deleteCount > 0 && sourceRefOnlyCount > 0
-          ? 'Apply changes'
-          : deleteCount > 0
-            ? `Delete ${deleteCount}`
-            : `Update ${sourceRefOnlyCount}`
+      ? getDeleteReviewActionLabel(deleteCount, sourceRefOnlyCount)
       : 'Nothing to delete',
-    libraryDeleteReviewConfirmationVisible ? 'chart-metadata-danger-confirm' : 'chart-metadata-danger-action'
+    'chart-metadata-danger-action'
   );
   deleteButton.disabled = affectedCount === 0;
   deleteButton.addEventListener('click', () => {
-    if (!libraryDeleteReviewConfirmationVisible) {
-      libraryDeleteReviewConfirmationVisible = true;
-      renderLibraryDeleteReviewPanel();
-      return;
-    }
-    void deleteReviewedCharts(deleteDocuments, sourceRefOnlyDocuments, protectedDocuments.length, setlistEntryDeleteCount, activeSourceName);
+    libraryDeleteReviewConfirmationVisible = true;
+    libraryDeleteReviewConfirmationReadyAt = Date.now() + 2000;
+    renderLibraryDeleteReviewPanel();
   });
   footer.append(cancelButton, deleteButton);
   panel.append(footer);
@@ -684,7 +818,7 @@ function renderLibraryDeleteReviewPanel(): void {
 
 function openLibraryDeleteReviewPanel(): void {
   libraryDeleteReviewIncludesSetlisted = false;
-  libraryDeleteReviewConfirmationVisible = false;
+  resetLibraryDeleteReviewConfirmation();
   renderLibraryDeleteReviewPanel();
 }
 
@@ -1422,7 +1556,8 @@ async function loadManageState() {
     loadPersistedChartLibrary(),
     loadPersistedSetlists()
   ]);
-  currentDocuments = persistedLibrary?.documents || [];
+  setCurrentDocuments(persistedLibrary?.documents || []);
+  isFullManageStateLoaded = true;
   currentSource = persistedLibrary?.source || 'imported library';
   currentSetlists = persistedSetlists;
   writeChartManagementSessionCache();
@@ -1486,7 +1621,7 @@ export function initializeChartManagementPage(mode: ChartManagementMode) {
     removeChartReferences: removePersistedChartReferences
   });
   bindChartManagementEvents();
-  renderCachedSetlistsIfAvailable();
+  renderCachedManageStateIfAvailable();
   void loadManageState().catch((error) => {
     setImportStatus(`Failed to load chart library: ${getErrorMessage(error)}`, true);
   });

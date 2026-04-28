@@ -1,4 +1,4 @@
-import { Playlist } from '../parsing-projects/ireal/node_modules/@music-i18n/ireal-musicxml/build/ireal-musicxml.mjs';
+import { Song } from '../parsing-projects/ireal/node_modules/@music-i18n/ireal-musicxml/build/ireal-musicxml.mjs';
 import chordQualityMap from './ireal-chord-qualities.json' with { type: 'json' };
 
 export const IREAL_SCHEMA_VERSION = '2.0.0';
@@ -627,11 +627,36 @@ export function buildCleanOutput(sourceFileName, playlist, decodedSongs, generat
   };
 }
 
+function parsePlaylistPreservingEntries(raw) {
+  const playlistEncoded = /.*?(irealb(?:ook)?):\/\/([^"]*)/.exec(raw);
+  if (!playlistEncoded) {
+    throw new Error('Invalid iReal playlist: missing irealb:// or irealbook:// payload.');
+  }
+
+  const encodedParts = decodeURIComponent(playlistEncoded[2]).split('===');
+  const name = encodedParts.length > 1 ? encodedParts.pop() : '';
+  const oldFormat = playlistEncoded[1] === 'irealbook';
+  const songs = encodedParts
+    .map((part) => {
+      try {
+        return new Song(part, oldFormat);
+      } catch (error) {
+        const songParts = part.split('=');
+        const title = Song.parseTitle(songParts[0].trim());
+        console.error(`[ireal-musicxml] [${title}] ${error}`);
+        return null;
+      }
+    })
+    .filter(song => song !== null);
+
+  return { name, songs };
+}
+
 export function decodePlaylistRaw(raw, {
   sourceFileName = '',
   generatedAt = new Date().toISOString()
 } = {}) {
-  const playlist = new Playlist(raw);
+  const playlist = parsePlaylistPreservingEntries(raw);
   const decodedSongs = playlist.songs.map((song, songIndex) => decodeSong(song, songIndex));
   return {
     playlist,

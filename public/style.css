@@ -1516,6 +1516,26 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   line-height: 1.36;
 }
 
+.library-delete-confirm-panel {
+  gap: 0.9rem;
+}
+
+.library-delete-confirm-message {
+  display: grid;
+  gap: 0.48rem;
+  border-radius: calc(var(--home-control-radius, 0.65rem) * 0.9);
+  background: color-mix(in srgb, var(--ui-danger-bg-soft) 38%, transparent 62%);
+  padding: 0.78rem 0.82rem;
+}
+
+.library-delete-confirm-message p {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 0.86rem;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
 .library-delete-review-guard {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1617,7 +1637,8 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   padding-top: 0.08rem;
 }
 
-.chart-metadata-danger-action:disabled {
+.chart-metadata-danger-action:disabled,
+.chart-metadata-danger-confirm:disabled {
   opacity: 0.42;
   cursor: default;
 }
@@ -5272,7 +5293,8 @@ input[type="number"]:focus {
   color: var(--ui-bg);
 }
 
-.library-body .library-delete-review-actions .chart-metadata-danger-action:disabled {
+.library-body .library-delete-review-actions .chart-metadata-danger-action:disabled,
+.library-body .library-delete-review-actions .chart-metadata-danger-confirm:disabled {
   background: color-mix(in srgb, var(--home-action-tile-bg) 74%, var(--ui-text) 10%);
   color: var(--ui-text-muted);
   opacity: 1;

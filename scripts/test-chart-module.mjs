@@ -2711,9 +2711,19 @@ assert.equal(
 );
 
 const importedDocuments = await createChartDocumentsFromIRealSource({ sourcePath });
-assert.ok(importedDocuments.length > 1000, 'Raw iReal jazz source imports the full library.');
+assert.equal(importedDocuments.length, 1460, 'Raw iReal jazz source keeps one chart document per source entry.');
 assert.ok(importedDocuments.some(document => document.source.type === 'ireal-source'), 'Raw iReal imports are tagged as source-driven.');
 const byTitle = new Map(importedDocuments.map(document => [document.metadata.title, document]));
+
+const bestIsYetPage1 = byTitle.get('The Best Is Yet To Come (Page 1)');
+const bestIsYetPage2 = byTitle.get('The Best Is Yet To Come (Page 2)');
+assert.ok(bestIsYetPage1, 'Multi-page iReal entries keep the Page 1 chart as an independent document.');
+assert.ok(bestIsYetPage2, 'Multi-page iReal entries keep the Page 2 chart as an independent document.');
+assert.equal(
+  bestIsYetPage2.source.songIndex,
+  bestIsYetPage1.source.songIndex + 1,
+  'Adjacent multi-page iReal entries keep their original source order.'
+);
 
 const satinDoll = byTitle.get('Satin Doll');
 assert.ok(satinDoll, 'Satin Doll is present in the raw source import.');

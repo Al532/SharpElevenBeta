@@ -1,5 +1,9 @@
-import type { ChartDocument, ChartSetlist } from '../../core/types/contracts.js';
-import { filterChartDocuments, listChartLibraryFacets } from '../chart/chart-library.js';
+import type { ChartDocument, ChartMetadata, ChartSetlist } from '../../core/types/contracts.js';
+import {
+  getChartSearchText,
+  getChartSourceRefs,
+  normalizeChartTextKey
+} from '../chart/chart-library.js';
 import type { createChartManagementDomRefs } from './chart-management-dom.js';
 import {
   FILTER_ACTION_ALL,
@@ -10,13 +14,33 @@ import {
   type ChartManageFilterMode,
   type ChartManageFilterOption
 } from './chart-management-types.js';
-import { getDocumentSourceNames } from './chart-management-view-helpers.js';
 
 type ChartManagementDomRefs = ReturnType<typeof createChartManagementDomRefs>;
 
 export type ChartManagementFilterState = {
   activeFilters: Record<ChartManageFilterKey, Set<string>>;
   activeModes: Record<ChartManageFilterKey, ChartManageFilterMode>;
+};
+
+type ChartManagementDocumentRecord = {
+  document: ChartDocument;
+  chartId: string;
+  sourceNames: string[];
+  styleName: string;
+  searchText: string;
+  titleKey: string;
+  composerKey: string;
+  styleKey: string;
+  tagsKey: string;
+  sourceKey: string;
+};
+
+export type ChartManagementDocumentIndex = {
+  records: ChartManagementDocumentRecord[];
+  sources: string[];
+  styles: string[];
+  hasUserCharts: boolean;
+  hasChartsWithoutStyle: boolean;
 };
 
 export function createChartManagementFilterState(): ChartManagementFilterState {
@@ -81,6 +105,63 @@ function getDocumentStyleName(document: ChartDocument): string {
   return String(document.metadata?.styleReference || document.metadata?.style || document.metadata?.canonicalGroove || document.metadata?.grooveReference || '').trim();
 }
 
+function getRecordSearchScore(record: ChartManagementDocumentRecord, normalizedQuery: string): number {
+  if (record.titleKey === normalizedQuery) return 1000;
+  if (record.titleKey.startsWith(normalizedQuery)) return 800;
+  if (record.titleKey.includes(normalizedQuery)) return 600;
+  if (record.composerKey.includes(normalizedQuery)) return 400;
+  if (record.styleKey.includes(normalizedQuery)) return 300;
+  if (record.tagsKey.includes(normalizedQuery)) return 250;
+  if (record.sourceKey.includes(normalizedQuery)) return 150;
+  return 0;
+}
+
+function sortLocaleValues(values: Iterable<string>): string[] {
+  return [...values].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
+}
+
+export function createChartManagementDocumentIndex(documents: ChartDocument[] = []): ChartManagementDocumentIndex {
+  const sources = new Set<string>();
+  const styles = new Set<string>();
+  let hasUserCharts = false;
+  let hasChartsWithoutStyle = false;
+  const records = documents.map((document) => {
+    const metadata = (document.metadata || {}) as Partial<ChartMetadata>;
+    const sourceNames = getChartSourceRefs(document)
+      .map((ref) => String(ref.name || '').trim())
+      .filter(Boolean);
+    const styleName = getDocumentStyleName(document);
+    sourceNames.forEach((sourceName) => sources.add(sourceName));
+    if (sourceNames.length === 0) hasUserCharts = true;
+    if (styleName) {
+      styles.add(styleName);
+    } else {
+      hasChartsWithoutStyle = true;
+    }
+
+    return {
+      document,
+      chartId: String(metadata.id || ''),
+      sourceNames,
+      styleName,
+      searchText: getChartSearchText(document),
+      titleKey: normalizeChartTextKey(metadata.titleKey || metadata.title),
+      composerKey: normalizeChartTextKey(metadata.composerKey || metadata.composer),
+      styleKey: normalizeChartTextKey(metadata.styleReference || metadata.style || metadata.canonicalGroove),
+      tagsKey: (Array.isArray(metadata.userTags) ? metadata.userTags : []).map(normalizeChartTextKey).join(' '),
+      sourceKey: sourceNames.map(normalizeChartTextKey).join(' ')
+    };
+  });
+
+  return {
+    records,
+    sources: sortLocaleValues(sources),
+    styles: sortLocaleValues(styles),
+    hasUserCharts,
+    hasChartsWithoutStyle
+  };
+}
+
 function renderOptionList(filterState: ChartManagementFilterState, select: HTMLSelectElement | null, label: string, values: ChartManageFilterOption[]) {
   if (!select) return;
   const key = select.dataset.filterKey as ChartManageFilterKey;
@@ -132,6 +213,7 @@ function renderFilterControl({
 
 export function renderChartManagementFacets({
   documents,
+  documentIndex,
   setlists,
   dom,
   filterState,
@@ -139,31 +221,32 @@ export function renderChartManagementFacets({
   onSelectFilterValue
 }: {
   documents: ChartDocument[];
+  documentIndex?: ChartManagementDocumentIndex;
   setlists: ChartSetlist[];
   dom: ChartManagementDomRefs;
   filterState: ChartManagementFilterState;
   getPageClassName: (name: string) => string;
   onSelectFilterValue: (key: ChartManageFilterKey, value: string, values: ChartManageFilterOption[]) => void;
 }) {
-  const facets = listChartLibraryFacets(documents, setlists);
+  const index = documentIndex || createChartManagementDocumentIndex(documents);
   const setlistedChartIds = new Set(
     setlists.flatMap((setlist) => setlist.items.map((item) => item.chartId))
   );
   const sourceOptions = [
-    ...facets.sources.map((source) => ({ label: source, value: source })),
-    documents.some((document) => getDocumentSourceNames(document).length === 0)
+    ...index.sources.map((source) => ({ label: source, value: source })),
+    index.hasUserCharts
       ? { label: 'User charts', value: FILTER_SOURCE_USER_CHARTS }
       : null
   ].filter(Boolean) as ChartManageFilterOption[];
   const styleOptions = [
-    ...facets.styles.map((style) => ({ label: style, value: style })),
-    documents.some((document) => !getDocumentStyleName(document))
+    ...index.styles.map((style) => ({ label: style, value: style })),
+    index.hasChartsWithoutStyle
       ? { label: 'No style', value: FILTER_STYLE_NO_STYLE }
       : null
   ].filter(Boolean) as ChartManageFilterOption[];
   const setlistOptions = [
     ...setlists.map((setlist) => ({ label: setlist.name, value: setlist.id })),
-    documents.some((document) => !setlistedChartIds.has(String(document.metadata?.id || '')))
+    index.records.some((record) => !setlistedChartIds.has(record.chartId))
       ? { label: 'No setlist', value: FILTER_SETLIST_NO_SETLIST }
       : null
   ].filter(Boolean) as ChartManageFilterOption[];
@@ -204,15 +287,18 @@ export function renderChartManagementFacets({
 
 export function getFilteredChartManagementDocuments({
   documents,
+  documentIndex,
   setlists,
   query,
   filterState
 }: {
   documents: ChartDocument[];
+  documentIndex?: ChartManagementDocumentIndex;
   setlists: ChartSetlist[];
   query: string;
   filterState: ChartManagementFilterState;
 }): ChartDocument[] {
+  const index = documentIndex || createChartManagementDocumentIndex(documents);
   const sources = filterState.activeFilters.source;
   const styles = filterState.activeFilters.style;
   const setlistIds = filterState.activeFilters.setlist;
@@ -227,30 +313,33 @@ export function getFilteredChartManagementDocuments({
   const allSetlistChartIds = new Set(
     setlists.flatMap((setlist) => setlist.items.map((item) => item.chartId))
   );
-  let filteredDocuments = query ? filterChartDocuments(documents, query) : [...documents];
+  const normalizedQuery = normalizeChartTextKey(query);
+  let filteredRecords = normalizedQuery
+    ? index.records
+        .filter((record) => record.searchText.includes(normalizedQuery))
+        .sort((left, right) => getRecordSearchScore(right, normalizedQuery) - getRecordSearchScore(left, normalizedQuery)
+          || String(left.document.metadata?.title || '').localeCompare(String(right.document.metadata?.title || ''), 'en', { sensitivity: 'base' }))
+    : [...index.records];
   if ([hasSourceFilter && sources.size === 0, hasStyleFilter && styles.size === 0, hasSetlistFilter && setlistIds.size === 0].some(Boolean)) {
     return [];
   }
   if (hasSourceFilter) {
-    filteredDocuments = filteredDocuments.filter((document) => {
-      const sourceNames = getDocumentSourceNames(document);
-      return (sourceNames.length === 0 && sources.has(FILTER_SOURCE_USER_CHARTS))
-        || sourceNames.some((sourceName) => sources.has(sourceName));
+    filteredRecords = filteredRecords.filter((record) => {
+      return (record.sourceNames.length === 0 && sources.has(FILTER_SOURCE_USER_CHARTS))
+        || record.sourceNames.some((sourceName) => sources.has(sourceName));
     });
   }
   if (hasStyleFilter) {
-    filteredDocuments = filteredDocuments.filter((document) => {
-      const styleName = getDocumentStyleName(document);
-      return (styleName && styles.has(styleName))
-        || (!styleName && styles.has(FILTER_STYLE_NO_STYLE));
+    filteredRecords = filteredRecords.filter((record) => {
+      return (record.styleName && styles.has(record.styleName))
+        || (!record.styleName && styles.has(FILTER_STYLE_NO_STYLE));
     });
   }
   if (hasSetlistFilter) {
-    filteredDocuments = filteredDocuments.filter((document) => {
-      const chartId = String(document.metadata?.id || '');
-      return setlistChartIds.has(chartId)
-        || (!allSetlistChartIds.has(chartId) && setlistIds.has(FILTER_SETLIST_NO_SETLIST));
+    filteredRecords = filteredRecords.filter((record) => {
+      return setlistChartIds.has(record.chartId)
+        || (!allSetlistChartIds.has(record.chartId) && setlistIds.has(FILTER_SETLIST_NO_SETLIST));
     });
   }
-  return filteredDocuments;
+  return filteredRecords.map((record) => record.document);
 }
