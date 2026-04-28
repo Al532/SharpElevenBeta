@@ -1,0 +1,36 @@
+TEST 1:
+Cmaj7
+F♯7alt
+B♭m7
+Eø7
+G7sus4
+AΔ9
+D7(♭9♯11)
+C6/9
+
+TEST 2:
+Cmaj9
+Cm(maj7)
+F7♯11
+Bb13
+E7♭9
+A7♯5
+Dø
+G°7
+F#m7b5
+C7alt
+EΔ13
+Ab7(♭9♯9)
+
+TEST 3:
+C
+Cm
+C7
+CΔ
+C°
+Cø
+C+
+C-
+C(add9)
+C7sus2
+C7sus4
