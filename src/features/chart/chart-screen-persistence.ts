@@ -98,12 +98,14 @@ export function loadPersistedPlaybackSettings() {
 export function persistPlaybackSettings({
   playbackSettings = {},
   harmonyDisplayMode = 'default',
+  useChordSymbolV2 = true,
   useMajorTriangleSymbol = true,
   useHalfDiminishedSymbol = true,
   useDiminishedSymbol = true
 }: {
   playbackSettings?: PlaybackSettings;
   harmonyDisplayMode?: string;
+  useChordSymbolV2?: boolean;
   useMajorTriangleSymbol?: boolean;
   useHalfDiminishedSymbol?: boolean;
   useDiminishedSymbol?: boolean;
@@ -111,6 +113,7 @@ export function persistPlaybackSettings({
   persistChartPlaybackSettings({
     playbackSettings,
     harmonyDisplayMode,
+    useChordSymbolV2,
     useMajorTriangleSymbol,
     useHalfDiminishedSymbol,
     useDiminishedSymbol,

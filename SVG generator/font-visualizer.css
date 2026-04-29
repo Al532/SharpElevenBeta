@@ -264,12 +264,86 @@ textarea {
   padding: 16px;
 }
 
+.fixed-panel,
+.suffix-panel,
 .symbol-panel {
   border-top: 1px solid var(--line);
 }
 
+.fixed-panel-header,
+.suffix-panel-header,
 .symbol-panel-header {
   padding: 14px 16px 10px;
+}
+
+.fixed-grid {
+  padding-top: 4px;
+}
+
+.suffix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
+  gap: 10px;
+  padding: 0 16px 12px;
+}
+
+.suffix-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.72);
+  padding: 8px;
+}
+
+.suffix-preview {
+  display: grid;
+  place-items: center start;
+  min-width: 0;
+  height: 58px;
+  overflow: visible;
+  color: var(--ink);
+}
+
+.suffix-preview .svg-chord {
+  --viz-size: 44px;
+}
+
+.suffix-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.suffix-meta strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.suffix-meta span:first-of-type {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.suffix-meta span {
+  overflow-wrap: anywhere;
+}
+
+.suffix-output {
+  display: block;
+  width: calc(100% - 32px);
+  min-height: 160px;
+  margin: 0 16px 16px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 0.72rem;
+  white-space: pre;
 }
 
 .smufl-grid {

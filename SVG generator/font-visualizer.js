@@ -1,4 +1,14 @@
-import { renderSvgChord as renderAtlasSvgChord } from './svg-chord-layout.js';
+import {
+  renderSvgChord as renderAtlasSvgChord,
+  renderSvgChordFixedBlocks as renderAtlasSvgChordFixedBlocks
+} from './svg-chord-layout.js';
+import {
+  PRIORITY_SUFFIX_BLOCKS,
+  createFlattenedFrozenSuffixLibrary,
+  createSuffixBlockLibrary,
+  isFrozenSuffixBlock,
+  renderSuffixBlock
+} from './suffix-block-library.js';
 
 const SMUFL_CHORD_SYMBOL_FONT_ID = 'app-bravura-text-latin';
 
@@ -107,6 +117,10 @@ const DEFAULT_TUNING = Object.freeze({
   paddingRight: 14,
   tracking: 0.03,
   digitTracking: -0.64,
+  fixedAccidentalGapBefore: -1,
+  fixedSuffixGapAfterRoot: -3.5,
+  fixedSuffixGapAfterAccidental: -1.5,
+  fixedSuffixYOffset: 0,
   rootSize: 52,
   rootBaseline: 60,
   rootScaleX: 1.04,
@@ -124,21 +138,29 @@ const DEFAULT_TUNING = Object.freeze({
   qualitySusScaleX: 0.82,
   qualityDimScaleX: 0.82,
   qualityMajScaleX: 0.82,
+  maj7GapBefore: -2.5,
+  maj7TextSize: 31,
+  maj7TextBaseline: 60,
+  maj7TextScaleX: 0.8,
+  maj7DigitSize: 28,
+  maj7DigitBaseline: 43,
+  maj7DigitScaleX: 0.8,
+  maj7DigitGap: -7,
   supSize: 27,
   supBaseline: 34,
   supScaleX: 0.9,
   susUnderSize: 32,
   susUnderBaseline: 60,
   susUnderScaleX: 0.81,
-  susUnderOffsetX: 4,
+  susUnderOffsetX: 8,
   susUnderGapAfter: 2,
   susUnderDigitSize: 21,
   susUnderDigitBaseline: 60,
   susUnderDigitGap: 3,
   altAfterSupSize: 24,
-  altAfterSupBaseline: 34,
-  altAfterSupScaleX: 0.82,
-  altAfterSupGap: 0,
+  altAfterSupBaseline: 32,
+  altAfterSupScaleX: 0.84,
+  altAfterSupGap: -5,
   mMajParenSize: 25,
   mMajParenBaseline: 38,
   mMajParenScaleX: 0.74,
@@ -185,26 +207,26 @@ const DEFAULT_TUNING = Object.freeze({
   stack1Baseline: 34,
   stack1ItemScaleX: 0.86,
   stackAccidentalDigitTracking: -0.32,
-  stackSharpDigitTracking: -0.32,
-  stackFlatDigitTracking: -0.32,
-  stack1ParenSize: 20,
+  stackSharpDigitTracking: -0.26,
+  stackFlatDigitTracking: -0.26,
+  stack1ParenSize: 18,
   stack1ParenBaseline: 31,
-  stack1ParenScaleX: 0.6,
-  stack1OpenParenGapBefore: 0,
-  stack1OpenParenGapAfter: -2,
+  stack1ParenScaleX: 0.61,
+  stack1OpenParenGapBefore: 0.5,
+  stack1OpenParenGapAfter: 0,
   stack1CloseParenGapBefore: -2,
-  stack1CloseParenGapAfter: 0,
-  stack1RowsOffsetX: 1.5,
+  stack1CloseParenGapAfter: -1,
+  stack1RowsOffsetX: 1,
   stack1GapAfter: -7,
   stackParenSize: 38,
   stackParenBaseline: 40,
   stackParenScaleX: 0.65,
-  stack2ParenSize: 37,
-  stack2ParenBaseline: 40,
-  stack2ParenScaleX: 0.61,
-  stack2OpenParenGapBefore: 0,
-  stack2OpenParenGapAfter: 0,
-  stack2CloseParenGapBefore: 0,
+  stack2ParenSize: 33,
+  stack2ParenBaseline: 38,
+  stack2ParenScaleX: 0.4,
+  stack2OpenParenGapBefore: -1,
+  stack2OpenParenGapAfter: -0.5,
+  stack2CloseParenGapBefore: -4.5,
   stack2CloseParenGapAfter: 0,
   stack2RowsOffsetX: 1,
   stack2GapAfter: -3.5,
@@ -246,6 +268,10 @@ const TUNING_GROUPS = [
       ['rootSize', 'Cap taille', 38, 68, 1],
       ['rootBaseline', 'Cap base', 48, 78, 1],
       ['rootScaleX', 'Cap largeur', 0.75, 1.25, 0.01],
+      ['fixedAccidentalGapBefore', 'Fix alt X', -12, 8, 0.5],
+      ['fixedSuffixGapAfterRoot', 'Fix suffixe', -20, 14, 0.5],
+      ['fixedSuffixGapAfterAccidental', 'Fix suffixe alt', -20, 14, 0.5],
+      ['fixedSuffixYOffset', 'Fix suffixe Y', -16, 16, 1],
       ['lowercaseSize', 'Min taille', 22, 50, 1],
       ['lowercaseBaseline', 'Min base', 46, 76, 1],
       ['qualityGapBefore', 'Cap/min X', -14, 8, 0.5],
@@ -253,7 +279,15 @@ const TUNING_GROUPS = [
       ['qualityDimScaleX', 'dim largeur', 0.6, 1.1, 0.01],
       ['qualityMajScaleX', 'maj largeur', 0.6, 1.1, 0.01],
       ['tracking', 'Tracking', -0.04, 0.1, 0.005],
-      ['digitTracking', 'Chif écart', -0.95, 0.08, 0.005]
+      ['digitTracking', 'Chif écart', -0.95, 0.08, 0.005],
+      ['maj7GapBefore', 'maj7 X', -14, 8, 0.5],
+      ['maj7TextSize', 'maj7 maj taille', 20, 46, 1],
+      ['maj7TextBaseline', 'maj7 maj base', 44, 76, 1],
+      ['maj7TextScaleX', 'maj7 maj larg.', 0.55, 1.1, 0.01],
+      ['maj7DigitSize', 'maj7 7 taille', 18, 44, 1],
+      ['maj7DigitBaseline', 'maj7 7 base', 42, 76, 1],
+      ['maj7DigitScaleX', 'maj7 7 larg.', 0.55, 1.1, 0.01],
+      ['maj7DigitGap', 'maj7 maj/7 X', -10, 8, 0.5]
     ]
   },
   {
@@ -440,7 +474,7 @@ const TUNING_GROUPS = [
 const state = {
   manifest: DEFAULT_MANIFEST,
   roles: { ...DEFAULT_MANIFEST.roleDefaults },
-  size: 36,
+  size: 42,
   weight: 400,
   debugBoxes: false,
   tuning: { ...DEFAULT_TUNING },
@@ -451,8 +485,11 @@ const state = {
 const els = {
   roleControls: document.querySelector('#roleControls'),
   previewGrid: document.querySelector('#previewGrid'),
+  fixedGrid: document.querySelector('#fixedGrid'),
   sampleInput: document.querySelector('#sampleInput'),
   statusText: document.querySelector('#statusText'),
+  suffixGrid: document.querySelector('#suffixGrid'),
+  suffixBlocksOutput: document.querySelector('#suffixBlocksOutput'),
   sizeControl: document.querySelector('#sizeControl'),
   sizeOutput: document.querySelector('#sizeOutput'),
   weightControl: document.querySelector('#weightControl'),
@@ -556,6 +593,9 @@ function bindControls() {
   els.defaultsOutput.addEventListener('focus', () => {
     els.defaultsOutput.select();
   });
+  els.suffixBlocksOutput.addEventListener('focus', () => {
+    els.suffixBlocksOutput.select();
+  });
 
   els.sampleInput.addEventListener('input', () => render());
   els.sizeControl.addEventListener('input', () => {
@@ -591,6 +631,8 @@ async function render() {
       <div class="render-zone">${renderSvgChord(chord)}</div>
     </article>
   `).join('');
+  renderFixedChords(chords);
+  renderSuffixBlocks();
   renderSmuflSymbols();
 
   updateStatus();
@@ -615,6 +657,54 @@ function getSampleChords() {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !/^test\s*\d*\s*:?$/i.test(line));
+}
+
+function renderFixedChords(chords) {
+  const suffixBlocks = createFlattenedFrozenSuffixLibrary(getSvgRenderOptions({ debug: false }));
+  els.fixedGrid.innerHTML = chords.map((chord) => `
+    <article class="chord-row" title="${escapeAttr(chord)}">
+      <div class="source-chord">${escapeHtml(chord)}</div>
+      <div class="render-zone">${renderFixedSvgChord(chord, suffixBlocks)}</div>
+    </article>
+  `).join('');
+}
+
+function renderSuffixBlocks() {
+  const renderOptions = getSvgRenderOptions({ debug: state.debugBoxes });
+  els.suffixGrid.innerHTML = PRIORITY_SUFFIX_BLOCKS.map((block) => `
+    <article class="suffix-card" title="${escapeAttr(`${block.label} / iReal ${block.irealQuality}`)}">
+      <div class="suffix-preview">${renderSuffixBlock(block, renderOptions)}</div>
+      <div class="suffix-meta">
+        <strong>${escapeHtml(block.label)}</strong>
+        <span>${isFrozenSuffixBlock(block) ? 'fige' : 'candidat'}</span>
+        <span>${escapeHtml(block.group)}</span>
+        <span>${escapeHtml(formatBlockInheritance(block))}</span>
+        <span>iReal ${escapeHtml(block.irealQuality)} - ${block.irealCount}</span>
+      </div>
+    </article>
+  `).join('');
+
+  const exportOptions = getSvgRenderOptions({ debug: false });
+  els.suffixBlocksOutput.value = JSON.stringify({
+    version: 1,
+    roles: getSvgRoleFontIds(),
+    tuning: state.tuning,
+    blocks: createSuffixBlockLibrary(exportOptions),
+    flattenedFrozenBlocks: createFlattenedFrozenSuffixLibrary(exportOptions)
+  }, null, 2);
+}
+
+function formatBlockInheritance(block) {
+  const inheritance = block.inheritance || {};
+  if (inheritance.role === 'base') return 'base';
+  if (inheritance.from) {
+    const additions = [
+      ...(inheritance.prefix ? [`prefix ${inheritance.prefix}`] : []),
+      ...((inheritance.adds || []).map((item) => `+${item}`))
+    ].join(' ');
+    return `herite de ${inheritance.from}${additions ? ` ${additions}` : ''}`;
+  }
+  return 'isole';
 }
 
 async function ensureRoleAtlases() {
@@ -659,18 +749,29 @@ function updateStatus() {
 }
 
 function renderSvgChord(chord) {
-  return renderAtlasSvgChord(chord, {
+  return renderAtlasSvgChord(chord, getSvgRenderOptions({ debug: state.debugBoxes }));
+}
+
+function renderFixedSvgChord(chord, suffixBlocks) {
+  return renderAtlasSvgChordFixedBlocks(chord, {
+    ...getSvgRenderOptions({ debug: state.debugBoxes }),
+    suffixBlocks
+  });
+}
+
+function getSvgRenderOptions({ debug = false } = {}) {
+  return {
     roleFontIds: getSvgRoleFontIds(),
     getAtlas: (fontId) => window.__sharpElevenSvgFontAtlases?.[fontId] || null,
     strokeWidth: getSvgStrokeWidth(),
     debug: {
-      boxes: state.debugBoxes,
-      advances: state.debugBoxes,
-      parts: state.debugBoxes,
-      global: state.debugBoxes
+      boxes: debug,
+      advances: debug,
+      parts: debug,
+      global: debug
     },
     tuning: state.tuning
-  });
+  };
 }
 
 function getSvgRoleFontIds() {

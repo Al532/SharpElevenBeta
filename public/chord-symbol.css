@@ -26,6 +26,24 @@
     U+FFFD;
 }
 
+.chord-symbol-v2 {
+  display: inline-block;
+  line-height: 0;
+  vertical-align: -0.62em;
+  color: currentColor;
+}
+
+.chord-symbol-v2-svg {
+  display: block;
+  overflow: visible;
+}
+
+.chord-symbol-v2-root,
+.chord-symbol-v2-accidental,
+.chord-symbol-v2-suffix {
+  vector-effect: non-scaling-stroke;
+}
+
 .chord-symbol {
   --chord-symbol-font-family: "JazzTrainerChordText", sans-serif;
   --chord-symbol-text-weight: 600;

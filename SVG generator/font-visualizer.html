@@ -24,8 +24,8 @@
         <div class="field">
           <label for="sizeControl">Taille</label>
           <div class="slider-row">
-            <input id="sizeControl" type="range" min="34" max="86" step="1" value="36">
-            <output id="sizeOutput">36</output>
+            <input id="sizeControl" type="range" min="34" max="86" step="1" value="42">
+            <output id="sizeOutput">42</output>
           </div>
         </div>
         <div class="field">
@@ -67,6 +67,21 @@
         <div class="status" id="statusText"></div>
       </div>
       <div class="preview-grid" id="previewGrid"></div>
+      <section class="fixed-panel">
+        <div class="fixed-panel-header">
+          <h2>Composition fixe</h2>
+          <p class="subtle">Racine, alteration et suffixe aplati poses avec offsets fixes.</p>
+        </div>
+        <div class="preview-grid fixed-grid" id="fixedGrid"></div>
+      </section>
+      <section class="suffix-panel">
+        <div class="suffix-panel-header">
+          <h2>Blocs prerendus prioritaires</h2>
+          <p class="subtle">Suffixes isoles avec metriques, fragments SVG et boites de collision exportables.</p>
+        </div>
+        <div class="suffix-grid" id="suffixGrid"></div>
+        <textarea id="suffixBlocksOutput" class="suffix-output" readonly spellcheck="false"></textarea>
+      </section>
       <section class="symbol-panel">
         <div class="symbol-panel-header">
           <h2>SMuFL chord symbols</h2>

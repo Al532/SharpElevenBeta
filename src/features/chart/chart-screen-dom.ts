@@ -17,6 +17,7 @@ export function createChartScreenDomRefs(rootDocument: Document = document) {
     fixtureSelect: rootDocument.getElementById('fixture-select') as HTMLSelectElement | null,
     transposeSelect: rootDocument.getElementById('transpose-select') as HTMLSelectElement | null,
     harmonyDisplayMode: rootDocument.getElementById('harmony-display-mode') as HTMLSelectElement | null,
+    useChordSymbolV2: rootDocument.getElementById('use-chord-symbol-v2') as HTMLInputElement | null,
     useMajorTriangleSymbol: rootDocument.getElementById('use-major-triangle-symbol') as HTMLInputElement | null,
     useHalfDiminishedSymbol: rootDocument.getElementById('use-half-diminished-symbol') as HTMLInputElement | null,
     useDiminishedSymbol: rootDocument.getElementById('use-diminished-symbol') as HTMLInputElement | null,

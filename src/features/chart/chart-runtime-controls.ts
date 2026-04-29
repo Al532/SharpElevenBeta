@@ -4,6 +4,7 @@ type BindChartRuntimeControlsOptions = {
   transposeSelect?: HTMLSelectElement | null,
   sheetGrid?: HTMLElement | null,
   harmonyDisplayMode?: HTMLSelectElement | null,
+  useChordSymbolV2?: HTMLInputElement | null,
   useMajorTriangleSymbol?: HTMLInputElement | null,
   useHalfDiminishedSymbol?: HTMLInputElement | null,
   useDiminishedSymbol?: HTMLInputElement | null,
@@ -45,6 +46,7 @@ export function bindChartRuntimeControls({
   transposeSelect,
   sheetGrid,
   harmonyDisplayMode,
+  useChordSymbolV2,
   useMajorTriangleSymbol,
   useHalfDiminishedSymbol,
   useDiminishedSymbol,
@@ -81,6 +83,7 @@ export function bindChartRuntimeControls({
   harmonyDisplayMode?.addEventListener('change', onHarmonyDisplayModeChange);
 
   [
+    useChordSymbolV2,
     useMajorTriangleSymbol,
     useHalfDiminishedSymbol,
     useDiminishedSymbol

@@ -115,6 +115,40 @@ function createTextElement(tagName: string, className: string, textContent: stri
   return element;
 }
 
+function createEmptyChartImportPrompt(onImportCharts: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'home-empty-import-button';
+  button.setAttribute('aria-label', 'No charts available. Click here to import charts from other formats.');
+
+  const icon = document.createElement('span');
+  icon.className = 'home-empty-import-icon';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  arrowLine.setAttribute('d', 'M12 3v14');
+  const arrowHead = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  arrowHead.setAttribute('d', 'm6.5 11.5 5.5 5.5 5.5-5.5');
+  const targetLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  targetLine.setAttribute('d', 'M5 21h14');
+  svg.append(arrowLine, arrowHead, targetLine);
+  icon.append(svg);
+
+  const copy = document.createElement('span');
+  copy.className = 'home-empty-import-copy';
+  const title = document.createElement('strong');
+  title.textContent = 'No charts available.';
+  const detail = document.createElement('span');
+  detail.textContent = 'Click here to import charts from other formats.';
+  copy.append(title, detail);
+
+  button.append(icon, copy);
+  button.addEventListener('click', onImportCharts);
+  return button;
+}
+
 function isNativePlatform() {
   return Boolean(window.Capacitor?.isNativePlatform?.());
 }
@@ -324,6 +358,7 @@ function renderChartSearch(
   documents: ChartDocument[],
   recentDocuments: ChartDocument[],
   onMenu: (target: ChartEntryMenuTarget) => void,
+  onImportCharts: () => void,
   dom: Pick<HomePageDom, 'chartSearchInput' | 'chartSearchResults' | 'chartSearchEmpty'>
 ): void {
   if (!dom.chartSearchResults) return;
@@ -355,12 +390,15 @@ function renderChartSearch(
 
   const isEmpty = dom.chartSearchResults.children.length === 0;
   if (dom.chartSearchEmpty) {
-    const emptyMessage = documents.length === 0
-      ? 'Import charts, then search by title.'
-      : query
-        ? 'No matching charts.'
-        : '';
-    dom.chartSearchEmpty.textContent = emptyMessage;
+    dom.chartSearchEmpty.classList.remove('home-empty-import');
+    if (isEmpty && documents.length === 0) {
+      dom.chartSearchEmpty.replaceChildren(createEmptyChartImportPrompt(onImportCharts));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    const emptyMessage = query ? 'No matching charts.' : '';
+    dom.chartSearchEmpty.replaceChildren(emptyMessage);
     dom.chartSearchEmpty.classList.toggle('hidden', !isEmpty || !emptyMessage);
   }
 }
@@ -398,7 +436,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
 
   const rerender = (): void => {
     updateChartSearchPlaceholder();
-    renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, dom);
+    renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, openImportPopup, dom);
   };
 
   const handleViewportResize = (): void => {

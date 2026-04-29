@@ -19,6 +19,10 @@ const DEFAULT_TUNING = Object.freeze({
   paddingRight: 14,
   tracking: 0.03,
   digitTracking: -0.64,
+  fixedAccidentalGapBefore: -1,
+  fixedSuffixGapAfterRoot: -3.5,
+  fixedSuffixGapAfterAccidental: -1.5,
+  fixedSuffixYOffset: 0,
   rootSize: 52,
   rootBaseline: 60,
   rootScaleX: 1.04,
@@ -36,21 +40,29 @@ const DEFAULT_TUNING = Object.freeze({
   qualitySusScaleX: 0.82,
   qualityDimScaleX: 0.82,
   qualityMajScaleX: 0.82,
+  maj7GapBefore: -2.5,
+  maj7TextSize: 31,
+  maj7TextBaseline: 60,
+  maj7TextScaleX: 0.8,
+  maj7DigitSize: 28,
+  maj7DigitBaseline: 43,
+  maj7DigitScaleX: 0.8,
+  maj7DigitGap: -7,
   supSize: 27,
   supBaseline: 34,
   supScaleX: 0.9,
   susUnderSize: 32,
   susUnderBaseline: 60,
   susUnderScaleX: 0.81,
-  susUnderOffsetX: 4,
+  susUnderOffsetX: 8,
   susUnderGapAfter: 2,
   susUnderDigitSize: 21,
   susUnderDigitBaseline: 60,
   susUnderDigitGap: 3,
   altAfterSupSize: 24,
-  altAfterSupBaseline: 34,
-  altAfterSupScaleX: 0.82,
-  altAfterSupGap: 0,
+  altAfterSupBaseline: 32,
+  altAfterSupScaleX: 0.84,
+  altAfterSupGap: -5,
   mMajParenSize: 25,
   mMajParenBaseline: 38,
   mMajParenScaleX: 0.74,
@@ -97,26 +109,26 @@ const DEFAULT_TUNING = Object.freeze({
   stack1Baseline: 34,
   stack1ItemScaleX: 0.86,
   stackAccidentalDigitTracking: -0.32,
-  stackSharpDigitTracking: -0.32,
-  stackFlatDigitTracking: -0.32,
-  stack1ParenSize: 20,
+  stackSharpDigitTracking: -0.26,
+  stackFlatDigitTracking: -0.26,
+  stack1ParenSize: 18,
   stack1ParenBaseline: 31,
-  stack1ParenScaleX: 0.6,
-  stack1OpenParenGapBefore: 0,
-  stack1OpenParenGapAfter: -2,
+  stack1ParenScaleX: 0.61,
+  stack1OpenParenGapBefore: 0.5,
+  stack1OpenParenGapAfter: 0,
   stack1CloseParenGapBefore: -2,
-  stack1CloseParenGapAfter: 0,
-  stack1RowsOffsetX: 1.5,
+  stack1CloseParenGapAfter: -1,
+  stack1RowsOffsetX: 1,
   stack1GapAfter: -7,
   stackParenSize: 38,
   stackParenBaseline: 40,
   stackParenScaleX: 0.65,
-  stack2ParenSize: 37,
-  stack2ParenBaseline: 40,
-  stack2ParenScaleX: 0.61,
-  stack2OpenParenGapBefore: 0,
-  stack2OpenParenGapAfter: 0,
-  stack2CloseParenGapBefore: 0,
+  stack2ParenSize: 33,
+  stack2ParenBaseline: 38,
+  stack2ParenScaleX: 0.4,
+  stack2OpenParenGapBefore: -1,
+  stack2OpenParenGapAfter: -0.5,
+  stack2CloseParenGapBefore: -4.5,
   stack2CloseParenGapAfter: 0,
   stack2RowsOffsetX: 1,
   stack2GapAfter: -3.5,
@@ -198,6 +210,24 @@ export function renderSvgChord(chord, options = {}) {
   `;
 }
 
+export function renderSvgChordSuffix(suffix, options = {}) {
+  const layout = layoutSvgChordSuffix(suffix, options);
+  return `
+    <svg class="svg-chord svg-suffix-block" style="--svg-chord-width: ${layout.viewBox.width}; --svg-chord-height: ${round(layout.height)};" viewBox="${layout.viewBox.x} 0 ${layout.viewBox.width} ${round(layout.height)}" role="img" aria-label="${escapeAttr(suffix)}">
+      ${layout.elements.join('')}
+    </svg>
+  `;
+}
+
+export function renderSvgChordFixedBlocks(chord, options = {}) {
+  const layout = layoutSvgChordFixedBlocks(chord, options);
+  return `
+    <svg class="svg-chord svg-fixed-chord" style="--svg-chord-width: ${layout.width}; --svg-chord-height: ${round(layout.height)};" viewBox="0 0 ${layout.width} ${round(layout.height)}" role="img" aria-label="${escapeAttr(chord)}">
+      ${layout.elements.join('')}
+    </svg>
+  `;
+}
+
 export function layoutSvgChord(chord, options = {}) {
   const parts = parseChord(chord);
   const drawing = createSvgDrawing(options);
@@ -212,33 +242,8 @@ export function layoutSvgChord(chord, options = {}) {
     drawText(drawing, parts.rootAccidental, 'accidental', tuning.accidentalSize, tuning.accidentalBaseline);
     endBlock(drawing);
   }
-  if (parts.symbol) {
-    const symbolMetrics = getSymbolMetrics(parts.symbol, tuning);
-    beginBlock(drawing, 'quality-symbol', 'Symbole de qualité', 'symbol');
-    drawText(drawing, parts.symbol, 'symbol', symbolMetrics.size, symbolMetrics.baseline);
-    endBlock(drawing);
-  }
-  if (parts.quality) {
-    drawing.x += tuning.qualityGapBefore;
-    beginBlock(drawing, 'quality', 'Lettres minuscules', 'quality');
-    drawText(drawing, parts.quality, 'quality', tuning.lowercaseSize, tuning.lowercaseBaseline, {
-      scaleX: getInlineQualityScaleX(parts.quality, tuning)
-    });
-    endBlock(drawing);
-  }
-  const hasSuperscript = parts.supStack || parts.sup || parts.figure || parts.mMajParen;
-  const supYOffset = hasSuperscript ? getSupYOffset(parts, tuning) : 0;
-  if (hasSuperscript) {
-    const preferredX = drawing.x + getSupAnchorOffset(parts, tuning);
-    const shift = tuning.autoResolveSuperscript
-      ? getAutoResolveShift(drawing, (scratch) => {
-        scratch.x = preferredX;
-        drawSuperscriptBlock(scratch, parts, supYOffset);
-      })
-      : 0;
-    drawing.x = preferredX + shift;
-    drawSuperscriptBlock(drawing, parts, supYOffset);
-  }
+  drawInlineQualityParts(drawing, parts);
+  drawAttachedSuperscript(drawing, parts);
 
   if (parts.bass) {
     const preferredX = drawing.x;
@@ -268,6 +273,56 @@ export function layoutSvgChord(chord, options = {}) {
   };
 }
 
+export function layoutSvgChordFixedBlocks(chord, options = {}) {
+  const fixedParts = parseFixedBlockChord(chord);
+  const suffixBlock = getFixedSuffixBlock(fixedParts.suffix, options.suffixBlocks || []);
+  if (!fixedParts.rootLetter || !suffixBlock) return layoutSvgChord(chord, options);
+
+  const drawing = createSvgDrawing(options);
+  const tuning = drawing.tuning;
+
+  beginBlock(drawing, 'root', 'Fondamentale', 'root');
+  drawText(drawing, fixedParts.rootLetter, 'root', tuning.rootSize, tuning.rootBaseline, { scaleX: tuning.rootScaleX });
+  endBlock(drawing);
+
+  if (fixedParts.rootAccidental) {
+    drawing.x += tuning.fixedAccidentalGapBefore;
+    beginBlock(drawing, 'root-accidental', 'Alteration fondamentale', 'accidental');
+    drawText(drawing, fixedParts.rootAccidental, 'accidental', tuning.accidentalSize, tuning.accidentalBaseline);
+    endBlock(drawing);
+  }
+
+  const suffixX = drawing.x + (
+    fixedParts.rootAccidental ? tuning.fixedSuffixGapAfterAccidental : tuning.fixedSuffixGapAfterRoot
+  );
+  drawFlattenedSuffixBlock(drawing, suffixBlock, suffixX, tuning.fixedSuffixYOffset);
+
+  if (fixedParts.bass) {
+    drawing.x += tuning.fixedSuffixGapAfterAccidental;
+    drawBassSlashBlock(drawing, fixedParts.bass);
+  }
+
+  const visualBox = getBlocksVisualBox(drawing.blocks);
+  const width = Math.max(
+    tuning.canvasMinWidth,
+    Math.ceil(Math.max(drawing.x, visualBox ? visualBox.x + visualBox.width : 0) + tuning.paddingRight)
+  );
+  return {
+    chord,
+    parts: fixedParts,
+    suffixBlock,
+    mode: 'fixed-blocks',
+    width,
+    height: tuning.canvasHeight,
+    elements: [
+      ...drawing.elements,
+      ...getDebugBoxElements(drawing, width)
+    ],
+    blocks: drawing.blocks,
+    violations: []
+  };
+}
+
 export function parseChord(rawChord) {
   const chord = normalizeAccidentals(String(rawChord || '').trim());
   const slashBassMatch = chord.match(/\/([A-G](?:♭|♯|b|#)?$)/);
@@ -283,6 +338,105 @@ export function parseChord(rawChord) {
   const qualityRaw = normalizeAccidentals(rootMatch[3] || '');
   const qualityParts = splitQuality(qualityRaw);
   return { rootLetter, rootAccidental, bass, ...qualityParts };
+}
+
+export function layoutSvgChordSuffix(suffix, options = {}) {
+  const parts = splitQuality(normalizeAccidentals(String(suffix || '').trim()));
+  const drawing = createSvgDrawing(options);
+  const tuning = drawing.tuning;
+  const originX = Number(options.originX ?? tuning.paddingLeft);
+  drawing.x = originX;
+
+  drawInlineQualityParts(drawing, parts, { atOrigin: true });
+  drawAttachedSuperscript(drawing, parts);
+
+  const width = Math.max(1, Math.ceil(drawing.x + tuning.paddingRight));
+  const violations = markBlockCollisions(drawing.blocks, getCollisionRules(drawing));
+  const visualBox = getBlocksVisualBox(drawing.blocks) || { x: 0, y: 0, width, height: tuning.canvasHeight };
+  const viewPadding = 4;
+  const viewBoxX = Math.floor(Math.min(0, visualBox.x - viewPadding));
+  const viewBoxRight = Math.ceil(Math.max(width, visualBox.x + visualBox.width + viewPadding));
+
+  return {
+    suffix,
+    parts,
+    originX,
+    advance: round(drawing.x - originX),
+    visualBox,
+    viewBox: {
+      x: viewBoxX,
+      y: 0,
+      width: Math.max(1, viewBoxRight - viewBoxX),
+      height: tuning.canvasHeight
+    },
+    width,
+    height: tuning.canvasHeight,
+    elements: [
+      ...drawing.elements,
+      ...getDebugBoxElements(drawing, Math.max(width, viewBoxRight))
+    ],
+    blocks: drawing.blocks,
+    violations
+  };
+}
+
+function parseFixedBlockChord(rawChord) {
+  const chord = String(rawChord || '').trim();
+  const slashBassMatch = chord.match(/\/([A-G](?:[\u266D\u266F]|b|#)?$)/);
+  const bass = slashBassMatch ? normalizeFixedPitch(slashBassMatch[1]) : '';
+  const withoutBass = slashBassMatch ? chord.slice(0, slashBassMatch.index) : chord;
+  const rootMatch = withoutBass.match(/^([A-G])([\u266D\u266F]|b|#)?(.*)$/);
+  if (!rootMatch) return { raw: chord, rootLetter: '', rootAccidental: '', suffix: '', bass };
+  return {
+    raw: chord,
+    rootLetter: rootMatch[1],
+    rootAccidental: normalizeFixedAccidental(rootMatch[2] || ''),
+    suffix: normalizeFixedSuffix(rootMatch[3] || ''),
+    bass
+  };
+}
+
+function getFixedSuffixBlock(suffix, suffixBlocks) {
+  const targetKey = normalizeSuffixBlockKey(suffix);
+  if (!targetKey) return null;
+  return suffixBlocks.find((block) => (
+    getSuffixBlockAliases(block).some((alias) => normalizeSuffixBlockKey(alias) === targetKey)
+  )) || null;
+}
+
+function getSuffixBlockAliases(block) {
+  return [
+    block.suffix,
+    block.label,
+    block.irealQuality
+  ].filter(Boolean);
+}
+
+function normalizeSuffixBlockKey(value) {
+  return normalizeFixedSuffix(String(value || '').trim())
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[()]/g, '')
+    .replace(/^o/, 'dim')
+    .replace(/^ø/, 'm7♭5');
+}
+
+function normalizeFixedPitch(value) {
+  return String(value || '').replace(/^([A-G])([\u266D\u266F]|b|#)?$/, (_, letter, accidental = '') => (
+    `${letter}${normalizeFixedAccidental(accidental)}`
+  ));
+}
+
+function normalizeFixedAccidental(value) {
+  if (value === 'b') return '\u266D';
+  if (value === '#') return '\u266F';
+  return value || '';
+}
+
+function normalizeFixedSuffix(value) {
+  return String(value || '')
+    .replace(/b(?=\d)/g, '\u266D')
+    .replace(/#(?=\d)/g, '\u266F');
 }
 
 export function roleForCharacter(char, fallbackRole) {
@@ -381,6 +535,56 @@ function splitStackedExtensions(value) {
   }
 
   return cursor === value.length ? items : [];
+}
+
+function drawInlineQualityParts(drawing, parts, options = {}) {
+  const tuning = drawing.tuning;
+  if (parts.symbol) {
+    const symbolMetrics = getSymbolMetrics(parts.symbol, tuning);
+    beginBlock(drawing, 'quality-symbol', 'Symbole de qualite', 'symbol');
+    drawText(drawing, parts.symbol, 'symbol', symbolMetrics.size, symbolMetrics.baseline);
+    endBlock(drawing);
+  }
+  if (parts.quality) {
+    if (!options.atOrigin) drawing.x += parts.quality === 'maj7' ? tuning.maj7GapBefore : tuning.qualityGapBefore;
+    beginBlock(drawing, 'quality', 'Lettres minuscules', 'quality');
+    if (parts.quality === 'maj7') {
+      drawInlineMajorSeventh(drawing);
+    } else {
+      drawText(drawing, parts.quality, 'quality', tuning.lowercaseSize, tuning.lowercaseBaseline, {
+        scaleX: getInlineQualityScaleX(parts.quality, tuning)
+      });
+    }
+    endBlock(drawing);
+  }
+}
+
+function drawInlineMajorSeventh(drawing) {
+  const tuning = drawing.tuning;
+  drawText(drawing, 'maj', 'quality', tuning.maj7TextSize, tuning.maj7TextBaseline, {
+    scaleX: tuning.maj7TextScaleX
+  });
+  drawing.x += tuning.maj7DigitGap;
+  drawText(drawing, '7', 'digit', tuning.maj7DigitSize, tuning.maj7DigitBaseline, {
+    scaleX: tuning.maj7DigitScaleX
+  });
+}
+
+function drawAttachedSuperscript(drawing, parts) {
+  const tuning = drawing.tuning;
+  const hasSuperscript = parts.supStack || parts.sup || parts.figure || parts.mMajParen;
+  if (!hasSuperscript) return;
+
+  const supYOffset = getSupYOffset(parts, tuning);
+  const preferredX = drawing.x + getSupAnchorOffset(parts, tuning);
+  const shift = tuning.autoResolveSuperscript
+    ? getAutoResolveShift(drawing, (scratch) => {
+      scratch.x = preferredX;
+      drawSuperscriptBlock(scratch, parts, supYOffset);
+    })
+    : 0;
+  drawing.x = preferredX + shift;
+  drawSuperscriptBlock(drawing, parts, supYOffset);
 }
 
 function drawSuperscriptBlock(drawing, parts, yOffset = 0) {
@@ -492,6 +696,41 @@ function drawBassTextBlock(drawing, bass) {
   beginBlock(drawing, 'bass', 'Basse', 'bass');
   drawText(drawing, bass, 'root', drawing.tuning.bassSize, drawing.tuning.bassBaseline);
   endBlock(drawing);
+}
+
+function drawFlattenedSuffixBlock(drawing, suffixBlock, x, yOffset = 0) {
+  const metrics = suffixBlock.metrics || {};
+  const originX = Number(metrics.originX || 0);
+  const dx = x - originX;
+  const dy = Number(yOffset || 0);
+  drawing.elements.push(`<g data-suffix-block="${escapeAttr(suffixBlock.id)}" transform="translate(${round(dx)} ${round(dy)})">${suffixBlock.svgFragment}</g>`);
+
+  const collisionSourceBox = suffixBlock.collisionBoxes?.full || suffixBlock.collisionBox;
+  const collisionBox = collisionSourceBox
+    ? translateBox(collisionSourceBox, dx, dy)
+    : null;
+  const advance = Number(metrics.advance || 0);
+  drawing.blocks.push({
+    uid: `suffix-block-${drawing.blockIndex += 1}`,
+    id: `suffix-${suffixBlock.id}`,
+    label: `Suffixe ${suffixBlock.label}`,
+    type: 'suffix',
+    parentUid: null,
+    depth: 0,
+    startX: x,
+    endX: x + advance,
+    collisionBox,
+    collisionParts: collisionBox ? [collisionBox] : [],
+    advanceBox: {
+      x,
+      y: 0,
+      width: advance,
+      height: drawing.tuning.canvasHeight
+    },
+    collides: false,
+    violations: []
+  });
+  drawing.x = Math.max(drawing.x, x + advance);
 }
 
 function drawSuperscriptStack(drawing, stack, yOffset = 0) {
@@ -1168,6 +1407,22 @@ function expandBox(box, margin) {
     width: box.width + (amount * 2),
     height: box.height + (amount * 2)
   };
+}
+
+function translateBox(box, dx, dy) {
+  if (!box) return null;
+  return {
+    x: Number(box.x || 0) + Number(dx || 0),
+    y: Number(box.y || 0) + Number(dy || 0),
+    width: Number(box.width || 0),
+    height: Number(box.height || 0)
+  };
+}
+
+function getBlocksVisualBox(blocks) {
+  return blocks.reduce((box, block) => (
+    unionBoxes(box, block.collisionBox || block.advanceBox)
+  ), null);
 }
 
 function unionBoxes(a, b) {

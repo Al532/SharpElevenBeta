@@ -36,3 +36,55 @@ python .\generate_atlas.py --chars-file ".\accords test.txt"
 
 The script writes both JSON and browser-loadable JS files under `atlases/`.
 The JS files make `font-visualizer.html` usable even when opened directly from disk.
+
+## Pre-rendered suffix candidates
+
+`suffix-block-library.js` contains the first suffix block shortlist, based on the
+iReal frequency notes and the current visual tuning:
+
+- base families: `7`, `m`, `sus`, `dim`, `maj7`
+- `m7`
+- `maj7`
+- `7(b9)`
+- `m7(b5)`
+- `sus`, with `sus4` and `7sus` derived from the same visual family
+- `dim7`
+- `m6`
+- `m9`
+- `11`
+- `13`
+- `7alt`
+- first stacked candidates: `7(b9b13)`, `7(b9#11)`, `7(#9#11)`
+
+Frozen in the current preset: `7`, `m`, `m7`, `maj7`, `7(b9)`, `11`, `13`,
+`m7(b5)`, `sus`, `7sus`, `dim`, `dim7`, `m6`, `m9`, `7alt`, and
+`7(b9b13)`.
+The exact frozen preset is archived in `frozen-suffix-catalog.json` so it can be
+restored or compared with a later pass.
+`maj7` has its own tuning keys (`maj7*`) because it is a frozen block with a
+different balance from generic lowercase text.
+
+The font visualizer now previews those blocks separately and exports a JSON
+payload with SVG fragments, metrics, and collision boxes. This keeps the
+experiment close to the eventual app shape: render suffix internals once, then
+let the chart renderer place root, suffix block, and slash bass as larger units.
+Each block can also declare an `inheritance` hint, for example `m7` inherits
+from `m`, `m7(b5)` from `m7`, `dim7` from `dim`, and `7alt` from `7`.
+
+Run this command from the repository root to regenerate the flattened runtime
+payload for the app:
+
+```powershell
+node ".\SVG generator\export-frozen-suffix-runtime.mjs"
+```
+
+The generated `frozen-suffix-runtime.json` keeps only frozen blocks and the
+already-positioned SVG fragment. It is semi-flattened: the drawing is a single
+fragment, while collisions keep semantic boxes (`full`, `body`, `upper`,
+`lower`) so slash/bass placement can later avoid the relevant zone instead of
+the whole suffix.
+
+The visualizer also includes a `Composition fixe` preview. It composes
+root + accidental + flattened suffix blocks with fixed offsets:
+`fixedAccidentalGapBefore`, `fixedSuffixGapAfterRoot`,
+`fixedSuffixGapAfterAccidental`, and `fixedSuffixYOffset`.

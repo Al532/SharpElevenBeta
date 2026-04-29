@@ -657,6 +657,81 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   line-height: 1.4;
 }
 
+.home-empty-import {
+  margin: clamp(1rem, 5vh, 2.2rem) 0 0;
+}
+
+.home-empty-import-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(0.75rem, 3vw, 1rem);
+  width: 100%;
+  min-height: clamp(7rem, 19vh, 8.6rem);
+  border: 0;
+  border-radius: var(--home-control-radius, var(--radius-sm));
+  padding: clamp(1rem, 4vw, 1.25rem);
+  background: color-mix(in srgb, var(--ui-accent) 13%, var(--ui-control-bg) 87%);
+  color: var(--ui-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 28%, transparent 72%), var(--ui-control-shadow);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.home-empty-import-button:focus,
+.home-empty-import-button:focus-visible {
+  outline: 0;
+  background: color-mix(in srgb, var(--ui-accent) 19%, var(--ui-control-bg) 81%);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ui-accent) 52%, transparent 48%), var(--ui-control-shadow);
+}
+
+.home-empty-import-button:active {
+  background: color-mix(in srgb, var(--ui-accent) 22%, var(--ui-control-bg) 78%);
+  transform: none;
+}
+
+.home-empty-import-icon {
+  display: grid;
+  place-items: center;
+  width: clamp(3rem, 13vw, 3.75rem);
+  height: clamp(3rem, 13vw, 3.75rem);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-accent) 16%, transparent 84%);
+  color: var(--ui-accent);
+}
+
+.home-empty-import-icon svg {
+  width: 62%;
+  height: 62%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.15;
+}
+
+.home-empty-import-copy {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.home-empty-import-copy strong {
+  color: var(--ui-text);
+  font-size: clamp(1rem, 4.4vw, 1.18rem);
+  font-weight: 850;
+  line-height: 1.08;
+}
+
+.home-empty-import-copy span {
+  color: var(--ui-text-soft);
+  font-size: clamp(0.86rem, 3.6vw, 0.98rem);
+  font-weight: 650;
+  line-height: 1.28;
+}
+
 .home-status {
   margin: 0.15rem 0 0.2rem;
   color: var(--ui-text);

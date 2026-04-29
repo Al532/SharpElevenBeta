@@ -135,6 +135,7 @@ import {
   persistPlaybackSettings as persistChartScreenPlaybackSettings
 } from '../src/features/chart/chart-screen-persistence.js';
 import { renderChordSymbolHtml } from '../src/core/music/chord-symbol-display.js';
+import { renderChordSymbolSvgV2Html } from '../src/core/music/chord-symbol-svg-v2.js';
 import voicingConfig from '../src/core/music/voicing-config.js';
 import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
@@ -375,6 +376,7 @@ function persistPlaybackSettings() {
   persistChartScreenPlaybackSettings({
     playbackSettings: getPlaybackSettings(),
     harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+    useChordSymbolV2: dom.useChordSymbolV2?.checked !== false,
     useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
     useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
@@ -401,6 +403,10 @@ function applyPersistedPlaybackSettings() {
 
   if (dom.harmonyDisplayMode && persisted.harmonyDisplayMode) {
     dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(persisted.harmonyDisplayMode);
+  }
+
+  if (dom.useChordSymbolV2 && persisted.useChordSymbolV2 !== undefined) {
+    dom.useChordSymbolV2.checked = Boolean(persisted.useChordSymbolV2);
   }
 
   if (dom.useMajorTriangleSymbol && persisted.useMajorTriangleSymbol !== undefined) {
@@ -1233,16 +1239,27 @@ function renderMeta(viewModel: ChartViewModel) {
 }
 
 function renderChordMarkup(token: any, harmonyDisplayMode: string) {
+  const root = token.root || '';
+  const quality = getDisplayAliasQuality(token.quality || '', harmonyDisplayMode);
+  const bass = token.bass || null;
+  const options = getChordSymbolRenderOptions();
+
+  if (options.useChordSymbolV2) {
+    const svgMarkup = renderChordSymbolSvgV2Html(root, quality, bass, options);
+    if (svgMarkup) return svgMarkup;
+  }
+
   return renderChordSymbolHtml(
-    token.root || '',
-    getDisplayAliasQuality(token.quality || '', harmonyDisplayMode),
-    token.bass || null,
-    getChordSymbolRenderOptions()
+    root,
+    quality,
+    bass,
+    options
   );
 }
 
 function getChordSymbolRenderOptions() {
   return {
+    useChordSymbolV2: dom.useChordSymbolV2?.checked !== false,
     useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
     useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
@@ -1933,6 +1950,7 @@ async function loadFixtures() {
         transposeSelect: dom.transposeSelect,
         sheetGrid: dom.sheetGrid,
         harmonyDisplayMode: dom.harmonyDisplayMode,
+        useChordSymbolV2: dom.useChordSymbolV2,
         useMajorTriangleSymbol: dom.useMajorTriangleSymbol,
         useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol,
         useDiminishedSymbol: dom.useDiminishedSymbol,
