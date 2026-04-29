@@ -3,6 +3,27 @@ import chordQualityMap from './ireal-chord-qualities.json' with { type: 'json' }
 
 export const IREAL_SCHEMA_VERSION = '2.0.0';
 
+const IREAL_KEY_TOKEN_PATTERN = /^[A-G](?:b|#)?-?$/;
+
+function decodeBasicHtmlEntities(value) {
+  return String(value || '').replace(/&(#x[\da-f]+|#\d+|amp|apos|quot|lt|gt);/gi, (entity, body) => {
+    const normalized = body.toLowerCase();
+    if (normalized.startsWith('#x')) return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
+    if (normalized.startsWith('#')) return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
+    return {
+      amp: '&',
+      apos: "'",
+      quot: '"',
+      lt: '<',
+      gt: '>'
+    }[normalized] || entity;
+  });
+}
+
+function isIRealKeyToken(value) {
+  return IREAL_KEY_TOKEN_PATTERN.test(String(value || '').trim());
+}
+
 function normalizeModifier(rawModifier = '') {
   return chordQualityMap[rawModifier] ?? rawModifier;
 }
@@ -604,7 +625,7 @@ export function buildDetailedOutput(sourceFileName, playlist, decodedSongs, gene
   return {
     schema_version: IREAL_SCHEMA_VERSION,
     source_file: sourceFileName,
-    source_format: 'iReal Pro playlist URI',
+    source_format: playlist.variant === 'irealbook' ? 'iRealBook playlist URI' : 'iReal Pro playlist URI',
     playlist_name: playlist.name,
     generated_at: generatedAt,
     song_count: decodedSongs.length,
@@ -621,7 +642,7 @@ export function buildCleanOutput(sourceFileName, playlist, decodedSongs, generat
   return {
     schema_version: IREAL_SCHEMA_VERSION,
     source_file: sourceFileName,
-    source_format: 'iReal Pro playlist URI',
+    source_format: playlist.variant === 'irealbook' ? 'iRealBook playlist URI' : 'iReal Pro playlist URI',
     playlist_name: playlist.name,
     generated_at: generatedAt,
     song_count: decodedSongs.length,
@@ -670,7 +691,7 @@ export function buildCleanOutput(sourceFileName, playlist, decodedSongs, generat
       ]
     },
     notes: [
-      'Machine-oriented export derived from decoded-detailed.json.',
+      `Machine-oriented export derived from ${playlist.variant === 'irealbook' ? 'iRealBook' : 'iReal Pro'} decoded data.`,
       'Keeps only parser-relevant structure: sections, bars, normalized chords, repeats, overlays, directives, and flags.',
       'Bar-level collections are always present as arrays, and optional scalar links are explicit nulls.'
     ],
@@ -678,16 +699,62 @@ export function buildCleanOutput(sourceFileName, playlist, decodedSongs, generat
   };
 }
 
+function normalizeIRealBookSongPart(part) {
+  const fields = String(part || '').split('=');
+  if (fields.length !== 6) return part;
+
+  const [title, composer, style, fourthField, fifthField, music] = fields;
+  if (!isIRealKeyToken(fourthField) && isIRealKeyToken(fifthField)) {
+    return [title, composer, style, fifthField, fourthField, music].join('=');
+  }
+
+  return part;
+}
+
+function splitPlaylistPayload(decodedPayload, variant) {
+  const explicitParts = decodedPayload.split('===');
+  if (explicitParts.length > 1) {
+    return {
+      name: explicitParts.pop() || '',
+      entries: explicitParts
+    };
+  }
+
+  if (variant !== 'irealbook') {
+    return {
+      name: '',
+      entries: [decodedPayload]
+    };
+  }
+
+  const fields = decodedPayload.split('=');
+  const entries = [];
+  while (fields.length >= 6) {
+    entries.push(fields.splice(0, 6).join('='));
+  }
+
+  if (fields.length > 1) {
+    throw new Error(`Invalid iRealBook playlist: expected 6 fields per song, found ${fields.length} trailing field(s).`);
+  }
+
+  return {
+    name: fields[0] || '',
+    entries
+  };
+}
+
 function parsePlaylistPreservingEntries(raw) {
-  const playlistEncoded = /.*?(irealb(?:ook)?):\/\/([^"]*)/.exec(raw);
+  const playlistEncoded = /.*?(irealb(?:ook)?):\/\/([^"]*)/i.exec(String(raw || '').replace(/[\r\n]+/g, ''));
   if (!playlistEncoded) {
     throw new Error('Invalid iReal playlist: missing irealb:// or irealbook:// payload.');
   }
 
-  const encodedParts = decodeURIComponent(playlistEncoded[2]).split('===');
-  const name = encodedParts.length > 1 ? encodedParts.pop() : '';
-  const oldFormat = playlistEncoded[1] === 'irealbook';
-  const songs = encodedParts
+  const variant = playlistEncoded[1].toLowerCase();
+  const oldFormat = variant === 'irealbook';
+  const decodedPayload = decodeURIComponent(decodeBasicHtmlEntities(playlistEncoded[2]));
+  const { name, entries } = splitPlaylistPayload(decodedPayload, variant);
+  const songs = entries
+    .map(part => oldFormat ? normalizeIRealBookSongPart(part) : part)
     .map((part) => {
       try {
         return new Song(part, oldFormat);
@@ -700,7 +767,7 @@ function parsePlaylistPreservingEntries(raw) {
     })
     .filter(song => song !== null);
 
-  return { name, songs };
+  return { name, songs, variant };
 }
 
 export function decodePlaylistRaw(raw, {

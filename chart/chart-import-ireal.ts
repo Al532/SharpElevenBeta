@@ -209,7 +209,7 @@ function isDisplayableCellChord(chord) {
   return ![' ', 'x', 'r', 'n', 'W'].includes(chord.root || '');
 }
 
-function createDisplayTokensFromCellSlots(cellSlots = []) {
+function createDisplayTokensFromCellSlots(cellSlots = [], { includeStandaloneAlternates = false } = {}) {
   const sourceCellCount = cellSlots.length;
   const tokens = [];
 
@@ -222,7 +222,7 @@ function createDisplayTokensFromCellSlots(cellSlots = []) {
       continue;
     }
 
-    if (chord.alternate) {
+    if (includeStandaloneAlternates && chord.alternate) {
       tokens.push(createAlternateChordToken(chord.alternate, sourceCellIndex, sourceCellCount));
     }
 
@@ -309,7 +309,9 @@ function createDisplayState(bar, playbackSlots, overlaySlots) {
     ? bar.display_cell_slots
     : bar?.cell_slots;
   const cellDisplayTokens = createDisplayTokensFromCellSlots(displayCellSlots);
-  const alternateDisplayTokens = cellDisplayTokens.filter(token => token.kind === 'alternate_chord');
+  const alternateDisplayTokens = createDisplayTokensFromCellSlots(displayCellSlots, {
+    includeStandaloneAlternates: true
+  }).filter(token => token.kind === 'alternate_chord');
 
   if (notationKind === 'single_bar_repeat') {
     return {

@@ -1350,7 +1350,7 @@ function applySingleChordAnchor(barBodyEl) {
  */
 function getRowChordVisualBounds(rowEl) {
   const visualElements: HTMLElement[] = Array.from(rowEl.querySelectorAll(
-    '.chart-bar-body .chart-token, .chart-foot-pill, .chart-bar-corner-marker, .chart-repeat-dots, .chart-bar-text-annotation, .chart-inline-section-marker'
+    '.chart-bar-body .chart-token, .chart-token-alternate, .chart-foot-pill, .chart-bar-corner-marker, .chart-repeat-dots, .chart-bar-text-annotation, .chart-inline-section-marker'
   )) as HTMLElement[];
   const elementRects = visualElements
     .map((element) => element.getBoundingClientRect())
@@ -1505,6 +1505,20 @@ function getRowAnnotationPlacementElement(annotationEl) {
 }
 
 /**
+ * @param {HTMLElement} annotationEl
+ * @param {DOMRect} rowRect
+ * @param {number} visualTop
+ * @returns {void}
+ */
+function setRowAnnotationVisualTop(annotationEl, rowRect, visualTop) {
+  const placementEl = getRowAnnotationPlacementElement(annotationEl);
+  const annotationRect = annotationEl.getBoundingClientRect();
+  const placementRect = placementEl.getBoundingClientRect();
+  const placementOffsetY = annotationRect.top - placementRect.top;
+  placementEl.style.setProperty('--chart-row-annotation-y', `${(visualTop - rowRect.top - placementOffsetY).toFixed(2)}px`);
+}
+
+/**
  * @param {HTMLElement[]} rowElements
  * @param {{ top: number, bottom: number }[]} rowChordBounds
  * @returns {void}
@@ -1534,7 +1548,7 @@ function applyRowAnnotationPlacements(rowElements, rowChordBounds) {
         ? previousChordBottom + CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx - nextTop
         : 0;
       localExtraTop = Math.max(localExtraTop, collisionOverflow);
-      getRowAnnotationPlacementElement(element).style.setProperty('--chart-row-annotation-y', `${(nextTop - rowRect.top).toFixed(2)}px`);
+      setRowAnnotationVisualTop(element, rowRect, nextTop);
     });
 
     if (localExtraTop > 0 && index > 0) {
@@ -1547,7 +1561,7 @@ function applyRowAnnotationPlacements(rowElements, rowChordBounds) {
         const rect = element.getBoundingClientRect();
         const targetBottom = updatedChordBounds.top - CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx;
         const nextTop = targetBottom - rect.height;
-        getRowAnnotationPlacementElement(element).style.setProperty('--chart-row-annotation-y', `${(nextTop - updatedRowRect.top).toFixed(2)}px`);
+        setRowAnnotationVisualTop(element, updatedRowRect, nextTop);
       });
     }
 
@@ -2365,12 +2379,6 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
       runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));
       return;
     }
-    if (rowCount < 2) {
-      sheetGrid.style.rowGap = '0px';
-      return;
-    }
-
-    lastLayoutPipelineStepsRun.push('rowGap');
     sheetGrid.style.rowGap = '0px';
     void sheetGrid.offsetHeight;
     const bottomBound = getSheetGridVisualBottomBound(sheetGrid);
@@ -2384,6 +2392,12 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
         void sheetGrid.offsetHeight;
       }
     }
+
+    if (rowCount < 2) {
+      return;
+    }
+
+    lastLayoutPipelineStepsRun.push('rowGap');
 
     const initialVisualBounds = Array.from(rowElements).map((element) => getRowChordVisualBounds(element));
     const firstVisualTop = initialVisualBounds[0].top;

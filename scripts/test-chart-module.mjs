@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -16,6 +17,7 @@ import {
   createPracticeSessionFromSelectedChartDocument,
   createSelectedChartDocument
 } from '../chart/node-index.mjs';
+import { decodePlaylistRaw } from '../chart/ireal-decoder.mjs';
 import { createEmbeddedPlaybackRuntime } from '../src/core/playback/embedded-playback-runtime.ts';
 import { createEmbeddedPlaybackApi } from '../src/core/playback/embedded-playback-api.ts';
 import { createEmbeddedPlaybackAssembly } from '../src/core/playback/embedded-playback-assembly.ts';
@@ -209,6 +211,49 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const sourcePath = path.join(projectRoot, 'parsing-projects', 'ireal', 'sources', 'jazz-1460.txt');
+const forumLinksPath = path.join(projectRoot, 'parsing-projects', 'ireal', 'forum-archive', 'links.jsonl');
+
+function findCollectedIRealBookLink(predicate) {
+  const lines = readFileSync(forumLinksPath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const item = JSON.parse(line);
+    const rawLink = String(item.raw_link || '');
+    if (/^irealbook:\/\//i.test(rawLink) && predicate(rawLink, item)) return rawLink;
+  }
+  throw new Error('Expected collected iRealBook fixture link was not found.');
+}
+
+{
+  const oldFormatWithKeyInFifthField = [
+    'Key Swap',
+    'Composer Unknown',
+    'Medium Swing',
+    'n',
+    'C',
+    '[T44C   |G7   |C   Z '
+  ].join('=');
+  const { cleanOutput } = decodePlaylistRaw(`irealbook://${encodeURIComponent(oldFormatWithKeyInFifthField)}`, {
+    generatedAt: 'fixture'
+  });
+  assert.equal(cleanOutput.source_format, 'iRealBook playlist URI', 'iRealBook imports report the old source format explicitly.');
+  assert.equal(cleanOutput.songs[0]?.source_key, 'C', 'iRealBook imports normalize historical n/key field ordering.');
+  assert.equal(cleanOutput.songs[0]?.bar_count, 3, 'iRealBook imports decode old-format chord grids.');
+}
+
+{
+  const collectedMultiSongLink = findCollectedIRealBookLink((rawLink) => rawLink.includes('Blues-1%3DComposer%20Unknown'));
+  const { cleanOutput } = decodePlaylistRaw(collectedMultiSongLink, {
+    generatedAt: 'fixture'
+  });
+  assert.equal(cleanOutput.song_count, 17, 'Collected iRealBook multi-song links split on six-field song groups.');
+  assert.equal(cleanOutput.playlist_name, 'Blues 1-17 Aebersold Jazz Handbook', 'Collected iRealBook multi-song links preserve the trailing playlist name.');
+  assert.deepEqual(
+    cleanOutput.songs.slice(0, 3).map((song) => song.title),
+    ['Blues-1', 'Blues-2', 'Blues-3'],
+    'Collected iRealBook multi-song links preserve each song title.'
+  );
+}
 
 {
   const appliedLibraries = [];
@@ -2860,6 +2905,25 @@ assert.equal(allTheThings.sections.length >= 3, true, 'All The Things You Are ke
 const stella = byTitle.get('Stella By Starlight');
 assert.ok(stella, 'Stella is present in the raw source import.');
 assert.ok(stella.bars.some(bar => bar.playback.slots.some(slot => slot.alternate)), 'Stella keeps alternate harmony markers.');
+
+const itDontMeanAThing = byTitle.get("It Don't Mean A Thing");
+assert.ok(itDontMeanAThing, "It Don't Mean A Thing is present in the raw source import.");
+for (const bar of itDontMeanAThing.bars.slice(0, 3)) {
+  assert.equal(
+    bar.notation.tokens.filter(token => token?.kind === 'alternate_chord').length,
+    0,
+    "It Don't Mean A Thing written bars do not duplicate standalone alternate harmony tokens."
+  );
+  assert.deepEqual(
+    bar.notation.tokens.map(token => token.sourceCellIndex),
+    [0, 2],
+    "It Don't Mean A Thing keeps normal written chords on beats 1 and 3."
+  );
+  assert.ok(
+    bar.notation.tokens[0]?.alternate,
+    "It Don't Mean A Thing keeps one alternate harmony marker on beat 1."
+  );
+}
 
 const satinPlan = createChartPlaybackPlanFromDocument(satinDoll);
 assert.ok(satinPlan.entries.length > satinDoll.bars.length, 'Satin Doll playback expands the repeat.');
