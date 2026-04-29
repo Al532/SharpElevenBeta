@@ -42,13 +42,13 @@
   <main class="home-main" aria-label="Home">
     <div class="home-stack">
       <section class="home-subsection" aria-labelledby="home-chart-search-title">
-        <h2 id="home-chart-search-title">Find a chart</h2>
+        <h2 id="home-chart-search-title">Dashboard</h2>
         <label class="home-search-field home-chart-search-field">
           <span class="sr-only">Search charts</span>
           <input id="home-chart-search-input" type="search" placeholder="Search charts" autocomplete="off">
         </label>
         <p id="home-chart-status" class="home-status hidden" role="status" aria-live="polite"></p>
-        <p id="home-chart-search-empty" class="home-empty">Recent charts appear here until you search.</p>
+        <div id="home-chart-search-empty" class="home-empty" aria-live="polite">Recent charts appear here until you search.</div>
         <ul id="home-chart-search-results" class="home-list" aria-label="Chart search results"></ul>
       </section>
     </div>
@@ -89,7 +89,7 @@
           <path d="M20.5 5.4A6.8 6.8 0 0 0 13.8 4H12v18h1.8a6.8 6.8 0 0 1 6.7 1.2Z"></path>
           <path d="M12 4v18"></path>
         </svg>
-        <span>Manage library</span>
+        <span>Library</span>
       </a>
     </div>
   </main>
@@ -105,6 +105,7 @@
         <button id="import-ireal-backup-button" type="button" class="home-primary-action">Restore iReal backup</button>
       </div>
       <div id="ireal-link-import-section" class="home-import-link-section" hidden>
+        <a class="home-import-forum-link" href="https://forums.irealpro.com" target="_blank" rel="noopener noreferrer">Browse the iReal forum</a>
         <label class="home-search-field">
           <span class="sr-only">Import iReal link</span>
           <input id="ireal-link-input" type="text" placeholder="Paste irealb:// link here" spellcheck="false">

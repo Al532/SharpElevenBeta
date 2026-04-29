@@ -26,6 +26,7 @@ __pycache__/
 .idea/
 
 .codex-chrome-profile*/
+.codex-temp/
 
 parsing-projects/
 tmp/

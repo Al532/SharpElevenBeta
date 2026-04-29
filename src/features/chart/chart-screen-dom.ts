@@ -70,6 +70,7 @@ export function createChartScreenDomRefs(rootDocument: Document = document) {
     instrumentSettingsButton: rootDocument.getElementById('instrument-settings-button') as HTMLButtonElement | null,
     instrumentSettingsPopover: rootDocument.getElementById('instrument-settings-popover'),
     instrumentTransposeSelect: rootDocument.getElementById('instrument-transpose-select') as HTMLSelectElement | null,
+    exportChartPdfButton: rootDocument.getElementById('export-chart-pdf-button') as HTMLButtonElement | null,
     chartTopOverlay: rootDocument.getElementById('chart-top-overlay'),
     chartBottomOverlay: rootDocument.getElementById('chart-bottom-overlay'),
     chartApp: rootDocument.querySelector<HTMLElement>('.chart-app')

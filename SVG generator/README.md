@@ -88,3 +88,37 @@ The visualizer also includes a `Composition fixe` preview. It composes
 root + accidental + flattened suffix blocks with fixed offsets:
 `fixedAccidentalGapBefore`, `fixedSuffixGapAfterRoot`,
 `fixedSuffixGapAfterAccidental`, and `fixedSuffixYOffset`.
+
+## Freeze renderer V1 suffix placements
+
+`export-v1-frozen-suffixes.mjs` is an experimental pipeline that uses the
+current renderer V1 as the layout source of truth:
+
+1. render selected suffixes through `renderChordSymbolHtml`;
+2. load the real `public/chord-symbol.css` in headless Chrome;
+3. measure the final browser rectangles for root, base, superscript, and inline
+   SVG glyphs;
+4. emit pre-sized SVG blocks that clip away the temporary root and keep the V1
+   suffix placement frozen.
+
+Run it from the repository root:
+
+```powershell
+node --import ./scripts/register-ts-source-loader.mjs ".\SVG generator\export-v1-frozen-suffixes.mjs"
+```
+
+To test a smaller or different set:
+
+```powershell
+node --import ./scripts/register-ts-source-loader.mjs ".\SVG generator\export-v1-frozen-suffixes.mjs" m7 maj sus 7sus
+```
+
+Outputs are written under `SVG generator/v1-frozen-output/`:
+
+- `v1-frozen-suffix-runtime.json`: measured block metrics and SVG fragments;
+- one standalone SVG per suffix;
+- `preview.html`: side-by-side V1 and frozen-block comparison.
+
+This first pass intentionally uses SVG `foreignObject` so the browser preserves
+the exact V1 DOM/CSS layout. A later flattening pass can replace each
+`foreignObject` with pure SVG paths while reusing the same measured coordinates.

@@ -14,7 +14,7 @@ import { contextualizeChordSlotCollections } from './chart-contextual-qualities.
  */
 function createDisplayToken(token, semitoneOffset) {
   if (!token || typeof token !== 'object') return token;
-  if (token.kind !== 'chord') return JSON.parse(JSON.stringify(token));
+  if (token.kind !== 'chord' && token.kind !== 'alternate_chord') return JSON.parse(JSON.stringify(token));
 
   const transposed = JSON.parse(JSON.stringify(token));
   transposed.symbol = transposeChordSymbol(token.symbol, semitoneOffset);
@@ -22,6 +22,30 @@ function createDisplayToken(token, semitoneOffset) {
   if (token.bass) transposed.bass = transposeChordSymbol(token.bass, semitoneOffset);
   if (token.alternate) transposed.alternate = createDisplayToken(token.alternate, semitoneOffset);
   return transposed;
+}
+
+/**
+ * @param {any[]} notationTokens
+ * @param {any[]} contextualizedPlaybackSlots
+ * @returns {any[]}
+ */
+function applyContextualizedPlaybackSlotsToNotationTokens(notationTokens = [], contextualizedPlaybackSlots = []) {
+  let playbackSlotIndex = 0;
+
+  return notationTokens.map((token) => {
+    if (!token || token.kind !== 'chord' || token.displayOnly) {
+      return JSON.parse(JSON.stringify(token));
+    }
+
+    const contextualizedSlot = contextualizedPlaybackSlots[playbackSlotIndex] || null;
+    playbackSlotIndex += 1;
+    return contextualizedSlot ? {
+      ...JSON.parse(JSON.stringify(token)),
+      ...JSON.parse(JSON.stringify(contextualizedSlot)),
+      sourceCellIndex: token.sourceCellIndex,
+      sourceCellCount: token.sourceCellCount
+    } : JSON.parse(JSON.stringify(token));
+  });
 }
 
 /**
@@ -48,7 +72,10 @@ export function createChartViewModel(chartDocument, {
       ...sourceBar,
       isSelected: sourceBar.id === selectedBarId,
       displayTokens: (sourceBar.notation.kind === 'written'
-        ? (contextualizedPlaybackSlotsByBar[index] || [])
+        ? applyContextualizedPlaybackSlotsToNotationTokens(
+            sourceBar.notation.tokens || [],
+            contextualizedPlaybackSlotsByBar[index] || []
+          )
         : sourceBar.notation.tokens
       ).map((token) => createDisplayToken(token, displayTransposeSemitones)),
       displayPlaybackSlots: (contextualizedPlaybackSlotsByBar[index] || [])

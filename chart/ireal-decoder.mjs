@@ -46,6 +46,11 @@ function cloneList(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function preserveDisplayCellSlots(bar) {
+  if (!bar || bar.display_cell_slots) return;
+  bar.display_cell_slots = cloneList(bar.cell_slots || []);
+}
+
 function simplifyCellSlot(cell) {
   return {
     bars: cell.bars || '',
@@ -61,6 +66,20 @@ function cleanCommentText(comment) {
     .replace(/\s+/g, ' ')
     .replace(/^\*\d+/, '')
     .trim();
+}
+
+function parseTextComment(comment) {
+  const raw = String(comment || '');
+  const marker = raw.match(/^\*(\d+)\s*(.*)$/);
+  const text = cleanCommentText(raw);
+  if (!text) return null;
+
+  return {
+    text,
+    raw,
+    offset_code: marker ? marker[1] : null,
+    y_offset: marker ? Number(marker[1].slice(-1)) : null
+  };
 }
 
 export function toSlug(value) {
@@ -184,6 +203,32 @@ function extractCommentDirectives(comments = []) {
   return { directives, free_text: freeText };
 }
 
+function buildTextAnnotations(cellSlots = [], freeText = []) {
+  const remainingTextCounts = new Map();
+  for (const text of freeText) {
+    remainingTextCounts.set(text, (remainingTextCounts.get(text) || 0) + 1);
+  }
+
+  const sourceCellCount = Math.max(1, cellSlots.length);
+  const annotations = [];
+  for (const [sourceCellIndex, cellSlot] of cellSlots.entries()) {
+    for (const rawComment of cellSlot.comments || []) {
+      const parsed = parseTextComment(rawComment);
+      if (!parsed) continue;
+      const remaining = remainingTextCounts.get(parsed.text) || 0;
+      if (remaining <= 0) continue;
+      remainingTextCounts.set(parsed.text, remaining - 1);
+      annotations.push({
+        ...parsed,
+        source_cell_index: sourceCellIndex,
+        source_cell_count: sourceCellCount
+      });
+    }
+  }
+
+  return annotations;
+}
+
 function isEffectivelyEmptyBar(bar) {
   return bar.chords.length === 0 || bar.chords.every(chord => chord.root === ' ');
 }
@@ -200,6 +245,7 @@ function resolveSpecialBars(bars) {
     if (roots.length > 0 && roots.every(root => root === 'x' || root === ' ')) {
       const sourceBar = bars[index - 1];
       if (sourceBar) {
+        preserveDisplayCellSlots(bar);
         bar.source_event = 'single_bar_repeat';
         bar.repeated_from_bar = sourceBar.index;
         bar.chords = sourceBar.chords.map(cloneChord);
@@ -214,6 +260,7 @@ function resolveSpecialBars(bars) {
     if (repeatedChordRoots.some(root => root === 'x') && literalChords.length > 0) {
       const sourceBar = bars[index - 1];
       if (sourceBar) {
+        preserveDisplayCellSlots(bar);
         bar.source_event = 'single_bar_repeat_with_overlay';
         bar.repeated_from_bar = sourceBar.index;
         bar.overlay_chords = literalChords.map(cloneChord);
@@ -230,6 +277,7 @@ function resolveSpecialBars(bars) {
       const firstSource = bars[index - 2];
       const secondSource = bars[index - 1];
       if (firstSource) {
+        preserveDisplayCellSlots(bar);
         bar.source_event = 'double_bar_repeat_start';
         bar.repeated_from_bar = firstSource.index;
         bar.chords = firstSource.chords.map(cloneChord);
@@ -241,6 +289,7 @@ function resolveSpecialBars(bars) {
 
       const nextBar = bars[index + 1];
       if (nextBar && isEffectivelyEmptyBar(nextBar) && secondSource) {
+        preserveDisplayCellSlots(nextBar);
         nextBar.source_event = 'double_bar_repeat_followup';
         nextBar.repeated_from_bar = secondSource.index;
         nextBar.chords = secondSource.chords.map(cloneChord);
@@ -268,7 +317,6 @@ function resolveSpecialBars(bars) {
       }
 
       if (chord.root === 'p') {
-        pendingSlash = true;
         bar.special_events.push({ type: 'slash_display_marker' });
         continue;
       }
@@ -392,7 +440,7 @@ function decodeSong(song, index) {
   };
 
   const startSectionIfNeeded = (nextLabel) => {
-    const effectiveLabel = nextLabel || sectionLabel || 'untitled';
+    const effectiveLabel = nextLabel || sectionLabel || '';
     if (!currentSection || currentSection.label !== effectiveLabel) {
       flushSection();
       if (effectiveLabel !== sectionLabel) sectionOccurrence = 1;
@@ -505,12 +553,14 @@ function simplifyChord(chord) {
 }
 
 function summarizeBar(bar) {
+  const commentDirectives = bar.comment_directives || { directives: [], free_text: [] };
   return {
     index: bar.index,
     section: bar.section,
     chords: bar.chords.map(simplifyChord),
     overlay_chords: (bar.overlay_chords || []).map(simplifyChord),
     cell_slots: (bar.cell_slots || []).map(simplifyCellSlot),
+    display_cell_slots: (bar.display_cell_slots || []).map(simplifyCellSlot),
     source_event: bar.source_event || null,
     repeated_from_bar: bar.repeated_from_bar || null,
     endings: bar.annotations.endings || [],
@@ -519,8 +569,9 @@ function summarizeBar(bar) {
     flags: bar.inferred_flags || [],
     time_signature: bar.annotations.time_signature || null,
     spacer_count: bar.spacer_count || 0,
-    directives: bar.comment_directives?.directives || [],
-    comments: bar.comment_directives?.free_text || [],
+    directives: commentDirectives.directives || [],
+    comments: commentDirectives.free_text || [],
+    text_annotations: buildTextAnnotations(bar.cell_slots || [], commentDirectives.free_text || []),
     special_events: bar.special_events || []
   };
 }

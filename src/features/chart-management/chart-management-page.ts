@@ -97,7 +97,7 @@ let pendingDeleteSetlistId = '';
 const SETLIST_ITEM_DRAG_DELAY_MS = 240;
 const SETLIST_ITEM_TAP_DISTANCE_PX = 6;
 const LIBRARY_PREVIEW_ROW_HEIGHT_PX = 40;
-const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 8;
+const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 4;
 const CHART_MANAGEMENT_SESSION_CACHE_KEY = 'sharp-eleven-chart-management-session-cache-v1';
 const collapsedSetlistIds = new Set<string>();
 const filterState = createChartManagementFilterState();
@@ -280,20 +280,32 @@ function getActiveLibraryDeleteSourceName(): string {
 
 function getLibraryPreviewPageSize(): number {
   if (!dom.manageChartList) return libraryPreviewPageSize;
-  const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight;
+  const visualViewport = window.visualViewport;
+  const viewportBottom = visualViewport
+    ? visualViewport.offsetTop + visualViewport.height
+    : window.innerHeight || document.documentElement.clientHeight;
   const bodyRect = document.body?.getBoundingClientRect();
-  const bodyBottom = bodyRect ? Math.min(viewportHeight, bodyRect.bottom) : viewportHeight;
+  const bodyBottom = bodyRect ? Math.min(viewportBottom, bodyRect.bottom) : viewportBottom;
   const bodyStyle = document.body ? getComputedStyle(document.body) : null;
   const bodyPaddingBottom = bodyStyle ? Number.parseFloat(bodyStyle.paddingBottom) || 0 : 0;
   const listTop = dom.manageChartList.getBoundingClientRect().top;
-  const availableHeight = Math.max(0, bodyBottom - bodyPaddingBottom - listTop - LIBRARY_PREVIEW_BOTTOM_GAP_PX);
-  const rowHeight = Number.parseFloat(getComputedStyle(dom.manageChartList).getPropertyValue('--library-chart-row-height')) || LIBRARY_PREVIEW_ROW_HEIGHT_PX;
-  return Math.max(1, Math.floor(availableHeight / rowHeight));
+  const availableHeight = Math.max(
+    0,
+    bodyBottom - bodyPaddingBottom - listTop - LIBRARY_PREVIEW_BOTTOM_GAP_PX
+  );
+  const listStyle = getComputedStyle(dom.manageChartList);
+  const rowGap = Number.parseFloat(listStyle.rowGap) || 0;
+  const measuredRow = dom.manageChartList.querySelector<HTMLElement>(':scope > li');
+  const measuredRowHeight = measuredRow?.getBoundingClientRect().height || 0;
+  const rowHeight = Math.ceil(measuredRowHeight)
+    || Number.parseFloat(listStyle.getPropertyValue('--library-chart-row-height'))
+    || LIBRARY_PREVIEW_ROW_HEIGHT_PX;
+  return Math.max(1, Math.floor((availableHeight + rowGap) / (rowHeight + rowGap)));
 }
 
-function clampLibraryPreviewStart(documentsLength: number): number {
+function clampLibraryPreviewStart(documentsLength: number, pageSize = libraryPreviewPageSize): number {
   if (documentsLength <= 0) return 0;
-  const maxStart = Math.max(0, documentsLength - 1);
+  const maxStart = Math.max(0, documentsLength - Math.max(1, pageSize));
   return Math.min(Math.max(0, libraryPreviewStartIndex), maxStart);
 }
 
@@ -301,6 +313,56 @@ function goToLibraryPreviewPage(direction: -1 | 1) {
   const documents = getFilteredManageDocuments();
   libraryPreviewStartIndex = clampLibraryPreviewStart(documents.length) + direction * libraryPreviewPageSize;
   renderManageCharts();
+}
+
+function goToLibraryPreviewStart(documentsLength: number, startIndex: number, pageSize = libraryPreviewPageSize) {
+  libraryPreviewStartIndex = startIndex;
+  libraryPreviewStartIndex = clampLibraryPreviewStart(documentsLength, pageSize);
+  renderManageCharts();
+}
+
+function renderManageChartRows(documents: ChartDocument[], previewStart: number, previewEnd: number) {
+  if (!dom.manageChartList) return;
+  dom.manageChartList.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  const subtitleLinks: HTMLElement[] = [];
+  for (const chartDocument of documents.slice(previewStart, previewEnd)) {
+    const item = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = `home-list-link home-chart-entry ${getPageClassName('chart-row')}`;
+    row.dataset.chartId = chartDocument.metadata.id;
+    const content = document.createElement('a');
+    content.className = `home-chart-entry-link ${getPageClassName('chart-link')}`;
+    content.href = createChartHref(chartDocument);
+    content.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
+    const subtitle = getChartSubtitle(chartDocument);
+    if (subtitle) {
+      content.append(createTextElement('span', 'home-list-meta', subtitle));
+      subtitleLinks.push(content);
+    }
+    const menuButton = createChartEntryMenuButton(chartDocument, (target) => {
+      if (!isManageActionReady()) return;
+      chartEntryActions?.openMenu(target);
+    });
+    menuButton.disabled = !isManageActionReady();
+    if (!isManageActionReady()) {
+      menuButton.setAttribute('aria-label', `Loading actions for ${chartDocument.metadata.title || 'chart'}`);
+    }
+    row.append(content, menuButton);
+    item.append(row);
+    fragment.append(item);
+  }
+  dom.manageChartList.append(fragment);
+  if (subtitleLinks.length > 0) {
+    requestAnimationFrame(() => subtitleLinks.forEach(updateChartEntrySubtitleVisibility));
+  }
+}
+
+function createChartHref(chartDocument: ChartDocument): string {
+  const targetUrl = new URL('./chart/index.html', window.location.href);
+  targetUrl.searchParams.set('chart', chartDocument.metadata.id);
+  targetUrl.searchParams.set('from', activeMode);
+  return targetUrl.toString();
 }
 
 function scheduleLibraryPreviewLayout() {
@@ -341,13 +403,35 @@ function renderLibraryBatchSummary(
     : activeSourceName ? 'Review cleaning up the active source' : 'Review deleting all matching charts');
   actionButton.addEventListener('click', openLibraryDeleteReviewPanel);
 
-  const previewLabel = documents.length > 0
-    ? `${previewStart + 1}-${previewEnd} / ${documents.length}`
-    : 'Adjust filters';
   const previousButton = createButton('Prev', 'library-preview-page-action');
   previousButton.disabled = previewStart <= 0;
   previousButton.setAttribute('aria-label', 'Previous preview page');
   previousButton.addEventListener('click', () => goToLibraryPreviewPage(-1));
+  const maxPreviewStart = Math.max(0, documents.length - Math.max(1, pageSize));
+  const previewSlider = document.createElement('input');
+  previewSlider.className = 'library-preview-slider';
+  previewSlider.type = 'range';
+  previewSlider.min = '1';
+  previewSlider.max = String(maxPreviewStart + 1);
+  previewSlider.step = '1';
+  previewSlider.value = String(Math.min(maxPreviewStart + 1, previewStart + 1));
+  previewSlider.disabled = documents.length <= pageSize;
+  previewSlider.setAttribute('aria-label', 'Browse matching charts');
+  previewSlider.setAttribute('aria-valuetext', documents.length > 0
+    ? `Showing charts ${previewStart + 1} to ${previewEnd} of ${documents.length}`
+    : 'No matching charts');
+  previewSlider.addEventListener('input', () => {
+    const nextStart = Number.parseInt(previewSlider.value, 10) - 1;
+    const nextEnd = Math.min(documents.length, nextStart + pageSize);
+    libraryPreviewStartIndex = nextStart;
+    previewSlider.setAttribute('aria-valuetext', `Showing charts ${nextStart + 1} to ${nextEnd} of ${documents.length}`);
+    previousButton.disabled = nextStart <= 0;
+    nextButton.disabled = nextEnd >= documents.length;
+    renderManageChartRows(documents, nextStart, nextEnd);
+  });
+  previewSlider.addEventListener('change', () => {
+    goToLibraryPreviewStart(documents.length, Number.parseInt(previewSlider.value, 10) - 1, pageSize);
+  });
   const nextButton = createButton('Next', 'library-preview-page-action');
   nextButton.disabled = previewEnd >= documents.length;
   nextButton.setAttribute('aria-label', 'Next preview page');
@@ -355,10 +439,11 @@ function renderLibraryBatchSummary(
   const pager = document.createElement('div');
   pager.className = 'library-preview-pager';
   pager.hidden = documents.length <= pageSize;
-  pager.append(previousButton, nextButton);
+  pager.append(previousButton, previewSlider, nextButton);
   const previewRow = document.createElement('div');
   previewRow.className = 'library-batch-preview-row';
-  previewRow.append(createTextElement('span', 'library-batch-preview-label', previewLabel), pager);
+  previewRow.hidden = documents.length <= pageSize;
+  previewRow.append(pager);
   panel.append(countBlock, actionButton, previewRow);
   dom.manageLibrarySummary.append(panel);
 }
@@ -381,41 +466,10 @@ function renderManageCharts() {
   if (!dom.manageChartList) return;
   dom.manageChartList.toggleAttribute('hidden', documents.length === 0);
   libraryPreviewPageSize = documents.length > 0 ? getLibraryPreviewPageSize() : 1;
-  libraryPreviewStartIndex = clampLibraryPreviewStart(documents.length);
+  libraryPreviewStartIndex = clampLibraryPreviewStart(documents.length, libraryPreviewPageSize);
   const previewEnd = Math.min(documents.length, libraryPreviewStartIndex + libraryPreviewPageSize);
   renderLibraryBatchSummary(documents, libraryPreviewStartIndex, previewEnd, libraryPreviewPageSize);
-  dom.manageChartList.replaceChildren();
-  const fragment = document.createDocumentFragment();
-  const subtitleLinks: HTMLElement[] = [];
-  for (const chartDocument of documents.slice(libraryPreviewStartIndex, previewEnd)) {
-    const item = document.createElement('li');
-    const row = document.createElement('div');
-    row.className = `home-list-link home-chart-entry ${getPageClassName('chart-row')}`;
-    row.dataset.chartId = chartDocument.metadata.id;
-    const content = document.createElement('div');
-    content.className = `home-chart-entry-link ${getPageClassName('chart-link')}`;
-    content.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
-    const subtitle = getChartSubtitle(chartDocument);
-    if (subtitle) {
-      content.append(createTextElement('span', 'home-list-meta', subtitle));
-      subtitleLinks.push(content);
-    }
-    const menuButton = createChartEntryMenuButton(chartDocument, (target) => {
-      if (!isManageActionReady()) return;
-      chartEntryActions?.openMenu(target);
-    });
-    menuButton.disabled = !isManageActionReady();
-    if (!isManageActionReady()) {
-      menuButton.setAttribute('aria-label', `Loading actions for ${chartDocument.metadata.title || 'chart'}`);
-    }
-    row.append(content, menuButton);
-    item.append(row);
-    fragment.append(item);
-  }
-  dom.manageChartList.append(fragment);
-  if (subtitleLinks.length > 0) {
-    requestAnimationFrame(() => subtitleLinks.forEach(updateChartEntrySubtitleVisibility));
-  }
+  renderManageChartRows(documents, libraryPreviewStartIndex, previewEnd);
 }
 
 async function persistMetadataState({ documents, setlists }: { documents: ChartDocument[]; setlists: ChartSetlist[] }, statusMessage: string) {

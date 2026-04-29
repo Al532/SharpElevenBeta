@@ -661,7 +661,7 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   margin: clamp(1rem, 5vh, 2.2rem) 0 0;
 }
 
-.home-empty-import-button {
+.home-empty-import-panel {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -674,10 +674,14 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   background: color-mix(in srgb, var(--ui-accent) 13%, var(--ui-control-bg) 87%);
   color: var(--ui-text);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 28%, transparent 72%), var(--ui-control-shadow);
-  cursor: pointer;
   font: inherit;
   text-align: left;
+  text-decoration: none;
   transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.home-empty-import-button {
+  cursor: pointer;
 }
 
 .home-empty-import-button:focus,
@@ -690,6 +694,10 @@ input[type="search"]::-webkit-search-cancel-button:hover {
 .home-empty-import-button:active {
   background: color-mix(in srgb, var(--ui-accent) 22%, var(--ui-control-bg) 78%);
   transform: none;
+}
+
+.home-empty-import-static {
+  cursor: default;
 }
 
 .home-empty-import-icon {
@@ -712,6 +720,16 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   stroke-width: 2.15;
 }
 
+.home-empty-import-icon-loading svg {
+  animation: home-import-spin 1.35s linear infinite;
+}
+
+@keyframes home-import-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .home-empty-import-copy {
   display: grid;
   gap: 0.28rem;
@@ -730,6 +748,69 @@ input[type="search"]::-webkit-search-cancel-button:hover {
   font-size: clamp(0.86rem, 3.6vw, 0.98rem);
   font-weight: 650;
   line-height: 1.28;
+}
+
+.home-empty-import-actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.18rem;
+}
+
+.home-empty-import-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.15rem;
+  border: 0;
+  border-radius: var(--home-control-radius, var(--radius-sm));
+  padding: 0.48rem 0.72rem;
+  background: color-mix(in srgb, var(--ui-surface) 68%, transparent 32%);
+  color: var(--ui-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 14%, transparent 86%);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.home-empty-import-action-primary {
+  background: var(--ui-text);
+  color: var(--ui-bg);
+}
+
+.home-empty-import-action:focus,
+.home-empty-import-action:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ui-accent) 54%, transparent 46%);
+}
+
+.home-empty-import-action:active {
+  background: color-mix(in srgb, var(--ui-accent) 18%, var(--ui-surface) 82%);
+  color: var(--ui-text);
+}
+
+.home-empty-import-success {
+  background: color-mix(in srgb, var(--ui-accent-cool) 13%, var(--ui-control-bg) 87%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent-cool) 28%, transparent 72%), var(--ui-control-shadow);
+}
+
+.home-empty-import-success .home-empty-import-icon {
+  background: color-mix(in srgb, var(--ui-accent-cool) 16%, transparent 84%);
+  color: var(--ui-accent-cool);
+}
+
+.home-empty-import-error {
+  background: color-mix(in srgb, var(--ui-danger-bg) 28%, var(--ui-control-bg) 72%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-danger-text) 22%, transparent 78%), var(--ui-control-shadow);
+}
+
+.home-empty-import-error .home-empty-import-icon {
+  background: color-mix(in srgb, var(--ui-danger-bg) 45%, transparent 55%);
+  color: var(--ui-danger-text);
 }
 
 .home-status {
@@ -4366,6 +4447,22 @@ input[type="number"],
   line-height: 1.35;
 }
 
+.home-import-forum-link {
+  justify-self: start;
+  color: var(--ui-text-muted);
+  font-size: 0.88rem;
+  font-weight: 760;
+  line-height: 1.25;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.home-import-forum-link:hover,
+.home-import-forum-link:focus-visible {
+  color: var(--ui-text);
+}
+
 .home-import-popup .home-primary-action,
 .home-setlist-popup .home-primary-action {
   display: inline-flex;
@@ -5175,17 +5272,13 @@ input[type="number"]:focus {
 }
 
 .library-batch-preview-row {
-  display: flex;
+  display: block;
   grid-column: 1 / -1;
-  gap: 0.52rem;
-  align-items: center;
   min-width: 0;
 }
 
-.library-batch-preview-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
+.library-batch-preview-row[hidden] {
+  display: none;
 }
 
 .library-batch-action {
@@ -5216,7 +5309,7 @@ input[type="number"]:focus {
   cursor: default;
 }
 
-.library-chart-list {
+.library-body .home-list.library-chart-list {
   --library-chart-row-height: 40px;
   gap: 0;
   padding-left: 0;
@@ -5240,9 +5333,10 @@ input[type="number"]:focus {
 }
 
 .library-preview-pager {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 0.36rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  width: 100%;
+  gap: 0.58rem;
   align-items: center;
 }
 
@@ -5275,6 +5369,12 @@ input[type="number"]:focus {
 .library-preview-page-action:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.library-preview-slider {
+  width: 100%;
+  min-width: 0;
+  touch-action: none;
 }
 
 .library-chart-link {
@@ -6033,6 +6133,6 @@ input[type="number"]:focus {
   }
 
   .library-preview-pager {
-    display: flex;
+    display: grid;
   }
 }

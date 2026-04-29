@@ -126,6 +126,7 @@ function createEntry(bar, visitIndex) {
     flags: [...bar.flags],
     directives: JSON.parse(JSON.stringify(bar.directives)),
     comments: [...bar.comments],
+    textAnnotations: JSON.parse(JSON.stringify(bar.textAnnotations || [])),
     sourceEvent: bar.sourceEvent,
     repeatedFromBar: bar.repeatedFromBar,
     specialEvents: JSON.parse(JSON.stringify(bar.specialEvents || [])),

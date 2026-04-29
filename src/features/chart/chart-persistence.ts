@@ -670,7 +670,7 @@ export function loadPersistedPlaybackSettings({
 export function persistPlaybackSettings({
   playbackSettings = {},
   harmonyDisplayMode = 'default',
-  useChordSymbolV2 = true,
+  useChordSymbolV2 = false,
   useMajorTriangleSymbol = true,
   useHalfDiminishedSymbol = true,
   useDiminishedSymbol = true,

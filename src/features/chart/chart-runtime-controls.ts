@@ -20,6 +20,7 @@ type BindChartRuntimeControlsOptions = {
   stopButton?: HTMLButtonElement | null,
   clearSelectionButton?: HTMLButtonElement | null,
   sendSelectionToPracticeButton?: HTMLButtonElement | null,
+  exportChartPdfButton?: HTMLButtonElement | null,
   onSearch?: EventListener | null,
   onFixtureChange?: EventListener | null,
   onTransposeChange?: EventListener | null,
@@ -33,6 +34,7 @@ type BindChartRuntimeControlsOptions = {
   onStopClick?: EventListener | null,
   onClearSelection?: EventListener | null,
   onSendSelectionToPractice?: EventListener | null,
+  onExportChartPdf?: EventListener | null,
   onBeforeUnload?: EventListener | null
 };
 
@@ -62,6 +64,7 @@ export function bindChartRuntimeControls({
   stopButton,
   clearSelectionButton,
   sendSelectionToPracticeButton,
+  exportChartPdfButton,
   onSearch,
   onFixtureChange,
   onTransposeChange,
@@ -75,6 +78,7 @@ export function bindChartRuntimeControls({
   onStopClick,
   onClearSelection,
   onSendSelectionToPractice,
+  onExportChartPdf,
   onBeforeUnload
 }: BindChartRuntimeControlsOptions = {}) {
   chartSearchInput?.addEventListener('input', onSearch);
@@ -104,6 +108,7 @@ export function bindChartRuntimeControls({
   stopButton?.addEventListener('click', onStopClick);
   clearSelectionButton?.addEventListener('click', onClearSelection);
   sendSelectionToPracticeButton?.addEventListener('click', onSendSelectionToPractice);
+  exportChartPdfButton?.addEventListener('click', onExportChartPdf);
 
   window.addEventListener('beforeunload', onBeforeUnload);
 }

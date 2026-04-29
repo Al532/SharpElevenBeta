@@ -78,7 +78,11 @@ export function createChartLibraryImportFlow({
       dom.chartSearchInput.value = '';
     }
     state.currentSearch = '';
-    renderChartSelector(preferredId);
+    const currentChartId = String(state.currentChartDocument?.metadata?.id || '').trim();
+    const resolvedPreferredId = currentChartId && documents.some((document) => document.metadata?.id === currentChartId)
+      ? currentChartId
+      : preferredId;
+    renderChartSelector(resolvedPreferredId);
     if (renderSelectedChart) {
       renderFixture();
     }

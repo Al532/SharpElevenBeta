@@ -25,6 +25,7 @@ const LAYOUT_PIPELINE_STEP_NAMES = Object.freeze([
   'firstRowHeaderShift',
   'endingMargins',
   'annotationPlacement',
+  'sectionEndingCollision',
   'collisionOverlay'
 ]);
 
@@ -43,7 +44,9 @@ type CreateChartSheetRendererOptions = {
 };
 
 type RenderBarCellOptions = {
-  isRowStart?: boolean
+  isRowStart?: boolean,
+  slotSpan?: number,
+  sectionChanged?: boolean
 };
 
 type CollisionDebugBox = {
@@ -170,7 +173,7 @@ function runLayoutPipelineStep(stepName, callback) {
  * @param {{ bars?: any[], layout?: any }} viewModel
  * @param {(string | null)[]} barTimeSigDisplay
  * @param {number} defaultSlotsPerRow
- * @returns {Array<{ bars: any[], firstBar: any, previousBar: any, rowTimeSignature: string | null, leadingEmptyBars: number, totalSlots: number }>}
+ * @returns {Array<{ bars: any[], firstBar: any, previousBar: any, rowTimeSignature: string | null, leadingEmptySlots: number, totalSlots: number, usesRhythmicGrid: boolean }>}
  */
 function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
   const bars = Array.isArray(viewModel?.bars) ? viewModel.bars : [];
@@ -199,11 +202,9 @@ function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
         firstBar,
         previousBar: rowStartIndex > 0 ? bars[rowStartIndex - 1] : null,
         rowTimeSignature: rowStartIndex >= 0 ? (barTimeSigDisplay[rowStartIndex] || null) : null,
-        leadingEmptyBars: Math.max(0, Number(row?.leadingEmptyBars || 0)),
-        totalSlots: Math.max(
-          inferredSlotsPerRow,
-          Math.max(0, Number(row?.leadingEmptyBars || 0)) + resolvedBars.length
-        )
+        leadingEmptySlots: Math.max(0, Number(row?.leadingEmptyCells || row?.leadingEmptyBars || 0)),
+        totalSlots: Math.max(1, Number(row?.totalCells || row?.cellsPerRow || cellsPerRow || inferredSlotsPerRow)),
+        usesRhythmicGrid: true
       };
     }).filter((row) => row.firstBar);
   }
@@ -218,8 +219,9 @@ function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
       firstBar,
       previousBar: index > 0 ? bars[index - 1] : null,
       rowTimeSignature: barTimeSigDisplay[index] || null,
-      leadingEmptyBars: 0,
-      totalSlots: defaultSlotsPerRow
+      leadingEmptySlots: 0,
+      totalSlots: defaultSlotsPerRow,
+      usesRhythmicGrid: false
     });
   }
   return rows;
@@ -282,6 +284,22 @@ function isRepeatTokenKind(kind) {
 }
 
 /**
+ * @param {string} kind
+ * @returns {boolean}
+ */
+function isSlashMarkerTokenKind(kind) {
+  return kind === 'slash_marker';
+}
+
+/**
+ * @param {string} kind
+ * @returns {boolean}
+ */
+function isAlternateChordTokenKind(kind) {
+  return kind === 'alternate_chord';
+}
+
+/**
  * @param {any} token
  * @returns {string}
  */
@@ -298,6 +316,17 @@ function renderRepeatTokenMarkup(token) {
 }
 
 /**
+ * @returns {string}
+ */
+function renderSlashMarkerMarkup() {
+  return `
+    <svg class="chart-slash-marker" viewBox="0 0 24 32" aria-label="Slash" role="img">
+      <path d="M16.7 3.2C17.7 3.7 18.1 4.9 17.6 5.9L8.8 28.8C8.4 29.8 7.2 30.3 6.2 29.8C5.2 29.4 4.8 28.2 5.3 27.2L14.1 4.3C14.5 3.3 15.7 2.8 16.7 3.2Z" />
+    </svg>
+  `;
+}
+
+/**
  * @param {any} token
  * @param {{ start?: number, end?: number }} placement
  * @param {string} harmonyDisplayMode
@@ -305,22 +334,32 @@ function renderRepeatTokenMarkup(token) {
  * @returns {string}
  */
 function renderToken(token, placement, harmonyDisplayMode, renderChordMarkup) {
-  const tokenClass = isRepeatTokenKind(token?.kind) ? 'repeat' : 'chord';
+  const tokenClass = isRepeatTokenKind(token?.kind)
+    ? 'repeat'
+    : isSlashMarkerTokenKind(token?.kind)
+      ? 'slash-marker'
+      : isAlternateChordTokenKind(token?.kind)
+        ? 'alternate-chord'
+        : 'chord';
   const slotStart = Math.max(1, Number(placement?.start || 1));
   const slotEnd = Math.max(slotStart + 1, Number(placement?.end || (slotStart + 1)));
   const slotStyle = tokenClass === 'repeat'
     ? 'grid-column: 1 / -1;'
     : `grid-column: ${slotStart} / ${slotEnd};`;
-  const tokenMarkup = tokenClass === 'chord'
-    ? renderChordMarkup(token, harmonyDisplayMode)
-    : renderRepeatTokenMarkup(token);
+  const tokenMarkup = tokenClass === 'repeat'
+    ? renderRepeatTokenMarkup(token)
+    : tokenClass === 'slash-marker'
+      ? renderSlashMarkerMarkup()
+      : renderChordMarkup(token, harmonyDisplayMode);
   const alternateMarkup = token?.alternate?.symbol
     ? `<span class="chart-token-alternate">${renderChordMarkup(token.alternate, harmonyDisplayMode)}</span>`
     : '';
   const slotClass = tokenClass === 'repeat' ? 'chart-token-slot repeat-slot' : 'chart-token-slot';
+  const sourceCellIndex = Number.isInteger(token?.sourceCellIndex) ? ` data-source-cell-index="${Number(token.sourceCellIndex)}"` : '';
+  const sourceCellCount = Number.isInteger(token?.sourceCellCount) ? ` data-source-cell-count="${Number(token.sourceCellCount)}"` : '';
 
   return `
-    <span class="${slotClass}" style="${slotStyle}">
+    <span class="${slotClass}" style="${slotStyle}"${sourceCellIndex}${sourceCellCount}>
       <span class="chart-token ${tokenClass}">${alternateMarkup}${tokenMarkup}</span>
     </span>
   `;
@@ -334,8 +373,94 @@ function renderEndingMarkup(endings = []) {
   if (!Array.isArray(endings) || endings.length === 0) return '';
   return `
     <div class="chart-ending-stack">
-      ${endings.map((ending) => `<span class="chart-ending chart-ending-${ending}">${ending}.</span>`).join('')}
+      ${endings.map((ending) => `<span class="chart-ending chart-ending-${ending}"><span class="chart-ending-label">${ending}.</span></span>`).join('')}
     </div>
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderTextAnnotations(textAnnotations = []) {
+  if (!Array.isArray(textAnnotations) || textAnnotations.length === 0) return '';
+  return textAnnotations.map((annotation) => {
+    const sourceCellCount = Math.max(1, Number(annotation?.sourceCellCount || 4));
+    const sourceCellIndex = Math.max(0, Math.min(sourceCellCount - 1, Number(annotation?.sourceCellIndex || 0)));
+    const leftPercent = (sourceCellIndex / sourceCellCount) * 100;
+    const vertical = annotation?.vertical === 'above' ? 'above' : 'below';
+    const yOffset = Number.isFinite(Number(annotation?.yOffset)) ? ` data-y-offset="${Number(annotation.yOffset)}"` : '';
+    const offsetCode = annotation?.offsetCode ? ` data-offset-code="${escapeHtml(annotation.offsetCode)}"` : '';
+
+    return `<span class="chart-bar-text-annotation is-${vertical}" style="--chart-text-annotation-left: ${leftPercent.toFixed(3)}%;"${yOffset}${offsetCode}>${escapeHtml(annotation.text)}</span>`;
+  }).join('');
+}
+
+function renderCodaMarker() {
+  return `
+    <svg class="chart-bar-corner-marker-svg chart-bar-coda-svg" viewBox="-3 0 767 844" aria-label="Coda" role="img">
+      <path transform="translate(0 718) scale(1 -1)" d="M-3 301c0 10 3 19 14 19h106c9 151 120 271 249 282v103c0 10 9 13 20 13c10 0 19 -3 19 -13v-103c129 -11 241 -132 249 -282h96c11 0 14 -9 14 -19c0 -11 -3 -19 -14 -19h-96c-8 -150 -120 -272 -249 -282v-112c0 -11 -9 -14 -19 -14c-11 0 -20 3 -20 14v112c-129 10 -240 132 -249 282h-106c-11 0 -14 8 -14 19zM522 320c0 130 -5 227 -117 237v-237h117zM405 282v-244c100 12 115 121 117 244h-117zM253 320h113v237c-113 -10 -113 -107 -113 -237zM366 282h-113c1 -124 10 -232 113 -244v244z" />
+    </svg>
+  `;
+}
+
+function renderSegnoMarker() {
+  return `
+    <svg class="chart-bar-corner-marker-svg chart-bar-segno-svg" viewBox="0 0 448 836" aria-label="Segno" role="img">
+      <path transform="translate(0 607) scale(1 -1)" d="M16 382c-9 20 -13 40 -13 59c0 79 63 148 119 148c61 0 114 -21 114 -88c0 -35 -22 -54 -55 -54c-41 0 -53 47 -59 69l-1 6c-3 8 -8 10 -13 10h-5c-33 -6 -43 -28 -43 -50c0 -16 6 -33 11 -42c21 -36 142 -82 149 -85c3 -1 6 -2 8 -2c3 0 5 2 7 6c5 7 132 237 132 237c4 7 12 11 20 11c3 0 7 -1 11 -2c7 -4 12 -12 12 -20c0 -4 -1 -7 -4 -11c0 0 -124 -224 -128 -230c0 -2 -1 -3 -1 -5c0 -4 4 -7 13 -13c10 -4 136 -76 148 -164c1 -8 2 -16 2 -23c0 -75 -64 -145 -140 -145c-54 0 -90 46 -96 80c-1 4 -1 8 -1 11c0 32 27 45 57 52c3 1 6 1 10 1c22 0 42 -22 42 -52v-9c0 -25 14 -36 29 -36c1 0 4 1 5 1c26 4 45 24 45 56c0 76 -160 123 -172 125c-3 0 -9 -5 -9 -4c-3 -5 -127 -229 -127 -229c-4 -7 -12 -12 -20 -12c-4 0 -7 1 -11 4c-7 4 -11 12 -11 20c0 3 1 7 2 10c0 0 115 207 121 218c3 6 5 10 5 13s-2 5 -5 7c-6 2 -122 73 -148 132zM378 327c-25 0 -46 21 -46 46s21 45 46 45s45 -20 45 -45s-20 -46 -45 -46zM66 166c-24 0 -45 20 -45 45s21 46 45 46c26 0 46 -21 46 -46s-20 -45 -46 -45z" />
+    </svg>
+  `;
+}
+
+function renderFermataMarker() {
+  return `
+    <svg class="chart-bar-fermata-svg" viewBox="0 0 486 265" aria-label="Fermata" role="img">
+      <path transform="translate(0 663) scale(1 -1)" d="M242 577c-165 0 -201 -123 -211 -155c-1 -4 -1 -7 -2 -8c-5 -11 -9 -16 -16 -16s-11 2 -11 10c0 2 0 6 1 9c49 245 215 246 240 246c23 0 191 -1 240 -246c1 -3 1 -6 1 -8c0 -8 -4 -11 -11 -11c-8 0 -11 5 -17 16c-1 1 -1 4 -2 6c-8 30 -42 157 -212 157zM286 442c0 -24 -20 -44 -44 -44c-23 0 -43 20 -43 44c0 23 20 43 43 43c24 0 44 -20 44 -43z" />
+    </svg>
+  `;
+}
+
+function renderRepeatDotsMarker() {
+  return `
+    <svg class="chart-repeat-dots-svg" viewBox="0 0 2 8" focusable="false" aria-hidden="true">
+      <circle cx="1" cy="1" r="1" />
+      <circle cx="1" cy="7" r="1" />
+    </svg>
+  `;
+}
+
+function getBarAnnotationCellIndex(bar, annotation) {
+  const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
+  return cellSlots.findIndex((cellSlot) => Array.isArray(cellSlot?.annots) && cellSlot.annots.includes(annotation));
+}
+
+function getBarAnnotationPosition(bar, annotation) {
+  const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
+  const markerIndex = getBarAnnotationCellIndex(bar, annotation);
+  if (markerIndex < 0) return 'start';
+  const markerCell = cellSlots[markerIndex] || {};
+  const markerBars = String(markerCell.bars || '');
+  if (/[\)\]\}Z]/.test(markerBars)) return 'end';
+  return markerIndex >= Math.max(1, cellSlots.length - 1) ? 'end' : 'start';
+}
+
+function renderFermataForBar(bar) {
+  if (!bar.flags.includes('fermata')) return '';
+  const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
+  const cellCount = Math.max(1, cellSlots.length || 4);
+  const cellIndex = getBarAnnotationCellIndex(bar, 'f');
+  const markerIndex = cellIndex >= 0 ? cellIndex : 0;
+  const leftPercent = ((markerIndex + 0.5) / cellCount) * 100;
+
+  return `
+    <span class="chart-bar-fermata-marker" data-fermata-cell-index="${markerIndex}" style="--chart-fermata-left: ${leftPercent.toFixed(3)}%;">
+      ${renderFermataMarker()}
+    </span>
   `;
 }
 
@@ -346,16 +471,14 @@ function renderEndingMarkup(endings = []) {
 function renderBarCornerMarkers(bar) {
   const markers = [];
   if (bar.flags.includes('coda')) {
-    markers.push('<span class="chart-bar-corner-marker chart-bar-coda-marker" aria-label="Coda">&#119052;</span>');
+    const position = getBarAnnotationPosition(bar, 'Q');
+    markers.push(`<span class="chart-bar-corner-marker chart-bar-coda-marker is-${position}" aria-label="Coda">${renderCodaMarker()}</span>`);
   }
   if (bar.flags.includes('segno')) {
-    markers.push('<span class="chart-bar-corner-marker chart-bar-segno-marker" aria-label="Segno">&#119074;</span>');
-  }
-  if (bar.flags.includes('fermata')) {
-    markers.push('<span class="chart-bar-corner-marker chart-bar-fermata-marker" aria-label="Fermata">&#119133;</span>');
+    markers.push(`<span class="chart-bar-corner-marker chart-bar-segno-marker" aria-label="Segno">${renderSegnoMarker()}</span>`);
   }
   if (markers.length === 0) return '';
-  return `<div class="chart-bar-corner-markers">${markers.join('')}</div>`;
+  return markers.join('');
 }
 
 /**
@@ -411,20 +534,29 @@ function formatDirectiveLabel(directive) {
 
 /**
  * @param {{ flags: string[], directives?: any[], comments?: string[] }} bar
- * @returns {string[]}
+ * @returns {Array<{ text: string, kind: 'text' }>}
  */
 function getBarFootPills(bar) {
   const pills = [];
-  if (bar.flags.includes('fine')) pills.push('Fine');
-  if (bar.flags.includes('dc')) pills.push('D.C.');
-  if (bar.flags.includes('ds')) pills.push('D.S.');
-  if (bar.flags.includes('coda')) pills.push('Coda');
-  if (bar.flags.includes('segno')) pills.push('Segno');
-  if (bar.flags.includes('fermata')) pills.push('Fermata');
-  if (bar.flags.includes('end')) pills.push('End');
-  if (bar.flags.includes('final_bar')) pills.push('Final bar');
-  if (bar.directives?.length) pills.push(...bar.directives.map(formatDirectiveLabel).filter(Boolean));
-  if (bar.comments?.length) pills.push(...bar.comments);
+  const directives = Array.isArray(bar.directives) ? bar.directives : [];
+  const directiveTypes = directives.map((directive) => directive?.type).filter(Boolean);
+  const hasDirectiveType = (...types) => directiveTypes.some((type) => types.includes(type));
+  const hasFineDirective = hasDirectiveType('fine', 'dc_al_fine', 'ds_al_fine');
+  const hasDcDirective = hasDirectiveType('dc_al_fine', 'dc_al_coda', 'dc_al_ending', 'dc_on_cue');
+  const hasDsDirective = hasDirectiveType('ds_al_fine', 'ds_al_coda', 'ds_al_ending');
+
+  if (bar.flags.includes('fine') && !hasFineDirective) pills.push({ text: 'Fine', kind: 'text' });
+  if (bar.flags.includes('dc') && !hasDcDirective) pills.push({ text: 'D.C.', kind: 'text' });
+  if (bar.flags.includes('ds') && !hasDsDirective) pills.push({ text: 'D.S.', kind: 'text' });
+  if (bar.flags.includes('fermata')) pills.push({ text: 'Fermata', kind: 'text' });
+  if (directives.length) {
+    pills.push(...directives
+      .map((directive) => ({ text: formatDirectiveLabel(directive), kind: 'text' }))
+      .filter((pill) => Boolean(pill.text)));
+  }
+  if (bar.comments?.length && !bar.textAnnotations?.length) {
+    pills.push(...bar.comments.map((text) => ({ text, kind: 'text' })));
+  }
   return pills;
 }
 
@@ -434,6 +566,32 @@ function getBarFootPills(bar) {
  * @returns {{ logicalSlots: number, placements: Array<{ start: number, end: number }> } | null}
  */
 function getCellSlotPlacements(bar, tokenCount) {
+  const tokens = Array.isArray(bar?.displayTokens) ? bar.displayTokens : [];
+  const sourceCellCount = Number(tokens.find(token => Number.isInteger(token?.sourceCellCount))?.sourceCellCount || 0);
+  const sourceCellPlacements = tokens.map((token) => Number.isInteger(token?.sourceCellIndex)
+    ? Number(token.sourceCellIndex)
+    : null);
+
+  if (
+    sourceCellCount > 0
+    && sourceCellPlacements.length === tokenCount
+    && tokens.every((token, index) => {
+      const slotIndex = sourceCellPlacements[index];
+      return isRepeatTokenKind(token?.kind)
+        || (Number.isInteger(slotIndex) && Number(slotIndex) >= 0 && Number(slotIndex) < sourceCellCount);
+    })
+  ) {
+    return {
+      logicalSlots: sourceCellCount,
+      placements: sourceCellPlacements.map((slotIndex, index) => isRepeatTokenKind(tokens[index]?.kind)
+        ? { start: 1, end: sourceCellCount + 1 }
+        : {
+            start: Number(slotIndex) + 1,
+            end: Number(slotIndex) + 2
+          })
+    };
+  }
+
   const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
   if (cellSlots.length === 0) return null;
 
@@ -533,9 +691,31 @@ function getBarBodyLayout(bar, fallbackTimeSignature = '') {
   };
 }
 
-/** @returns {string} */
-function renderEmptyBarCell() {
-  return '<article class="chart-bar-cell is-empty" aria-hidden="true"><span class="chart-bar-cell-highlight"></span></article>';
+function getBarRhythmicSlotCount(bar, fallback = 1) {
+  const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
+  if (cellSlots.length > 0) return Math.max(1, cellSlots.length);
+
+  const displayTokens = Array.isArray(bar?.displayTokens) ? bar.displayTokens : [];
+  const sourceCellCount = Number(displayTokens.find(token => Number.isInteger(token?.sourceCellCount))?.sourceCellCount || 0);
+  return Math.max(1, Number.isFinite(sourceCellCount) && sourceCellCount > 0 ? sourceCellCount : fallback);
+}
+
+function isGraphicSpacerBar(bar) {
+  const hasDisplayTokens = Array.isArray(bar?.displayTokens) && bar.displayTokens.length > 0;
+  const hasPlaybackSlots = Array.isArray(bar?.playbackSlots) && bar.playbackSlots.length > 0;
+  const hasPlaybackObjectSlots = Array.isArray(bar?.playback?.slots) && bar.playback.slots.length > 0;
+  return !hasDisplayTokens
+    && !hasPlaybackSlots
+    && !hasPlaybackObjectSlots
+    && getBarRhythmicSlotCount(bar, 0) > 0;
+}
+
+/**
+ * @param {number} [slotSpan]
+ * @returns {string}
+ */
+function renderEmptyBarCell(slotSpan = 1) {
+  return `<article class="chart-bar-cell is-empty" style="grid-column: span ${Math.max(1, Number(slotSpan || 1))};" aria-hidden="true"><span class="chart-bar-cell-highlight"></span></article>`;
 }
 
 /**
@@ -813,11 +993,11 @@ function getBarBodyMeasureBounds(barBodyEl) {
   if (!cellEl) return { left: fallbackRect.left, right: fallbackRect.right };
 
   const cellRect = cellEl.getBoundingClientRect();
-  const rightLineWidth = getPseudoPx(cellEl, '::before', 'border-right-width');
-  const leftLineWidth = cellEl.classList.contains('is-row-start')
-    ? getPseudoPx(cellEl, '::after', 'border-left-width')
+  const rightLineWidth = getPseudoPx(cellEl, '::before', 'width');
+  const leftLineWidth = (cellEl.classList.contains('is-row-start') || cellEl.classList.contains('is-repeat-start'))
+    ? getPseudoPx(cellEl, '::after', 'width')
     : 0;
-  const repeatDotsWidth = cellEl.classList.contains('is-repeat-end') ? 10 : 0;
+  const repeatDotsWidth = cellEl.classList.contains('is-repeat-end') ? 4 : 0;
   const finalBarWidth = cellEl.classList.contains('is-final')
     ? getPseudoPx(cellEl, '::after', 'width')
     : 0;
@@ -1115,6 +1295,8 @@ function setTokenOffset(tokenEl, offsetPx) {
 function applySingleChordAnchor(barBodyEl) {
   const slots: HTMLElement[] = Array.from(barBodyEl.querySelectorAll('.chart-token-slot')) as HTMLElement[];
   if (slots.length !== 1) return;
+  const sourceCellIndex = Number(slots[0].dataset.sourceCellIndex);
+  const isFirstBeatSingleChord = Number.isInteger(sourceCellIndex) && sourceCellIndex === 0;
   const tokenEl: HTMLElement | null = slots[0].querySelector('.chart-token') as HTMLElement | null;
   if (!tokenEl) return;
   tokenEl.style.removeProperty('--chart-token-offset-x');
@@ -1130,7 +1312,11 @@ function applySingleChordAnchor(barBodyEl) {
   const leftBound = measureBounds.left;
   const rightBound = measureBounds.right;
   const availableWidth = Math.max(0, rightBound - leftBound);
-  const bias = Math.max(0, Math.min(1, Number(CHART_DISPLACEMENT_CONFIG.singleChordLeftBias || 0)));
+  // Temporary visual rule: first-beat single-chord bars need a stronger left anchor.
+  // We should revisit this with the broader beat-placement model instead of keeping it as a one-off.
+  const configuredBias = Number(CHART_DISPLACEMENT_CONFIG.singleChordLeftBias || 0);
+  const rawBias = isFirstBeatSingleChord ? Math.min(configuredBias, 0.08) : configuredBias;
+  const bias = Math.max(0, Math.min(1, rawBias));
   const anchoredLeft = leftBound + (availableWidth * bias);
   const maxOffsetPx = getMaxOffsetPx(tokenEl);
 
@@ -1164,7 +1350,7 @@ function applySingleChordAnchor(barBodyEl) {
  */
 function getRowChordVisualBounds(rowEl) {
   const visualElements: HTMLElement[] = Array.from(rowEl.querySelectorAll(
-    '.chart-bar-body .chart-token, .chart-foot-pill, .chart-bar-corner-marker'
+    '.chart-bar-body .chart-token, .chart-foot-pill, .chart-bar-corner-marker, .chart-repeat-dots, .chart-bar-text-annotation, .chart-inline-section-marker'
   )) as HTMLElement[];
   const elementRects = visualElements
     .map((element) => element.getBoundingClientRect())
@@ -1180,13 +1366,6 @@ function getRowChordVisualBounds(rowEl) {
       rects.push({
         top: cellRect.top + lineTop,
         bottom: cellRect.top + lineTop + lineHeight
-      });
-    }
-    if (barCellEl.classList.contains('is-repeat-end')) {
-      const repeatTop = cellRect.top + (cellRect.height / 2) - 10 + 2;
-      rects.push({
-        top: repeatTop,
-        bottom: repeatTop + 20
       });
     }
     return rects;
@@ -1239,6 +1418,72 @@ function applyEndingCollisionMargins(rowElements) {
     const previousMargin = parseFloat(getComputedStyle(rowElements[index]).marginTop) || 0;
     rowElements[index].style.marginTop = `${Math.ceil(previousMargin + overflow)}px`;
   }
+}
+
+function getRectOverlapWidth(left, right) {
+  return Math.max(0, Math.min(left.right, right.right) - Math.max(left.left, right.left));
+}
+
+function getRectOverlapHeight(left, right) {
+  return Math.max(0, Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top));
+}
+
+function getSectionEndingCollisionScore(sectionRect, endingRects, dx, dy) {
+  const shifted = getShiftedRect(sectionRect, dx, dy);
+  const collisionScore = endingRects.reduce((score, endingRect) => {
+    const overlapWidth = getRectOverlapWidth(shifted, endingRect);
+    const overlapHeight = getRectOverlapHeight(shifted, endingRect);
+    return score + (overlapWidth * overlapHeight * 30);
+  }, 0);
+  const movementScore = (Math.abs(dx) * 0.35) + (Math.abs(dy) * 0.18);
+  return collisionScore + movementScore;
+}
+
+function findBestSectionMarkerShift(sectionMarker, endingRects) {
+  sectionMarker.style.removeProperty('--chart-section-marker-shift-x');
+  sectionMarker.style.removeProperty('--chart-section-marker-shift-y');
+
+  const sectionBadge = sectionMarker.querySelector('.chart-section-badge') as HTMLElement | null;
+  if (!sectionBadge || endingRects.length === 0) return { dx: 0, dy: 0 };
+
+  const sectionRect = sectionBadge.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) return { dx: 0, dy: 0 };
+
+  const horizontalOffsets = [0, -8, -16, -24, -32, 8, 16];
+  const verticalOffsets = [0, -8, -16, -24, -32, 8, 16];
+  let best = { dx: 0, dy: 0, score: Number.POSITIVE_INFINITY };
+
+  for (const dx of horizontalOffsets) {
+    for (const dy of verticalOffsets) {
+      const score = getSectionEndingCollisionScore(sectionRect, endingRects, dx, dy);
+      if (score < best.score) best = { dx, dy, score };
+    }
+  }
+
+  return best;
+}
+
+function applySectionEndingCollisionPlacements(rowElements) {
+  rowElements.forEach((rowEl) => {
+    const sectionMarker = rowEl.querySelector('.chart-section-marker') as HTMLElement | null;
+    if (!sectionMarker) return;
+    sectionMarker.style.removeProperty('--chart-section-marker-shift-x');
+    sectionMarker.style.removeProperty('--chart-section-marker-shift-y');
+  });
+
+  rowElements.forEach((rowEl) => {
+    const sectionMarker = rowEl.querySelector('.chart-section-marker') as HTMLElement | null;
+    if (!sectionMarker) return;
+
+    const endingRects = getRowEndingElements(rowEl)
+      .map((element) => element.getBoundingClientRect())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    if (endingRects.length === 0) return;
+
+    const { dx, dy } = findBestSectionMarkerShift(sectionMarker, endingRects);
+    sectionMarker.style.setProperty('--chart-section-marker-shift-x', `${dx.toFixed(2)}px`);
+    sectionMarker.style.setProperty('--chart-section-marker-shift-y', `${dy.toFixed(2)}px`);
+  });
 }
 
 /**
@@ -1403,6 +1648,146 @@ function applyBarBodyDisplacements() {
 }
 
 /**
+ * @returns {void}
+ */
+function applyFermataPlacements() {
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-cell')).forEach((barCellEl) => {
+    const fermataEl = barCellEl.querySelector<HTMLElement>('.chart-bar-fermata-marker');
+    if (!fermataEl) return;
+
+    const markerCellIndex = Number(fermataEl.dataset.fermataCellIndex);
+    if (!Number.isInteger(markerCellIndex)) return;
+
+    const barRect = barCellEl.getBoundingClientRect();
+    const matchingSlot = Array.from(barCellEl.querySelectorAll<HTMLElement>('.chart-token-slot'))
+      .find((slotEl) => Number(slotEl.dataset.sourceCellIndex) === markerCellIndex);
+    if (!matchingSlot) return;
+
+    const mainEl = matchingSlot.querySelector<HTMLElement>('.chord-symbol-main');
+    const anchorEl = mainEl || matchingSlot.querySelector<HTMLElement>('.chart-token');
+    if (!anchorEl) return;
+
+    const anchorRect = anchorEl.getBoundingClientRect();
+    if (anchorRect.width <= 0) return;
+
+    fermataEl.style.setProperty('--chart-fermata-left', `${(anchorRect.left + (anchorRect.width / 2) - barRect.left).toFixed(2)}px`);
+  });
+}
+
+function getShiftedRect(rect, dx, dy) {
+  return {
+    left: rect.left + dx,
+    right: rect.right + dx,
+    top: rect.top + dy,
+    bottom: rect.bottom + dy,
+    width: rect.width,
+    height: rect.height
+  };
+}
+
+function getRectOverlapArea(left, right) {
+  const overlapWidth = Math.max(0, Math.min(left.right, right.right) - Math.max(left.left, right.left));
+  const overlapHeight = Math.max(0, Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top));
+  return overlapWidth * overlapHeight;
+}
+
+function getRectOverflowPenalty(rect, bounds) {
+  const overflow =
+    Math.max(0, bounds.left - rect.left)
+    + Math.max(0, rect.right - bounds.right)
+    + Math.max(0, bounds.top - rect.top)
+    + Math.max(0, rect.bottom - bounds.bottom);
+  return overflow * overflow * 4;
+}
+
+function getBarLineRect(barCellEl) {
+  const cellRect = barCellEl.getBoundingClientRect();
+  const computed = getComputedStyle(barCellEl);
+  const lineTop = parseFiniteNumber(computed.getPropertyValue('--chart-bar-line-top'));
+  const lineHeight = parseFiniteNumber(computed.getPropertyValue('--chart-bar-line-height'));
+  if (cellRect.width <= 0 || lineHeight <= 0) return null;
+  return {
+    left: cellRect.left,
+    right: cellRect.right,
+    top: cellRect.top + lineTop,
+    bottom: cellRect.top + lineTop + lineHeight
+  };
+}
+
+function getCodaObstacleRects(barCellEl, codaEl) {
+  const selector = [
+    '.chart-bar-body .chart-token',
+    '.chart-ending-stack',
+    '.chart-bar-text-annotation',
+    '.chart-bar-fermata-marker',
+    '.chart-repeat-dots',
+    '.chart-bar-segno-marker'
+  ].join(', ');
+  const obstacleRects = (Array.from(barCellEl.querySelectorAll(selector)) as HTMLElement[])
+    .filter((element) => element !== codaEl && !codaEl.contains(element))
+    .map((element) => element.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .map((rect) => ({
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom
+    }));
+  const lineRect = getBarLineRect(barCellEl);
+  if (lineRect) obstacleRects.push(lineRect);
+  return obstacleRects;
+}
+
+function scoreCodaPlacement(rect, obstacles, bounds, dx, dy) {
+  const collisionPenalty = obstacles.reduce((score, obstacle) =>
+    score + (getRectOverlapArea(rect, obstacle) * 24), 0);
+  const movementPenalty = (Math.abs(dx) * 0.16) + (Math.abs(dy) * 0.1);
+  return collisionPenalty + getRectOverflowPenalty(rect, bounds) + movementPenalty;
+}
+
+function findBestCodaShift(codaEl, barCellEl) {
+  codaEl.style.removeProperty('--chart-corner-marker-shift-x');
+  codaEl.style.removeProperty('--chart-corner-marker-shift-y');
+
+  const baseRect = codaEl.getBoundingClientRect();
+  if (baseRect.width <= 0 || baseRect.height <= 0) return { dx: 0, dy: 0 };
+
+  const barRect = barCellEl.getBoundingClientRect();
+  const bounds = {
+    left: barRect.left - 18,
+    right: barRect.right + 18,
+    top: barRect.top - 36,
+    bottom: barRect.bottom + 18
+  };
+  const obstacles = getCodaObstacleRects(barCellEl, codaEl);
+  const horizontalOffsets = codaEl.classList.contains('is-end')
+    ? [-24, -16, -8, 0, 8]
+    : [-8, 0, 8, 16, 24];
+  const verticalOffsets = [-30, -22, -14, -8, 0, 8, 14];
+  let best = { dx: 0, dy: 0, score: Number.POSITIVE_INFINITY };
+
+  for (const dx of horizontalOffsets) {
+    for (const dy of verticalOffsets) {
+      const candidateRect = getShiftedRect(baseRect, dx, dy);
+      const score = scoreCodaPlacement(candidateRect, obstacles, bounds, dx, dy);
+      if (score < best.score) best = { dx, dy, score };
+    }
+  }
+
+  return best;
+}
+
+function applyCodaPlacements() {
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-coda-marker')).forEach((codaEl) => {
+    const barCellEl = codaEl.closest('.chart-bar-cell') as HTMLElement | null;
+    if (!barCellEl) return;
+    const { dx, dy } = findBestCodaShift(codaEl, barCellEl);
+    codaEl.style.setProperty('--chart-corner-marker-shift-x', `${dx.toFixed(2)}px`);
+    codaEl.style.setProperty('--chart-corner-marker-shift-y', `${dy.toFixed(2)}px`);
+  });
+}
+
+/**
  * @param {HTMLElement} rowEl
  * @returns {HTMLElement[]}
  */
@@ -1526,6 +1911,14 @@ function applyRowBarResizing() {
 
   let maxWeightChange = 0;
   Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
+    if (rowEl.classList.contains('uses-rhythmic-grid')) {
+      if (rowEl.style.gridTemplateColumns) {
+        rowEl.style.removeProperty('grid-template-columns');
+        maxWeightChange = Math.max(maxWeightChange, 1);
+      }
+      return;
+    }
+
     const previousWeights = rowEl.style.gridTemplateColumns.match(/([0-9.]+)fr/g)
       ?.map((part) => Number.parseFloat(part)) || [];
     const factors = getNeutralRowResizeFactors(rowEl);
@@ -1600,6 +1993,10 @@ function resetOpticalPlacementStyles() {
   Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-cell')).forEach((barCellEl) => {
     barCellEl.style.removeProperty('--chart-bar-line-top');
   });
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-section-marker')).forEach((markerEl) => {
+    markerEl.style.removeProperty('--chart-section-marker-shift-x');
+    markerEl.style.removeProperty('--chart-section-marker-shift-y');
+  });
   Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-body')).forEach((barBodyEl) => {
     barBodyEl.style.removeProperty('font-size');
     delete barBodyEl.dataset.chartLocalScale;
@@ -1614,6 +2011,13 @@ function resetOpticalPlacementStyles() {
       tokenEl.style.removeProperty('--chart-token-scale-y');
       tokenEl.style.removeProperty('--chart-chord-root-scale-x');
     });
+  });
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-fermata-marker')).forEach((fermataEl) => {
+    fermataEl.style.removeProperty('--chart-fermata-left');
+  });
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-corner-marker')).forEach((markerEl) => {
+    markerEl.style.removeProperty('--chart-corner-marker-shift-x');
+    markerEl.style.removeProperty('--chart-corner-marker-shift-y');
   });
 }
 
@@ -1851,23 +2255,40 @@ export function createChartSheetRenderer({
   isBarActive,
   isBarSelected
 }: CreateChartSheetRendererOptions = {}) {
-  function renderBarCell(bar, options: RenderBarCellOptions = {}) {
+function renderBarCell(bar, options: RenderBarCellOptions = {}) {
     const classes = ['chart-bar-cell'];
+    const isGraphicSpacer = isGraphicSpacerBar(bar);
     if (isBarActive?.(bar)) classes.push('is-active');
     if (isBarSelected?.(bar)) classes.push('is-selected');
+    if (isGraphicSpacer) classes.push('is-graphic-spacer');
+    if (bar.flags.includes('section_start_barline')) classes.push('is-section-start');
+    if (bar.flags.includes('section_end_barline')) classes.push('is-section-end');
+    if (bar.flags.includes('repeat_start_barline')) classes.push('is-repeat-start');
     if (bar.flags.includes('repeat_end_barline')) classes.push('is-repeat-end');
     if (bar.flags.includes('final_bar') || bar.flags.includes('end')) classes.push('is-final');
-    if (options.isRowStart) classes.push('is-row-start');
+    if (options.isRowStart && !isGraphicSpacer) classes.push('is-row-start');
+    if (bar.endings?.length && bar.displayTokens?.some((token) => token?.kind === 'alternate_chord' || token?.alternate?.symbol)) {
+      classes.push('has-ending-alternate-collision');
+    }
 
     const footPills = getBarFootPills(bar);
     const bodyLayout = getBarBodyLayout(bar, getFallbackTimeSignature?.() || '');
     const harmonyDisplayMode = getHarmonyDisplayMode?.() || 'default';
+    const slotSpan = Math.max(1, Number(options.slotSpan || 1));
+    const sectionMarker = options.sectionChanged && bar.sectionLabel
+      ? `<span class="chart-inline-section-marker"><span class="chart-section-badge">${bar.sectionLabel}</span></span>`
+      : '';
 
     return `
-      <article class="${classes.join(' ')}" data-bar-id="${bar.id}" data-bar-index="${bar.index}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
+      <article class="${classes.join(' ')}" style="grid-column: span ${slotSpan};" data-bar-id="${bar.id}" data-bar-index="${bar.index}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
         <span class="chart-bar-cell-highlight" aria-hidden="true"></span>
+        ${sectionMarker}
+        ${bar.flags.includes('repeat_start_barline') ? `<span class="chart-repeat-dots chart-repeat-dots-start" aria-hidden="true">${renderRepeatDotsMarker()}</span>` : ''}
+        ${bar.flags.includes('repeat_end_barline') ? `<span class="chart-repeat-dots chart-repeat-dots-end" aria-hidden="true">${renderRepeatDotsMarker()}</span>` : ''}
         ${renderEndingMarkup(bar.endings)}
         ${renderBarCornerMarkers(bar)}
+        ${renderFermataForBar(bar)}
+        ${renderTextAnnotations(bar.textAnnotations)}
         <div class="chart-bar-head">
           <span class="chart-bar-index">${bar.index}</span>
         </div>
@@ -1875,7 +2296,7 @@ export function createChartSheetRenderer({
           ${bar.displayTokens.map((token, index) => renderToken(token, bodyLayout.placements[index], harmonyDisplayMode, renderChordMarkup)).join('')}
         </div>
         <div class="chart-bar-foot">
-          ${footPills.map((pill) => `<span class="chart-foot-pill">${pill}</span>`).join('')}
+          ${footPills.map((pill) => `<span class="chart-foot-pill chart-foot-${pill.kind}">${escapeHtml(pill.text)}</span>`).join('')}
         </div>
       </article>
     `;
@@ -1899,14 +2320,27 @@ export function createChartSheetRenderer({
       barTimeSigDisplay,
       getDisplayedBarGroupSize?.() || CHART_LAYOUT_CONFIG.barsPerRow
     ).map((row) => {
-      const sectionChanged = !row.previousBar || row.previousBar.sectionId !== row.firstBar.sectionId;
+      const sectionChanged = Boolean(row.firstBar.sectionLabel)
+        && (!row.previousBar || row.previousBar.sectionId !== row.firstBar.sectionId);
+      let previousBarInRow = row.previousBar || null;
       const cells = [
-        ...Array.from({ length: row.leadingEmptyBars }, () => renderEmptyBarCell()),
-        ...row.bars.map((bar, index) => renderBarCell(bar, { isRowStart: index === 0 }))
+        ...(row.leadingEmptySlots > 0 ? [renderEmptyBarCell(row.leadingEmptySlots)] : []),
+        ...row.bars.map((bar, index) => {
+          const barSectionChanged = Boolean(bar.sectionLabel)
+            && previousBarInRow
+            && previousBarInRow.sectionId !== bar.sectionId;
+          const markup = renderBarCell(bar, {
+            isRowStart: index === 0,
+            slotSpan: row.usesRhythmicGrid ? getBarRhythmicSlotCount(bar, 1) : 1,
+            sectionChanged: index > 0 && barSectionChanged
+          });
+          previousBarInRow = bar;
+          return markup;
+        })
       ];
 
       return `
-        <div class="chart-row${sectionChanged ? ' has-section-marker' : ''}" style="--chart-row-columns: ${row.totalSlots};">
+        <div class="chart-row${sectionChanged ? ' has-section-marker' : ''}${row.usesRhythmicGrid ? ' uses-rhythmic-grid' : ''}" style="--chart-row-columns: ${row.totalSlots};">
           ${row.rowTimeSignature ? renderBarTimeSignature(row.rowTimeSignature) : ''}
           <div class="chart-section-marker">
             ${sectionChanged ? `<span class="chart-section-badge">${row.firstBar.sectionLabel}</span>` : '<span class="chart-section-spacer"></span>'}
@@ -1977,6 +2411,7 @@ export function createChartSheetRenderer({
     runLayoutPipelineStep('endingMargins', () => applyEndingCollisionMargins(rowElementList));
     const rowChordBounds = rowElementList.map((element) => getRowChordVisualBounds(element));
     runLayoutPipelineStep('annotationPlacement', () => applyRowAnnotationPlacements(rowElementList, rowChordBounds));
+    runLayoutPipelineStep('sectionEndingCollision', () => applySectionEndingCollisionPlacements(rowElementList));
     runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));
   }
 
@@ -2003,6 +2438,8 @@ export function createChartSheetRenderer({
     runLayoutPipelineStep('compression', () => applyBarBodyCompression(textScaleCompensation));
     void document.documentElement.offsetHeight;
     runLayoutPipelineStep('postCompressionDisplacement', applyBarBodyDisplacements);
+    applyFermataPlacements();
+    applyCodaPlacements();
     if (sheetGrid) runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));
   }
 

@@ -180,6 +180,60 @@ function normalizeChordSlot(chord) {
   };
 }
 
+function withSourceCellPlacement(token, sourceCellIndex, sourceCellCount) {
+  return {
+    ...token,
+    sourceCellIndex,
+    sourceCellCount
+  };
+}
+
+function createSlashMarkerToken(sourceCellIndex, sourceCellCount) {
+  return withSourceCellPlacement({
+    kind: 'slash_marker',
+    symbol: '/',
+    displayOnly: true
+  }, sourceCellIndex, sourceCellCount);
+}
+
+function createAlternateChordToken(chord, sourceCellIndex, sourceCellCount) {
+  return withSourceCellPlacement({
+    ...normalizeChordSlot(chord),
+    kind: 'alternate_chord',
+    displayOnly: true
+  }, sourceCellIndex, sourceCellCount);
+}
+
+function isDisplayableCellChord(chord) {
+  if (!chord) return false;
+  return ![' ', 'x', 'r', 'n', 'W'].includes(chord.root || '');
+}
+
+function createDisplayTokensFromCellSlots(cellSlots = []) {
+  const sourceCellCount = cellSlots.length;
+  const tokens = [];
+
+  for (const [sourceCellIndex, cellSlot] of cellSlots.entries()) {
+    const chord = cellSlot?.chord || null;
+    if (!chord) continue;
+
+    if (chord.root === 'p') {
+      tokens.push(createSlashMarkerToken(sourceCellIndex, sourceCellCount));
+      continue;
+    }
+
+    if (chord.alternate) {
+      tokens.push(createAlternateChordToken(chord.alternate, sourceCellIndex, sourceCellCount));
+    }
+
+    if (isDisplayableCellChord(chord)) {
+      tokens.push(withSourceCellPlacement(normalizeChordSlot(chord), sourceCellIndex, sourceCellCount));
+    }
+  }
+
+  return tokens;
+}
+
 function normalizeCellSlot(cell) {
   return {
     bars: String(cell?.bars || ''),
@@ -187,6 +241,27 @@ function normalizeCellSlot(cell) {
     comments: Array.isArray(cell?.comments) ? [...cell.comments] : [],
     spacer: Number(cell?.spacer || 0),
     chord: cell?.chord ? normalizeChordSlot(cell.chord) : null
+  };
+}
+
+function normalizeTextAnnotation(annotation) {
+  const text = String(annotation?.text || '').trim();
+  if (!text) return null;
+  const sourceCellCount = Math.max(1, Number(annotation?.source_cell_count || annotation?.sourceCellCount || 4));
+  const sourceCellIndex = Math.max(
+    0,
+    Math.min(sourceCellCount - 1, Number(annotation?.source_cell_index || annotation?.sourceCellIndex || 0))
+  );
+  const yOffset = Number(annotation?.y_offset ?? annotation?.yOffset);
+
+  return {
+    text,
+    raw: String(annotation?.raw || ''),
+    offsetCode: annotation?.offset_code ? String(annotation.offset_code) : null,
+    yOffset: Number.isFinite(yOffset) ? yOffset : null,
+    sourceCellIndex,
+    sourceCellCount,
+    vertical: Number.isFinite(yOffset) && yOffset <= 4 ? 'above' : 'below'
   };
 }
 
@@ -230,18 +305,29 @@ function normalizeSystemLayout(systemLayout, bars) {
 
 function createDisplayState(bar, playbackSlots, overlaySlots) {
   const notationKind = bar?.source_event || 'written';
+  const displayCellSlots = Array.isArray(bar?.display_cell_slots) && bar.display_cell_slots.length > 0
+    ? bar.display_cell_slots
+    : bar?.cell_slots;
+  const cellDisplayTokens = createDisplayTokensFromCellSlots(displayCellSlots);
+  const alternateDisplayTokens = cellDisplayTokens.filter(token => token.kind === 'alternate_chord');
 
   if (notationKind === 'single_bar_repeat') {
     return {
       kind: 'single_bar_repeat',
-      tokens: [{ kind: 'repeat_previous_bar', symbol: '%' }]
+      tokens: [
+        { kind: 'repeat_previous_bar', symbol: '%', sourceCellCount: displayCellSlots?.length || 0 },
+        ...alternateDisplayTokens
+      ]
     };
   }
 
   if (notationKind === 'double_bar_repeat_start' || notationKind === 'double_bar_repeat_followup') {
     return {
       kind: notationKind,
-      tokens: [{ kind: 'repeat_previous_two_bars', symbol: '%%' }]
+      tokens: [
+        { kind: 'repeat_previous_two_bars', symbol: '%%', sourceCellCount: displayCellSlots?.length || 0 },
+        ...alternateDisplayTokens
+      ]
     };
   }
 
@@ -264,7 +350,7 @@ function createDisplayState(bar, playbackSlots, overlaySlots) {
 
   return {
     kind: 'written',
-    tokens: playbackSlots
+    tokens: cellDisplayTokens.length > 0 ? cellDisplayTokens : playbackSlots
   };
 }
 
@@ -285,6 +371,9 @@ function createChartBar(rawBar, sectionId) {
     flags,
     directives: (rawBar.directives || []).map(normalizeDirective).filter(Boolean),
     comments: Array.isArray(rawBar.comments) ? [...rawBar.comments] : [],
+    textAnnotations: Array.isArray(rawBar.text_annotations)
+      ? rawBar.text_annotations.map(normalizeTextAnnotation).filter(Boolean)
+      : [],
     sourceEvent: rawBar.source_event || null,
     repeatedFromBar: rawBar.repeated_from_bar || null,
     specialEvents: Array.isArray(rawBar.special_events) ? JSON.parse(JSON.stringify(rawBar.special_events)) : [],

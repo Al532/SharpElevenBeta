@@ -115,38 +115,193 @@ function createTextElement(tagName: string, className: string, textContent: stri
   return element;
 }
 
-function createEmptyChartImportPrompt(onImportCharts: () => void): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'home-empty-import-button';
-  button.setAttribute('aria-label', 'No charts available. Click here to import charts from other formats.');
+type HomeGuidanceAction = {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  primary?: boolean;
+};
 
+type HomeGuidancePanelOptions = {
+  icon: 'import' | 'loading' | 'search' | 'success' | 'error';
+  title: string;
+  detail: string;
+  className?: string;
+  actions?: HomeGuidanceAction[];
+};
+
+type HomeImportFeedback = {
+  kind: 'idle' | 'importing' | 'success' | 'error';
+  title?: string;
+  detail?: string;
+};
+
+function createHomeGuidanceIcon(iconName: HomeGuidancePanelOptions['icon']): HTMLSpanElement {
   const icon = document.createElement('span');
-  icon.className = 'home-empty-import-icon';
+  icon.className = `home-empty-import-icon home-empty-import-icon-${iconName}`;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
-  const arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  arrowLine.setAttribute('d', 'M12 3v14');
-  const arrowHead = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  arrowHead.setAttribute('d', 'm6.5 11.5 5.5 5.5 5.5-5.5');
-  const targetLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  targetLine.setAttribute('d', 'M5 21h14');
-  svg.append(arrowLine, arrowHead, targetLine);
-  icon.append(svg);
 
+  if (iconName === 'search') {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '10.2');
+    circle.setAttribute('cy', '10.2');
+    circle.setAttribute('r', '5.7');
+    const handle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    handle.setAttribute('d', 'M14.4 14.4 20 20');
+    svg.append(circle, handle);
+  } else if (iconName === 'loading') {
+    const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arc.setAttribute('d', 'M12 4a8 8 0 1 1-7.1 4.3');
+    const tick = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    tick.setAttribute('d', 'M12 7v5l3 2');
+    svg.append(arc, tick);
+  } else if (iconName === 'success') {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '12');
+    circle.setAttribute('cy', '12');
+    circle.setAttribute('r', '8');
+    const check = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    check.setAttribute('d', 'm8.5 12.2 2.2 2.2 4.8-5');
+    svg.append(circle, check);
+  } else if (iconName === 'error') {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '12');
+    circle.setAttribute('cy', '12');
+    circle.setAttribute('r', '8');
+    const mark = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    mark.setAttribute('d', 'M12 7.8v5.1');
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    dot.setAttribute('d', 'M12 16.2h.01');
+    svg.append(circle, mark, dot);
+  } else {
+    const arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrowLine.setAttribute('d', 'M12 3v14');
+    const arrowHead = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrowHead.setAttribute('d', 'm6.5 11.5 5.5 5.5 5.5-5.5');
+    const targetLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    targetLine.setAttribute('d', 'M5 21h14');
+    svg.append(arrowLine, arrowHead, targetLine);
+  }
+
+  icon.append(svg);
+  return icon;
+}
+
+function createHomeGuidanceCopy(titleText: string, detailText: string): HTMLSpanElement {
   const copy = document.createElement('span');
   copy.className = 'home-empty-import-copy';
   const title = document.createElement('strong');
-  title.textContent = 'No charts available.';
+  title.textContent = titleText;
   const detail = document.createElement('span');
-  detail.textContent = 'Click here to import charts from other formats.';
+  detail.textContent = detailText;
   copy.append(title, detail);
+  return copy;
+}
 
-  button.append(icon, copy);
+function createHomeGuidanceActions(actions: HomeGuidanceAction[] = []): HTMLDivElement | null {
+  if (!actions.length) return null;
+  const actionsElement = document.createElement('div');
+  actionsElement.className = 'home-empty-import-actions';
+
+  for (const action of actions) {
+    const actionElement = action.href
+      ? document.createElement('a')
+      : document.createElement('button');
+    actionElement.className = action.primary
+      ? 'home-empty-import-action home-empty-import-action-primary'
+      : 'home-empty-import-action';
+    actionElement.textContent = action.label;
+
+    if (action.href && actionElement instanceof HTMLAnchorElement) {
+      actionElement.href = action.href;
+    }
+    if (actionElement instanceof HTMLButtonElement) {
+      actionElement.type = 'button';
+    }
+    if (action.onClick) {
+      actionElement.addEventListener('click', action.onClick);
+    }
+    actionsElement.append(actionElement);
+  }
+
+  return actionsElement;
+}
+
+function createHomeGuidancePanel({
+  icon,
+  title,
+  detail,
+  className = '',
+  actions = []
+}: HomeGuidancePanelOptions): HTMLDivElement {
+  const panel = document.createElement('div');
+  panel.className = `home-empty-import-panel home-empty-import-static ${className}`.trim();
+  panel.append(createHomeGuidanceIcon(icon), createHomeGuidanceCopy(title, detail));
+  const actionsElement = createHomeGuidanceActions(actions);
+  if (actionsElement) panel.append(actionsElement);
+  return panel;
+}
+
+function createEmptyChartImportPrompt(onImportCharts: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'home-empty-import-panel home-empty-import-button';
+  button.setAttribute('aria-label', 'No charts available. Click here to import charts from other formats.');
+  button.append(
+    createHomeGuidanceIcon('import'),
+    createHomeGuidanceCopy('No charts available.', 'Click here to import charts from other formats.')
+  );
   button.addEventListener('click', onImportCharts);
   return button;
+}
+
+function createLibraryBrowsePrompt(onSearchCharts: () => void): HTMLDivElement {
+  return createHomeGuidancePanel({
+    icon: 'search',
+    title: 'No recent chart yet.',
+    detail: 'Search with the bar above, or open the full Library.',
+    actions: [
+      { label: 'Open Library', href: './library.html', primary: true },
+      { label: 'Search charts', onClick: onSearchCharts }
+    ]
+  });
+}
+
+function createImportingPrompt(title: string, detail: string): HTMLDivElement {
+  return createHomeGuidancePanel({
+    icon: 'loading',
+    title,
+    detail,
+    className: 'home-empty-import-busy'
+  });
+}
+
+function createImportSuccessPrompt(title: string, detail: string, onSearchCharts: () => void): HTMLDivElement {
+  return createHomeGuidancePanel({
+    icon: 'success',
+    title,
+    detail,
+    className: 'home-empty-import-success',
+    actions: [
+      { label: 'Open Library', href: './library.html', primary: true },
+      { label: 'Search charts', onClick: onSearchCharts }
+    ]
+  });
+}
+
+function createImportErrorPrompt(title: string, detail: string, onImportCharts: () => void): HTMLDivElement {
+  return createHomeGuidancePanel({
+    icon: 'error',
+    title,
+    detail,
+    className: 'home-empty-import-error',
+    actions: [
+      { label: 'Try again', onClick: onImportCharts, primary: true }
+    ]
+  });
 }
 
 function isNativePlatform() {
@@ -359,6 +514,8 @@ function renderChartSearch(
   recentDocuments: ChartDocument[],
   onMenu: (target: ChartEntryMenuTarget) => void,
   onImportCharts: () => void,
+  onSearchCharts: () => void,
+  importFeedback: HomeImportFeedback,
   dom: Pick<HomePageDom, 'chartSearchInput' | 'chartSearchResults' | 'chartSearchEmpty'>
 ): void {
   if (!dom.chartSearchResults) return;
@@ -391,8 +548,46 @@ function renderChartSearch(
   const isEmpty = dom.chartSearchResults.children.length === 0;
   if (dom.chartSearchEmpty) {
     dom.chartSearchEmpty.classList.remove('home-empty-import');
+    if (importFeedback.kind === 'importing') {
+      dom.chartSearchResults.replaceChildren();
+      dom.chartSearchEmpty.replaceChildren(createImportingPrompt(
+        importFeedback.title || 'Importing charts...',
+        importFeedback.detail || 'This can take a few seconds. Keep this page open while Sharp Eleven finishes.'
+      ));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (importFeedback.kind === 'success') {
+      dom.chartSearchResults.replaceChildren();
+      dom.chartSearchEmpty.replaceChildren(createImportSuccessPrompt(
+        importFeedback.title || 'Charts imported.',
+        importFeedback.detail || 'You can now find them in Library or search for one here.',
+        onSearchCharts
+      ));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (importFeedback.kind === 'error') {
+      dom.chartSearchResults.replaceChildren();
+      dom.chartSearchEmpty.replaceChildren(createImportErrorPrompt(
+        importFeedback.title || 'Import failed.',
+        importFeedback.detail || 'Open Import charts to try again.',
+        onImportCharts
+      ));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
     if (isEmpty && documents.length === 0) {
       dom.chartSearchEmpty.replaceChildren(createEmptyChartImportPrompt(onImportCharts));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (isEmpty && !query && documents.length > 0) {
+      dom.chartSearchEmpty.replaceChildren(createLibraryBrowsePrompt(onSearchCharts));
       dom.chartSearchEmpty.classList.add('home-empty-import');
       dom.chartSearchEmpty.classList.remove('hidden');
       return;
@@ -412,6 +607,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   let documents = persistedLibrary?.documents || [];
   let activeImportRunId = 0;
   let isHomeImportRunning = false;
+  let importFeedback: HomeImportFeedback = { kind: 'idle' };
   let setlistPersistQueue = Promise.resolve();
 
   const getRecentDocuments = (): ChartDocument[] => {
@@ -434,9 +630,17 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     );
   };
 
+  const focusChartSearch = (): void => {
+    if (importFeedback.kind === 'success' || importFeedback.kind === 'error') {
+      importFeedback = { kind: 'idle' };
+      rerender();
+    }
+    requestAnimationFrame(() => dom.chartSearchInput?.focus());
+  };
+
   const rerender = (): void => {
     updateChartSearchPlaceholder();
-    renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, openImportPopup, dom);
+    renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, openImportPopup, focusChartSearch, importFeedback, dom);
   };
 
   const handleViewportResize = (): void => {
@@ -480,7 +684,14 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const openChartEntryMenu = chartEntryActions.openMenu;
 
   const setImportStatus = (message: string, isError = false): void => {
-    setChartImportStatus(dom.chartImportStatus, message, isError);
+    if (isError && message && importFeedback.kind !== 'error') {
+      importFeedback = {
+        kind: 'error',
+        title: 'Import needs attention.',
+        detail: message
+      };
+    }
+    setChartImportStatus(dom.chartImportStatus, '', false);
     rerender();
   };
 
@@ -530,6 +741,7 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     if (!isHomeImportRunning) return;
     activeImportRunId += 1;
     isHomeImportRunning = false;
+    importFeedback = { kind: 'idle' };
     setImportStatus('');
   };
 
@@ -543,7 +755,12 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     activeImportRunId = runId;
     isHomeImportRunning = true;
     closeImportPopup();
-    setImportStatus(`Importing charts from ${sourceFile}. Please wait...`);
+    importFeedback = {
+      kind: 'importing',
+      title: 'Importing charts...',
+      detail: `Reading ${sourceFile}. This can take a few seconds, so keep this page open.`
+    };
+    setImportStatus('');
     try {
       const importedDocuments = await importDocumentsFromIRealText({
         rawText: trimmedText,
@@ -554,7 +771,12 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       });
       if (runId !== activeImportRunId) return;
       if (!importedDocuments.length) {
-        setImportStatus(`No charts imported from ${sourceFile}.`);
+        importFeedback = {
+          kind: 'error',
+          title: 'No charts imported.',
+          detail: `Sharp Eleven did not find any usable chart in ${sourceFile}.`
+        };
+        setImportStatus('');
         return;
       }
       persistedLibrary = await persistChartLibrary({ documents: importedDocuments, source: sourceFile, mergeWithExisting: true });
@@ -565,10 +787,21 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       if (runId !== activeImportRunId) return;
       saveHomeChartSummaryFromLibrary(persistedLibrary);
       rerender();
-      setImportStatus(`Imported ${importedDocuments.length} chart${importedDocuments.length === 1 ? '' : 's'} from ${sourceFile}.`);
+      importFeedback = {
+        kind: 'success',
+        title: `Imported ${importedDocuments.length} chart${importedDocuments.length === 1 ? '' : 's'}.`,
+        detail: 'You can now find them in Library, or search for one here.'
+      };
+      setImportStatus('');
     } catch (error) {
       if (runId === activeImportRunId) {
-        setImportStatus(`Import failed: ${error instanceof Error ? error.message : String(error || 'Unknown error')}`, true);
+        const message = error instanceof Error ? error.message : String(error || 'Unknown error');
+        importFeedback = {
+          kind: 'error',
+          title: 'Import failed.',
+          detail: message
+        };
+        setImportStatus(`Import failed: ${message}`, true);
       }
     } finally {
       if (runId === activeImportRunId) {
@@ -588,14 +821,28 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
     if (!file) return;
     try {
       closeImportPopup();
-      setImportStatus(`Opening ${file.name}...`);
+      importFeedback = {
+        kind: 'importing',
+        title: 'Opening backup...',
+        detail: `Reading ${file.name}. Keep this page open.`
+      };
+      setImportStatus('');
       await openIrealHtml({
         html: await file.text(),
         title: file.name,
         baseUrl: `https://localhost/shared-import/${encodeURIComponent(file.name)}`
       });
+      importFeedback = {
+        kind: 'idle'
+      };
       setImportStatus('Backup opened. Tap an iReal link in the backup to import it.');
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || 'Unknown error');
+      importFeedback = {
+        kind: 'error',
+        title: 'Could not open backup.',
+        detail: message
+      };
       setImportStatus(`Could not open backup: ${error instanceof Error ? error.message : String(error || 'Unknown error')}`, true);
     } finally {
       if (event.target) event.target.value = '';
@@ -611,7 +858,6 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       return;
     }
     if (!pendingIRealLink) return;
-    setImportStatus('iReal link captured. Importing charts...');
     await importFromRawText(pendingIRealLink, 'pasted-ireal-link', {
       origin: pendingResult.importOrigin || (pendingResult.hadPendingMarker ? 'unknown' : undefined),
       referrerUrl: pendingResult.referrerUrl
@@ -632,7 +878,12 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       if (!isIRealDeepLink(url)) return;
       storePendingIRealLink(url);
       closeImportPopup();
-      setImportStatus('iReal link detected. Loading captured text...');
+      importFeedback = {
+        kind: 'importing',
+        title: 'Preparing iReal link...',
+        detail: 'Loading the captured text. Keep this page open.'
+      };
+      setImportStatus('');
       void importPendingMobileIRealLink();
     };
     try {
@@ -677,7 +928,12 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   rerender();
   clearStaleImportStatus();
 
-  dom.chartSearchInput?.addEventListener('input', rerender);
+  dom.chartSearchInput?.addEventListener('input', () => {
+    if (importFeedback.kind === 'success' || importFeedback.kind === 'error') {
+      importFeedback = { kind: 'idle' };
+    }
+    rerender();
+  });
   window.addEventListener('resize', handleViewportResize);
   window.visualViewport?.addEventListener('resize', handleViewportResize);
   window.addEventListener('pagehide', cancelActiveImport);

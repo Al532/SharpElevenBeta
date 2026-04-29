@@ -132,10 +132,10 @@ import {
   loadPersistedPlaybackSettings,
   persistChartId as persistChartScreenId,
   persistInstrumentTransposition as persistChartInstrumentTransposition,
-  persistPlaybackSettings as persistChartScreenPlaybackSettings
+  persistPlaybackSettings as persistChartScreenPlaybackSettings,
+  replaceCurrentChartIdInUrl
 } from '../src/features/chart/chart-screen-persistence.js';
 import { renderChordSymbolHtml } from '../src/core/music/chord-symbol-display.js';
-import { renderChordSymbolSvgV2Html } from '../src/core/music/chord-symbol-svg-v2.js';
 import voicingConfig from '../src/core/music/voicing-config.js';
 import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
@@ -185,7 +185,11 @@ function applyChartBackTarget() {
   const backOrigin = getChartBackOrigin();
   if (!dom.chartHomeButton) return;
   dom.chartHomeButton.href = getChartBackHref();
-  const label = backOrigin === 'setlists' ? 'Back to setlists' : 'Back to home';
+  const label = backOrigin === 'setlists'
+    ? 'Back to setlists'
+    : backOrigin === 'library'
+      ? 'Back to Library'
+      : 'Back to home';
   dom.chartHomeButton.setAttribute('aria-label', label);
   dom.chartHomeButton.setAttribute('title', label);
 }
@@ -314,6 +318,7 @@ const playbackRuntimeContext = createChartPlaybackRuntimeContext(createChartPlay
 
 function persistChartId(chartId: string, chartDocument = state.currentChartDocument) {
   persistChartScreenId(chartId, chartDocument);
+  replaceCurrentChartIdInUrl(chartId);
 }
 
 function persistInstrumentTransposition() {
@@ -376,7 +381,7 @@ function persistPlaybackSettings() {
   persistChartScreenPlaybackSettings({
     playbackSettings: getPlaybackSettings(),
     harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
-    useChordSymbolV2: dom.useChordSymbolV2?.checked !== false,
+    useChordSymbolV2: false,
     useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
     useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
@@ -403,10 +408,6 @@ function applyPersistedPlaybackSettings() {
 
   if (dom.harmonyDisplayMode && persisted.harmonyDisplayMode) {
     dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(persisted.harmonyDisplayMode);
-  }
-
-  if (dom.useChordSymbolV2 && persisted.useChordSymbolV2 !== undefined) {
-    dom.useChordSymbolV2.checked = Boolean(persisted.useChordSymbolV2);
   }
 
   if (dom.useMajorTriangleSymbol && persisted.useMajorTriangleSymbol !== undefined) {
@@ -1244,11 +1245,6 @@ function renderChordMarkup(token: any, harmonyDisplayMode: string) {
   const bass = token.bass || null;
   const options = getChordSymbolRenderOptions();
 
-  if (options.useChordSymbolV2) {
-    const svgMarkup = renderChordSymbolSvgV2Html(root, quality, bass, options);
-    if (svgMarkup) return svgMarkup;
-  }
-
   return renderChordSymbolHtml(
     root,
     quality,
@@ -1259,7 +1255,7 @@ function renderChordMarkup(token: any, harmonyDisplayMode: string) {
 
 function getChordSymbolRenderOptions() {
   return {
-    useChordSymbolV2: dom.useChordSymbolV2?.checked !== false,
+    useChordSymbolV2: false,
     useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
     useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
@@ -1742,6 +1738,25 @@ function closeOverlay() {
   syncMobileOverlayDrawerLayout();
 }
 
+function exportCurrentChartPdf() {
+  const previousTitle = document.title;
+  const chartTitle = state.currentViewModel?.metadata?.title
+    || state.currentChartDocument?.metadata?.title
+    || 'Chart';
+  const restoreTitle = () => {
+    document.title = previousTitle;
+    window.removeEventListener('afterprint', restoreTitle);
+  };
+
+  closeOverlay();
+  document.title = `${chartTitle} - SharpEleven`;
+  window.addEventListener('afterprint', restoreTitle, { once: true });
+  window.setTimeout(() => {
+    window.print();
+    window.setTimeout(restoreTitle, 1000);
+  }, 0);
+}
+
 async function importDefaultFixtureLibrary() {
   const preferredId = loadPersistedChartId();
   const snapshotStartedAt = getChartRenderPerfNow();
@@ -1965,7 +1980,8 @@ async function loadFixtures() {
         playButton: dom.playButton,
         stopButton: dom.stopButton,
         clearSelectionButton: dom.clearSelectionButton,
-    sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
+        sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
+        exportChartPdfButton: dom.exportChartPdfButton,
         onSearch: applySearchFilter,
         onFixtureChange: renderFixture,
         onTransposeChange: handleChartTransposeChange,
@@ -2013,6 +2029,7 @@ async function loadFixtures() {
           clearChartSelection();
         },
         onSendSelectionToPractice: navigateToPracticeWithSelection,
+        onExportChartPdf: exportCurrentChartPdf,
         onBeforeUnload: () => {
           stopPlayback({ resetPosition: true });
         }

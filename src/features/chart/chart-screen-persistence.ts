@@ -11,11 +11,11 @@ const PLAYBACK_SETTINGS_STORAGE_KEY = 'sharp-eleven-chart-playback-settings';
 const INSTRUMENT_TRANSPOSITION_STORAGE_KEY = 'sharp-eleven-chart-instrument-transposition';
 const CHART_BACK_ORIGIN_STORAGE_KEY = 'sharp-eleven-chart-back-origin';
 
-type ChartBackOrigin = 'home' | 'setlists';
+type ChartBackOrigin = 'home' | 'setlists' | 'library';
 
 function normalizeChartBackOrigin(value: unknown): ChartBackOrigin | '' {
   const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'home' || normalized === 'setlists') return normalized;
+  if (normalized === 'home' || normalized === 'setlists' || normalized === 'library') return normalized;
   return '';
 }
 
@@ -42,6 +42,7 @@ function getReferrerChartBackOrigin(referrer = document.referrer): ChartBackOrig
     const currentUrl = new URL(window.location.href);
     if (referrerUrl.origin !== currentUrl.origin) return '';
     const path = referrerUrl.pathname.replace(/\/+$/, '');
+    if (path.endsWith('/library.html')) return 'library';
     if (path.endsWith('/setlists.html')) return 'setlists';
     if (path.endsWith('/index.html') || path === currentUrl.pathname.replace(/\/chart\/index\.html$/, '')) return 'home';
   } catch {
@@ -63,6 +64,22 @@ export function getRequestedChartId() {
   return new URLSearchParams(window.location.search).get('chart') || '';
 }
 
+export function replaceCurrentChartIdInUrl(chartId: string | null | undefined) {
+  if (!window.history?.replaceState) return;
+  const normalizedChartId = String(chartId || '').trim();
+  try {
+    const nextUrl = new URL(window.location.href);
+    if (normalizedChartId) {
+      nextUrl.searchParams.set('chart', normalizedChartId);
+    } else {
+      nextUrl.searchParams.delete('chart');
+    }
+    window.history.replaceState(window.history.state, '', nextUrl.href);
+  } catch {
+    // Ignore URL update failures; storage persistence still restores the chart.
+  }
+}
+
 export function getChartBackOrigin(): ChartBackOrigin {
   const requestedOrigin = normalizeChartBackOrigin(new URLSearchParams(window.location.search).get('from'));
   const origin = requestedOrigin || getReferrerChartBackOrigin() || readStoredChartBackOrigin() || 'home';
@@ -71,7 +88,10 @@ export function getChartBackOrigin(): ChartBackOrigin {
 }
 
 export function getChartBackHref() {
-  return getChartBackOrigin() === 'setlists' ? '../setlists.html' : '../index.html';
+  const origin = getChartBackOrigin();
+  if (origin === 'setlists') return '../setlists.html';
+  if (origin === 'library') return '../library.html';
+  return '../index.html';
 }
 
 export function getRequestedPlaylist() {
@@ -98,7 +118,7 @@ export function loadPersistedPlaybackSettings() {
 export function persistPlaybackSettings({
   playbackSettings = {},
   harmonyDisplayMode = 'default',
-  useChordSymbolV2 = true,
+  useChordSymbolV2 = false,
   useMajorTriangleSymbol = true,
   useHalfDiminishedSymbol = true,
   useDiminishedSymbol = true

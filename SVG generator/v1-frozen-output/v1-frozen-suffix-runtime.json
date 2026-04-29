@@ -1,0 +1,451 @@
+{
+  "version": 1,
+  "renderer": "v1-dom-foreign-object",
+  "description": "Experimental suffix blocks frozen from renderer V1 browser layout.",
+  "sourceRoot": "C",
+  "fontSizePx": 64,
+  "blockCount": 9,
+  "blocks": [
+    {
+      "id": "v1-m",
+      "label": "m",
+      "suffix": "m",
+      "sourceChord": "Cm",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 24,
+          "right": 247.453,
+          "bottom": 88,
+          "width": 119.453,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 24,
+          "right": 174.219,
+          "bottom": 88,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 38,
+          "right": 215.453,
+          "bottom": 86,
+          "width": 40.766,
+          "height": 48
+        },
+        "originX": 46.219,
+        "originY": 14,
+        "width": 46,
+        "height": 52,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 46,
+          "height": 52
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": -14,
+          "width": 173.672,
+          "height": 86
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"46\" height=\"52\" viewBox=\"0 0 46 52\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"-14\" width=\"173.672\" height=\"86\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-condensed-m\"><span class=\"chord-symbol-base-content\">m</span></span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-m7",
+      "label": "m7",
+      "suffix": "m7",
+      "sourceChord": "Cm7",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 145.594,
+          "right": 247.453,
+          "bottom": 209.594,
+          "width": 119.453,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 145.594,
+          "right": 174.219,
+          "bottom": 209.594,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 143.597,
+          "right": 215.453,
+          "bottom": 207.594,
+          "width": 40.766,
+          "height": 63.997
+        },
+        "originX": 46.219,
+        "originY": -1.997,
+        "width": 46,
+        "height": 68,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 46,
+          "height": 68
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": 1.997,
+          "width": 173.672,
+          "height": 70.003
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"46\" height=\"68\" viewBox=\"0 0 46 68\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"1.997\" width=\"173.672\" height=\"70.003\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-condensed-m\"><span class=\"chord-symbol-base-content\">m</span></span></span><span class=\"chord-symbol-sup chord-symbol-sup-after-base chord-symbol-sup-anchor-condensed-m\"><span class=\"chord-symbol-sup-content\">7</span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-maj",
+      "label": "maj",
+      "suffix": "maj",
+      "sourceChord": "Cmaj",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 267.188,
+          "right": 280.766,
+          "bottom": 331.188,
+          "width": 152.766,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 267.188,
+          "right": 174.219,
+          "bottom": 331.188,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 281.188,
+          "right": 248.766,
+          "bottom": 329.188,
+          "width": 74.078,
+          "height": 48
+        },
+        "originX": 46.219,
+        "originY": 14,
+        "width": 79,
+        "height": 52,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 79,
+          "height": 52
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": -14,
+          "width": 206.984,
+          "height": 86
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"79\" height=\"52\" viewBox=\"0 0 79 52\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"-14\" width=\"206.984\" height=\"86\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-condensed-maj\"><span class=\"chord-symbol-base-content\">maj</span></span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-maj7",
+      "label": "maj7",
+      "suffix": "maj7",
+      "sourceChord": "Cmaj7",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 388.781,
+          "right": 241.234,
+          "bottom": 452.781,
+          "width": 113.234,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 388.781,
+          "right": 174.219,
+          "bottom": 452.781,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 386.141,
+          "right": 209.234,
+          "bottom": 450.781,
+          "width": 34.547,
+          "height": 64.64
+        },
+        "originX": 46.219,
+        "originY": -2.64,
+        "width": 40,
+        "height": 69,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 40,
+          "height": 69
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": 2.64,
+          "width": 167.453,
+          "height": 69.36
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"40\" height=\"69\" viewBox=\"0 0 40 69\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"2.64\" width=\"167.453\" height=\"69.36\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-symbol chord-symbol-base-symbol-majorTriangle\"><span class=\"chord-symbol-quality-glyph chord-symbol-quality-glyph-majorTriangle\" aria-hidden=\"true\"><svg viewBox=\"0 0 100 86\" focusable=\"false\" aria-hidden=\"true\"><path d=\"M50 8L92 78H8Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linejoin=\"round\"></path></svg></span></span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-sus",
+      "label": "sus",
+      "suffix": "sus",
+      "sourceChord": "Csus",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 510.375,
+          "right": 282.203,
+          "bottom": 574.375,
+          "width": 154.203,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 510.375,
+          "right": 174.219,
+          "bottom": 574.375,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 524.375,
+          "right": 250.203,
+          "bottom": 572.375,
+          "width": 75.516,
+          "height": 48
+        },
+        "originX": 46.219,
+        "originY": 14,
+        "width": 80,
+        "height": 52,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 52
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": -14,
+          "width": 208.422,
+          "height": 86
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"80\" height=\"52\" viewBox=\"0 0 80 52\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"-14\" width=\"208.422\" height=\"86\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-condensed-sus\"><span class=\"chord-symbol-base-content\">sus</span></span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-7sus",
+      "label": "7sus",
+      "suffix": "7sus",
+      "sourceChord": "C7sus",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 631.969,
+          "right": 282.203,
+          "bottom": 695.969,
+          "width": 154.203,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 631.969,
+          "right": 174.219,
+          "bottom": 695.969,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 629.972,
+          "right": 250.203,
+          "bottom": 693.969,
+          "width": 75.516,
+          "height": 63.997
+        },
+        "originX": 46.219,
+        "originY": -1.997,
+        "width": 80,
+        "height": 68,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 68
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": 1.997,
+          "width": 208.422,
+          "height": 70.003
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"80\" height=\"68\" viewBox=\"0 0 80 68\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"1.997\" width=\"208.422\" height=\"70.003\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-condensed-sus\"><span class=\"chord-symbol-base-content\">sus</span></span></span><span class=\"chord-symbol-sup chord-symbol-sup-after-base chord-symbol-sup-anchor-condensed-sus\"><span class=\"chord-symbol-sup-content\">7</span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-dim",
+      "label": "dim",
+      "suffix": "dim",
+      "sourceChord": "Cdim",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 753.563,
+          "right": 237.406,
+          "bottom": 817.563,
+          "width": 109.406,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 753.563,
+          "right": 174.219,
+          "bottom": 817.563,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 748.042,
+          "right": 205.406,
+          "bottom": 815.563,
+          "width": 30.719,
+          "height": 67.52
+        },
+        "originX": 46.219,
+        "originY": -5.52,
+        "width": 36,
+        "height": 72,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 36,
+          "height": 72
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": 5.52,
+          "width": 163.625,
+          "height": 66.48
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"36\" height=\"72\" viewBox=\"0 0 36 72\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"5.52\" width=\"163.625\" height=\"66.48\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-symbol chord-symbol-base-symbol-diminished\"><span class=\"chord-symbol-quality-glyph chord-symbol-quality-glyph-diminished\" aria-hidden=\"true\"><svg viewBox=\"0 0 100 100\" focusable=\"false\" aria-hidden=\"true\"><circle cx=\"50\" cy=\"50\" r=\"34\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\"></circle></svg></span></span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-dim7",
+      "label": "dim7",
+      "suffix": "dim7",
+      "sourceChord": "Cdim7",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 875.156,
+          "right": 237.406,
+          "bottom": 939.156,
+          "width": 109.406,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 875.156,
+          "right": 174.219,
+          "bottom": 939.156,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.688,
+          "top": 869.636,
+          "right": 223.078,
+          "bottom": 937.156,
+          "width": 48.391,
+          "height": 67.52
+        },
+        "originX": 46.219,
+        "originY": -5.52,
+        "width": 53,
+        "height": 72,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 53,
+          "height": 72
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": 5.52,
+          "width": 163.625,
+          "height": 66.48
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"53\" height=\"72\" viewBox=\"0 0 53 72\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"5.52\" width=\"163.625\" height=\"66.48\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-with-base\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span><span class=\"chord-symbol-base chord-symbol-base-symbol chord-symbol-base-symbol-diminished\"><span class=\"chord-symbol-quality-glyph chord-symbol-quality-glyph-diminished\" aria-hidden=\"true\"><svg viewBox=\"0 0 100 100\" focusable=\"false\" aria-hidden=\"true\"><circle cx=\"50\" cy=\"50\" r=\"34\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\"></circle></svg></span></span></span><span class=\"chord-symbol-sup chord-symbol-sup-after-base\"><span class=\"chord-symbol-sup-content\">7</span></span></span></span></span></div></foreignObject></svg>"
+    },
+    {
+      "id": "v1-69",
+      "label": "69",
+      "suffix": "69",
+      "sourceChord": "C69",
+      "metrics": {
+        "symbolRect": {
+          "left": 128,
+          "top": 996.75,
+          "right": 204.938,
+          "bottom": 1060.75,
+          "width": 76.938,
+          "height": 64
+        },
+        "rootRect": {
+          "left": 128,
+          "top": 996.75,
+          "right": 174.219,
+          "bottom": 1060.75,
+          "width": 46.219,
+          "height": 64
+        },
+        "suffixRect": {
+          "left": 174.547,
+          "top": 988.763,
+          "right": 208.578,
+          "bottom": 1022.044,
+          "width": 34.031,
+          "height": 33.281
+        },
+        "originX": 46.219,
+        "originY": -7.987,
+        "width": 39,
+        "height": 38,
+        "viewBox": {
+          "x": 0,
+          "y": 0,
+          "width": 39,
+          "height": 38
+        },
+        "foreignObject": {
+          "x": -46.219,
+          "y": 7.987,
+          "width": 131.156,
+          "height": 64.013
+        }
+      },
+      "svgFragment": "<svg class=\"v1-frozen-suffix-svg\" x=\"0\" y=\"0\" width=\"39\" height=\"38\" viewBox=\"0 0 39 38\" overflow=\"hidden\"><foreignObject x=\"-46.219\" y=\"7.987\" width=\"131.156\" height=\"64.013\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"v1-frozen-html\" style=\"font-size:64px;line-height:1;color:currentColor\"><span class=\"chord-symbol chord-symbol-root-only chord-symbol-sup-reserve-medium\"><span class=\"chord-symbol-topline\"><span class=\"chord-symbol-head\"><span class=\"chord-symbol-main\"><span class=\"chord-symbol-root\"><span class=\"chord-symbol-root-letter\">C</span></span></span><span class=\"chord-symbol-sup chord-symbol-sup-after-root\"><span class=\"chord-symbol-sup-content\">69</span></span></span></span></span></div></foreignObject></svg>"
+    }
+  ]
+}
