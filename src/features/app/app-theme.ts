@@ -1,10 +1,85 @@
 const THEME_STORAGE_KEY = 'sharp-eleven-theme';
 const DEFAULT_PALETTE = 'classic-paper';
+const DARK_PALETTE = 'dark-jazz';
 const KNOWN_PALETTES = [DEFAULT_PALETTE, 'blue-note', 'dark-jazz'];
 const THEME_DATA_SELECTOR_RE = /:root\s*\[[^\]]*data-theme\s*=\s*["']([^"']+)["']\]/i;
 const EXPLORATION_DEPTH_LIMIT = 12;
+const DEFAULT_LIGHT_LOGO_SRC = './logo/classic-paper.png';
+const DEFAULT_DARK_LOGO_SRC = './logo/dark-mode.png';
 
 type SharpElevenPaletteName = string;
+
+function splitUrlSuffix(value: string): { path: string; suffix: string } {
+  const suffixIndex = value.search(/[?#]/);
+  if (suffixIndex === -1) return { path: value, suffix: '' };
+  return {
+    path: value.slice(0, suffixIndex),
+    suffix: value.slice(suffixIndex)
+  };
+}
+
+function resolveDarkIconHref(lightHref: string | null): string {
+  if (!lightHref) return DEFAULT_DARK_LOGO_SRC;
+  const { path, suffix } = splitUrlSuffix(lightHref);
+
+  if (/\/assets\/favicon-[^/]+\.png$/i.test(path)) {
+    return './logo/dark-mode.png';
+  }
+
+  if (/favicon\.(png|svg|ico)$/i.test(path)) {
+    return `${path.replace(/favicon\.(png|svg|ico)$/i, 'logo/dark-mode.png')}${suffix}`;
+  }
+
+  return DEFAULT_DARK_LOGO_SRC;
+}
+
+function isDarkPalette(paletteName: SharpElevenPaletteName): boolean {
+  return paletteName === DARK_PALETTE;
+}
+
+function updateFaviconLinks(paletteName: SharpElevenPaletteName): void {
+  const useDarkIcon = isDarkPalette(paletteName);
+  const iconLinks = document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"], link[rel="shortcut icon"]');
+
+  for (const link of Array.from(iconLinks)) {
+    const lightHref = link.dataset.themeLightHref ?? link.getAttribute('href') ?? '';
+    const lightType = link.dataset.themeLightType ?? link.getAttribute('type') ?? '';
+    const darkHref = link.dataset.themeDarkHref ?? resolveDarkIconHref(lightHref);
+
+    link.dataset.themeLightHref = lightHref;
+    link.dataset.themeLightType = lightType;
+    link.dataset.themeDarkHref = darkHref;
+    link.setAttribute('href', useDarkIcon ? darkHref : lightHref);
+
+    if (useDarkIcon) {
+      link.setAttribute('type', 'image/png');
+    } else if (lightType) {
+      link.setAttribute('type', lightType);
+    } else {
+      link.removeAttribute('type');
+    }
+  }
+}
+
+function updateBrandLogos(paletteName: SharpElevenPaletteName): void {
+  const useDarkIcon = isDarkPalette(paletteName);
+  const brandLogos = document.querySelectorAll<HTMLImageElement>('img.home-brand-logo');
+
+  for (const image of Array.from(brandLogos)) {
+    const lightSrc = image.dataset.themeLightSrc ?? image.getAttribute('src') ?? DEFAULT_LIGHT_LOGO_SRC;
+    const darkSrc = image.dataset.themeDarkSrc ?? lightSrc.replace(/classic-paper\.png(?:[?#].*)?$/i, 'dark-mode.png');
+
+    image.dataset.themeLightSrc = lightSrc;
+    image.dataset.themeDarkSrc = darkSrc || DEFAULT_DARK_LOGO_SRC;
+    image.src = useDarkIcon ? image.dataset.themeDarkSrc : lightSrc;
+    image.alt = useDarkIcon ? 'Logo Dark Mode' : 'Logo Classic Paper';
+  }
+}
+
+function updateThemeIcons(paletteName: SharpElevenPaletteName): void {
+  updateFaviconLinks(paletteName);
+  updateBrandLogos(paletteName);
+}
 
 function listThemeNamesFromStylesheets(): SharpElevenPaletteName[] {
   const names = new Set<string>(KNOWN_PALETTES);
@@ -122,6 +197,7 @@ function getThemeStorage(): Storage | undefined {
 
 function applyPalette(paletteName: SharpElevenPaletteName): SharpElevenPaletteName {
   document.documentElement.dataset.theme = paletteName;
+  updateThemeIcons(paletteName);
   return paletteName;
 }
 

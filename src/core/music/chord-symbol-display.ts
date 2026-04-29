@@ -12,12 +12,18 @@ type SplitRootNameResult = {
 type QualityDisplayPart = {
   type: 'text' | 'symbol',
   text: string,
-  symbolName: string
+  symbolName: string,
+  parentheticalStack?: ParentheticalExtensionStack | null
 };
 
 type QualityDisplayParts = {
   base: QualityDisplayPart,
   sup: QualityDisplayPart
+};
+
+type ParentheticalExtensionStack = {
+  prefix: string,
+  items: string[]
 };
 
 type AccidentalKind = 'flat' | 'sharp';
@@ -133,7 +139,7 @@ function createQualitySymbolPart(symbolName: string): QualityDisplayPart {
 }
 
 function createQualitySupPart(text: string): QualityDisplayPart {
-  return { type: 'text', text, symbolName: '' };
+  return { type: 'text', text, symbolName: '', parentheticalStack: parseParentheticalExtensionStack(text) };
 }
 
 function createQualitySupSymbolPart(symbolName: string): QualityDisplayPart {
@@ -283,6 +289,7 @@ function getSlashAnchorCompressionClass(base: string | null | undefined) {
 function getSupReserveClass(sup: QualityDisplayPart) {
   const value = sup.type === 'text' ? String(sup.text || '') : String(sup.symbolName || '');
   if (!value) return '';
+  if (sup.parentheticalStack) return ' chord-symbol-sup-reserve-long';
   if (value.length >= 4 || value.includes('alt') || value.includes('11') || value.includes('13')) {
     return ' chord-symbol-sup-reserve-long';
   }
@@ -290,6 +297,53 @@ function getSupReserveClass(sup: QualityDisplayPart) {
     return ' chord-symbol-sup-reserve-medium';
   }
   return '';
+}
+
+function parseParentheticalExtensionStack(value: string | null | undefined): ParentheticalExtensionStack | null {
+  const text = String(value || '');
+  const match = /^(.*)\(([^()]+)\)$/.exec(text);
+  if (!match) return null;
+
+  const items = splitStackedExtensions(match[2]);
+  if (items.length < 2 || items.length > 3) return null;
+
+  return {
+    prefix: match[1],
+    items
+  };
+}
+
+function splitStackedExtensions(value: string) {
+  const items = [];
+  const pattern = /([b#\u266D\u266F\u266E]?\d+)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(value))) {
+    if (match.index !== cursor) return [];
+    items.push(match[1]);
+    cursor = pattern.lastIndex;
+  }
+
+  return cursor === value.length ? items : [];
+}
+
+function createQualitySupTextMarkup(sup: QualityDisplayPart) {
+  if (!sup.parentheticalStack) {
+    return formatAccidentals(sup.text);
+  }
+
+  const { prefix, items } = sup.parentheticalStack;
+  return [
+    prefix ? `<span class="chord-symbol-extension-prefix">${formatAccidentals(prefix)}</span>` : '',
+    `<span class="chord-symbol-parenthetical-stack chord-symbol-parenthetical-stack-${items.length}" aria-label="${escapeHtml(`(${items.join(' ')})`)}">`,
+    '<span class="chord-symbol-parenthetical-stack-paren">(</span>',
+    '<span class="chord-symbol-parenthetical-stack-items">',
+    items.map((item) => `<span class="chord-symbol-parenthetical-stack-item">${formatAccidentals(item)}</span>`).join(''),
+    '</span>',
+    '<span class="chord-symbol-parenthetical-stack-paren">)</span>',
+    '</span>'
+  ].join('');
 }
 
 export function renderChordSymbolHtml(
@@ -310,12 +364,13 @@ export function renderChordSymbolHtml(
     : safeBaseText;
   const safeSup = sup.type === 'symbol'
     ? createQualitySupSymbolMarkup(sup.symbolName)
-    : formatAccidentals(sup.text);
+    : createQualitySupTextMarkup(sup);
   const safeBass = bassName ? formatAccidentals(bassName) : '';
   const supContextClass = safeBase ? ' chord-symbol-sup-after-base' : ' chord-symbol-sup-after-root';
   const symbolContextClass = safeBase ? ' chord-symbol-with-base' : ' chord-symbol-root-only';
   const baseCompressionClass = base.type === 'text' ? getSegmentCompressionClass(base.text, 'base') : '';
   const supCompressionClass = sup.type === 'text' ? getSegmentCompressionClass(sup.text, 'sup') : '';
+  const supStackClass = sup.parentheticalStack ? ' chord-symbol-sup-content-stacked' : '';
   const supAnchorCompressionClass = safeBase && base.type === 'text' ? getSupAnchorCompressionClass(base.text) : '';
   const slashAnchorCompressionClass = safeBass && base.type === 'text' ? getSlashAnchorCompressionClass(base.text) : '';
   const supReserveClass = safeSup ? getSupReserveClass(sup) : '';
@@ -332,7 +387,7 @@ export function renderChordSymbolHtml(
     '</span>',
     safeBase ? `<span class="chord-symbol-base${baseCompressionClass}${baseSymbolClass}">${safeBase}</span>` : '',
     '</span>',
-    safeSup ? `<span class="chord-symbol-sup${supContextClass}${supAnchorCompressionClass}"><span class="chord-symbol-sup-content${supCompressionClass}">${safeSup}</span></span>` : '',
+    safeSup ? `<span class="chord-symbol-sup${supContextClass}${supAnchorCompressionClass}"><span class="chord-symbol-sup-content${supCompressionClass}${supStackClass}">${safeSup}</span></span>` : '',
     '</span>',
     safeBass
       ? [

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sharp Eleven SVG Font Visualizer</title>
+  <link rel="stylesheet" href="./font-visualizer.css">
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="control-panel">
+      <div class="panel-header">
+        <h1>Font visualizer</h1>
+        <p class="subtle">Compare les polices par rôle musical avant de figer le renderer SVG.</p>
+      </div>
+
+      <section class="control-section">
+        <h2>Rôles</h2>
+        <div class="role-grid" id="roleControls"></div>
+      </section>
+
+      <section class="control-section">
+        <h2>Réglages</h2>
+        <div class="field">
+          <label for="sizeControl">Taille</label>
+          <div class="slider-row">
+            <input id="sizeControl" type="range" min="34" max="86" step="1" value="36">
+            <output id="sizeOutput">36</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="weightControl">Graisse</label>
+          <div class="slider-row">
+            <input id="weightControl" type="range" min="300" max="800" step="50" value="400">
+            <output id="weightOutput">400</output>
+          </div>
+        </div>
+        <label class="checkbox-field">
+          <input id="debugBoxesControl" type="checkbox">
+          <span>Boîtes SVG</span>
+        </label>
+      </section>
+
+      <section class="control-section">
+        <h2>Réglages fins</h2>
+        <div class="tuning-grid" id="tuningControls"></div>
+      </section>
+
+      <section class="control-section">
+        <h2>Defaults obtenus</h2>
+        <textarea id="defaultsOutput" class="defaults-output" readonly spellcheck="false"></textarea>
+      </section>
+
+      <section class="control-section">
+        <h2>Accords test</h2>
+        <textarea id="sampleInput" spellcheck="false"></textarea>
+        <p class="font-note">Une ligne par accord. Les titres de bloc et lignes vides sont ignorés.</p>
+      </section>
+    </aside>
+
+    <section class="preview-panel">
+      <div class="preview-header">
+        <div>
+          <h2>Aperçu</h2>
+          <p class="subtle">La colonne gauche garde l’accord brut, la droite montre la combinaison active.</p>
+        </div>
+        <div class="status" id="statusText"></div>
+      </div>
+      <div class="preview-grid" id="previewGrid"></div>
+      <section class="symbol-panel">
+        <div class="symbol-panel-header">
+          <h2>SMuFL chord symbols</h2>
+          <p class="subtle">Glyphes Bravura extraits de la table SMuFL.</p>
+        </div>
+        <div class="smufl-grid" id="smuflGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./font-visualizer.js"></script>
+</body>
+</html>

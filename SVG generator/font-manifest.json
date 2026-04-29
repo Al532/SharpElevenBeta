@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "fonts": [
+    {
+      "id": "app-noto-latin",
+      "label": "Sharp Eleven - Noto Sans Latin",
+      "path": "fonts/SharpElevenApp/NotoSans-Latin.woff2",
+      "format": "woff2",
+      "category": "app",
+      "atlas": "atlases/app-noto-latin.json",
+      "atlasScript": "atlases/app-noto-latin.js"
+    },
+    {
+      "id": "app-noto-symbols-math",
+      "label": "Sharp Eleven - Noto Symbols Math",
+      "path": "fonts/SharpElevenApp/NotoSansSymbols2-Math.woff2",
+      "format": "woff2",
+      "category": "app",
+      "atlas": "atlases/app-noto-symbols-math.json",
+      "atlasScript": "atlases/app-noto-symbols-math.js"
+    },
+    {
+      "id": "app-bravura-text-latin",
+      "label": "Sharp Eleven - BravuraText Latin",
+      "path": "fonts/SharpElevenApp/BravuraText-Latin-400.woff2",
+      "format": "woff2",
+      "category": "app",
+      "atlas": "atlases/app-bravura-text-latin.json",
+      "atlasScript": "atlases/app-bravura-text-latin.js"
+    },
+    {
+      "id": "noto-sans-semibold",
+      "label": "Noto Sans SemiBold",
+      "path": "fonts/Noto_Sans/static/NotoSans-SemiBold.ttf",
+      "format": "truetype",
+      "category": "candidate",
+      "atlas": "atlases/noto-sans-semibold.json",
+      "atlasScript": "atlases/noto-sans-semibold.js"
+    },
+    {
+      "id": "noto-sans-condensed-semibold",
+      "label": "Noto Sans Condensed SemiBold",
+      "path": "fonts/Noto_Sans/static/NotoSans_Condensed-SemiBold.ttf",
+      "format": "truetype",
+      "category": "candidate",
+      "atlas": "atlases/noto-sans-condensed-semibold.json",
+      "atlasScript": "atlases/noto-sans-condensed-semibold.js"
+    },
+    {
+      "id": "noto-sans-condensed-regular",
+      "label": "Noto Sans Condensed Regular",
+      "path": "fonts/Noto_Sans/static/NotoSans_Condensed-Regular.ttf",
+      "format": "truetype",
+      "category": "candidate",
+      "atlas": "atlases/noto-sans-condensed-regular.json",
+      "atlasScript": "atlases/noto-sans-condensed-regular.js"
+    },
+    {
+      "id": "ibm-plex-sans-regular",
+      "label": "IBM Plex Sans Regular",
+      "path": "fonts/IBM_Plex_Sans/static/IBMPlexSans-Regular.ttf",
+      "format": "truetype",
+      "category": "candidate",
+      "atlas": "atlases/ibm-plex-sans-regular.json",
+      "atlasScript": "atlases/ibm-plex-sans-regular.js"
+    },
+    {
+      "id": "ibm-plex-sans-condensed-semibold",
+      "label": "IBM Plex Sans Condensed SemiBold",
+      "path": "fonts/IBM_Plex_Sans/static/IBMPlexSans_Condensed-SemiBold.ttf",
+      "format": "truetype",
+      "category": "candidate",
+      "atlas": "atlases/ibm-plex-sans-condensed-semibold.json",
+      "atlasScript": "atlases/ibm-plex-sans-condensed-semibold.js"
+    },
+    {
+      "id": "ibm-plex-sans-condensed-regular",
+      "label": "IBM Plex Sans Condensed Regular",
+      "path": "fonts/IBM_Plex_Sans/static/IBMPlexSans_Condensed-Regular.ttf",
+      "format": "truetype",
+      "category": "candidate",
+      "atlas": "atlases/ibm-plex-sans-condensed-regular.json",
+      "atlasScript": "atlases/ibm-plex-sans-condensed-regular.js"
+    }
+  ],
+  "roleDefaults": {
+    "root": "noto-sans-semibold",
+    "accidental": "app-bravura-text-latin",
+    "quality": "ibm-plex-sans-condensed-semibold",
+    "digit": "app-noto-symbols-math",
+    "symbol": "ibm-plex-sans-regular"
+  }
+}

@@ -277,6 +277,53 @@
   transform-origin: left bottom;
 }
 
+.chord-symbol-sup-content-stacked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.015em;
+  letter-spacing: -0.02em;
+  transform: translateY(0.1em) scaleX(0.92);
+}
+
+.chord-symbol-extension-prefix {
+  display: inline-block;
+  transform: translateY(-0.18em);
+}
+
+.chord-symbol-parenthetical-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.01em;
+  margin-left: 0.02em;
+  vertical-align: middle;
+}
+
+.chord-symbol-parenthetical-stack-paren {
+  display: inline-block;
+  font-size: 1.55em;
+  font-weight: 400;
+  line-height: 0.86;
+  transform: scaleX(0.74);
+  transform-origin: center;
+}
+
+.chord-symbol-parenthetical-stack-items {
+  display: grid;
+  align-items: center;
+  justify-items: start;
+  row-gap: 0;
+}
+
+.chord-symbol-parenthetical-stack-item {
+  display: block;
+  line-height: 0.72;
+  white-space: nowrap;
+}
+
+.chord-symbol-parenthetical-stack-3 .chord-symbol-parenthetical-stack-item {
+  line-height: 0.62;
+}
+
 .chord-symbol-figure69 {
   display: inline-grid;
   grid-template-columns: 0.38em 0.1em 0.38em;
