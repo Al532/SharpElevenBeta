@@ -44,9 +44,9 @@
   --chart-ui-shadow-medium: var(--ui-shadow-color-soft);
   --chart-ui-shadow-popover: var(--ui-shadow-color-soft);
   --chart-ui-shadow-menu: var(--ui-shadow-color-strong);
-  --chart-ui-feedback-fill: color-mix(in srgb, var(--ui-highlight, #ffe978) 36%, transparent 64%);
-  --chart-ui-feedback-fill-strong: color-mix(in srgb, var(--ui-highlight, #ffe978) 64%, transparent 36%);
-  --chart-ui-feedback-glow: color-mix(in srgb, var(--ui-highlight, #ffe978) 28%, transparent 72%);
+  --chart-ui-feedback-fill: color-mix(in srgb, var(--chart-ui-accent) 20%, transparent 80%);
+  --chart-ui-feedback-fill-strong: color-mix(in srgb, var(--chart-ui-accent) 32%, transparent 68%);
+  --chart-ui-feedback-glow: color-mix(in srgb, var(--chart-ui-accent) 24%, transparent 76%);
   --chart-status-error: var(--ui-danger);
   --chart-stage-bg: var(--chart-paper);
   --chart-sheet-bg: var(--chart-paper);
@@ -55,10 +55,12 @@
   --chart-sheet-title: var(--chart-ink);
   --chart-sheet-text-alt: color-mix(in srgb, var(--chart-ink) 70%, white 30%);
   --chart-sheet-muted: color-mix(in srgb, var(--chart-ink) 78%, transparent 22%);
-  --chart-sheet-active: color-mix(in srgb, var(--ui-highlight) 56%, transparent 44%);
-  --chart-sheet-selected: color-mix(in srgb, var(--ui-highlight) 22%, transparent 78%);
+  /* Functional highlighter for chart position/selection, intentionally fixed across themes. */
+  --chart-sheet-highlight: #ffe978;
+  --chart-sheet-active: color-mix(in srgb, var(--chart-sheet-highlight) 56%, transparent 44%);
+  --chart-sheet-selected: color-mix(in srgb, var(--chart-sheet-highlight) 22%, transparent 78%);
   --chart-sheet-active-selected: var(--chart-sheet-active);
-  --chart-sheet-playback: color-mix(in srgb, var(--ui-warning-bg) 55%, transparent 45%);
+  --chart-sheet-playback: color-mix(in srgb, var(--chart-sheet-highlight) 86%, transparent 14%);
   --chart-sheet-pill: var(--chart-ink);
   --chart-sheet-pill-text: #ffffff;
   --chart-sheet-paper-shadow: 0 18px 40px rgba(17, 24, 39, 0.14);

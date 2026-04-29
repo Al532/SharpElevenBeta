@@ -15,4 +15,3 @@ Theme colors used:
 --c-accent: #c19a6b
 --c-secondary: #dcd6c8
 --c-danger: #c1121f
---c-highlight: #e9c46a

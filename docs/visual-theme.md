@@ -46,10 +46,9 @@ The selected palette is stored in `localStorage` under `sharp-eleven-theme`.
 
 ### Base Palette Scope
 
-The base palette is intentionally minimal: 6 source tokens in `theme-palettes.css`:
+The base palette is intentionally minimal: 5 source tokens in `theme-palettes.css`:
 
 - Core UI: `--c-bg`, `--c-text`, `--c-accent`, `--c-secondary`
-- State: `--c-highlight` (highlighter yellow used for chart selection and playback highlights)
 - Status UI: `--c-danger`
 
 `--c-surface` is intentionally derived from the theme background and text rather than maintained as an independent source. The remaining `--c-*` names are derived aliases. `--tone-*` helpers handle light/dark mixing, and all app, home, drill, and chart UI colors should flow through the derived `--ui-*` layer in `public/theme.css`; avoid adding palette-specific component selectors such as `:root[data-theme="..."] .some-component`.
@@ -65,11 +64,10 @@ To add a new palette, edit only `public/theme-palettes.css` (and keep the root c
   --c-accent: #38bdf8;
   --c-secondary: #0ea5e9;
   --c-danger: #f87171;
-  --c-highlight: #fde047;
 }
 ```
 
-You only need those 6 source tokens. Derived tokens are recalculated automatically. As soon as the block exists, it is discovered by:
+You only need those 5 source tokens. Derived tokens are recalculated automatically. As soon as the block exists, it is discovered by:
 
 ```js
 SharpElevenTheme.listPalettes();
@@ -79,7 +77,7 @@ SharpElevenTheme.listPalettes();
 
 - Add new visual colors as semantic tokens before using them in component CSS.
 - Keep `public/theme.css` for computed tokens and shared wiring; `public/theme-palettes.css` holds base `--c-*` source values.
-- Keep chart sheet colors in `chart/chart.css` under `--chart-sheet-*`; chart menus and overlays use shared `--ui-*` tokens.
+- Keep chart sheet colors in `chart/chart.css` under `--chart-sheet-*`; chart selection/playback highlight is a fixed functional marker, while chart menus and overlays use shared `--ui-*` tokens.
 - Avoid adding selector-migration aliases; source-level `--c-*` aliases may stay when they document derived theme semantics.
 - Prefer adapting shared tokens with `light-dark()` and `color-mix()` in `public/theme.css` over hard-coded dark/light overrides in component CSS.
 

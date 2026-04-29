@@ -131,7 +131,6 @@
   --ui-warning-border: color-mix(in srgb, var(--c-accent) 42%, var(--c-secondary) 58%);
   --ui-warning-border-hover: color-mix(in srgb, var(--c-accent) 56%, var(--c-secondary) 44%);
   --ui-warning-text: var(--c-accent);
-  --ui-highlight: var(--c-highlight);
   --ui-white-border: var(--ui-inset-border);
   --ui-white-border-hover: var(--ui-inset-border-hover);
   --ui-white-surface: var(--ui-translucent-surface);
@@ -146,12 +145,6 @@
   --key-black-text: color-mix(in srgb, white 96%, var(--c-secondary) 4%);
   --key-black-bg: linear-gradient(180deg, color-mix(in srgb, var(--c-text) 72%, var(--c-bg) 28%), color-mix(in srgb, black 78%, var(--c-bg) 22%));
   --key-black-selected-bg: linear-gradient(180deg, var(--c-accent), var(--ui-accent-strong));
-
-  /* Chart selection follows the palette highlight while remaining sheet-local. */
-  --chart-sheet-active: color-mix(in srgb, var(--ui-highlight) 56%, transparent 44%) !important;
-  --chart-sheet-selected: color-mix(in srgb, var(--ui-highlight) 22%, transparent 78%) !important;
-  --chart-sheet-active-selected: color-mix(in srgb, var(--ui-highlight) 56%, transparent 44%) !important;
-  --chart-sheet-playback: color-mix(in srgb, var(--ui-highlight) 86%, transparent 14%) !important;
 }
 
 .app-back-button {

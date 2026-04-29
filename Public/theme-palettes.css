@@ -2,13 +2,12 @@
 :root[data-theme="classic-paper"] {
   color-scheme: light;
 
-  /* Six source colors: page, text, accent, support, danger, chart marker. */
+  /* Five source colors: page, text, accent, support, danger. */
   --c-bg: #f5f1e6;
   --c-text: #1a1a1a;
   --c-accent: #c19a6b;
   --c-secondary: #dcd6c8;
   --c-danger: #c1121f;
-  --c-highlight: #e9c46a;
 }
 
 :root[data-theme="blue-note"] {
@@ -19,7 +18,6 @@
   --c-accent: #0f6fae;
   --c-secondary: #c7dff4;
   --c-danger: #c86472;
-  --c-highlight: #f4d85e;
 }
 
 :root[data-theme="dark-jazz"] {
@@ -30,5 +28,4 @@
   --c-accent: #d18a34;
   --c-secondary: #2d3032;
   --c-danger: #df6e68;
-  --c-highlight: #f0bd58;
 }
