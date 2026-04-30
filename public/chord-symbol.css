@@ -443,6 +443,10 @@
   margin-left: -1.18em;
 }
 
+.chord-symbol-quality-7sus .chord-symbol-sup-after-base {
+  transform: translateY(var(--chord-symbol-sup-root-shift));
+}
+
 .chord-symbol-slash-stack {
   display: inline-grid;
   grid-template-columns: var(--chord-symbol-slash-column-width) auto;

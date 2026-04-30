@@ -526,6 +526,19 @@ function renderRepeatDotsMarker() {
   `;
 }
 
+function renderRepeatBarTerminals(position) {
+  return `
+    <span class="chart-repeat-terminals chart-repeat-terminals-${position}" aria-hidden="true">
+      <svg class="chart-repeat-terminal chart-repeat-terminal-top" viewBox="0 0 8 6" focusable="false">
+        <path d="M0 4.05C2.82 4 5.08 2.72 7.1 0.36C7.45 -0.05 8.04 0.32 7.78 0.8C6.05 4.03 3.65 5.86 0 6Z" />
+      </svg>
+      <svg class="chart-repeat-terminal chart-repeat-terminal-bottom" viewBox="0 0 8 6" focusable="false">
+        <path d="M0 4.05C2.82 4 5.08 2.72 7.1 0.36C7.45 -0.05 8.04 0.32 7.78 0.8C6.05 4.03 3.65 5.86 0 6Z" />
+      </svg>
+    </span>
+  `;
+}
+
 function getBarAnnotationCellIndex(bar, annotation) {
   const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
   return cellSlots.findIndex((cellSlot) => Array.isArray(cellSlot?.annots) && cellSlot.annots.includes(annotation));
@@ -2478,6 +2491,8 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
         ${sectionMarker}
         ${bar.flags.includes('repeat_start_barline') ? `<span class="chart-repeat-dots chart-repeat-dots-start" aria-hidden="true">${renderRepeatDotsMarker()}</span>` : ''}
         ${bar.flags.includes('repeat_end_barline') ? `<span class="chart-repeat-dots chart-repeat-dots-end" aria-hidden="true">${renderRepeatDotsMarker()}</span>` : ''}
+        ${bar.flags.includes('repeat_start_barline') ? renderRepeatBarTerminals('start') : ''}
+        ${bar.flags.includes('repeat_end_barline') ? renderRepeatBarTerminals('end') : ''}
         ${renderEndingMarkup(bar.endings)}
         ${renderBarCornerMarkers(bar)}
         ${renderFermataForBar(bar)}

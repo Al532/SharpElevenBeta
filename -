@@ -1,4 +1,5 @@
-@font-face {
+<!doctype html>
+<html><head><meta charset="utf-8"><style>@font-face {
   font-family: "JazzTrainerChordText";
   src: url("./assets/fonts/NotoSans-Latin.woff2") format("woff2");
   font-style: normal;
@@ -526,3 +527,4 @@
     --chord-symbol-bass-size: 0.6em;
   }
 }
+</style><style>body{margin:36px;font-size:64px;font-family:sans-serif;background:white;color:#111}.row{display:flex;align-items:baseline;gap:80px}</style></head><body><div class="row"><span><span class="chord-symbol chord-symbol-root-only"><span class="chord-symbol-topline"><span class="chord-symbol-head"><span class="chord-symbol-main"><span class="chord-symbol-root"><span class="chord-symbol-root-letter">C</span></span></span><span class="chord-symbol-sup chord-symbol-sup-after-root"><span class="chord-symbol-sup-content">7</span></span></span></span></span></span><span><span class="chord-symbol chord-symbol-with-base chord-symbol-quality-7sus"><span class="chord-symbol-topline"><span class="chord-symbol-head"><span class="chord-symbol-main"><span class="chord-symbol-root"><span class="chord-symbol-root-letter">C</span></span><span class="chord-symbol-base chord-symbol-base-condensed-sus"><span class="chord-symbol-base-content">sus</span></span></span><span class="chord-symbol-sup chord-symbol-sup-after-base chord-symbol-sup-anchor-condensed-sus"><span class="chord-symbol-sup-content">7</span></span></span></span></span></span></div></body></html>

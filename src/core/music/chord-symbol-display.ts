@@ -309,6 +309,16 @@ function getSupReserveClass(sup: QualityDisplayPart) {
   return '';
 }
 
+function getQualityContextClass(quality: string | null | undefined) {
+  switch (String(quality || '')) {
+    case '7sus':
+    case '7sus4':
+      return ' chord-symbol-quality-7sus';
+    default:
+      return '';
+  }
+}
+
 function parseParentheticalExtensionStack(value: string | null | undefined): ParentheticalExtensionStack | null {
   const text = String(value || '');
   const match = /^(.*)\(([^()]+)\)$/.exec(text);
@@ -389,9 +399,10 @@ export function renderChordSymbolHtml(
     : '';
   const supReserveClass = safeSup ? getSupReserveClass(sup) : '';
   const baseSymbolClass = base.type === 'symbol' ? ` chord-symbol-base-symbol chord-symbol-base-symbol-${base.symbolName}` : '';
+  const qualityContextClass = getQualityContextClass(quality);
 
   return [
-    `<span class="chord-symbol${symbolContextClass}${supReserveClass}${slashAnchorCompressionClass}">`,
+    `<span class="chord-symbol${symbolContextClass}${supReserveClass}${slashAnchorCompressionClass}${qualityContextClass}">`,
     '<span class="chord-symbol-topline">',
     '<span class="chord-symbol-head">',
     '<span class="chord-symbol-main">',

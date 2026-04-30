@@ -1192,16 +1192,21 @@ select {
 }
 
 .chart-bar-cell.is-repeat-end {
+  --chart-right-barline-width: 2px;
   padding-right: 14px;
 }
 
 .chart-bar-cell.is-repeat-start {
-  padding-left: 4px;
+  --chart-left-barline-width: 2px;
+  padding-left: 6px;
 }
 
-.chart-bar-cell.is-row-start,
-.chart-bar-cell.is-repeat-start {
+.chart-bar-cell.is-row-start {
   --chart-left-barline-width: 1px;
+}
+
+.chart-bar-cell.is-row-start.is-repeat-start {
+  --chart-left-barline-width: 2px;
 }
 
 .chart-bar-cell.is-section-start {
@@ -1243,6 +1248,10 @@ select {
   );
 }
 
+.chart-bar-cell.is-repeat-end::before {
+  width: 2px;
+}
+
 .chart-bar-cell.is-final::before {
   width: 4px;
   background: linear-gradient(
@@ -1264,6 +1273,10 @@ select {
   width: 1px;
   background: var(--chart-sheet-line);
   z-index: 2;
+}
+
+.chart-bar-cell.is-repeat-start::after {
+  width: 2px;
 }
 
 .chart-bar-cell.is-section-start::after {
@@ -1381,6 +1394,44 @@ select {
   right: calc(var(--chart-right-barline-width, 1px) + 1px);
 }
 
+.chart-repeat-terminals {
+  position: absolute;
+  top: var(--chart-bar-line-top);
+  width: 8px;
+  height: var(--chart-bar-line-height);
+  color: var(--chart-sheet-line);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.chart-repeat-terminals-start {
+  left: 0;
+}
+
+.chart-repeat-terminals-end {
+  right: 0;
+  transform: scaleX(-1);
+}
+
+.chart-repeat-terminal {
+  position: absolute;
+  left: 0;
+  display: block;
+  width: 8px;
+  height: 6px;
+  fill: currentColor;
+  overflow: visible;
+}
+
+.chart-repeat-terminal-top {
+  top: -5px;
+}
+
+.chart-repeat-terminal-bottom {
+  bottom: -5px;
+  transform: scaleY(-1);
+}
+
 .chart-bar-cell.is-final::after {
   content: "";
   position: absolute;
@@ -1485,7 +1536,7 @@ select {
   z-index: 4;
   max-width: min(12em, calc(100% - var(--chart-text-annotation-left, 0%) - 4px));
   color: var(--chart-sheet-text);
-  font-size: 1.1rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.02;
   white-space: nowrap;
@@ -1725,7 +1776,7 @@ select {
   border-radius: 0;
   background: transparent;
   color: var(--chart-sheet-text);
-  font-size: 1rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.02;
   white-space: nowrap;
@@ -2142,7 +2193,7 @@ select {
   }
 
   .chart-foot-pill.chart-foot-text {
-    font-size: 1rem;
+    font-size: 0.68rem;
   }
 
   .chart-repeat-end-marker {

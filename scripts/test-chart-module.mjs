@@ -123,6 +123,7 @@ import {
   getMetricBeatStrengths,
   getMetricGroupPriority
 } from '../src/core/music/meter.ts';
+import { renderChordSymbolHtml } from '../src/core/music/chord-symbol-display.ts';
 import { loadPracticePatternHelp } from '../src/features/practice-patterns/practice-pattern-help.ts';
 import { validatePracticeCustomPattern } from '../src/features/practice-patterns/practice-pattern-validation.ts';
 import { createDrillHarmonyDisplayHelpers } from '../src/features/drill/drill-display-runtime.ts';
@@ -613,6 +614,11 @@ assert.equal(
   ),
   'Dm7',
   'Drill harmony display helpers format plain chord symbols from injected display-quality rules.'
+);
+assert.match(
+  renderChordSymbolHtml('C', '7sus'),
+  /chord-symbol-quality-7sus[\s\S]*chord-symbol-sup-after-base/,
+  '7sus chord symbols keep a dedicated context so the 7 can sit at the standalone dominant height above sus.'
 );
 const drillPreviewTimingHelpers = createDrillPreviewTimingHelpers({
   getChordsPerBar: () => 2,
@@ -2811,6 +2817,44 @@ assert.match(
   endingSegnoGrid.innerHTML,
   /chart-bar-segno-marker/,
   'Bars with both endings and Segno still render the Segno marker.'
+);
+
+const repeatTerminalGrid = { innerHTML: '' };
+createChartSheetRenderer({
+  sheetGrid: repeatTerminalGrid,
+  getDisplayedBarGroupSize: () => 4,
+  getHarmonyDisplayMode: () => 'default',
+  getFallbackTimeSignature: () => '4/4',
+  renderChordMarkup: (token) => `<span>${token?.symbol || ''}</span>`
+}).renderSheet({
+  metadata: { primaryTimeSignature: '4/4' },
+  bars: [{
+    id: 'repeat-start-bar',
+    index: 1,
+    flags: ['repeat_start_barline'],
+    endings: [],
+    displayTokens: [{ kind: 'chord', symbol: 'C7' }],
+    playback: { cellSlots: [] },
+    playbackSlots: []
+  }, {
+    id: 'repeat-end-bar',
+    index: 2,
+    flags: ['repeat_end_barline'],
+    endings: [],
+    displayTokens: [{ kind: 'chord', symbol: 'F7' }],
+    playback: { cellSlots: [] },
+    playbackSlots: []
+  }]
+});
+assert.match(
+  repeatTerminalGrid.innerHTML,
+  /chart-repeat-terminals-start/,
+  'Repeat-start barlines render tapered terminals.'
+);
+assert.match(
+  repeatTerminalGrid.innerHTML,
+  /chart-repeat-terminals-end/,
+  'Repeat-end barlines render mirrored tapered terminals.'
 );
 
 const alice = byTitle.get('Alice In Wonderland');
