@@ -14,6 +14,7 @@
     "dev:android:web": "vite --config config/vite/vite.web.config.js --host 0.0.0.0 --port 5173 --strictPort",
     "dev:typecheck": "tsc --noEmit --watch",
     "dev:chart": "vite --config config/vite/vite.chart.config.js",
+    "beta:passwords": "node scripts/beta-passwords.mjs",
     "test:chart": "node --import ./scripts/register-ts-source-loader.mjs scripts/test-chart-module.mjs",
     "test:drill-wrappers": "node --import ./scripts/register-ts-source-loader.mjs scripts/test-drill-root-wrappers.mjs",
     "typecheck": "tsc --noEmit",

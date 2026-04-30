@@ -1293,6 +1293,10 @@ select {
   content: none;
 }
 
+.chart-bar-cell.is-empty-measure::before {
+  content: "";
+}
+
 .chart-bar-cell.is-graphic-spacer {
   padding: 0;
 }
@@ -1529,8 +1533,9 @@ select {
 .chart-ending-label {
   position: absolute;
   left: 2px;
-  top: 3px;
+  top: 4px;
   z-index: 1;
+  font-size: 0.58em;
   line-height: 1;
 }
 
@@ -1640,16 +1645,6 @@ select {
   color: var(--chart-sheet-text-alt);
 }
 
-.chart-token.alternate-chord {
-  align-items: flex-start;
-  align-self: flex-start;
-  font-size: 0.55em;
-  line-height: 1.2;
-  color: var(--chart-sheet-text-alt);
-  transform: translateY(-0.42em);
-  transform-origin: left bottom;
-}
-
 .chart-repeat-sign {
   display: inline-flex;
   align-items: center;
@@ -1679,17 +1674,29 @@ select {
   word-spacing: 0;
 }
 
-.chart-token-alternate {
+.chart-alternate-lane {
   position: absolute;
-  bottom: 100%;
-  left: 0;
-  display: block;
+  left: var(--chart-alternate-left, 0);
+  right: var(--chart-alternate-right, 0);
+  top: -0.76em;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.chart-alternate-token {
+  display: inline-flex;
+  align-items: flex-end;
   font-size: 0.55em;
   line-height: 1.2;
   letter-spacing: 0;
   color: var(--chart-sheet-text-alt);
-  margin-bottom: 0.18em;
   white-space: nowrap;
+  transform: scaleX(var(--chart-alternate-token-scale-x, 1));
+  transform-origin: left bottom;
 }
 
 /* --- Bar foot ---------------------------------------------------- */

@@ -1,0 +1,5 @@
+[functions.beta-login]
+verify_jwt = false
+
+[functions.beta-feedback]
+verify_jwt = false

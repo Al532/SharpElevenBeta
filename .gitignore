@@ -11,6 +11,7 @@ mobile/.idea/
 .env
 .env.*
 !.env.example
+.beta-passwords.json
 
 *.log
 npm-debug.log*

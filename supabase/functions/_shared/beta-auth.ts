@@ -5,8 +5,19 @@ const TOKEN_SCOPE = 'sharp-eleven-beta';
 export type BetaTokenPayload = {
   scope: string;
   sid: string;
+  accessKeyId?: string;
   iat: number;
   exp: number;
+};
+
+type BetaAccessCredential = {
+  id?: string;
+  value: string;
+};
+
+export type BetaPasswordMatch = {
+  ok: boolean;
+  accessKeyId?: string;
 };
 
 export function getCorsHeaders(request: Request) {
@@ -81,6 +92,69 @@ async function sha256Hex(value: string) {
     .join('');
 }
 
+function splitSecretList(value: string) {
+  return value
+    .split(/[\n,;]+/g)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseCredentialEntry(entry: string, normalizeValue: (value: string) => string) {
+  const separatorMatch = /[:=]/.exec(entry);
+  if (!separatorMatch || separatorMatch.index === 0) {
+    return { value: normalizeValue(entry) };
+  }
+
+  const id = entry.slice(0, separatorMatch.index).trim();
+  const value = entry.slice(separatorMatch.index + 1).trim();
+  if (!id || !value) return null;
+  return { id, value: normalizeValue(value) };
+}
+
+function getHashCredentials() {
+  const credentials: BetaAccessCredential[] = [];
+  const list = Deno.env.get('BETA_ACCESS_PASSWORD_HASHES') || '';
+  const legacyHash = (Deno.env.get('BETA_ACCESS_PASSWORD_HASH') || '').trim();
+
+  for (const entry of splitSecretList(list)) {
+    const credential = parseCredentialEntry(entry, (value) => value.trim().toLowerCase());
+    if (credential) credentials.push(credential);
+  }
+
+  if (legacyHash) {
+    credentials.push({ value: legacyHash.toLowerCase() });
+  }
+
+  return credentials;
+}
+
+function getPlaintextCredentials() {
+  const credentials: BetaAccessCredential[] = [];
+  const list = Deno.env.get('BETA_ACCESS_PASSWORDS') || '';
+  const legacyPassword = Deno.env.get('BETA_ACCESS_PASSWORD') || '';
+
+  for (const entry of splitSecretList(list)) {
+    const credential = parseCredentialEntry(entry, (value) => value);
+    if (credential) credentials.push(credential);
+  }
+
+  if (legacyPassword) {
+    credentials.push({ value: legacyPassword });
+  }
+
+  return credentials;
+}
+
+function getConfiguredAccessKeyIds() {
+  const ids = new Set<string>();
+  const hashCredentials = getHashCredentials();
+  const credentials = hashCredentials.length > 0 ? hashCredentials : getPlaintextCredentials();
+  for (const credential of credentials) {
+    if (credential.id) ids.add(credential.id);
+  }
+  return ids;
+}
+
 async function importSigningKey(secret: string) {
   return crypto.subtle.importKey(
     'raw',
@@ -102,22 +176,44 @@ function getTokenSecret() {
 }
 
 export async function isValidPassword(password: string) {
-  const configuredHash = (Deno.env.get('BETA_ACCESS_PASSWORD_HASH') || '').trim().toLowerCase();
-  const configuredPassword = Deno.env.get('BETA_ACCESS_PASSWORD') || '';
+  return (await validateBetaPassword(password)).ok;
+}
 
-  if (configuredHash) {
+export async function validateBetaPassword(password: string): Promise<BetaPasswordMatch> {
+  const hashCredentials = getHashCredentials();
+
+  if (hashCredentials.length > 0) {
     const receivedHash = await sha256Hex(password);
-    return constantTimeEquals(receivedHash, configuredHash);
+    let accessKeyId: string | undefined;
+    let ok = false;
+
+    for (const credential of hashCredentials) {
+      const matches = constantTimeEquals(receivedHash, credential.value);
+      ok = ok || matches;
+      if (matches && credential.id && !accessKeyId) accessKeyId = credential.id;
+    }
+
+    return { ok, accessKeyId };
   }
 
-  if (configuredPassword) {
-    return constantTimeEquals(password, configuredPassword);
+  const plaintextCredentials = getPlaintextCredentials();
+  if (plaintextCredentials.length > 0) {
+    let accessKeyId: string | undefined;
+    let ok = false;
+
+    for (const credential of plaintextCredentials) {
+      const matches = constantTimeEquals(password, credential.value);
+      ok = ok || matches;
+      if (matches && credential.id && !accessKeyId) accessKeyId = credential.id;
+    }
+
+    return { ok, accessKeyId };
   }
 
   throw new Error('Beta password secret is not configured.');
 }
 
-export async function createBetaToken() {
+export async function createBetaToken(accessKeyId?: string) {
   const secret = getTokenSecret();
   if (!secret) throw new Error('Beta token secret is not configured.');
 
@@ -130,6 +226,7 @@ export async function createBetaToken() {
     iat: now,
     exp: now + Math.max(60, ttlSeconds),
   };
+  if (accessKeyId) payload.accessKeyId = accessKeyId;
   const encodedPayload = encodeBase64Url(encoder.encode(JSON.stringify(payload)));
   const signingInput = `${header}.${encodedPayload}`;
   const signature = await signValue(signingInput, secret);
@@ -159,5 +256,6 @@ export async function verifyBetaToken(token: string): Promise<BetaTokenPayload |
 
   const now = Math.floor(Date.now() / 1000);
   if (parsed.scope !== TOKEN_SCOPE || !parsed.exp || parsed.exp <= now) return null;
+  if (parsed.accessKeyId && !getConfiguredAccessKeyIds().has(parsed.accessKeyId)) return null;
   return parsed;
 }

@@ -184,6 +184,11 @@ function normalizeChordSlot(chord) {
   };
 }
 
+function isBlankAlternateChord(chord) {
+  return chord?.alternate
+    && (String(chord?.root || '') === ' ' || (!String(chord?.root || '').trim() && !String(chord?.symbol || '').trim()));
+}
+
 function withSourceCellPlacement(token, sourceCellIndex, sourceCellCount) {
   return {
     ...token,
@@ -226,7 +231,7 @@ function createDisplayTokensFromCellSlots(cellSlots = [], { includeStandaloneAlt
       continue;
     }
 
-    if (includeStandaloneAlternates && chord.alternate) {
+    if ((includeStandaloneAlternates || isBlankAlternateChord(chord)) && chord.alternate) {
       tokens.push(createAlternateChordToken(chord.alternate, sourceCellIndex, sourceCellCount));
     }
 
@@ -257,15 +262,21 @@ function normalizeTextAnnotation(annotation) {
     Math.min(sourceCellCount - 1, Number(annotation?.source_cell_index || annotation?.sourceCellIndex || 0))
   );
   const yOffset = Number(annotation?.y_offset ?? annotation?.yOffset);
+  const offsetCode = annotation?.offset_code ? String(annotation.offset_code) : null;
+  const horizontalCode = offsetCode ? offsetCode.slice(0, -1) : '';
+  const horizontalOffset = horizontalCode
+    ? Number(horizontalCode) / (horizontalCode.length <= 1 ? 10 : 100)
+    : 0;
 
   return {
     text,
     raw: String(annotation?.raw || ''),
-    offsetCode: annotation?.offset_code ? String(annotation.offset_code) : null,
+    offsetCode,
     yOffset: Number.isFinite(yOffset) ? yOffset : null,
+    sourceCellOffset: Number.isFinite(horizontalOffset) ? Math.max(0, Math.min(0.95, horizontalOffset)) : 0,
     sourceCellIndex,
     sourceCellCount,
-    vertical: Number.isFinite(yOffset) && yOffset <= 4 ? 'above' : 'below'
+    vertical: Number.isFinite(yOffset) && (yOffset <= 4 || yOffset >= 9) ? 'above' : 'below'
   };
 }
 
@@ -434,6 +445,7 @@ function createChartBar(rawBar, sectionId) {
   return {
     id: `bar-${rawBar.index}`,
     index: rawBar.index,
+    layoutStartCellIndex: Number.isInteger(rawBar.start_cell_index) ? Number(rawBar.start_cell_index) : null,
     sectionId,
     sectionLabel: rawBar.section,
     timeSignature: rawBar.time_signature || null,

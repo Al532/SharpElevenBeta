@@ -59,7 +59,6 @@ type HomePageDom = {
 };
 
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com';
-
 let lastHomeViewportWidth = 0;
 let maxHomeViewportHeightWithoutVirtualKeyboard = 0;
 
@@ -499,7 +498,8 @@ function renderHomeChartSummaryPreview(
   if (!previewDocuments.length) return;
   dom.chartSearchEmpty?.classList.remove('home-empty-import', 'hidden');
   if (dom.chartSearchEmpty) {
-    dom.chartSearchEmpty.textContent = 'Recent charts. Search above to open another chart.';
+    dom.chartSearchEmpty.replaceChildren();
+    dom.chartSearchEmpty.classList.add('hidden');
   }
   dom.chartSearchResults.replaceChildren();
   const availableHeight = getAvailableChartListHeight(dom.chartSearchResults);
@@ -527,14 +527,65 @@ function renderChartSearch(
 ): void {
   if (!dom.chartSearchResults) return;
   const query = normalizeChartTextKey(dom.chartSearchInput?.value || '');
-  dom.chartSearchEmpty?.classList.add('hidden');
-  const availableHeight = getAvailableChartListHeight(dom.chartSearchResults);
-  const maxListBottom = dom.chartSearchResults.getBoundingClientRect().top + availableHeight;
   const matches = query
     ? filterChartDocuments(documents, query)
     : recentDocuments;
 
   dom.chartSearchResults.replaceChildren();
+  if (dom.chartSearchEmpty) {
+    dom.chartSearchEmpty.classList.remove('home-empty-import');
+    if (importFeedback.kind === 'importing') {
+      dom.chartSearchEmpty.replaceChildren(createImportingPrompt(
+        importFeedback.title || 'Importing charts...',
+        importFeedback.detail || 'This can take a few seconds. Keep this page open while Sharp Eleven finishes.'
+      ));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (importFeedback.kind === 'success') {
+      dom.chartSearchEmpty.replaceChildren(createImportSuccessPrompt(
+        importFeedback.title || 'Charts imported.',
+        importFeedback.detail || 'Use the dashboard search to open one quickly. Open Library if you want to browse the full catalog.',
+        onSearchCharts
+      ));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (importFeedback.kind === 'error') {
+      dom.chartSearchEmpty.replaceChildren(createImportErrorPrompt(
+        importFeedback.title || 'Import failed.',
+        importFeedback.detail || 'Open Import charts to try again.',
+        onImportCharts
+      ));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (documents.length === 0) {
+      dom.chartSearchEmpty.replaceChildren(createEmptyChartImportPrompt(onImportCharts));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (!query && matches.length === 0) {
+      dom.chartSearchEmpty.replaceChildren(createLibraryBrowsePrompt(onSearchCharts));
+      dom.chartSearchEmpty.classList.add('home-empty-import');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    if (query && matches.length === 0) {
+      dom.chartSearchEmpty.replaceChildren('No matching charts.');
+      dom.chartSearchEmpty.classList.remove('hidden');
+      return;
+    }
+    dom.chartSearchEmpty.replaceChildren();
+    dom.chartSearchEmpty.classList.add('hidden');
+  }
+
+  const availableHeight = getAvailableChartListHeight(dom.chartSearchResults);
+  const maxListBottom = dom.chartSearchResults.getBoundingClientRect().top + availableHeight;
   for (const chartDocument of matches) {
     dom.chartSearchResults.append(createChartRow(chartDocument, onMenu));
     const last = dom.chartSearchResults.lastElementChild;
@@ -550,60 +601,6 @@ function renderChartSearch(
     && dom.chartSearchResults.lastElementChild.getBoundingClientRect().bottom > maxListBottom
   ) {
     dom.chartSearchResults.lastElementChild.remove();
-  }
-
-  const isEmpty = dom.chartSearchResults.children.length === 0;
-  if (dom.chartSearchEmpty) {
-    dom.chartSearchEmpty.classList.remove('home-empty-import');
-    if (importFeedback.kind === 'importing') {
-      dom.chartSearchResults.replaceChildren();
-      dom.chartSearchEmpty.replaceChildren(createImportingPrompt(
-        importFeedback.title || 'Importing charts...',
-        importFeedback.detail || 'This can take a few seconds. Keep this page open while Sharp Eleven finishes.'
-      ));
-      dom.chartSearchEmpty.classList.add('home-empty-import');
-      dom.chartSearchEmpty.classList.remove('hidden');
-      return;
-    }
-    if (importFeedback.kind === 'success') {
-      dom.chartSearchResults.replaceChildren();
-      dom.chartSearchEmpty.replaceChildren(createImportSuccessPrompt(
-        importFeedback.title || 'Charts imported.',
-        importFeedback.detail || 'Use the dashboard search to open one quickly. Open Library if you want to browse the full catalog.',
-        onSearchCharts
-      ));
-      dom.chartSearchEmpty.classList.add('home-empty-import');
-      dom.chartSearchEmpty.classList.remove('hidden');
-      return;
-    }
-    if (importFeedback.kind === 'error') {
-      dom.chartSearchResults.replaceChildren();
-      dom.chartSearchEmpty.replaceChildren(createImportErrorPrompt(
-        importFeedback.title || 'Import failed.',
-        importFeedback.detail || 'Open Import charts to try again.',
-        onImportCharts
-      ));
-      dom.chartSearchEmpty.classList.add('home-empty-import');
-      dom.chartSearchEmpty.classList.remove('hidden');
-      return;
-    }
-    if (isEmpty && documents.length === 0) {
-      dom.chartSearchEmpty.replaceChildren(createEmptyChartImportPrompt(onImportCharts));
-      dom.chartSearchEmpty.classList.add('home-empty-import');
-      dom.chartSearchEmpty.classList.remove('hidden');
-      return;
-    }
-    if (isEmpty && !query && documents.length > 0) {
-      dom.chartSearchEmpty.replaceChildren(createLibraryBrowsePrompt(onSearchCharts));
-      dom.chartSearchEmpty.classList.add('home-empty-import');
-      dom.chartSearchEmpty.classList.remove('hidden');
-      return;
-    }
-    const emptyMessage = query
-      ? 'No matching charts.'
-      : 'Recent charts. Search above to open another chart.';
-    dom.chartSearchEmpty.replaceChildren(emptyMessage);
-    dom.chartSearchEmpty.classList.toggle('hidden', query ? !isEmpty : isEmpty);
   }
 }
 
@@ -650,6 +647,16 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   const rerender = (): void => {
     updateChartSearchPlaceholder();
     renderChartSearch(documents, getRecentDocuments(), openChartEntryMenu, openImportPopup, focusChartSearch, importFeedback, dom);
+  };
+
+  let pendingFeedbackLayoutFrame = 0;
+  const scheduleFeedbackLayoutRerender = (): void => {
+    if (pendingFeedbackLayoutFrame) return;
+    pendingFeedbackLayoutFrame = window.requestAnimationFrame(() => {
+      pendingFeedbackLayoutFrame = 0;
+      if (isHomeTextEntryActive()) return;
+      rerender();
+    });
   };
 
   const handleViewportResize = (): void => {
@@ -939,6 +946,19 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
   rerender();
   clearStaleImportStatus();
 
+  if (dom.chartSearchEmpty && typeof ResizeObserver !== 'undefined') {
+    const feedbackLayoutObserver = new ResizeObserver(scheduleFeedbackLayoutRerender);
+    feedbackLayoutObserver.observe(dom.chartSearchEmpty);
+    window.addEventListener('pagehide', () => {
+      feedbackLayoutObserver.disconnect();
+      if (pendingFeedbackLayoutFrame) {
+        window.cancelAnimationFrame(pendingFeedbackLayoutFrame);
+        pendingFeedbackLayoutFrame = 0;
+      }
+    }, { once: true });
+  }
+  window.addEventListener('load', rerender, { once: true });
+  document.fonts?.ready.then(rerender).catch(() => undefined);
   dom.chartSearchInput?.addEventListener('input', () => {
     if (importFeedback.kind === 'success' || importFeedback.kind === 'error') {
       importFeedback = { kind: 'idle' };

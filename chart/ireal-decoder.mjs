@@ -577,6 +577,7 @@ function summarizeBar(bar) {
   const commentDirectives = bar.comment_directives || { directives: [], free_text: [] };
   return {
     index: bar.index,
+    start_cell_index: Number.isInteger(bar.start_cell_index) ? bar.start_cell_index : null,
     section: bar.section,
     chords: bar.chords.map(simplifyChord),
     overlay_chords: (bar.overlay_chords || []).map(simplifyChord),

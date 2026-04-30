@@ -35,6 +35,25 @@ function isBetaGateEnabled() {
   return getEnvValue('VITE_BETA_GATE_ENABLED') === 'true';
 }
 
+function isLocalAppRuntime() {
+  if (typeof window === 'undefined') return false;
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return protocol === 'file:'
+    || hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1';
+}
+
+function removeLocalFeedbackLinks() {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll<HTMLAnchorElement>('a[href^="mailto:"]').forEach((link) => {
+    const label = `${link.getAttribute('aria-label') || ''} ${link.getAttribute('title') || ''} ${link.textContent || ''}`.toLowerCase();
+    if (!label.includes('feedback')) return;
+    link.remove();
+  });
+}
+
 function getSupabaseUrl() {
   return getEnvValue('VITE_SUPABASE_URL').replace(/\/+$/g, '');
 }
@@ -314,7 +333,7 @@ function openFeedbackPanel() {
 }
 
 function installBetaFeedbackButton() {
-  if (!isBetaGateEnabled() || document.getElementById(BETA_FEEDBACK_BUTTON_ID)) return;
+  if (!isBetaGateEnabled() || isLocalAppRuntime() || document.getElementById(BETA_FEEDBACK_BUTTON_ID)) return;
   const button = document.createElement('button');
   button.id = BETA_FEEDBACK_BUTTON_ID;
   button.className = 'beta-feedback-button';
@@ -325,6 +344,16 @@ function installBetaFeedbackButton() {
 }
 
 export async function enforceBetaAccess({ installFeedback = true }: BetaAccessOptions = {}) {
+  if (isLocalAppRuntime()) {
+    await waitForBody();
+    removeLocalFeedbackLinks();
+    closeFeedbackPanel();
+    document.getElementById(BETA_FEEDBACK_BUTTON_ID)?.remove();
+    document.body.classList.remove('beta-gate-active');
+    document.querySelector('.beta-gate')?.remove();
+    return;
+  }
+
   if (!isBetaGateEnabled() || typeof window === 'undefined') return;
 
   await waitForBody();

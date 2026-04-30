@@ -1,8 +1,8 @@
 import {
   createBetaToken,
   handleOptions,
-  isValidPassword,
   jsonResponse,
+  validateBetaPassword,
 } from '../_shared/beta-auth.ts';
 
 Deno.serve(async (request) => {
@@ -12,12 +12,13 @@ Deno.serve(async (request) => {
   try {
     const body = await request.json().catch(() => ({}));
     const password = typeof body.password === 'string' ? body.password : '';
+    const passwordMatch = password ? await validateBetaPassword(password) : { ok: false };
 
-    if (!password || !(await isValidPassword(password))) {
+    if (!passwordMatch.ok) {
       return jsonResponse(request, { error: 'Wrong password.' }, 401);
     }
 
-    const { token, payload } = await createBetaToken();
+    const { token, payload } = await createBetaToken(passwordMatch.accessKeyId);
     return jsonResponse(request, {
       token,
       expiresAt: new Date(payload.exp * 1000).toISOString(),

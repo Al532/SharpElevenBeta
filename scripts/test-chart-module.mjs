@@ -2840,6 +2840,7 @@ assert.ok(
 );
 const aBalladPlan = createChartPlaybackPlanFromDocument(aBallad);
 const aBalladExport = createPracticeSessionExportFromPlaybackPlan(aBalladPlan, aBallad);
+const aBalladViewModel = createChartViewModel(aBallad);
 assert.equal(
   aBalladExport.engineBars[45],
   'A7alt A7alt Ab7alt Ab7alt',
@@ -2849,6 +2850,77 @@ assert.equal(
   aBalladExport.engineBars[46],
   'G7 G7 Cmaj7 Cmaj7',
   'A Ballad bar 47 collapses 8 iReal cells into 4 Drill beat slots.'
+);
+assert.equal(
+  aBallad.bars.find(bar => bar.index === 38)?.textAnnotations?.[0]?.vertical,
+  'above',
+  'A Ballad places the Ending text annotation above the staff.'
+);
+assert.equal(
+  aBallad.bars.find(bar => bar.index === 38)?.textAnnotations?.[0]?.sourceCellOffset,
+  0.6,
+  'A Ballad preserves the horizontal text offset for Ending so it clears the Coda marker.'
+);
+assert.deepEqual(
+  aBalladViewModel.bars.find(bar => bar.index === 40)?.displayTokens
+    .flatMap(token => [token.alternate?.symbol, token.kind === 'alternate_chord' ? token.symbol : null])
+    .filter(Boolean),
+  ['Abdim7', 'Adim7', 'Bbdim7', 'Bdim7'],
+  'A Ballad renders all four half-beat alternate diminished chords in the final line.'
+);
+const aBalladGrid = { innerHTML: '' };
+createChartSheetRenderer({
+  sheetGrid: aBalladGrid,
+  getDisplayedBarGroupSize: () => 4,
+  getHarmonyDisplayMode: () => 'default',
+  getFallbackTimeSignature: () => '4/4',
+  renderChordMarkup: (token) => `<span>${token?.symbol || ''}</span>`
+}).renderSheet(aBalladViewModel);
+assert.match(
+  aBalladGrid.innerHTML,
+  /data-bar-index="37"[\s\S]*chart-bar-cell is-empty is-empty-measure[\s\S]*grid-column: span 4;[\s\S]*data-bar-index="38"/,
+  'A Ballad renders the empty measure between the first and second written measures of the penultimate line.'
+);
+assert.match(
+  aBalladGrid.innerHTML,
+  /data-bar-index="40"[\s\S]*chart-alternate-lane[\s\S]*Abdim7[\s\S]*Adim7[\s\S]*Bbdim7[\s\S]*Bdim7[\s\S]*chart-token chord[\s\S]*A7alt[\s\S]*chart-token chord[\s\S]*Ab7alt/,
+  'A Ballad renders attached and standalone alternates in one alternate lane without treating them as main-line chord tokens.'
+);
+
+const fermataGrid = { innerHTML: '' };
+createChartSheetRenderer({
+  sheetGrid: fermataGrid,
+  getDisplayedBarGroupSize: () => 4,
+  getHarmonyDisplayMode: () => 'default',
+  getFallbackTimeSignature: () => '4/4',
+  renderChordMarkup: (token) => `<span>${token?.symbol || ''}</span>`
+}).renderSheet({
+  metadata: { primaryTimeSignature: '4/4' },
+  bars: [{
+    id: 'fermata-bar',
+    index: 1,
+    sectionLabel: 'A',
+    timeSignature: '4/4',
+    endings: [],
+    flags: ['fermata'],
+    directives: [],
+    comments: [],
+    textAnnotations: [],
+    displayTokens: [{ kind: 'chord', symbol: 'Cmaj7' }],
+    playback: {
+      cellSlots: [{ annots: ['f'], bars: '', chord: { symbol: 'Cmaj7' } }]
+    }
+  }]
+});
+assert.match(
+  fermataGrid.innerHTML,
+  /chart-bar-fermata-marker/,
+  'Fermata bars render the fermata symbol marker.'
+);
+assert.doesNotMatch(
+  fermataGrid.innerHTML,
+  /chart-foot-pill[^>]*>\s*Fermata\s*</,
+  'Fermata bars do not duplicate the symbol with a text foot pill.'
 );
 
 const aPrettyGirl = byTitle.get('A Pretty Girl Is Like A Melody');
