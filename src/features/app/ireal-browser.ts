@@ -6,8 +6,8 @@ type IrealBrowserPlugin = {
 };
 
 const IrealBrowser = registerPlugin<IrealBrowserPlugin>('IrealBrowser');
-const IREAL_BACKUP_VIEWER_DATABASE_NAME = 'sharp-eleven-ireal-backup-viewer';
-const IREAL_BACKUP_VIEWER_STORE_NAME = 'backups';
+const BACKUP_VIEWER_DATABASE_NAME = 'sharp-eleven-backup-viewer';
+const BACKUP_VIEWER_STORE_NAME = 'backups';
 
 type BackupViewerPayload = {
   html: string;
@@ -60,11 +60,11 @@ function createBackupViewerKey() {
 
 function openBackupViewerDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(IREAL_BACKUP_VIEWER_DATABASE_NAME, 1);
+    const request = indexedDB.open(BACKUP_VIEWER_DATABASE_NAME, 1);
     request.onupgradeneeded = () => {
       const database = request.result;
-      if (!database.objectStoreNames.contains(IREAL_BACKUP_VIEWER_STORE_NAME)) {
-        database.createObjectStore(IREAL_BACKUP_VIEWER_STORE_NAME);
+      if (!database.objectStoreNames.contains(BACKUP_VIEWER_STORE_NAME)) {
+        database.createObjectStore(BACKUP_VIEWER_STORE_NAME);
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -90,8 +90,8 @@ function waitForTransaction(transaction: IDBTransaction): Promise<void> {
 async function saveBackupViewerPayload(key: string, payload: BackupViewerPayload): Promise<void> {
   const database = await openBackupViewerDatabase();
   try {
-    const transaction = database.transaction(IREAL_BACKUP_VIEWER_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(IREAL_BACKUP_VIEWER_STORE_NAME);
+    const transaction = database.transaction(BACKUP_VIEWER_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(BACKUP_VIEWER_STORE_NAME);
     await Promise.all([
       waitForRequest(store.put(payload, key)),
       waitForTransaction(transaction)
@@ -105,8 +105,8 @@ async function cleanupStaleBackupViewerEntries(): Promise<void> {
   const cutoff = Date.now() - 60 * 60 * 1000;
   const database = await openBackupViewerDatabase();
   try {
-    const transaction = database.transaction(IREAL_BACKUP_VIEWER_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(IREAL_BACKUP_VIEWER_STORE_NAME);
+    const transaction = database.transaction(BACKUP_VIEWER_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(BACKUP_VIEWER_STORE_NAME);
     const request = store.openCursor();
     request.onsuccess = () => {
       const cursor = request.result;
@@ -135,16 +135,6 @@ async function prepareBackupViewerPayload(payload: BackupViewerPayload): Promise
   return key;
 }
 
-function cleanupLegacyBackupViewerEntries(storage = globalThis.localStorage): void {
-  const legacyPrefix = 'sharp-eleven-ireal-backup-viewer:';
-  for (let index = storage.length - 1; index >= 0; index -= 1) {
-    const key = storage.key(index) || '';
-    if (key.startsWith(legacyPrefix)) {
-      storage.removeItem(key);
-    }
-  }
-}
-
 async function openIrealHtmlInViewer({
   html,
   title,
@@ -156,7 +146,6 @@ async function openIrealHtmlInViewer({
   baseUrl: string,
   useHouseBrowser: boolean
 }) {
-  cleanupLegacyBackupViewerEntries();
   const key = await prepareBackupViewerPayload({
     html,
     title,
@@ -164,7 +153,7 @@ async function openIrealHtmlInViewer({
     createdAt: Date.now()
   });
 
-  const viewerUrl = new URL('./ireal-backup-viewer.html', window.location.href);
+  const viewerUrl = new URL('./backup-viewer.html', window.location.href);
   viewerUrl.searchParams.set('key', key);
   if (useHouseBrowser) {
     await openIrealBrowser({ url: viewerUrl.href, title });

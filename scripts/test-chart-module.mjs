@@ -90,6 +90,7 @@ import {
 } from '../src/features/chart/chart-app-bindings.ts';
 import { createChartPlaybackRuntimeContextBindings } from '../src/features/chart/chart-playback-runtime-context-bindings.ts';
 import { createChartPlaybackRuntimeContext } from '../src/features/chart/chart-playback-runtime-context.ts';
+import { createChartSheetRenderer } from '../src/features/chart/chart-sheet-renderer.ts';
 import {
   applyPlaybackTransportState,
   startPlaybackPolling,
@@ -2727,6 +2728,91 @@ assert.ok(satinDoll.bars.some(bar => bar.endings.includes(1)), 'Satin Doll keeps
 assert.ok(satinDoll.bars.some(bar => bar.endings.includes(2)), 'Satin Doll keeps second ending.');
 assert.ok(satinDoll.bars.some(bar => bar.notation.kind === 'single_bar_repeat'), 'Satin Doll keeps repeat display bars.');
 
+const aWonderfulDayLikeToday = byTitle.get('A Wonderful Day Like Today');
+assert.ok(aWonderfulDayLikeToday, 'A Wonderful Day Like Today is present in the raw source import.');
+const twoBarRepeatStart = aWonderfulDayLikeToday.bars.find(bar => bar.notation.kind === 'double_bar_repeat_start');
+const twoBarRepeatFollowup = aWonderfulDayLikeToday.bars.find(bar => bar.notation.kind === 'double_bar_repeat_followup');
+assert.ok(twoBarRepeatStart, 'Two-bar repeats keep a visual start bar.');
+assert.ok(twoBarRepeatFollowup, 'Two-bar repeats keep a playback followup bar.');
+assert.equal(
+  twoBarRepeatStart.notation.tokens.filter(token => token.kind === 'repeat_previous_two_bars').length,
+  1,
+  'Two-bar repeats render one repeat sign on the start bar.'
+);
+assert.equal(
+  twoBarRepeatStart.notation.tokens.find(token => token.kind === 'repeat_previous_two_bars')?.placement,
+  'center_barline_after',
+  'Two-bar repeat signs are anchored to the central barline after the start bar.'
+);
+assert.equal(
+  twoBarRepeatFollowup.notation.tokens.filter(token => token.kind === 'repeat_previous_two_bars').length,
+  0,
+  'Two-bar repeat followup bars do not render a second repeat sign.'
+);
+const legacyTwoBarRepeatDocument = createChartDocument({
+  metadata: { title: 'Legacy Two-Bar Repeat', primaryTimeSignature: '4/4', barCount: 2 },
+  bars: [
+    {
+      id: 'bar-1',
+      index: 1,
+      notation: {
+        kind: 'double_bar_repeat_start',
+        tokens: [{ kind: 'repeat_previous_two_bars', symbol: '%%', sourceCellCount: 4 }]
+      },
+      playback: { slots: [], cellSlots: [] }
+    },
+    {
+      id: 'bar-2',
+      index: 2,
+      notation: {
+        kind: 'double_bar_repeat_followup',
+        tokens: [{ kind: 'repeat_previous_two_bars', symbol: '%%', sourceCellCount: 4 }]
+      },
+      playback: { slots: [], cellSlots: [] }
+    }
+  ]
+});
+const legacyTwoBarRepeatViewModel = createChartViewModel(legacyTwoBarRepeatDocument);
+assert.equal(
+  legacyTwoBarRepeatViewModel.bars[0].displayTokens.find(token => token.kind === 'repeat_previous_two_bars')?.placement,
+  'center_barline_after',
+  'Cached legacy two-bar repeat starts are normalized to the central barline marker.'
+);
+assert.equal(
+  legacyTwoBarRepeatViewModel.bars[1].displayTokens.filter(token => token.kind === 'repeat_previous_two_bars').length,
+  0,
+  'Cached legacy two-bar repeat followup bars suppress the duplicate marker at render time.'
+);
+const endingSegnoGrid = { innerHTML: '' };
+createChartSheetRenderer({
+  sheetGrid: endingSegnoGrid,
+  getDisplayedBarGroupSize: () => 4,
+  getHarmonyDisplayMode: () => 'default',
+  getFallbackTimeSignature: () => '4/4',
+  renderChordMarkup: (token) => `<span>${token?.symbol || ''}</span>`
+}).renderSheet({
+  metadata: { primaryTimeSignature: '4/4' },
+  bars: [{
+    id: 'bar-1',
+    index: 1,
+    flags: ['segno'],
+    endings: [1],
+    displayTokens: [{ kind: 'chord', symbol: 'C7' }],
+    playback: { cellSlots: [] },
+    playbackSlots: []
+  }]
+});
+assert.match(
+  endingSegnoGrid.innerHTML,
+  /has-ending-segno-collision/,
+  'Bars with both endings and Segno receive the collision class.'
+);
+assert.match(
+  endingSegnoGrid.innerHTML,
+  /chart-bar-segno-marker/,
+  'Bars with both endings and Segno still render the Segno marker.'
+);
+
 const alice = byTitle.get('Alice In Wonderland');
 assert.ok(alice, 'Alice In Wonderland is present in the raw source import.');
 assert.ok(alice.bars.some(bar => bar.directives.some(directive => directive.type === 'dc_al_ending')), 'Alice keeps D.C. al ending.');
@@ -2924,6 +3010,31 @@ for (const bar of itDontMeanAThing.bars.slice(0, 3)) {
     "It Don't Mean A Thing keeps one alternate harmony marker on beat 1."
   );
 }
+
+const itsAllRightWithMe = byTitle.get("It's All Right With Me");
+assert.ok(itsAllRightWithMe, "It's All Right With Me is present in the raw source import.");
+for (const barNumber of [22, 26, 30, 34]) {
+  const bar = itsAllRightWithMe.bars.find(candidate => candidate.index === barNumber);
+  assert.equal(
+    bar?.notation?.tokens?.length,
+    1,
+    "It's All Right With Me repeat-overlay bars render as one repeat token."
+  );
+  assert.equal(
+    bar?.notation?.tokens?.[0]?.kind,
+    'repeat_previous_bar',
+    "It's All Right With Me keeps the repeat sign as the visible main token."
+  );
+  assert.ok(
+    bar?.notation?.tokens?.[0]?.alternate?.symbol,
+    "It's All Right With Me attaches the overlay chord above the repeat sign."
+  );
+}
+assert.deepEqual(
+  itsAllRightWithMe.layout.systems.rows.find(row => row.rowIndex === 6)?.barIds,
+  ['bar-21', 'bar-22', 'bar-23', 'bar-24', 'bar-25', 'bar-26', 'bar-27', 'bar-28'],
+  "It's All Right With Me compacts two-cell B-section bars into the same iReal row."
+);
 
 const satinPlan = createChartPlaybackPlanFromDocument(satinDoll);
 assert.ok(satinPlan.entries.length > satinDoll.bars.length, 'Satin Doll playback expands the repeat.');

@@ -124,7 +124,7 @@ type HomeGuidanceAction = {
 
 type HomeGuidancePanelOptions = {
   icon: 'import' | 'loading' | 'search' | 'success' | 'error';
-  title: string;
+  title?: string;
   detail: string;
   className?: string;
   actions?: HomeGuidanceAction[];
@@ -190,14 +190,19 @@ function createHomeGuidanceIcon(iconName: HomeGuidancePanelOptions['icon']): HTM
   return icon;
 }
 
-function createHomeGuidanceCopy(titleText: string, detailText: string): HTMLSpanElement {
+function createHomeGuidanceCopy(titleText: string | undefined, detailText: string): HTMLSpanElement {
   const copy = document.createElement('span');
   copy.className = 'home-empty-import-copy';
-  const title = document.createElement('strong');
-  title.textContent = titleText;
+  if (titleText) {
+    const title = document.createElement('strong');
+    title.textContent = titleText;
+    copy.append(title);
+  } else {
+    copy.classList.add('home-empty-import-copy-no-title');
+  }
   const detail = document.createElement('span');
   detail.textContent = detailText;
-  copy.append(title, detail);
+  copy.append(detail);
   return copy;
 }
 
@@ -261,11 +266,10 @@ function createEmptyChartImportPrompt(onImportCharts: () => void): HTMLButtonEle
 function createLibraryBrowsePrompt(onSearchCharts: () => void): HTMLDivElement {
   return createHomeGuidancePanel({
     icon: 'search',
-    title: 'No recent chart yet.',
-    detail: 'Search with the bar above, or open the full Library.',
+    detail: 'Use the dashboard search to open a chart quickly. Open Library if you want to browse the full catalog.',
     actions: [
-      { label: 'Open Library', href: './library.html', primary: true },
-      { label: 'Search charts', onClick: onSearchCharts }
+      { label: 'Search charts', onClick: onSearchCharts, primary: true },
+      { label: 'Open Library', href: './library.html' }
     ]
   });
 }
@@ -286,8 +290,8 @@ function createImportSuccessPrompt(title: string, detail: string, onSearchCharts
     detail,
     className: 'home-empty-import-success',
     actions: [
-      { label: 'Open Library', href: './library.html', primary: true },
-      { label: 'Search charts', onClick: onSearchCharts }
+      { label: 'Search charts', onClick: onSearchCharts, primary: true },
+      { label: 'Open Library', href: './library.html' }
     ]
   });
 }
@@ -493,7 +497,10 @@ function renderHomeChartSummaryPreview(
     ? recentDocuments
     : (summary?.recentCharts || []).map(createSummaryChartDocument);
   if (!previewDocuments.length) return;
-  dom.chartSearchEmpty?.classList.add('hidden');
+  dom.chartSearchEmpty?.classList.remove('home-empty-import', 'hidden');
+  if (dom.chartSearchEmpty) {
+    dom.chartSearchEmpty.textContent = 'Recent charts. Search above to open another chart.';
+  }
   dom.chartSearchResults.replaceChildren();
   const availableHeight = getAvailableChartListHeight(dom.chartSearchResults);
   const maxListBottom = dom.chartSearchResults.getBoundingClientRect().top + availableHeight;
@@ -562,7 +569,7 @@ function renderChartSearch(
       dom.chartSearchResults.replaceChildren();
       dom.chartSearchEmpty.replaceChildren(createImportSuccessPrompt(
         importFeedback.title || 'Charts imported.',
-        importFeedback.detail || 'You can now find them in Library or search for one here.',
+        importFeedback.detail || 'Use the dashboard search to open one quickly. Open Library if you want to browse the full catalog.',
         onSearchCharts
       ));
       dom.chartSearchEmpty.classList.add('home-empty-import');
@@ -592,9 +599,11 @@ function renderChartSearch(
       dom.chartSearchEmpty.classList.remove('hidden');
       return;
     }
-    const emptyMessage = query ? 'No matching charts.' : '';
+    const emptyMessage = query
+      ? 'No matching charts.'
+      : 'Recent charts. Search above to open another chart.';
     dom.chartSearchEmpty.replaceChildren(emptyMessage);
-    dom.chartSearchEmpty.classList.toggle('hidden', !isEmpty || !emptyMessage);
+    dom.chartSearchEmpty.classList.toggle('hidden', query ? !isEmpty : isEmpty);
   }
 }
 
@@ -786,12 +795,14 @@ export async function initializeHomePage(dom: HomePageDom): Promise<void> {
       setlists = await loadPersistedSetlists();
       if (runId !== activeImportRunId) return;
       saveHomeChartSummaryFromLibrary(persistedLibrary);
-      rerender();
-      importFeedback = {
-        kind: 'success',
-        title: `Imported ${importedDocuments.length} chart${importedDocuments.length === 1 ? '' : 's'}.`,
-        detail: 'You can now find them in Library, or search for one here.'
-      };
+      const hasVisibleRecentCharts = getRecentDocuments().length > 0;
+      importFeedback = hasVisibleRecentCharts
+        ? { kind: 'idle' }
+        : {
+            kind: 'success',
+            title: `Imported ${importedDocuments.length} chart${importedDocuments.length === 1 ? '' : 's'}.`,
+            detail: 'Use the dashboard search to open one quickly. Open Library if you want to browse the full catalog.'
+          };
       setImportStatus('');
     } catch (error) {
       if (runId === activeImportRunId) {

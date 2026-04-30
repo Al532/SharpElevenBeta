@@ -292,15 +292,62 @@ function normalizeSystemLayout(systemLayout, bars) {
 
   if (!normalizedRows.length) return null;
 
+  const hasRepeatOverlayBars = (bars || []).some(bar => bar?.sourceEvent === 'single_bar_repeat_with_overlay');
+  const packedRows = hasRepeatOverlayBars
+    ? createPackedSystemRows(bars, Number(systemLayout.cells_per_row || 16))
+    : [];
+  const rows = packedRows.length > 0 && packedRows.length < normalizedRows.length
+    ? packedRows
+    : normalizedRows;
+
   return {
     source: 'ireal',
     systems: {
       cellsPerRow: Number(systemLayout.cells_per_row || 16),
       totalCells: Number(systemLayout.total_cells || 0),
-      rowCount: normalizedRows.length,
-      rows: normalizedRows
+      rowCount: rows.length,
+      rows
     }
   };
+}
+
+function getPackedBarCellSpan(bar) {
+  const cellSlots = Array.isArray(bar?.playback?.cellSlots) ? bar.playback.cellSlots : [];
+  if (cellSlots.length > 0) return Math.max(1, cellSlots.length);
+  const sourceCellCount = Number(bar?.notation?.tokens?.find(token => Number.isInteger(token?.sourceCellCount))?.sourceCellCount || 0);
+  return Math.max(1, sourceCellCount || 4);
+}
+
+function createPackedSystemRows(bars = [], cellsPerRow = 16) {
+  const rowCellCount = Math.max(1, Number(cellsPerRow || 16));
+  const rows = [];
+  let rowBars = [];
+  let rowSlotCount = 0;
+
+  const flushRow = () => {
+    if (rowBars.length === 0) return;
+    rows.push({
+      rowIndex: rows.length + 1,
+      startCellIndex: rows.length * rowCellCount,
+      leadingEmptyCells: 0,
+      leadingEmptyBars: 0,
+      barIndices: rowBars.map(bar => bar.index),
+      barIds: rowBars.map(bar => bar.id)
+    });
+    rowBars = [];
+    rowSlotCount = 0;
+  };
+
+  for (const bar of bars || []) {
+    const span = Math.min(rowCellCount, getPackedBarCellSpan(bar));
+    if (rowBars.length > 0 && rowSlotCount + span > rowCellCount) flushRow();
+    rowBars.push(bar);
+    rowSlotCount += span;
+    if (rowSlotCount >= rowCellCount) flushRow();
+  }
+
+  flushRow();
+  return rows;
 }
 
 function createDisplayState(bar, playbackSlots, overlaySlots) {
@@ -323,22 +370,42 @@ function createDisplayState(bar, playbackSlots, overlaySlots) {
     };
   }
 
-  if (notationKind === 'double_bar_repeat_start' || notationKind === 'double_bar_repeat_followup') {
+  if (notationKind === 'double_bar_repeat_start') {
     return {
       kind: notationKind,
       tokens: [
-        { kind: 'repeat_previous_two_bars', symbol: '%%', sourceCellCount: displayCellSlots?.length || 0 },
+        {
+          kind: 'repeat_previous_two_bars',
+          symbol: '%%',
+          sourceCellCount: displayCellSlots?.length || 0,
+          placement: 'center_barline_after'
+        },
         ...alternateDisplayTokens
       ]
     };
   }
 
+  if (notationKind === 'double_bar_repeat_followup') {
+    return {
+      kind: notationKind,
+      tokens: alternateDisplayTokens
+    };
+  }
+
   if (notationKind === 'single_bar_repeat_with_overlay') {
+    const sourceCellCount = Array.isArray(bar?.cell_slots) && bar.cell_slots.length > 0
+      ? bar.cell_slots.length
+      : 2;
+    const repeatToken = withSourceCellPlacement({
+      kind: 'repeat_previous_bar',
+      symbol: '%',
+      alternate: overlaySlots[0] || null
+    }, 0, sourceCellCount);
     return {
       kind: notationKind,
       tokens: [
-        { kind: 'repeat_previous_bar', symbol: '%' },
-        ...overlaySlots
+        repeatToken,
+        ...overlaySlots.slice(1).map((slot, index) => withSourceCellPlacement(slot, Math.min(index + 1, sourceCellCount - 1), sourceCellCount))
       ]
     };
   }

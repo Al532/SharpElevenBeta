@@ -17,7 +17,7 @@ export default defineConfig({
   plugins: [
     obfuscatorPlugin({
       apply: 'build',
-      exclude: [/node_modules/, /chart[\\/]chart-import-ireal\.ts$/, /chart[\\/]ireal-decoder\.mjs$/],
+      exclude: [/node_modules/],
       options: {
         compact: true,
         identifierNamesGenerator: 'hexadecimal',
@@ -34,9 +34,14 @@ export default defineConfig({
     outDir: 'build',
     emptyOutDir: true,
     rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[hash].js',
+        chunkFileNames: 'assets/[hash].js',
+        assetFileNames: 'assets/[hash][extname]'
+      },
       input: {
         index: resolve(repositoryRoot, 'index.html'),
-        irealBackupViewer: resolve(repositoryRoot, 'ireal-backup-viewer.html'),
+        backupViewer: resolve(repositoryRoot, 'backup-viewer.html'),
         drill: resolve(repositoryRoot, 'drill.html'),
         setlists: resolve(repositoryRoot, 'setlists.html'),
         library: resolve(repositoryRoot, 'library.html')

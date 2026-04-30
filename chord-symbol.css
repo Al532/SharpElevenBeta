@@ -74,7 +74,7 @@
   --chord-symbol-figure69-slash-stroke-width: 0.052em;
   --chord-symbol-slash-column-width: 0.38em;
   --chord-symbol-slash-row-offset: 0.36em;
-  --chord-symbol-slash-gap: 0.08em;
+  --chord-symbol-slash-gap: 0em;
   --chord-symbol-slash-stack-shift: 0.2em;
   --chord-symbol-slash-top: 0.18em;
   --chord-symbol-slash-height: 0.82em;
@@ -456,11 +456,31 @@
 }
 
 .chord-symbol-slash-anchor-condensed-m .chord-symbol-slash-stack {
-  margin-left: calc(var(--chord-symbol-slash-gap) - 0.47em);
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.25em);
+}
+
+.chord-symbol-slash-anchor-condensed-maj .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.46em);
+}
+
+.chord-symbol-slash-anchor-condensed-mmaj .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.69em);
+}
+
+.chord-symbol-slash-anchor-condensed-dim .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.49em);
 }
 
 .chord-symbol-slash-anchor-condensed-sus .chord-symbol-slash-stack {
-  margin-left: calc(var(--chord-symbol-slash-gap) - 0.72em);
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.47em);
+}
+
+.chord-symbol-slash-anchor-root-only .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.16em);
+}
+
+.chord-symbol-slash-anchor-root-accidental .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.08em);
 }
 
 .chord-symbol-slash-diagonal {

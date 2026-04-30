@@ -179,9 +179,13 @@ function getDisplayPartsForQuality(
     case 'm6':
       return { base: createQualityBasePart('m'), sup: createQualitySupPart('6') };
     case 'mMaj7':
-      return { base: createQualityBasePart('mMaj'), sup: createQualitySupPart('7') };
+      return renderOptions.useMajorTriangleSymbol
+        ? { base: createQualityBasePart('m'), sup: createQualitySupPart('\u25B37') }
+        : { base: createQualityBasePart('mMaj'), sup: createQualitySupPart('7') };
     case 'mMaj9':
-      return { base: createQualityBasePart('mMaj'), sup: createQualitySupPart('9') };
+      return renderOptions.useMajorTriangleSymbol
+        ? { base: createQualityBasePart('m'), sup: createQualitySupPart('\u25B39') }
+        : { base: createQualityBasePart('mMaj'), sup: createQualitySupPart('9') };
     case 'm7b5':
       return renderOptions.useHalfDiminishedSymbol
         ? { base: createQualitySymbolPart('halfDiminished'), sup: createQualitySupPart('') }
@@ -279,6 +283,12 @@ function getSlashAnchorCompressionClass(base: string | null | undefined) {
   switch (String(base || '')) {
     case 'm':
       return ' chord-symbol-slash-anchor-condensed-m';
+    case 'maj':
+      return ' chord-symbol-slash-anchor-condensed-maj';
+    case 'mMaj':
+      return ' chord-symbol-slash-anchor-condensed-mmaj';
+    case 'dim':
+      return ' chord-symbol-slash-anchor-condensed-dim';
     case 'sus':
       return ' chord-symbol-slash-anchor-condensed-sus';
     default:
@@ -372,7 +382,11 @@ export function renderChordSymbolHtml(
   const supCompressionClass = sup.type === 'text' ? getSegmentCompressionClass(sup.text, 'sup') : '';
   const supStackClass = sup.parentheticalStack ? ' chord-symbol-sup-content-stacked' : '';
   const supAnchorCompressionClass = safeBase && base.type === 'text' ? getSupAnchorCompressionClass(base.text) : '';
-  const slashAnchorCompressionClass = safeBass && base.type === 'text' ? getSlashAnchorCompressionClass(base.text) : '';
+  const slashAnchorCompressionClass = safeBass
+    ? (base.type === 'text' && base.text
+      ? getSlashAnchorCompressionClass(base.text)
+      : ` chord-symbol-slash-anchor-${safeRootAccidental ? 'root-accidental' : 'root-only'}`)
+    : '';
   const supReserveClass = safeSup ? getSupReserveClass(sup) : '';
   const baseSymbolClass = base.type === 'symbol' ? ` chord-symbol-base-symbol chord-symbol-base-symbol-${base.symbolName}` : '';
 

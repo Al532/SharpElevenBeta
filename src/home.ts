@@ -1,7 +1,10 @@
 import { initializeSharpElevenTheme } from './features/app/app-theme.js';
+import { enforceBetaAccess } from './features/app/app-beta-access.js';
 import { initializeHomePage } from './features/home/home-page.js';
 
 initializeSharpElevenTheme();
+
+await enforceBetaAccess();
 
 initializeHomePage({
   chartSearchInput: document.getElementById('home-chart-search-input') as HTMLInputElement | null,

@@ -343,6 +343,7 @@ function renderToken(token, placement, harmonyDisplayMode, renderChordMarkup) {
         : 'chord';
   const slotStart = Math.max(1, Number(placement?.start || 1));
   const slotEnd = Math.max(slotStart + 1, Number(placement?.end || (slotStart + 1)));
+  const isTwoBarRepeatMarker = token?.kind === 'repeat_previous_two_bars' && token?.placement === 'center_barline_after';
   const slotStyle = tokenClass === 'repeat'
     ? 'grid-column: 1 / -1;'
     : `grid-column: ${slotStart} / ${slotEnd};`;
@@ -354,13 +355,15 @@ function renderToken(token, placement, harmonyDisplayMode, renderChordMarkup) {
   const alternateMarkup = token?.alternate?.symbol
     ? `<span class="chart-token-alternate">${renderChordMarkup(token.alternate, harmonyDisplayMode)}</span>`
     : '';
-  const slotClass = tokenClass === 'repeat' ? 'chart-token-slot repeat-slot' : 'chart-token-slot';
+  const slotClass = tokenClass === 'repeat'
+    ? `chart-token-slot repeat-slot${isTwoBarRepeatMarker ? ' is-two-bar-repeat-marker' : ''}`
+    : 'chart-token-slot';
   const sourceCellIndex = Number.isInteger(token?.sourceCellIndex) ? ` data-source-cell-index="${Number(token.sourceCellIndex)}"` : '';
   const sourceCellCount = Number.isInteger(token?.sourceCellCount) ? ` data-source-cell-count="${Number(token.sourceCellCount)}"` : '';
 
   return `
     <span class="${slotClass}" style="${slotStyle}"${sourceCellIndex}${sourceCellCount}>
-      <span class="chart-token ${tokenClass}">${alternateMarkup}${tokenMarkup}</span>
+      <span class="chart-token ${tokenClass}${isTwoBarRepeatMarker ? ' is-two-bar-repeat-marker' : ''}">${alternateMarkup}${tokenMarkup}</span>
     </span>
   `;
 }
@@ -2284,8 +2287,15 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
     if (bar.endings?.length && bar.displayTokens?.some((token) => token?.kind === 'alternate_chord' || token?.alternate?.symbol)) {
       classes.push('has-ending-alternate-collision');
     }
+    if (bar.endings?.length && bar.flags.includes('segno')) {
+      classes.push('has-ending-segno-collision');
+    }
+    if (bar.displayTokens?.some((token) => token?.kind === 'repeat_previous_two_bars' && token?.placement === 'center_barline_after')) {
+      classes.push('has-two-bar-repeat-marker');
+    }
 
     const footPills = getBarFootPills(bar);
+    if (footPills.some(pill => pill?.kind === 'text')) classes.push('has-foot-text');
     const bodyLayout = getBarBodyLayout(bar, getFallbackTimeSignature?.() || '');
     const harmonyDisplayMode = getHarmonyDisplayMode?.() || 'default';
     const slotSpan = Math.max(1, Number(options.slotSpan || 1));

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Drill mode - Sharp Eleven</title>
+  <meta name="description" content="Practice a progression in every key, in random order.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Drill mode - Sharp Eleven">
+  <meta property="og:description" content="Practice a progression in every key, in random order.">
+  <meta property="og:url" content="https://al532.github.io/JazzProgressionTrainerDemo/">
+  <meta property="og:site_name" content="Sharp Eleven">
+  <meta property="og:image" content="https://al532.github.io/JazzProgressionTrainerDemo/social-preview-wide.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Drill mode - Sharp Eleven">
+  <meta name="twitter:description" content="Practice a progression in every key, in random order.">
+  <meta name="twitter:image" content="https://al532.github.io/JazzProgressionTrainerDemo/social-preview-wide.png">
+  <link rel="icon" type="image/png" href="./assets/BjIbOM6D.png">
+  <link rel="shortcut icon" href="./assets/BjIbOM6D.png">
+  <script src="./theme-bootstrap.js"></script>
+  <script type="module" crossorigin src="./assets/DEzk_rtk.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/gTwdV5Pu.js">
+  <link rel="modulepreload" crossorigin href="./assets/6dIRRDbX.js">
+  <link rel="modulepreload" crossorigin href="./assets/BDc1TZff.js">
+  <link rel="stylesheet" crossorigin href="./assets/irREOw73.css">
+  <link rel="stylesheet" crossorigin href="./assets/Dkrypotc.css">
+</head>
+<body class="drill-body">
+  <header class="home-header">
+    <div class="home-header-leading">
+      <a class="app-back-button" href="./index.html" aria-label="Back to home" title="Back to home">
+        <span aria-hidden="true"></span>
+      </a>
+      <div class="home-brand" aria-label="Sharp Eleven">
+        <img class="home-brand-logo" src="./assets/Ci--YQ_5.png" data-theme-dark-src="./logo/dark-mode.png" alt="Logo Classic Paper" width="32" height="32">
+        <span>Sharp Eleven</span>
+      </div>
+    </div>
+    <nav class="home-header-links" aria-label="Project links">
+      <a class="home-icon-link" href="mailto:alcibiade.minel@gmail.com" aria-label="Share your feedback" title="Share your feedback">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 3.1V17h16V8.1l-7.36 5.15a1.1 1.1 0 0 1-1.28 0L4 8.1Zm1.15-1.1L12 11.8 18.85 7H5.15Z"></path>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div id="app">
+    <header class="app-header">
+      <h1>Drill mode</h1>
+      <p class="app-subtitle">Dear beta testers, this is where it all started: I use this tool every day to practice progressions through every key. I plan to rework it; in the meantime, please treat it as a sandbox.</p>
+    </header>
+
+    <main class="app-layout">
+      <section class="drill-stage" aria-label="Practice surface">
+        <section class="surface-block surface-display" aria-label="Current progression">
+          <details class="display-key-picker" id="key-picker">
+            <summary id="selected-keys-summary" class="selected-keys-summary" aria-live="polite">Keys</summary>
+            <div id="key-picker-backdrop" class="display-key-picker-backdrop" aria-hidden="true"></div>
+            <div class="display-key-picker-panel">
+              <div class="display-key-picker-header">
+                <button type="button" id="close-key-picker" class="display-key-picker-close">Close</button>
+              </div>
+              <div class="key-picker-actions">
+                <button type="button" id="select-all-keys" class="secondary-button key-picker-action">Select all</button>
+                <button type="button" id="invert-keys" class="secondary-button key-picker-action">Invert selection</button>
+                <button type="button" id="clear-all-keys" class="secondary-button key-picker-action">Clear all</button>
+                <button type="button" id="save-key-preset" class="secondary-button key-picker-action">Save preset</button>
+                <button type="button" id="load-key-preset" class="secondary-button key-picker-action">Load preset</button>
+              </div>
+              <div id="key-checkboxes"></div>
+            </div>
+          </details>
+          <div id="display">
+            <div id="display-placeholder" class="display-placeholder">
+              <p id="display-placeholder-message">Choose a progression, then press Start.</p>
+            </div>
+            <div id="display-columns">
+              <div id="current-header" class="col-header"></div>
+              <div id="next-header" class="col-header hidden">Next</div>
+              <div id="key-display"></div>
+              <div id="next-key-display" class="hidden"></div>
+              <div id="chord-display"></div>
+              <div id="next-chord-display" class="hidden"></div>
+            </div>
+            <div id="beat-indicator">
+              <span class="beat-dot" data-beat="0"></span>
+              <span class="beat-dot" data-beat="1"></span>
+              <span class="beat-dot" data-beat="2"></span>
+              <span class="beat-dot" data-beat="3"></span>
+            </div>
+          </div>
+        </section>
+
+        <div class="drill-transport-panel">
+          <div id="transport-buttons" aria-label="Playback controls">
+            <button id="start-stop">Start</button>
+            <button id="pause" class="hidden">Pause</button>
+          </div>
+
+          <div class="transport-tempo">
+            <label for="tempo-slider">Tempo: <span id="tempo-value">120</span> BPM</label>
+            <input type="range" id="tempo-slider" min="40" max="300" value="120">
+          </div>
+        </div>
+      </section>
+
+      <section id="controls" class="controls-layout" aria-label="Trainer settings">
+        <div class="control-panel">
+          <div class="section-heading">
+            <span class="section-kicker">Progression</span>
+          </div>
+
+          <div class="control-row">
+            <div class="pattern-picker" id="pattern-picker">
+              <select id="pattern-select" class="pattern-picker-select" aria-label="Progression"></select>
+              <div class="pattern-picker-custom hidden" id="pattern-picker-custom">
+                <input type="text" id="custom-pattern" aria-label="Custom progression" placeholder="e.g. Dm7 G7 Cmaj7" spellcheck="false">
+                <span class="pattern-picker-arrow" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div id="pattern-error" class="error hidden"></div>
+          </div>
+
+          <details id="pattern-help" class="pattern-help pattern-help-static hidden">
+            <summary class="pattern-help-title">Progression syntax</summary>
+            <div class="pattern-help-body">
+              <p>Loading progression help...</p>
+            </div>
+          </details>
+
+          <div class="control-row mode-row">
+            <label class="mode-toggle" for="major-minor">
+              <input type="checkbox" id="major-minor">
+              <span class="mode-toggle-track" aria-hidden="true">
+                <span class="mode-option mode-option-major">Major</span>
+                <span class="mode-option mode-option-minor">Minor</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="control-row custom-pattern-panel" id="custom-pattern-panel">
+            <div class="custom-pattern-body">
+              <div class="control-row">
+                <label class="toggle-label" for="pattern-mode-both">
+                  <input type="checkbox" id="pattern-mode-both">
+                  <span>This pattern works in both major and minor</span>
+                </label>
+                <select id="pattern-mode" hidden aria-hidden="true" tabindex="-1">
+                  <option value="major">Major</option>
+                  <option value="minor">Minor</option>
+                  <option value="both" selected>Major/minor</option>
+                </select>
+              </div>
+
+              <div id="pattern-preview-edit-anchor"></div>
+
+              <div class="control-row">
+                <label for="pattern-name">Name (optional)</label>
+                <input type="text" id="pattern-name" aria-label="Progression name" placeholder="e.g. Jazz turnaround" spellcheck="false">
+              </div>
+            </div>
+          </div>
+
+          <div id="pattern-preview-default-anchor"></div>
+          <div class="control-row pattern-preview-row">
+            <label for="pattern-preview">Progression preview</label>
+            <div id="pattern-preview" class="pattern-preview-field" aria-live="polite"></div>
+          </div>
+
+          <fieldset class="control-row progression-manager-row">
+            <div class="progression-manager-grid">
+              <button type="button" id="save-progression">Save</button>
+              <button type="button" id="cancel-progression-edit">Back</button>
+              <button type="button" id="manage-progressions">Manage progressions</button>
+            </div>
+             <div id="progression-manager-panel" class="progression-manager-panel hidden">
+               <div class="progression-manager-panel-header">
+                <div class="progression-manager-panel-heading">
+                  <span class="progression-manager-panel-title">Progression manager</span>
+                  <span class="progression-manager-panel-hint">Drag progressions to reorder them.</span>
+                </div>
+                <button type="button" id="close-progression-manager" class="progression-manager-back-button">Close</button>
+               </div>
+              <div id="progression-manager-list" class="progression-manager-list"></div>
+              <div class="progression-manager-actions">
+                <button type="button" id="new-progression">New progression</button>
+                <button type="button" id="restore-default-progressions">Restore default progressions</button>
+                <button type="button" id="clear-all-progressions" class="danger-button">Clear all progressions</button>
+              </div>
+            </div>
+            <div id="progression-feedback" class="hint"></div>
+          </fieldset>
+        </div>
+
+        <div class="control-panel">
+          <div class="section-heading">
+            <span class="section-kicker">Playback</span>
+          </div>
+
+          <select id="chords-per-bar" hidden aria-hidden="true" tabindex="-1">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+            </select>
+
+          <div class="control-row toggles" id="double-time-row">
+            <div class="toggle-row">
+              <label class="toggle-label" for="double-time">
+                <input type="checkbox" id="double-time">
+                <span>Double time</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="control-row inline-select-row">
+            <label for="repetitions-per-key">Repetitions per key</label>
+            <select id="repetitions-per-key">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+
+          <div class="control-row toggles">
+            <div class="toggle-row">
+              <label class="toggle-label toggle-select-label" for="comping-style">
+                <span>Comping style</span>
+                <select id="comping-style">
+                  <option value="off">Off</option>
+                  <option value="strings">Strings</option>
+                  <option value="piano" selected>Piano</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label" for="walking-bass-toggle">
+                <input type="checkbox" id="walking-bass-toggle" checked>
+                <span>Walking bass</span>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label toggle-select-label" for="drums-select">
+                <span>Drums</span>
+                <select id="drums-select">
+                  <option value="off">Off</option>
+                  <option value="metronome_2_4">Metronome 2 &amp; 4</option>
+                  <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
+                  <option value="full_swing" selected>Full swing drum pattern</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <details class="control-row" id="mixer-panel">
+            <summary class="key-picker-summary">
+              <span>Mixer</span>
+            </summary>
+            <div class="mixer-controls">
+              <label class="mixer-slider" for="master-volume">
+                <span>Master</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="master-volume" min="0" max="100" value="100">
+                  <output id="master-volume-value" for="master-volume">100%</output>
+                </div>
+              </label>
+              <label class="mixer-slider" for="bass-volume">
+                <span>Bass</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="bass-volume" min="0" max="100" value="100">
+                  <output id="bass-volume-value" for="bass-volume">100%</output>
+                </div>
+              </label>
+              <label class="mixer-slider" for="strings-volume">
+                <span>Comping</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="strings-volume" min="0" max="100" value="100">
+                  <output id="strings-volume-value" for="strings-volume">100%</output>
+                </div>
+              </label>
+              <label class="mixer-slider" for="drums-volume">
+                <span>Metronome / Drums</span>
+                <div class="mixer-slider-row">
+                  <input type="range" id="drums-volume" min="0" max="100" value="100">
+                  <output id="drums-volume-value" for="drums-volume">100%</output>
+                </div>
+              </label>
+            </div>
+          </details>
+        </div>
+
+        <div class="control-panel control-panel-compact">
+          <div class="section-heading">
+            <span class="section-kicker">Advanced</span>
+          </div>
+
+          <div class="control-row inline-select-row transposition-row">
+            <label for="transposition-select">Transposition</label>
+            <select id="transposition-select">
+              <option value="0" selected>Concert (C)</option>
+              <option value="2">Bb instruments</option>
+              <option value="9">Eb instruments</option>
+              <option value="7">F instruments</option>
+            </select>
+          </div>
+
+          <div class="control-row toggles">
+            <div class="toggle-row">
+              <label class="toggle-label toggle-select-label" for="display-mode">
+                <select id="display-mode" aria-label="Display mode">
+                  <option value="show-both" selected>Show key and chord</option>
+                  <option value="chords-only">Show chords only</option>
+                  <option value="key-only">Show key only</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label toggle-select-label" for="harmony-display-mode">
+                <span>Harmony labels</span>
+                <select id="harmony-display-mode">
+                  <option value="default" selected>Default</option>
+                  <option value="rich">Rich</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-row chord-symbol-options-row">
+              <label class="toggle-label" for="use-major-triangle-symbol">
+                <input type="checkbox" id="use-major-triangle-symbol" checked>
+                <span>Use triangle for maj7</span>
+              </label>
+              <label class="toggle-label" for="use-half-diminished-symbol">
+                <input type="checkbox" id="use-half-diminished-symbol" checked>
+                <span>Use half-diminished symbol</span>
+              </label>
+              <label class="toggle-label" for="use-diminished-symbol">
+                <input type="checkbox" id="use-diminished-symbol" checked>
+                <span>Use diminished symbol</span>
+              </label>
+            </div>
+            <div class="control-row">
+              <label for="next-preview-value">Show next ahead</label>
+              <div class="next-preview-controls">
+                <input type="number" id="next-preview-value" min="0" step="0.25" value="1">
+                <label class="mode-toggle next-preview-mode-toggle" for="next-preview-unit-toggle">
+                  <input type="checkbox" id="next-preview-unit-toggle">
+                  <span class="mode-toggle-track" aria-hidden="true">
+                    <span class="mode-option mode-option-major">Bars</span>
+                    <span class="mode-option mode-option-minor">Seconds</span>
+                  </span>
+                </label>
+              </div>
+              <div id="next-preview-hint" class="hint">1 bar ahead</div>
+            </div>
+          </div>
+
+          <div class="control-row">
+            <label class="toggle-label" for="show-beat-indicator">
+              <input type="checkbox" id="show-beat-indicator" checked>
+              <span>Show beat indicator</span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <label class="toggle-label" for="hide-current-harmony">
+              <input type="checkbox" id="hide-current-harmony">
+              <span>Hide current chord/key</span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <label class="toggle-label" for="debug-toggle">
+              <input type="checkbox" id="debug-toggle">
+              <span>Debug</span>
+            </label>
+          </div>
+
+          <div class="control-row">
+            <button type="button" id="reset-settings" class="reset-settings-button">Reset to standard settings</button>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div id="app-version"></div>
+    </footer>
+  </div>
+
+  <div id="progression-update-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="progression-update-title">
+      <h2 id="progression-update-title">Default Progressions Updated</h2>
+      <p id="progression-update-message">A new default progression list is available. What would you like to do?</p>
+      <div class="modal-actions">
+        <button type="button" id="progression-update-replace" class="modal-button modal-button-primary">Replace list (recommended)</button>
+        <button type="button" id="progression-update-merge" class="modal-button modal-button-secondary">Add new entries only</button>
+        <button type="button" id="progression-update-keep" class="modal-button modal-button-tertiary">Keep current list</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="welcome-overlay" class="welcome-overlay hidden" aria-hidden="true">
+    <div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <h2 id="welcome-title" class="welcome-title">Quick start</h2>
+
+      <section class="welcome-section" aria-labelledby="welcome-goal-title">
+        <h3 id="welcome-goal-title">1. What do you want to practice?</h3>
+        <div class="welcome-choice-grid" id="welcome-goal-options">
+          <label class="welcome-choice-card">
+            <input type="radio" name="welcome-goal" value="progression" checked>
+            <span class="welcome-choice-title">Progression in all keys</span>
+            <span class="welcome-choice-copy">Practice a progression in every key.</span>
+          </label>
+          <label class="welcome-choice-card">
+            <input type="radio" name="welcome-goal" value="one-chord">
+            <span class="welcome-choice-title">Improvise over random chords</span>
+            <span class="welcome-choice-copy">Improvise a line that leads into the next chord.</span>
+          </label>
+          <label class="welcome-choice-card">
+            <input type="radio" name="welcome-goal" value="standard">
+            <span class="welcome-choice-title">Play a standard</span>
+            <span class="welcome-choice-copy">Just for fun.</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="welcome-section" data-welcome-panel="progression" aria-labelledby="welcome-progression-title">
+        <h3 id="welcome-progression-title">2. Which progression?</h3>
+        <div class="welcome-pill-row">
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-progression" value="ii-v-i-major" checked>
+            <span>II V I major</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-progression" value="ii-v-i-minor">
+            <span>II V I minor</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-progression" value="turnaround">
+            <span>Turnaround <small>(C6 A7♭9 Dm7 G7)</small></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="welcome-section hidden" data-welcome-panel="one-chord" aria-labelledby="welcome-one-chord-title">
+        <h3 id="welcome-one-chord-title">2. Which chord quality?</h3>
+        <div class="welcome-pill-row">
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="maj7" checked>
+            <span>maj7</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="m9">
+            <span>m9</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="lyd">
+            <span>Lydian</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="7alt">
+            <span>Altered</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-one-chord" value="13sus">
+            <span>13sus4</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="welcome-section hidden" data-welcome-panel="standard" aria-labelledby="welcome-standard-title">
+        <h3 id="welcome-standard-title">2. Which standard?</h3>
+        <label class="sr-only" for="welcome-standard-select">Standard</label>
+        <select id="welcome-standard-select" class="welcome-standard-select" aria-label="Standard">
+          <option value="all-the-things-you-are">All the Things You Are</option>
+        </select>
+      </section>
+
+      <section class="welcome-section" aria-labelledby="welcome-instrument-title">
+        <h3 id="welcome-instrument-title">3. Your instrument?</h3>
+        <div class="welcome-pill-row">
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="0" checked>
+            <span>C</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="2">
+            <span>Bb</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="9">
+            <span>Eb</span>
+          </label>
+          <label class="welcome-pill">
+            <input type="radio" name="welcome-instrument" value="7">
+            <span>F</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="welcome-footer">
+        <div class="welcome-footer-meta">
+          <button type="button" id="welcome-skip" class="welcome-skip-button">Skip</button>
+          <label class="welcome-show-next-time">
+            <input type="checkbox" id="welcome-show-next-time">
+            <span>Show next time</span>
+          </label>
+        </div>
+        <button type="button" id="welcome-apply" class="welcome-apply-button">Start with this preset</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

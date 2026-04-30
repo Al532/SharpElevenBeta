@@ -235,7 +235,7 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
 });
 
 export const TRAINER_DEFAULTS = Object.freeze({
-  progressionsUrl: './default-progressions.txt',
+  progressionsUrl: './assets/se-catalog-4f.dat',
   repetitionsPerKey: 2,
   nextPreviewLeadBars: 1,
   chordsPerBar: 1,
@@ -243,7 +243,7 @@ export const TRAINER_DEFAULTS = Object.freeze({
 });
 
 export const TRAINER_RESOURCE_PATHS = Object.freeze({
-  patternHelp: 'progression-suffixes.txt'
+  patternHelp: 'assets/se-help-9a.dat'
 });
 
 export const WELCOME_CONFIG = Object.freeze({
@@ -260,7 +260,7 @@ export const WELCOME_CONFIG = Object.freeze({
   version: '2'
 });
 
-export const REVIEW_STANDARD_CONVERSIONS_URL = './parsing-projects/review-standard-conversions.txt';
+export const REVIEW_STANDARD_CONVERSIONS_URL = './assets/se-review-6c.dat';
 
 export const WELCOME_PROGRESSIONS = Object.freeze({
   'ii-v-i-major': {

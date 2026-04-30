@@ -350,6 +350,28 @@ function parseMaxThreadPage(threadUrl, threadHtml) {
   return maxPage;
 }
 
+function parseMaxListingPage(sectionUrl, listingHtml) {
+  const base = new URL(sectionUrl).pathname.replace(/\/$/, '');
+  const escapedBase = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`${escapedBase}/page-(\\d+)`, 'g');
+  let maxPage = 1;
+  let match;
+
+  while ((match = regex.exec(listingHtml))) {
+    const candidate = Number(match[1]);
+    if (Number.isInteger(candidate) && candidate > maxPage) maxPage = candidate;
+  }
+
+  return maxPage;
+}
+
+function computeListingSignature(threadUrls) {
+  return crypto
+    .createHash('sha256')
+    .update(threadUrls.join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function buildThreadPageUrl(baseThreadUrl, pageNumber) {
   return pageNumber <= 1 ? baseThreadUrl : safeJoin(baseThreadUrl, `page-${pageNumber}/`);
 }
@@ -601,11 +623,35 @@ async function main() {
       }
 
       const threadUrls = extractListingThreadUrls(section.url, listingHtml);
+      const maxListingPage = parseMaxListingPage(section.url, listingHtml);
+      if (listingPage > maxListingPage) {
+        sectionState.exhausted = true;
+        sectionState.exhaustedAt = new Date().toISOString();
+        sectionState.exhaustionReason = `listing page ${listingPage} is beyond max page ${maxListingPage}`;
+        sectionState.maxListingPage = maxListingPage;
+        await saveState(state);
+        break;
+      }
+
+      const listingSignature = computeListingSignature(threadUrls);
+      const previousListingPage = sectionState.visitedListingPages.at(-1);
+      if (previousListingPage?.thread_signature && previousListingPage.thread_signature === listingSignature) {
+        sectionState.exhausted = true;
+        sectionState.exhaustedAt = new Date().toISOString();
+        sectionState.exhaustionReason = `listing page ${listingPage} repeats page ${previousListingPage.page}`;
+        sectionState.maxListingPage = previousListingPage.page;
+        await saveState(state);
+        break;
+      }
+
       sectionState.visitedListingPages.push({
         page: listingPage,
         seen_at: new Date().toISOString(),
-        thread_count: threadUrls.length
+        thread_count: threadUrls.length,
+        thread_signature: listingSignature,
+        max_listing_page_seen: maxListingPage
       });
+      sectionState.maxListingPage = Math.max(sectionState.maxListingPage || 1, maxListingPage);
       sectionState.nextListingPage += 1;
       pageCounter += 1;
 

@@ -81,6 +81,9 @@ import { consumePendingPracticeSessionIntoUi } from './features/drill/drill-sess
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
 import { createDrillRuntimePrimitivesRootAppAssembly } from './features/drill/drill-runtime-primitives-root-app-assembly.js';
 import { shuffleArray } from './features/drill/drill-key-pool-runtime.js';
+import { enforceBetaAccess } from './features/app/app-beta-access.js';
+
+await enforceBetaAccess();
 
 type NoArgsFn<T = void> = () => T;
 type UnknownArgsFn<T = void> = (...args: unknown[]) => T;

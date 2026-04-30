@@ -4,15 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Piano Sample Calibrator</title>
+  <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./theme.css">
   <style>
     :root {
-      --bg: #f4f0e8;
-      --panel: #fffaf2;
-      --line: #d8c8ae;
-      --text: #2d2418;
-      --muted: #72634f;
-      --accent: #a5572b;
-      --accent-soft: #f0dcc9;
+      --utility-bg: var(--ui-bg);
+      --utility-bg-start: var(--ui-glow-accent-subtle);
+      --utility-bg-elevated: var(--ui-bg-elevated);
+      --utility-panel: var(--ui-surface-strong);
+      --utility-line: var(--ui-border);
+      --utility-text: var(--ui-text);
+      --utility-muted: var(--ui-text-muted);
+      --utility-accent: var(--ui-accent);
+      --utility-accent-contrast: var(--ui-text-inverse);
+      --utility-accent-soft: var(--ui-warning-bg);
+      --utility-secondary: var(--ui-chip-bg-hover);
+      --utility-status-text: var(--ui-warning-text);
+      --utility-shadow: var(--ui-shadow-color-soft);
     }
 
     * {
@@ -23,9 +31,9 @@
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
       background:
-        radial-gradient(circle at top left, #fff7ea 0, transparent 26%),
-        linear-gradient(180deg, #f8f2e7 0%, var(--bg) 100%);
-      color: var(--text);
+        radial-gradient(circle at top left, var(--utility-bg-start) 0, transparent 26%),
+        linear-gradient(180deg, var(--utility-bg-elevated) 0%, var(--utility-bg) 100%);
+      color: var(--utility-text);
     }
 
     main {
@@ -43,7 +51,7 @@
 
     p {
       margin: 0;
-      color: var(--muted);
+      color: var(--utility-muted);
       line-height: 1.45;
     }
 
@@ -55,11 +63,11 @@
     }
 
     .panel {
-      background: color-mix(in srgb, var(--panel) 92%, white);
+      background: color-mix(in srgb, var(--utility-panel) 92%, var(--utility-accent-contrast));
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 18px;
-      box-shadow: 0 14px 32px rgba(93, 66, 39, 0.08);
+      box-shadow: 0 14px 32px var(--utility-shadow);
     }
 
     .panel h2 {
@@ -80,44 +88,53 @@
     label,
     .field-title {
       font-size: 0.9rem;
-      color: var(--muted);
+      color: var(--utility-muted);
     }
 
     select,
     input[type="number"] {
       width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
       padding: 10px 12px;
-      background: white;
-      color: var(--text);
+      background: color-mix(in srgb, var(--utility-panel) 88%, var(--utility-text) 12%);
+      color: var(--utility-text);
       font: inherit;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    select:focus,
+    input[type="number"]:focus {
+      outline: 0;
+      border-bottom-color: var(--utility-accent);
+      background: color-mix(in srgb, var(--utility-panel) 82%, var(--utility-text) 18%);
     }
 
     input[type="range"] {
       width: 100%;
-      accent-color: var(--accent);
+      accent-color: var(--utility-accent);
     }
 
     button {
       border: 0;
       border-radius: 999px;
       padding: 10px 14px;
-      background: var(--accent);
-      color: white;
+      background: var(--utility-accent);
+      color: var(--utility-accent-contrast);
       cursor: pointer;
       font: inherit;
       font-weight: 600;
     }
 
     button.secondary {
-      background: #d7b796;
-      color: #2d2418;
+      background: var(--utility-secondary);
+      color: var(--utility-text);
     }
 
     button.ghost {
       background: transparent;
-      color: var(--accent);
+      color: var(--utility-accent);
       border: 1px solid var(--line);
     }
 
@@ -131,7 +148,7 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 12px;
-      background: white;
+      background: var(--utility-panel);
     }
 
     .layer-header {
@@ -149,7 +166,7 @@
     .db-readout {
       min-width: 56px;
       text-align: right;
-      color: var(--muted);
+      color: var(--utility-muted);
       font-variant-numeric: tabular-nums;
     }
 
@@ -157,8 +174,8 @@
       margin-top: 12px;
       padding: 12px 14px;
       border-radius: 12px;
-      background: var(--accent-soft);
-      color: #5c3417;
+      background: var(--utility-accent-soft);
+      color: var(--utility-status-text);
       font-size: 0.92rem;
       line-height: 1.4;
       white-space: pre-wrap;
@@ -179,7 +196,7 @@
     }
 
     th {
-      color: var(--muted);
+      color: var(--utility-muted);
       font-weight: 600;
     }
 
@@ -191,7 +208,7 @@
     .hint {
       margin-top: 12px;
       font-size: 0.88rem;
-      color: var(--muted);
+      color: var(--utility-muted);
     }
 
     .mono {
@@ -272,3 +289,4 @@
   <script type="module" src="./piano-sample-calibrator.js"></script>
 </body>
 </html>
+

@@ -14,6 +14,7 @@
 } from '../src/core/types/contracts';
 
 import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
+import { enforceBetaAccess } from '../src/features/app/app-beta-access.js';
 import {
   createChartDocumentsFromIRealText,
   parseNoteSymbol,
@@ -161,6 +162,8 @@ const {
 
 initializeSharpElevenTheme();
 
+await enforceBetaAccess();
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error || 'Unknown error');
 }
@@ -264,7 +267,9 @@ let chartMetadataPopoverRenderId = 0;
 let chartTransitionCleanupTimer = 0;
 const CHART_ACTION_FEEDBACK_CLASS = 'is-chart-action-feedback';
 const CHART_ACTION_FEEDBACK_DURATION_MS = 520;
+const CHART_ACTION_POINTER_CLICK_SUPPRESS_MS = 700;
 const chartActionFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
+const chartActionFeedbackPointerTimes = new WeakMap<HTMLButtonElement, number>();
 
 declare global {
   interface Window {
@@ -367,10 +372,23 @@ function flashChartActionFeedback(button: HTMLButtonElement) {
 }
 
 function bindChartButtonFeedback() {
+  dom.chartApp?.addEventListener('pointerdown', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest('button');
+    if (!(button instanceof HTMLButtonElement) || !dom.chartApp?.contains(button)) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (shouldFlashChartActionFeedback(button)) {
+      chartActionFeedbackPointerTimes.set(button, window.performance.now());
+      flashChartActionFeedback(button);
+    }
+  }, true);
+
   dom.chartApp?.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     const button = target?.closest('button');
     if (!(button instanceof HTMLButtonElement) || !dom.chartApp?.contains(button)) return;
+    const lastPointerFeedbackTime = chartActionFeedbackPointerTimes.get(button) || 0;
+    if (lastPointerFeedbackTime && window.performance.now() - lastPointerFeedbackTime < CHART_ACTION_POINTER_CLICK_SUPPRESS_MS) return;
     if (shouldFlashChartActionFeedback(button)) {
       flashChartActionFeedback(button);
     }

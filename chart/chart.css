@@ -655,12 +655,12 @@ select {
 .chart-gear-button::before {
   content: "";
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   margin: 0;
   background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.7 3.4c.6-1.9 4-1.9 4.6 0l.2.8a2.4 2.4 0 0 0 3.4 1.4l.7-.4c1.8-.9 4.2 1.5 3.3 3.3l-.4.7a2.4 2.4 0 0 0 1.4 3.4l.8.2c1.9.6 1.9 4 0 4.6l-.8.2a2.4 2.4 0 0 0-1.4 3.4l.4.7c.9 1.8-1.5 4.2-3.3 3.3l-.7-.4a2.4 2.4 0 0 0-3.4 1.4l-.2.8c-.6 1.9-4 1.9-4.6 0l-.2-.8a2.4 2.4 0 0 0-3.4-1.4l-.7.4c-1.8.9-4.2-1.5-3.3-3.3l.4-.7a2.4 2.4 0 0 0-1.4-3.4l-.8-.2c-1.9-.6-1.9-4 0-4.6l.8-.2a2.4 2.4 0 0 0 1.4-3.4l-.4-.7c-.9-1.8 1.5-4.2 3.3-3.3l.7.4a2.4 2.4 0 0 0 3.4-1.4l.2-.8Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.7 3.4c.6-1.9 4-1.9 4.6 0l.2.8a2.4 2.4 0 0 0 3.4 1.4l.7-.4c1.8-.9 4.2 1.5 3.3 3.3l-.4.7a2.4 2.4 0 0 0 1.4 3.4l.8.2c1.9.6 1.9 4 0 4.6l-.8.2a2.4 2.4 0 0 0-1.4 3.4l.4.7c.9 1.8-1.5 4.2-3.3 3.3l-.7-.4a2.4 2.4 0 0 0-3.4 1.4l-.2.8c-.6 1.9-4 1.9-4.6 0l-.2-.8a2.4 2.4 0 0 0-3.4-1.4l-.7.4c-1.8.9-4.2-1.5-3.3-3.3l.4-.7a2.4 2.4 0 0 0-1.4-3.4l-.8-.2c-1.9-.6-1.9-4 0-4.6l.8-.2a2.4 2.4 0 0 0 1.4-3.4l-.4-.7c-.9-1.8 1.5-4.2 3.3-3.3l.7.4a2.4 2.4 0 0 0 3.4-1.4l.2-.8Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 26 26' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / 21px 21px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 26 26' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / 21px 21px no-repeat;
 }
 
 .chart-info-button::before {
@@ -1424,6 +1424,14 @@ select {
   right: 14px;
 }
 
+.chart-bar-segno-marker {
+  top: -1.62em;
+}
+
+.chart-bar-cell.has-ending-segno-collision .chart-bar-segno-marker {
+  top: -3.08em;
+}
+
 .chart-bar-coda-marker.is-end {
   right: 4px;
 }
@@ -1440,8 +1448,8 @@ select {
 }
 
 .chart-bar-segno-svg {
-  width: 1.55em;
-  height: 2.75em;
+  width: 1em;
+  height: 1.8em;
 }
 
 .chart-bar-fermata-marker {
@@ -1473,9 +1481,9 @@ select {
   z-index: 4;
   max-width: min(12em, calc(100% - var(--chart-text-annotation-left, 0%) - 4px));
   color: var(--chart-sheet-text);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.02;
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1585,6 +1593,16 @@ select {
   justify-content: center;
 }
 
+.chart-token-slot.repeat-slot.is-two-bar-repeat-marker {
+  position: absolute;
+  top: 50%;
+  right: -1px;
+  width: 0;
+  transform: translate(50%, -50%);
+  z-index: 3;
+  pointer-events: none;
+}
+
 .chart-token {
   display: inline-flex;
   align-items: flex-end;
@@ -1607,6 +1625,14 @@ select {
   transform-origin: center center;
 }
 
+.chart-token.repeat.is-two-bar-repeat-marker {
+  width: auto;
+}
+
+.chart-bar-cell.has-two-bar-repeat-marker .chart-bar-body {
+  z-index: 3;
+}
+
 .chart-token.slash-marker {
   width: 100%;
   justify-content: center;
@@ -1620,7 +1646,7 @@ select {
   font-size: 0.55em;
   line-height: 1.2;
   color: var(--chart-sheet-text-alt);
-  transform: translateY(-0.62em);
+  transform: translateY(-0.42em);
   transform-origin: left bottom;
 }
 
@@ -1662,7 +1688,7 @@ select {
   line-height: 1.2;
   letter-spacing: 0;
   color: var(--chart-sheet-text-alt);
-  margin-bottom: 0.4em;
+  margin-bottom: 0.18em;
   white-space: nowrap;
 }
 
@@ -1692,6 +1718,19 @@ select {
   border-radius: 0;
   background: transparent;
   color: var(--chart-sheet-text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.02;
+  white-space: nowrap;
+}
+
+.chart-bar-cell.has-foot-text .chart-bar-foot {
+  left: 0;
+  right: auto;
+  bottom: -0.72em;
+  z-index: 5;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
 }
 
 /* --- Cards ------------------------------------------------------- */
@@ -2063,6 +2102,10 @@ select {
     left: 1.7em;
   }
 
+  .chart-bar-segno-marker {
+    top: -1.48em;
+  }
+
   .chart-bar-body {
     margin-top: 0;
     min-height: var(--chart-config-bar-line-height);
@@ -2091,6 +2134,10 @@ select {
     font-size: 0.5rem;
   }
 
+  .chart-foot-pill.chart-foot-text {
+    font-size: 1rem;
+  }
+
   .chart-repeat-end-marker {
     right: 0;
     font-size: 1.35rem;
@@ -2102,8 +2149,8 @@ select {
   }
 
   .chart-bar-segno-svg {
-    width: 1.25em;
-    height: 2.2em;
+    width: 0.92em;
+    height: 1.64em;
   }
 
   .chart-bar-fermata-marker {
@@ -2292,7 +2339,7 @@ select {
     border-radius: 999px;
     background: transparent;
     color: var(--chart-ui-accent);
-    font-size: clamp(1.35rem, 5.2vw, 2.05rem);
+    font-size: clamp(1.05rem, 4vw, 1.55rem);
     font-weight: 400;
     line-height: 1;
     text-align: center;
@@ -2362,9 +2409,11 @@ select {
   .chart-transport-buttons {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 42px);
+    justify-content: center;
     align-items: center;
-    gap: 8px;
+    column-gap: clamp(18px, 9vw, 36px);
+    row-gap: 0;
     margin-top: 12px;
   }
 
@@ -2479,12 +2528,13 @@ select {
       max(14px, calc(env(safe-area-inset-right) + 10px))
       4px
       max(14px, calc(env(safe-area-inset-left) + 10px));
-    background: color-mix(in srgb, var(--chart-mobile-panel-bg) 96%, transparent 4%);
-    border-bottom: 1px solid var(--chart-mobile-panel-line);
+    background: var(--chart-ui-overlay-solid);
+    border-bottom: 0;
   }
 
   .chart-top-bar .app-back-button,
   .chart-icon-button {
+    flex: 0 0 38px;
     width: 38px;
     height: 38px;
     border-radius: 999px;
@@ -2506,8 +2556,8 @@ select {
   }
 
   .chart-gear-button::before {
-    width: 21px;
-    height: 21px;
+    width: 22px;
+    height: 22px;
   }
 
   .chart-metadata-popover,
@@ -2621,8 +2671,8 @@ select {
   }
 
   .chart-bottom-overlay {
-    background: color-mix(in srgb, var(--chart-mobile-panel-bg) 96%, transparent 4%);
-    border-top: 1px solid var(--chart-mobile-panel-line);
+    background: var(--chart-ui-overlay-solid);
+    border-top: 0;
   }
 
   .chart-bottom-control-button,

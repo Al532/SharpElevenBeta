@@ -49,6 +49,32 @@ function applyContextualizedPlaybackSlotsToNotationTokens(notationTokens = [], c
 }
 
 /**
+ * @param {any} bar
+ * @returns {any[]}
+ */
+function getNotationDisplayTokens(bar) {
+  const notation = bar?.notation || {};
+  const tokens = Array.isArray(notation.tokens) ? notation.tokens : [];
+
+  if (notation.kind === 'double_bar_repeat_start') {
+    return tokens.map((token) => token?.kind === 'repeat_previous_two_bars'
+      ? {
+          ...JSON.parse(JSON.stringify(token)),
+          placement: 'center_barline_after'
+        }
+      : JSON.parse(JSON.stringify(token)));
+  }
+
+  if (notation.kind === 'double_bar_repeat_followup') {
+    return tokens
+      .filter((token) => token?.kind !== 'repeat_previous_two_bars')
+      .map((token) => JSON.parse(JSON.stringify(token)));
+  }
+
+  return tokens.map((token) => JSON.parse(JSON.stringify(token)));
+}
+
+/**
  * @param {ChartDocument} chartDocument
  * @param {{
  *   displayTransposeSemitones?: number,
@@ -76,7 +102,7 @@ export function createChartViewModel(chartDocument, {
             sourceBar.notation.tokens || [],
             contextualizedPlaybackSlotsByBar[index] || []
           )
-        : sourceBar.notation.tokens
+        : getNotationDisplayTokens(sourceBar)
       ).map((token) => createDisplayToken(token, displayTransposeSemitones)),
       displayPlaybackSlots: (contextualizedPlaybackSlotsByBar[index] || [])
         .map((slot) => createDisplayToken(slot, displayTransposeSemitones))

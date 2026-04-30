@@ -2,7 +2,7 @@
   font-family: "JazzTrainerChordText";
   src: url("./assets/fonts/NotoSans-Latin.woff2") format("woff2");
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
   unicode-range:
     U+0000-00FF,
@@ -26,36 +26,27 @@
     U+FFFD;
 }
 
-@font-face {
-  font-family: "JazzTrainerChordText";
-  src: url("./assets/fonts/NotoSans-Latin.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  unicode-range:
-    U+0000-00FF,
-    U+0131,
-    U+0152-0153,
-    U+02BB-02BC,
-    U+02C6,
-    U+02DA,
-    U+02DC,
-    U+0304,
-    U+0308,
-    U+0329,
-    U+2000-206F,
-    U+20AC,
-    U+2122,
-    U+2191,
-    U+2193,
-    U+2212,
-    U+2215,
-    U+FEFF,
-    U+FFFD;
+.chord-symbol-v2 {
+  display: inline-block;
+  line-height: 0;
+  vertical-align: -0.62em;
+  color: currentColor;
+}
+
+.chord-symbol-v2-svg {
+  display: block;
+  overflow: visible;
+}
+
+.chord-symbol-v2-root,
+.chord-symbol-v2-accidental,
+.chord-symbol-v2-suffix {
+  vector-effect: non-scaling-stroke;
 }
 
 .chord-symbol {
   --chord-symbol-font-family: "JazzTrainerChordText", sans-serif;
+  --chord-symbol-text-weight: 600;
   --chord-symbol-accidental-flat-width: 0.29em;
   --chord-symbol-accidental-sharp-width: 0.36em;
   --chord-symbol-accidental-margin-left: 0.004em;
@@ -78,15 +69,18 @@
   --chord-symbol-sup-padding-right: 0;
   --chord-symbol-sup-content-scale-x: 0.88;
   --chord-symbol-sup-content-letter-spacing: -0.045em;
-  --chord-symbol-slash-column-width: 0.24em;
-  --chord-symbol-slash-row-offset: 0.4em;
-  --chord-symbol-slash-gap: 0.03em;
-  --chord-symbol-slash-stack-shift: 0.34em;
-  --chord-symbol-slash-top: 0.16em;
-  --chord-symbol-slash-height: 0.58em;
-  --chord-symbol-slash-stroke-width: 0.04em;
-  --chord-symbol-slash-stroke-height: 0.62em;
-  --chord-symbol-slash-stroke-top: -0.01em;
+  --chord-symbol-quality-stroke-width: 14;
+  --chord-symbol-quality-half-diminished-slash-stroke-width: 13;
+  --chord-symbol-figure69-slash-stroke-width: 0.052em;
+  --chord-symbol-slash-column-width: 0.38em;
+  --chord-symbol-slash-row-offset: 0.36em;
+  --chord-symbol-slash-gap: 0em;
+  --chord-symbol-slash-stack-shift: 0.2em;
+  --chord-symbol-slash-top: 0.18em;
+  --chord-symbol-slash-height: 0.82em;
+  --chord-symbol-slash-stroke-width: 0.045em;
+  --chord-symbol-slash-stroke-height: 0.84em;
+  --chord-symbol-slash-stroke-top: 0.1em;
   --chord-symbol-slash-angle: 36deg;
   --chord-symbol-bass-size: 0.58em;
   --chord-symbol-bass-shift: 0.08em;
@@ -107,6 +101,16 @@
 
 .chord-symbol-with-base {
   padding-right: var(--chord-symbol-sup-base-reserve);
+}
+
+.chord-symbol-sup-reserve-medium {
+  --chord-symbol-sup-root-reserve: 0.48em;
+  --chord-symbol-sup-base-reserve: 0.68em;
+}
+
+.chord-symbol-sup-reserve-long {
+  --chord-symbol-sup-root-reserve: 0.82em;
+  --chord-symbol-sup-base-reserve: 1.02em;
 }
 
 .chord-symbol-topline {
@@ -139,11 +143,17 @@
   display: inline-block;
 }
 
+.chord-symbol-root {
+  transform: scaleX(var(--chart-chord-root-scale-x, 1));
+  transform-origin: left bottom;
+}
+
 .chord-symbol-root-letter,
 .chord-symbol-base,
 .chord-symbol-sup,
 .chord-symbol-bass {
-  font-weight: 700;
+  font-weight: var(--chord-symbol-text-weight);
+  font-variation-settings: "wght" var(--chord-symbol-text-weight);
 }
 
 .chord-symbol-root-letter {
@@ -189,12 +199,21 @@
 }
 
 .chord-symbol-base {
+  --chord-symbol-base-condense-x: 1;
+  --chord-symbol-base-content-letter-spacing: 0;
   font-size: var(--chord-symbol-base-size);
   margin-left: var(--chord-symbol-base-gap);
 }
 
 .chord-symbol-base-symbol {
   line-height: 1;
+}
+
+.chord-symbol-base-content {
+  display: inline-block;
+  letter-spacing: var(--chord-symbol-base-content-letter-spacing);
+  transform: scaleX(var(--chord-symbol-base-condense-x));
+  transform-origin: left bottom;
 }
 
 .chord-symbol-quality-glyph {
@@ -208,6 +227,14 @@
   width: 100%;
   height: 1em;
   overflow: visible;
+}
+
+.chord-symbol-quality-glyph svg [stroke] {
+  stroke-width: var(--chord-symbol-quality-stroke-width);
+}
+
+.chord-symbol-base-symbol-halfDiminished .chord-symbol-quality-glyph svg path {
+  stroke-width: var(--chord-symbol-quality-half-diminished-slash-stroke-width);
 }
 
 .chord-symbol-base-symbol-majorTriangle .chord-symbol-quality-glyph {
@@ -224,33 +251,28 @@
 }
 
 .chord-symbol-base-condensed-m {
-  letter-spacing: -0.04em;
-  transform: scaleX(0.86);
-  transform-origin: left bottom;
+  --chord-symbol-base-condense-x: 0.6;
+  --chord-symbol-base-content-letter-spacing: -0.04em;
 }
 
 .chord-symbol-base-condensed-maj {
-  letter-spacing: -0.06em;
-  transform: scaleX(0.76);
-  transform-origin: left bottom;
+  --chord-symbol-base-condense-x: 0.6;
+  --chord-symbol-base-content-letter-spacing: -0.06em;
 }
 
 .chord-symbol-base-condensed-mmaj {
-  letter-spacing: -0.06em;
-  transform: scaleX(0.76);
-  transform-origin: left bottom;
+  --chord-symbol-base-condense-x: 0.6;
+  --chord-symbol-base-content-letter-spacing: -0.06em;
 }
 
 .chord-symbol-base-condensed-dim {
-  letter-spacing: -0.05em;
-  transform: scaleX(0.84);
-  transform-origin: left bottom;
+  --chord-symbol-base-condense-x: 0.6;
+  --chord-symbol-base-content-letter-spacing: -0.05em;
 }
 
 .chord-symbol-base-condensed-sus {
-  letter-spacing: -0.05em;
-  transform: scaleX(0.84);
-  transform-origin: left bottom;
+  --chord-symbol-base-condense-x: 0.6;
+  --chord-symbol-base-content-letter-spacing: -0.05em;
 }
 
 .chord-symbol-sup {
@@ -273,6 +295,53 @@
   transform-origin: left bottom;
 }
 
+.chord-symbol-sup-content-stacked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.015em;
+  letter-spacing: -0.02em;
+  transform: translateY(0.1em) scaleX(0.92);
+}
+
+.chord-symbol-extension-prefix {
+  display: inline-block;
+  transform: translateY(-0.18em);
+}
+
+.chord-symbol-parenthetical-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.01em;
+  margin-left: 0.02em;
+  vertical-align: middle;
+}
+
+.chord-symbol-parenthetical-stack-paren {
+  display: inline-block;
+  font-size: 1.55em;
+  font-weight: 400;
+  line-height: 0.86;
+  transform: scaleX(0.74);
+  transform-origin: center;
+}
+
+.chord-symbol-parenthetical-stack-items {
+  display: grid;
+  align-items: center;
+  justify-items: start;
+  row-gap: 0;
+}
+
+.chord-symbol-parenthetical-stack-item {
+  display: block;
+  line-height: 0.72;
+  white-space: nowrap;
+}
+
+.chord-symbol-parenthetical-stack-3 .chord-symbol-parenthetical-stack-item {
+  line-height: 0.62;
+}
+
 .chord-symbol-figure69 {
   display: inline-grid;
   grid-template-columns: 0.38em 0.1em 0.38em;
@@ -288,7 +357,8 @@
 
 .chord-symbol-figure69-top,
 .chord-symbol-figure69-bottom {
-  font-weight: 700;
+  font-weight: var(--chord-symbol-text-weight);
+  font-variation-settings: "wght" var(--chord-symbol-text-weight);
   line-height: 1;
 }
 
@@ -317,7 +387,7 @@
   position: absolute;
   left: 50%;
   top: 0.02em;
-  width: 0.04em;
+  width: var(--chord-symbol-figure69-slash-stroke-width);
   height: 0.92em;
   border-radius: 999px;
   background: currentColor;
@@ -354,7 +424,7 @@
 }
 
 .chord-symbol-sup-anchor-condensed-m {
-  margin-left: -0.18em;
+  margin-left: -0.74em;
 }
 
 .chord-symbol-sup-anchor-condensed-maj {
@@ -362,7 +432,7 @@
 }
 
 .chord-symbol-sup-anchor-condensed-mmaj {
-  margin-left: -0.38em;
+  margin-left: -0.95em;
 }
 
 .chord-symbol-sup-anchor-condensed-dim {
@@ -370,7 +440,7 @@
 }
 
 .chord-symbol-sup-anchor-condensed-sus {
-  margin-left: -0.24em;
+  margin-left: -1.18em;
 }
 
 .chord-symbol-slash-stack {
@@ -383,6 +453,34 @@
   top: var(--chord-symbol-slash-top);
   margin-left: var(--chord-symbol-slash-gap);
   transform: translateY(var(--chord-symbol-slash-stack-shift));
+}
+
+.chord-symbol-slash-anchor-condensed-m .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.25em);
+}
+
+.chord-symbol-slash-anchor-condensed-maj .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.46em);
+}
+
+.chord-symbol-slash-anchor-condensed-mmaj .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.69em);
+}
+
+.chord-symbol-slash-anchor-condensed-dim .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.49em);
+}
+
+.chord-symbol-slash-anchor-condensed-sus .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.47em);
+}
+
+.chord-symbol-slash-anchor-root-only .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.16em);
+}
+
+.chord-symbol-slash-anchor-root-accidental .chord-symbol-slash-stack {
+  margin-left: calc(var(--chord-symbol-slash-gap) - 0.08em);
 }
 
 .chord-symbol-slash-diagonal {
