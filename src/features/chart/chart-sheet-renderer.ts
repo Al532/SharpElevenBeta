@@ -117,6 +117,10 @@ type ChartLayoutDebugSnapshot = {
   bars: ChartLayoutDebugBar[]
 };
 
+type RowChordVisualBoundsOptions = {
+  includeAlternates?: boolean
+};
+
 const layoutDebugRuntimeBypasses: Record<string, boolean> = {};
 let lastLayoutPipelineStepsRun: string[] = [];
 
@@ -1458,12 +1462,19 @@ function applySingleChordAnchor(barBodyEl) {
 
 /**
  * @param {HTMLElement} rowEl
+ * @param {RowChordVisualBoundsOptions} [options]
  * @returns {{ top: number, bottom: number }}
  */
-function getRowChordVisualBounds(rowEl) {
-  const visualElements: HTMLElement[] = Array.from(rowEl.querySelectorAll(
-    '.chart-bar-body .chart-token, .chart-alternate-token, .chart-foot-pill, .chart-bar-corner-marker, .chart-repeat-dots, .chart-bar-text-annotation'
-  )) as HTMLElement[];
+function getRowChordVisualBounds(rowEl, options: RowChordVisualBoundsOptions = {}) {
+  const visualSelector = [
+    '.chart-bar-body .chart-token',
+    options.includeAlternates ? '.chart-alternate-token' : '',
+    '.chart-foot-pill',
+    '.chart-bar-corner-marker',
+    '.chart-repeat-dots',
+    '.chart-bar-text-annotation'
+  ].filter(Boolean).join(', ');
+  const visualElements: HTMLElement[] = Array.from(rowEl.querySelectorAll(visualSelector)) as HTMLElement[];
   const elementRects = visualElements
     .map((element) => element.getBoundingClientRect())
     .filter((rect) => rect.width > 0 && rect.height > 0);
@@ -1918,6 +1929,39 @@ function applyCodaPlacements() {
  * @param {HTMLElement} rowEl
  * @returns {HTMLElement[]}
  */
+function getRowAlternateElements(rowEl) {
+  return Array.from(rowEl.querySelectorAll('.chart-alternate-token')) as HTMLElement[];
+}
+
+/**
+ * @param {HTMLElement[]} rowElements
+ * @returns {void}
+ */
+function applyAlternateCollisionMargins(rowElements) {
+  for (let index = 1; index < rowElements.length; index += 1) {
+    const alternates = getRowAlternateElements(rowElements[index]);
+    if (alternates.length === 0) continue;
+
+    const alternateRects = alternates
+      .map((element) => element.getBoundingClientRect())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    if (alternateRects.length === 0) continue;
+
+    const previousBounds = getRowChordVisualBounds(rowElements[index - 1]);
+    const minAlternateTop = Math.min(...alternateRects.map((rect) => rect.top));
+    const requiredAlternateTop = previousBounds.bottom + CHART_ROW_ANNOTATIONS_CONFIG.chordGapPx;
+    const overflow = requiredAlternateTop - minAlternateTop;
+    if (overflow <= 0) continue;
+
+    const previousMargin = parseFloat(getComputedStyle(rowElements[index]).marginTop) || 0;
+    rowElements[index].style.marginTop = `${Math.ceil(previousMargin + overflow)}px`;
+  }
+}
+
+/**
+ * @param {HTMLElement} rowEl
+ * @returns {HTMLElement[]}
+ */
 function getRowBarCells(rowEl) {
   return (Array.from(rowEl.children) as HTMLElement[]).filter((element) =>
     element.classList.contains('chart-bar-cell')
@@ -1981,6 +2025,42 @@ function getRowResizeWeightsFromFactors(factors, minSpreadFactor, maxSpreadFacto
     : 1;
 
   return relativeWeights.map((weight) => 1 + ((weight - 1) * scale));
+}
+
+/**
+ * @param {HTMLElement} cellEl
+ * @returns {number}
+ */
+function getCellGridSpan(cellEl) {
+  const inlineGridColumn = cellEl.style.gridColumn || cellEl.getAttribute('style') || '';
+  const match = /\bspan\s+([0-9]+)/i.exec(inlineGridColumn);
+  const span = match ? Number.parseInt(match[1], 10) : 1;
+  return Number.isInteger(span) && span > 0 ? span : 1;
+}
+
+/**
+ * @param {HTMLElement} rowEl
+ * @param {HTMLElement[]} cells
+ * @param {number[]} weights
+ * @returns {number[]}
+ */
+function getRowGridTrackWeights(rowEl, cells, weights) {
+  if (!rowEl.classList.contains('uses-rhythmic-grid')) return weights;
+
+  const declaredColumnCount = Math.max(0, Number.parseInt(
+    getComputedStyle(rowEl).getPropertyValue('--chart-row-columns') || rowEl.style.getPropertyValue('--chart-row-columns') || '',
+    10
+  ));
+  const trackWeights = cells.flatMap((cellEl, index) => {
+    const span = getCellGridSpan(cellEl);
+    const weight = weights[index] || 1;
+    return Array.from({ length: span }, () => weight);
+  });
+
+  if (declaredColumnCount <= 0) return trackWeights;
+  if (trackWeights.length > declaredColumnCount) return trackWeights.slice(0, declaredColumnCount);
+  while (trackWeights.length < declaredColumnCount) trackWeights.push(1);
+  return trackWeights;
 }
 
 /**
@@ -2101,24 +2181,18 @@ function applyRowBarResizing() {
 
   let maxWeightChange = 0;
   Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
-    if (rowEl.classList.contains('uses-rhythmic-grid')) {
-      if (rowEl.style.gridTemplateColumns) {
-        rowEl.style.removeProperty('grid-template-columns');
-        maxWeightChange = Math.max(maxWeightChange, 1);
-      }
-      return;
-    }
-
     const previousWeights = rowEl.style.gridTemplateColumns.match(/([0-9.]+)fr/g)
       ?.map((part) => Number.parseFloat(part)) || [];
+    const cells = getRowBarCells(rowEl);
     const factors = getNeutralRowResizeFactors(rowEl);
     const weights = getRowResizeWeightsFromFactors(factors, minSpreadFactor, maxSpreadFactor);
+    const trackWeights = getRowGridTrackWeights(rowEl, cells, weights);
 
-    if (weights.length > 0 && weights.some((weight) => weight > 1)) {
-      weights.forEach((weight, index) => {
+    if (trackWeights.length > 0 && trackWeights.some((weight) => weight > 1)) {
+      trackWeights.forEach((weight, index) => {
         maxWeightChange = Math.max(maxWeightChange, Math.abs(weight - (previousWeights[index] || 1)));
       });
-      rowEl.style.gridTemplateColumns = weights
+      rowEl.style.gridTemplateColumns = trackWeights
         .map((weight) => `minmax(0, ${weight.toFixed(3)}fr)`)
         .join(' ');
     } else if (previousWeights.length > 0) {
@@ -2329,18 +2403,54 @@ function getFullSizeRootRect(barCellEl) {
 }
 
 /**
+ * @param {HTMLElement} barCellEl
+ * @returns {DOMRect | null}
+ */
+function getFallbackBarLineAnchorRect(barCellEl) {
+  const anchorSelectors = [
+    '.chart-token .chord-symbol-main',
+    '.chart-token',
+    '.chart-repeat-sign',
+    '.chart-slash-marker',
+    '.chart-bar-body'
+  ];
+
+  for (const selector of anchorSelectors) {
+    const element = barCellEl.querySelector(selector) as HTMLElement | SVGElement | null;
+    const rect = element?.getBoundingClientRect();
+    if (rect && rect.width > 0 && rect.height > 0) return rect;
+  }
+
+  return null;
+}
+
+/**
  * @returns {void}
  */
 function syncBarLinePlacements() {
   const barLineHeight = CHART_DISPLAY_CONFIG.barGeometry.barLine.heightPx;
-  Array.from(document.querySelectorAll<HTMLElement>('.chart-bar-cell')).forEach((barCellEl) => {
-    const rootRect = getFullSizeRootRect(barCellEl);
-    if (!rootRect) return;
+  Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
+    const barCells = getRowBarCells(rowEl);
+    const rowRootCenters = barCells
+      .map((barCellEl) => getFullSizeRootRect(barCellEl))
+      .filter(Boolean)
+      .map((rootRect) => rootRect!.top + (rootRect!.height / 2));
+    const rowAnchorCenterY = rowRootCenters.length > 0
+      ? rowRootCenters.reduce((sum, value) => sum + value, 0) / rowRootCenters.length
+      : null;
 
-    const cellRect = barCellEl.getBoundingClientRect();
-    const rootCenterY = rootRect.top + (rootRect.height / 2);
-    const lineTop = Math.max(0, rootCenterY - cellRect.top - (barLineHeight / 2));
-    barCellEl.style.setProperty('--chart-bar-line-top', `${lineTop.toFixed(2)}px`);
+    barCells.forEach((barCellEl) => {
+      const rootRect = getFullSizeRootRect(barCellEl);
+      const fallbackRect = rootRect ? null : getFallbackBarLineAnchorRect(barCellEl);
+      const anchorCenterY = rootRect
+        ? rootRect.top + (rootRect.height / 2)
+        : rowAnchorCenterY ?? (fallbackRect ? fallbackRect.top + (fallbackRect.height / 2) : null);
+      if (anchorCenterY === null) return;
+
+      const cellRect = barCellEl.getBoundingClientRect();
+      const lineTop = Math.max(0, anchorCenterY - cellRect.top - (barLineHeight / 2));
+      barCellEl.style.setProperty('--chart-bar-line-top', `${lineTop.toFixed(2)}px`);
+    });
   });
 }
 
@@ -2595,7 +2705,7 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
     const firstRow = rowElements[0];
     if (firstRow && !isLayoutPipelineStepBypassed('firstRowHeaderShift')) {
       lastLayoutPipelineStepsRun.push('firstRowHeaderShift');
-      const firstRowShift = getFirstRowHeaderCollisionShift(firstRow, getRowChordVisualBounds(firstRow));
+      const firstRowShift = getFirstRowHeaderCollisionShift(firstRow, getRowChordVisualBounds(firstRow, { includeAlternates: true }));
       if (firstRowShift > 0) {
         firstRow.style.marginTop = `${Math.ceil(firstRowShift)}px`;
         void sheetGrid.offsetHeight;
@@ -2631,8 +2741,9 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
     }
 
     const rowElementList = Array.from(rowElements);
+    applyAlternateCollisionMargins(rowElementList);
     runLayoutPipelineStep('endingMargins', () => applyEndingCollisionMargins(rowElementList));
-    const rowChordBounds = rowElementList.map((element) => getRowChordVisualBounds(element));
+    const rowChordBounds = rowElementList.map((element) => getRowChordVisualBounds(element, { includeAlternates: true }));
     runLayoutPipelineStep('annotationPlacement', () => applyRowAnnotationPlacements(rowElementList, rowChordBounds));
     runLayoutPipelineStep('sectionEndingCollision', () => applySectionEndingCollisionPlacements(rowElementList));
     runLayoutPipelineStep('collisionOverlay', () => renderCollisionDebugOverlay(sheetGrid));

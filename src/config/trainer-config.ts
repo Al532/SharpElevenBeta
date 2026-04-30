@@ -162,7 +162,7 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
     singleChordLeftBias: 0.2 // a valider: 0 = bord gauche, 1 = bord droit avant bornage
   }),
   // Transformation: redimensionnement horizontal des mesures au sein d'une ligne.
-  // Les seuils sont des facteurs absolus d'ecart a la moyenne de ligne: 1 = mesures egales, 1.5 = +50% pour la mesure la plus large.
+  // Les seuils sont des facteurs relatifs a la moyenne de ligne: 1 = mesures egales, 1.5 = +50% pour la mesure la plus large.
   // Desactive si `minDeltaRatio >= maxDeltaRatio`.
   barResizing: Object.freeze({
     // Ligne: ecart minimal a la moyenne requis pour appliquer cette transformation.
