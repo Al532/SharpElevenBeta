@@ -2922,8 +2922,13 @@ createChartSheetRenderer({
 }).renderSheet(aBalladViewModel);
 assert.match(
   aBalladGrid.innerHTML,
-  /data-bar-index="37"[\s\S]*chart-bar-cell is-empty is-empty-measure[\s\S]*grid-column: span 4;[\s\S]*data-bar-index="38"/,
+  /data-bar-index="37"[\s\S]*chart-bar-cell is-empty is-empty-measure[\s\S]*grid-column: span 1;[\s\S]*data-bar-index="38"/,
   'A Ballad renders the empty measure between the first and second written measures of the penultimate line.'
+);
+assert.doesNotMatch(
+  aBalladGrid.innerHTML,
+  /uses-rhythmic-grid/,
+  'A Ballad keeps iReal source cells as measure-internal placement data instead of using a row-level rhythmic grid.'
 );
 assert.match(
   aBalladGrid.innerHTML,

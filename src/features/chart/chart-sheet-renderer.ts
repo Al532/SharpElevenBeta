@@ -45,7 +45,6 @@ type CreateChartSheetRendererOptions = {
 
 type RenderBarCellOptions = {
   isRowStart?: boolean,
-  slotSpan?: number,
   sectionChanged?: boolean
 };
 
@@ -177,7 +176,7 @@ function runLayoutPipelineStep(stepName, callback) {
  * @param {{ bars?: any[], layout?: any }} viewModel
  * @param {(string | null)[]} barTimeSigDisplay
  * @param {number} defaultSlotsPerRow
- * @returns {Array<{ bars: any[], firstBar: any, previousBar: any, rowTimeSignature: string | null, startCellIndex: number, leadingEmptySlots: number, totalSlots: number, usesRhythmicGrid: boolean }>}
+ * @returns {Array<{ bars: any[], firstBar: any, previousBar: any, rowTimeSignature: string | null, startCellIndex: number, leadingEmptyCells: number, leadingEmptySlots: number, totalSlots: number, sourceCellsPerMeasure: number }>}
  */
 function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
   const bars = Array.isArray(viewModel?.bars) ? viewModel.bars : [];
@@ -186,6 +185,7 @@ function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
   const inferredSlotsPerRow = Number.isFinite(cellsPerRow) && cellsPerRow > 0
     ? Math.max(1, Math.round(cellsPerRow / 4))
     : defaultSlotsPerRow;
+  const sourceCellsPerMeasure = getSourceCellsPerMeasure(cellsPerRow, inferredSlotsPerRow);
 
   if (layoutRows.length > 0) {
     const barsById = new Map(bars.map((bar) => [bar.id, bar]));
@@ -200,16 +200,36 @@ function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
       const resolvedBars = rowBars.length > 0 ? rowBars : fallbackBars;
       const firstBar = resolvedBars[0] || null;
       const rowStartIndex = firstBar ? bars.findIndex((bar) => bar.id === firstBar.id) : -1;
+      const startCellIndex = Number(row?.startCellIndex || row?.start_cell_index || 0);
+      const leadingEmptyCells = Math.max(0, Number(row?.leadingEmptyCells || row?.leading_empty_cells || 0));
+      const leadingEmptySlots = Math.max(
+        0,
+        Number(row?.leadingEmptyBars || row?.leading_empty_bars || getFullMeasureSlotCountFromSourceCells(
+          leadingEmptyCells,
+          sourceCellsPerMeasure
+        ))
+      );
+      const minimumTotalSlots = Math.max(
+        inferredSlotsPerRow,
+        getLayoutRowMeasureSlotCount(
+          resolvedBars,
+          startCellIndex,
+          leadingEmptyCells,
+          leadingEmptySlots,
+          sourceCellsPerMeasure
+        )
+      );
 
       return {
         bars: resolvedBars,
         firstBar,
         previousBar: rowStartIndex > 0 ? bars[rowStartIndex - 1] : null,
         rowTimeSignature: rowStartIndex >= 0 ? (barTimeSigDisplay[rowStartIndex] || null) : null,
-        startCellIndex: Number(row?.startCellIndex || row?.start_cell_index || 0),
-        leadingEmptySlots: Math.max(0, Number(row?.leadingEmptyCells || row?.leadingEmptyBars || 0)),
-        totalSlots: Math.max(1, Number(row?.totalCells || row?.cellsPerRow || cellsPerRow || inferredSlotsPerRow)),
-        usesRhythmicGrid: true
+        startCellIndex,
+        leadingEmptyCells,
+        leadingEmptySlots,
+        totalSlots: Math.max(1, minimumTotalSlots),
+        sourceCellsPerMeasure
       };
     }).filter((row) => row.firstBar);
   }
@@ -225,12 +245,53 @@ function buildRenderedRows(viewModel, barTimeSigDisplay, defaultSlotsPerRow) {
       previousBar: index > 0 ? bars[index - 1] : null,
       rowTimeSignature: barTimeSigDisplay[index] || null,
       startCellIndex: index,
+      leadingEmptyCells: 0,
       leadingEmptySlots: 0,
       totalSlots: defaultSlotsPerRow,
-      usesRhythmicGrid: false
+      sourceCellsPerMeasure: 4
     });
   }
   return rows;
+}
+
+function getSourceCellsPerMeasure(cellsPerRow, measureSlotsPerRow) {
+  const normalizedCellsPerRow = Number(cellsPerRow || 0);
+  const normalizedMeasureSlotsPerRow = Number(measureSlotsPerRow || 0);
+  if (normalizedCellsPerRow > 0 && normalizedMeasureSlotsPerRow > 0) {
+    return Math.max(1, normalizedCellsPerRow / normalizedMeasureSlotsPerRow);
+  }
+  return 4;
+}
+
+function getFullMeasureSlotCountFromSourceCells(sourceCellCount, sourceCellsPerMeasure) {
+  const normalizedSourceCellCount = Math.max(0, Number(sourceCellCount || 0));
+  const normalizedSourceCellsPerMeasure = Math.max(1, Number(sourceCellsPerMeasure || 4));
+  return Math.max(0, Math.floor(normalizedSourceCellCount / normalizedSourceCellsPerMeasure));
+}
+
+function getLayoutRowMeasureSlotCount(
+  rowBars,
+  rowStartCellIndex,
+  leadingEmptyCells,
+  leadingEmptySlots,
+  sourceCellsPerMeasure
+) {
+  let sourceCellCursor = Number(rowStartCellIndex || 0) + Math.max(0, Number(leadingEmptyCells || 0));
+  let measureSlotCount = Math.max(0, Number(leadingEmptySlots || 0));
+
+  for (const bar of rowBars || []) {
+    if (Number.isInteger(bar?.layoutStartCellIndex)) {
+      const barStartCellIndex = Number(bar.layoutStartCellIndex);
+      const gap = barStartCellIndex - sourceCellCursor;
+      measureSlotCount += getFullMeasureSlotCountFromSourceCells(gap, sourceCellsPerMeasure);
+      sourceCellCursor = Math.max(sourceCellCursor, barStartCellIndex);
+    }
+
+    measureSlotCount += 1;
+    sourceCellCursor += getBarRhythmicSlotCount(bar, sourceCellsPerMeasure);
+  }
+
+  return measureSlotCount;
 }
 
 /**
@@ -2028,42 +2089,6 @@ function getRowResizeWeightsFromFactors(factors, minSpreadFactor, maxSpreadFacto
 }
 
 /**
- * @param {HTMLElement} cellEl
- * @returns {number}
- */
-function getCellGridSpan(cellEl) {
-  const inlineGridColumn = cellEl.style.gridColumn || cellEl.getAttribute('style') || '';
-  const match = /\bspan\s+([0-9]+)/i.exec(inlineGridColumn);
-  const span = match ? Number.parseInt(match[1], 10) : 1;
-  return Number.isInteger(span) && span > 0 ? span : 1;
-}
-
-/**
- * @param {HTMLElement} rowEl
- * @param {HTMLElement[]} cells
- * @param {number[]} weights
- * @returns {number[]}
- */
-function getRowGridTrackWeights(rowEl, cells, weights) {
-  if (!rowEl.classList.contains('uses-rhythmic-grid')) return weights;
-
-  const declaredColumnCount = Math.max(0, Number.parseInt(
-    getComputedStyle(rowEl).getPropertyValue('--chart-row-columns') || rowEl.style.getPropertyValue('--chart-row-columns') || '',
-    10
-  ));
-  const trackWeights = cells.flatMap((cellEl, index) => {
-    const span = getCellGridSpan(cellEl);
-    const weight = weights[index] || 1;
-    return Array.from({ length: span }, () => weight);
-  });
-
-  if (declaredColumnCount <= 0) return trackWeights;
-  if (trackWeights.length > declaredColumnCount) return trackWeights.slice(0, declaredColumnCount);
-  while (trackWeights.length < declaredColumnCount) trackWeights.push(1);
-  return trackWeights;
-}
-
-/**
  * @param {HTMLElement} barBodyEl
  * @param {number} finalScale
  * @param {number} textScaleCompensation
@@ -2183,16 +2208,14 @@ function applyRowBarResizing() {
   Array.from(document.querySelectorAll<HTMLElement>('.chart-row')).forEach((rowEl) => {
     const previousWeights = rowEl.style.gridTemplateColumns.match(/([0-9.]+)fr/g)
       ?.map((part) => Number.parseFloat(part)) || [];
-    const cells = getRowBarCells(rowEl);
     const factors = getNeutralRowResizeFactors(rowEl);
     const weights = getRowResizeWeightsFromFactors(factors, minSpreadFactor, maxSpreadFactor);
-    const trackWeights = getRowGridTrackWeights(rowEl, cells, weights);
 
-    if (trackWeights.length > 0 && trackWeights.some((weight) => weight > 1)) {
-      trackWeights.forEach((weight, index) => {
+    if (weights.length > 0 && weights.some((weight) => weight > 1)) {
+      weights.forEach((weight, index) => {
         maxWeightChange = Math.max(maxWeightChange, Math.abs(weight - (previousWeights[index] || 1)));
       });
-      rowEl.style.gridTemplateColumns = trackWeights
+      rowEl.style.gridTemplateColumns = weights
         .map((weight) => `minmax(0, ${weight.toFixed(3)}fr)`)
         .join(' ');
     } else if (previousWeights.length > 0) {
@@ -2590,13 +2613,12 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
     const harmonyDisplayMode = getHarmonyDisplayMode?.() || 'default';
     const mainDisplayTokens = getMainDisplayTokens(bar);
     const alternateDisplayTokens = getAlternateDisplayTokens(bar);
-    const slotSpan = Math.max(1, Number(options.slotSpan || 1));
     const sectionMarker = options.sectionChanged && bar.sectionLabel
       ? `<span class="chart-inline-section-marker"><span class="chart-section-badge">${bar.sectionLabel}</span></span>`
       : '';
 
     return `
-      <article class="${classes.join(' ')}" style="grid-column: span ${slotSpan};" data-bar-id="${bar.id}" data-bar-index="${bar.index}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
+      <article class="${classes.join(' ')}" style="grid-column: span 1;" data-bar-id="${bar.id}" data-bar-index="${bar.index}" tabindex="0" aria-pressed="${classes.includes('is-selected') ? 'true' : 'false'}">
         <span class="chart-bar-cell-highlight" aria-hidden="true"></span>
         ${sectionMarker}
         ${bar.flags.includes('repeat_start_barline') ? `<span class="chart-repeat-dots chart-repeat-dots-start" aria-hidden="true">${renderRepeatDotsMarker()}</span>` : ''}
@@ -2643,36 +2665,38 @@ function renderBarCell(bar, options: RenderBarCellOptions = {}) {
         && (!row.previousBar || row.previousBar.sectionId !== row.firstBar.sectionId);
       let previousBarInRow = row.previousBar || null;
       const cells = [];
+      let rowVisualSlotCount = 0;
       let rowCellCursor = Number(row.startCellIndex || 0);
       if (row.leadingEmptySlots > 0) {
         cells.push(renderEmptyBarCell(row.leadingEmptySlots));
-        rowCellCursor += row.leadingEmptySlots;
+        rowVisualSlotCount += row.leadingEmptySlots;
       }
+      rowCellCursor += Math.max(0, Number(row.leadingEmptyCells || 0));
       row.bars.forEach((bar, index) => {
-        const slotSpan = row.usesRhythmicGrid ? getBarRhythmicSlotCount(bar, 1) : 1;
-        if (row.usesRhythmicGrid && Number.isInteger(bar.layoutStartCellIndex)) {
+        if (Number.isInteger(bar.layoutStartCellIndex)) {
           const gap = Number(bar.layoutStartCellIndex) - rowCellCursor;
-          if (gap > 0) {
-            cells.push(renderEmptyMeasureCell(gap));
-            rowCellCursor += gap;
+          const gapSlots = getFullMeasureSlotCountFromSourceCells(gap, row.sourceCellsPerMeasure);
+          if (gapSlots > 0) {
+            cells.push(renderEmptyMeasureCell(gapSlots));
+            rowVisualSlotCount += gapSlots;
           }
+          rowCellCursor = Math.max(rowCellCursor, Number(bar.layoutStartCellIndex));
         }
         const barSectionChanged = Boolean(bar.sectionLabel)
           && previousBarInRow
           && previousBarInRow.sectionId !== bar.sectionId;
         cells.push(renderBarCell(bar, {
           isRowStart: index === 0,
-          slotSpan,
           sectionChanged: index > 0 && barSectionChanged
         }));
+        rowVisualSlotCount += 1;
         previousBarInRow = bar;
-        rowCellCursor = row.usesRhythmicGrid && Number.isInteger(bar.layoutStartCellIndex)
-          ? Number(bar.layoutStartCellIndex) + slotSpan
-          : rowCellCursor + slotSpan;
+        rowCellCursor += getBarRhythmicSlotCount(bar, row.sourceCellsPerMeasure);
       });
+      const rowColumnCount = Math.max(1, Number(row.totalSlots || 0), rowVisualSlotCount);
 
       return `
-        <div class="chart-row${sectionChanged ? ' has-section-marker' : ''}${row.usesRhythmicGrid ? ' uses-rhythmic-grid' : ''}" style="--chart-row-columns: ${row.totalSlots};">
+        <div class="chart-row${sectionChanged ? ' has-section-marker' : ''}" style="--chart-row-columns: ${rowColumnCount};">
           ${row.rowTimeSignature ? renderBarTimeSignature(row.rowTimeSignature) : ''}
           <div class="chart-section-marker">
             ${sectionChanged ? `<span class="chart-section-badge">${row.firstBar.sectionLabel}</span>` : '<span class="chart-section-spacer"></span>'}
