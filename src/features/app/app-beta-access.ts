@@ -1,8 +1,8 @@
 const BETA_TOKEN_STORAGE_KEY = 'sharp-eleven-beta-token';
 const BETA_FEEDBACK_PANEL_ID = 'sharp-eleven-beta-feedback-panel';
 const BETA_FEEDBACK_BUTTON_ID = 'sharp-eleven-beta-feedback-button';
-const BETA_GATE_LOGO_SRC = new URL('../../../logo/classic-paper.png', import.meta.url).href;
-const BETA_GATE_DARK_LOGO_SRC = new URL('../../../logo/dark-mode.png', import.meta.url).href;
+const BETA_GATE_LOGO_SRC = 'assets/se-logo-light.png';
+const BETA_GATE_DARK_LOGO_SRC = 'assets/se-logo-dark.png';
 
 type BetaAccessOptions = {
   installFeedback?: boolean;
@@ -50,6 +50,12 @@ function getFunctionName(key: string, fallback: string) {
 function getFunctionUrl(functionName: string) {
   const supabaseUrl = getSupabaseUrl();
   return supabaseUrl ? `${supabaseUrl}/functions/v1/${functionName}` : '';
+}
+
+function getBetaGateAssetUrl(relativePath: string) {
+  const pageDirectory = window.location.pathname.replace(/[^/]*$/u, '');
+  const appRootPrefix = pageDirectory.endsWith('/chart/') ? '../' : './';
+  return `${appRootPrefix}${relativePath}`;
 }
 
 function getStoredBetaToken() {
@@ -111,6 +117,8 @@ async function waitForBody() {
 
 function createBetaGateElement() {
   const wrapper = document.createElement('div');
+  const logoSrc = getBetaGateAssetUrl(BETA_GATE_LOGO_SRC);
+  const darkLogoSrc = getBetaGateAssetUrl(BETA_GATE_DARK_LOGO_SRC);
   wrapper.className = 'beta-gate';
   wrapper.setAttribute('role', 'dialog');
   wrapper.setAttribute('aria-modal', 'true');
@@ -118,7 +126,7 @@ function createBetaGateElement() {
   wrapper.innerHTML = `
     <form class="beta-gate-card">
       <div class="beta-gate-brand">
-        <img class="beta-gate-logo" src="${BETA_GATE_LOGO_SRC}" data-theme-dark-src="${BETA_GATE_DARK_LOGO_SRC}" alt="" width="44" height="44">
+        <img class="beta-gate-logo" src="${logoSrc}" data-theme-dark-src="${darkLogoSrc}" alt="" width="44" height="44">
         <span>Sharp Eleven</span>
       </div>
       <h1 id="beta-gate-title">Beta access</h1>
