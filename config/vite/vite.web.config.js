@@ -17,7 +17,7 @@ export default defineConfig({
   plugins: [
     obfuscatorPlugin({
       apply: 'build',
-      exclude: [/node_modules/],
+      exclude: [/[\\/]node_modules[\\/](?!@music-i18n[\\/]ireal-musicxml)/],
       options: {
         compact: true,
         identifierNamesGenerator: 'hexadecimal',

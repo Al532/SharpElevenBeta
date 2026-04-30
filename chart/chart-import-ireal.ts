@@ -1,4 +1,8 @@
 import { createChartDocument } from './chart-types.js';
+import {
+  decodePlaylistFile,
+  decodePlaylistRaw
+} from './ireal-decoder.mjs';
 
 const DEFAULT_CANONICAL_GROOVE = 'Jazz-Medium Swing';
 
@@ -527,7 +531,6 @@ export async function createChartDocumentsFromIRealText({
   sourceFile = '',
   importedAt = new Date().toISOString()
 }) {
-  const { decodePlaylistRaw } = await import('./ireal-decoder.mjs');
   const { cleanOutput } = decodePlaylistRaw(rawText, {
     sourceFileName: sourceFile
   });
@@ -546,7 +549,6 @@ export async function createChartDocumentsFromIRealSource({
   importedAt = new Date().toISOString()
 }) {
   const sourceFile = sourcePath.split(/[/\\]/).pop() || '';
-  const { decodePlaylistFile } = await import('./ireal-decoder.mjs');
   const { cleanOutput } = await decodePlaylistFile(sourcePath, { sourceFileName: sourceFile });
 
   return (cleanOutput.songs || []).map(song => createChartDocumentFromIReal({

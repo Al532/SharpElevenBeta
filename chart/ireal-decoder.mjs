@@ -1,5 +1,5 @@
 import { Song } from '../parsing-projects/ireal/node_modules/@music-i18n/ireal-musicxml/build/ireal-musicxml.mjs';
-import chordQualityMap from './ireal-chord-qualities.json' with { type: 'json' };
+import chordQualityMap from './ireal-chord-qualities.mjs';
 
 export const IREAL_SCHEMA_VERSION = '2.0.0';
 
