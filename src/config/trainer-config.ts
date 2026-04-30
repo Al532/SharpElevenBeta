@@ -163,12 +163,13 @@ export const CHART_DISPLAY_CONFIG = Object.freeze({
   }),
   // Transformation: redimensionnement horizontal des mesures au sein d'une ligne.
   // Les seuils sont des facteurs relatifs a la moyenne de ligne: 1 = mesures egales, 1.5 = +50% pour la mesure la plus large.
-  // Desactive si `minDeltaRatio >= maxDeltaRatio`.
+  // `minDeltaRatio` declenche la transformation; `maxAppliedDeltaRatio` plafonne son intensite.
+  // Desactive si `maxAppliedDeltaRatio <= 1`.
   barResizing: Object.freeze({
     // Ligne: ecart minimal a la moyenne requis pour appliquer cette transformation.
     minDeltaRatio: 1.3, // a valider
-    // Ligne: ecart maximal conserve avant reduction proportionnelle des ecarts.
-    maxDeltaRatio: 1.4 // a valider
+    // Ligne: ecart maximal applique apres reduction proportionnelle des ecarts.
+    maxAppliedDeltaRatio: 1.15 // a valider
   }),
   // Transformation: compression des accords.
   compression: Object.freeze({

@@ -24,7 +24,7 @@ Quick guide:
   `chordSizing.baseRem`, `displacement.contentHorizontalInsetPx`,
   `displacement.singleChordLeftBias`, `displacement.maxOffsetEm`,
   `displacement.symbolVisualPaddingPx`, `barResizing.minDeltaRatio`,
-  `barResizing.maxDeltaRatio`, `compression.triggerFillRatio`,
+  `barResizing.maxAppliedDeltaRatio`, `compression.triggerFillRatio`,
   `compression.mode`, `compression.rowMaxScaleGap`, `compression.pageMaxScaleGap`,
   `debug.showChordCollisionBoxes`, and `debug.layoutPipelineBypasses`.
 - `TRAINER_RESOURCE_PATHS`

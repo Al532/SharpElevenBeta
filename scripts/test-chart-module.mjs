@@ -92,6 +92,16 @@ import { createChartPlaybackRuntimeContextBindings } from '../src/features/chart
 import { createChartPlaybackRuntimeContext } from '../src/features/chart/chart-playback-runtime-context.ts';
 import { createChartSheetRenderer } from '../src/features/chart/chart-sheet-renderer.ts';
 import {
+  createChartGridLayoutModel,
+  getBarBodyLayout,
+  getLayoutRowMeasureSlotCount
+} from '../src/features/chart/chart-sheet-layout-model.ts';
+import {
+  clampTokenOffset,
+  getRowResizeWeightsFromFactors,
+  solveGlobalTokenOffsets
+} from '../src/features/chart/chart-layout-solvers.ts';
+import {
   applyPlaybackTransportState,
   startPlaybackPolling,
   stopPlaybackPolling
@@ -2855,6 +2865,134 @@ assert.match(
   repeatTerminalGrid.innerHTML,
   /chart-repeat-terminals-end/,
   'Repeat-end barlines render mirrored tapered terminals.'
+);
+
+const simpleLayoutModel = createChartGridLayoutModel({
+  bars: Array.from({ length: 5 }, (_, index) => ({
+    id: `simple-${index + 1}`,
+    index: index + 1,
+    sectionId: 'A',
+    sectionLabel: index === 0 ? 'A' : '',
+    displayTokens: [],
+    playback: { cellSlots: [] }
+  }))
+}, ['4/4', null, null, null, null], 4);
+assert.equal(simpleLayoutModel.rows.length, 2, 'Chart grid layout model groups fallback rows by the displayed bar group size.');
+assert.deepEqual(
+  simpleLayoutModel.rows.map((row) => row.rowColumnCount),
+  [4, 4],
+  'Chart grid layout model keeps fallback row column counts stable even when the last row is short.'
+);
+assert.equal(
+  simpleLayoutModel.rows[0].sectionChanged,
+  true,
+  'Chart grid layout model marks the first visible section change before DOM rendering.'
+);
+
+const iRealLayoutModel = createChartGridLayoutModel({
+  layout: {
+    systems: {
+      cellsPerRow: 16,
+      rows: [{
+        startCellIndex: 4,
+        leadingEmptyCells: 4,
+        leadingEmptyBars: 1,
+        barIds: ['layout-1', 'layout-2']
+      }]
+    }
+  },
+  bars: [{
+    id: 'layout-1',
+    index: 1,
+    sectionId: 'A',
+    sectionLabel: 'A',
+    displayTokens: [{ kind: 'chord', symbol: 'C', sourceCellIndex: 0, sourceCellCount: 4 }],
+    playback: { cellSlots: [] }
+  }, {
+    id: 'layout-2',
+    index: 2,
+    sectionId: 'A',
+    sectionLabel: 'A',
+    displayTokens: [{ kind: 'chord', symbol: 'F', sourceCellIndex: 0, sourceCellCount: 4 }],
+    playback: { cellSlots: [] }
+  }]
+}, ['4/4', null], 4);
+assert.deepEqual(
+  iRealLayoutModel.rows[0].cells.map((cell) => cell.kind === 'bar' ? cell.bar.id : `${cell.kind}:${cell.slotSpan}`),
+  ['empty:1', 'layout-1', 'layout-2'],
+  'Chart grid layout model preserves iReal leading empty measures before rendering markup.'
+);
+
+const gapLayoutModel = createChartGridLayoutModel({
+  layout: {
+    systems: {
+      cellsPerRow: 16,
+      rows: [{ barIds: ['gap-1', 'gap-2'] }]
+    }
+  },
+  bars: [{
+    id: 'gap-1',
+    index: 1,
+    sectionId: 'A',
+    displayTokens: [{ kind: 'chord', symbol: 'C', sourceCellIndex: 0, sourceCellCount: 4 }],
+    playback: { cellSlots: [] },
+    layoutStartCellIndex: 0
+  }, {
+    id: 'gap-2',
+    index: 2,
+    sectionId: 'A',
+    displayTokens: [{ kind: 'chord', symbol: 'F', sourceCellIndex: 0, sourceCellCount: 4 }],
+    playback: { cellSlots: [] },
+    layoutStartCellIndex: 8
+  }]
+}, ['4/4', null], 4);
+assert.deepEqual(
+  gapLayoutModel.rows[0].cells.map((cell) => cell.kind === 'bar' ? cell.bar.id : `${cell.kind}:${cell.slotSpan}`),
+  ['gap-1', 'emptyMeasure:1', 'gap-2'],
+  'Chart grid layout model converts layoutStartCellIndex gaps into explicit empty measure cells.'
+);
+assert.equal(
+  getLayoutRowMeasureSlotCount(gapLayoutModel.rows[0].bars, 0, 0, 0, 4),
+  3,
+  'Chart grid layout model exposes pure row slot counting for SVG-ready layout consumers.'
+);
+
+const subdividedBarLayout = getBarBodyLayout({
+  displayTokens: [
+    { kind: 'chord', symbol: 'Cmaj7', sourceCellIndex: 0, sourceCellCount: 4 },
+    { kind: 'chord', symbol: 'Dm7', sourceCellIndex: 2, sourceCellCount: 4 }
+  ],
+  playback: { cellSlots: [] }
+});
+assert.deepEqual(
+  subdividedBarLayout.placements,
+  [{ start: 1, end: 2 }, { start: 3, end: 4 }],
+  'Chart bar body layout keeps source-cell chord positions independent from DOM rendering.'
+);
+
+assert.equal(
+  clampTokenOffset(0, 40, -20, 5, 100, 12),
+  5,
+  'Chart token offset clamping honors measure bounds before DOM style application.'
+);
+const solvedTokenOffsets = solveGlobalTokenOffsets(
+  [0, 20],
+  [30, 50],
+  [0, 0],
+  [-12, -12],
+  [12, 12],
+  [0, -20],
+  [70, 50],
+  2
+);
+assert.ok(
+  solvedTokenOffsets[0] <= 0 && solvedTokenOffsets[1] >= 0,
+  'Chart token offset solver separates overlapping neighboring symbols as a pure numeric step.'
+);
+assert.deepEqual(
+  getRowResizeWeightsFromFactors([1, 2, 1], 1.2, 1.15).map((value) => Number(value.toFixed(3))),
+  [0.925, 1.15, 0.925],
+  'Chart row resizing weights stay bounded by the configured max spread.'
 );
 
 const alice = byTitle.get('Alice In Wonderland');
