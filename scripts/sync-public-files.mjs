@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +25,15 @@ const mirroredFiles = [
   'theme.js'
 ];
 
+const staticAssetPaths = [
+  '13_heavy_hi-hat_chick.mp3',
+  'MP3',
+  'Piano',
+  'ride',
+  'fonts',
+  'music-symbols'
+];
+
 function getPublicPath(relativePath) {
   return path.join(publicDir, relativePath);
 }
@@ -49,10 +58,32 @@ async function syncPublicFilesTo(targetDir) {
   }
 }
 
+async function syncStaticAssetsTo(targetDir) {
+  const sourceAssetsDir = path.join(projectRoot, 'assets');
+  const targetAssetsDir = path.join(targetDir, 'assets');
+  await mkdir(targetAssetsDir, { recursive: true });
+
+  for (const relativePath of staticAssetPaths) {
+    await cp(
+      path.join(sourceAssetsDir, relativePath),
+      path.join(targetAssetsDir, relativePath),
+      { recursive: true, force: true }
+    );
+  }
+}
+
 if (scriptMode === 'root' || scriptMode === 'all') {
   await syncPublicFilesTo(projectRoot);
 }
 
-if (scriptMode === 'build' || scriptMode === 'mobile' || scriptMode === 'demo') {
-  // These modes are retained as no-ops for older scripts that may still call them.
+if (scriptMode === 'build') {
+  await syncStaticAssetsTo(path.join(projectRoot, 'build'));
+}
+
+if (scriptMode === 'mobile') {
+  await syncStaticAssetsTo(path.join(projectRoot, 'mobile/www'));
+}
+
+if (scriptMode === 'demo') {
+  await syncStaticAssetsTo(path.join(projectRoot, 'dist'));
 }
