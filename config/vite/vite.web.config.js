@@ -42,6 +42,7 @@ export default defineConfig({
       input: {
         index: resolve(repositoryRoot, 'index.html'),
         backupViewer: resolve(repositoryRoot, 'backup-viewer.html'),
+        chart: resolve(repositoryRoot, 'chart/index.html'),
         drill: resolve(repositoryRoot, 'drill.html'),
         setlists: resolve(repositoryRoot, 'setlists.html'),
         library: resolve(repositoryRoot, 'library.html')

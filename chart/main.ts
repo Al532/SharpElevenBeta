@@ -142,7 +142,7 @@ import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
 const DEFAULT_TEMPO = 120;
 const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
-const IREAL_SOURCE_URL = '../parsing-projects/ireal/sources/jazz-1460.txt';
+const IREAL_SOURCE_URL = 'default-library.dat';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
 const HARMONY_DISPLAY_MODE_DEFAULT = 'default';

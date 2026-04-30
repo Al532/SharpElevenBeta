@@ -1,6 +1,8 @@
 const BETA_TOKEN_STORAGE_KEY = 'sharp-eleven-beta-token';
 const BETA_FEEDBACK_PANEL_ID = 'sharp-eleven-beta-feedback-panel';
 const BETA_FEEDBACK_BUTTON_ID = 'sharp-eleven-beta-feedback-button';
+const BETA_GATE_LOGO_SRC = new URL('../../../logo/classic-paper.png', import.meta.url).href;
+const BETA_GATE_DARK_LOGO_SRC = new URL('../../../logo/dark-mode.png', import.meta.url).href;
 
 type BetaAccessOptions = {
   installFeedback?: boolean;
@@ -116,7 +118,7 @@ function createBetaGateElement() {
   wrapper.innerHTML = `
     <form class="beta-gate-card">
       <div class="beta-gate-brand">
-        <img class="beta-gate-logo" src="./logo/classic-paper.png" data-theme-dark-src="./logo/dark-mode.png" alt="" width="44" height="44">
+        <img class="beta-gate-logo" src="${BETA_GATE_LOGO_SRC}" data-theme-dark-src="${BETA_GATE_DARK_LOGO_SRC}" alt="" width="44" height="44">
         <span>Sharp Eleven</span>
       </div>
       <h1 id="beta-gate-title">Beta access</h1>
