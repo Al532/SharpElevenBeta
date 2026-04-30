@@ -1,11 +1,8 @@
-﻿import { Capacitor, registerPlugin } from '@capacitor/core';
+﻿import { Capacitor } from '@capacitor/core';
+import { IrealBrowser } from './ireal-browser-plugin.js';
 
 const PENDING_IREAL_LINK_STORAGE_KEY = 'jpt-pending-mobile-ireal-link';
 const NATIVE_PENDING_IREAL_LINK_MARKER = 'irealb://native-pending-import';
-
-type IrealBrowserPlugin = {
-  consumePendingIRealLink: () => Promise<{ url?: string | null, referrerUrl?: string | null, importOrigin?: string | null }>
-};
 
 type PendingIRealLinkResult = {
   url: string,
@@ -14,8 +11,6 @@ type PendingIRealLinkResult = {
   hadPendingMarker: boolean,
   errorMessage: string
 };
-
-const IrealBrowser = registerPlugin<IrealBrowserPlugin>('IrealBrowser');
 
 /**
  * @param {Storage | undefined | null} [storage]

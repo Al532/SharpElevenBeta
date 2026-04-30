@@ -1,11 +1,6 @@
-﻿import { Capacitor, registerPlugin } from '@capacitor/core';
+﻿import { Capacitor } from '@capacitor/core';
+import { IrealBrowser } from './ireal-browser-plugin.js';
 
-type IrealBrowserPlugin = {
-  open: (options: { url: string, title?: string }) => Promise<void>,
-  openHtml: (options: { html: string, title?: string, baseUrl?: string }) => Promise<void>
-};
-
-const IrealBrowser = registerPlugin<IrealBrowserPlugin>('IrealBrowser');
 const BACKUP_VIEWER_DATABASE_NAME = 'sharp-eleven-backup-viewer';
 const BACKUP_VIEWER_STORE_NAME = 'backups';
 
