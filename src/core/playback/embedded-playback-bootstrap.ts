@@ -8,6 +8,7 @@ import type {
   PlaybackOperationResult,
   PlaybackRuntime,
   PlaybackSessionController,
+  ChartPerformanceCue,
   PublishedEmbeddedPlaybackAssemblyProvider
 } from '../types/contracts';
 
@@ -15,6 +16,7 @@ type BootstrapEmbeddedPlaybackApiOptions = {
   playbackRuntime?: PlaybackRuntime,
   playbackController?: PlaybackSessionController,
   applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult | Promise<PlaybackOperationResult>,
+  queuePerformanceCue?: (cue: ChartPerformanceCue) => PlaybackOperationResult | Promise<PlaybackOperationResult>,
   getPlaybackState?: () => EmbeddedPlaybackRuntimeState,
   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null
 };
@@ -31,6 +33,7 @@ export function bootstrapEmbeddedPlaybackApi({
   playbackRuntime,
   playbackController,
   applyEmbeddedPattern,
+  queuePerformanceCue,
   getPlaybackState,
   publishedPlaybackAssemblyProvider
 }: BootstrapEmbeddedPlaybackApiOptions = {}) {
@@ -57,6 +60,7 @@ export function bootstrapEmbeddedPlaybackApi({
           playbackRuntime: resolvedPlaybackRuntime,
           playbackController: resolvedPlaybackRuntime.ensurePlaybackController(),
           applyEmbeddedPattern,
+          queuePerformanceCue,
           getPlaybackState
         };
       }

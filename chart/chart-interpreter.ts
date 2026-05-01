@@ -19,6 +19,25 @@ import {
 } from '../src/core/playback/playback-ending.js';
 
 const MAX_PLAYBACK_STEPS = 1024;
+const JUMP_DIRECTIVE_TYPES = new Set([
+  'dc_al_ending',
+  'dc_al_fine',
+  'dc_al_coda',
+  'ds_al_ending',
+  'ds_al_fine',
+  'ds_al_coda'
+]);
+const JUMP_DIRECTIVE_BOUNDARY_FLAGS = new Set([
+  'repeat_end_barline',
+  'section_end_barline',
+  'final_bar',
+  'end'
+]);
+const FOLLOWING_JUMP_BOUNDARY_FLAGS = new Set([
+  'section_end_barline',
+  'final_bar',
+  'end'
+]);
 
 type CreateChartPlaybackPlanFromDocumentOptions = {
   stopAtFine?: boolean,
@@ -238,6 +257,23 @@ function findDirective(bar, type) {
   return (bar.directives || []).find((directive) => directive?.type === type) || null;
 }
 
+function hasAnyDirective(bar, types) {
+  return (bar?.directives || []).some((directive) => types.has(directive?.type));
+}
+
+function hasAnyFlag(bar, flags) {
+  return (bar?.flags || []).some((flag) => flags.has(flag));
+}
+
+function shouldDeferJumpDirectiveToFollowingBoundary(bars, index) {
+  const bar = bars[index];
+  const nextBar = bars[index + 1];
+  if (!bar || !nextBar) return false;
+  if (!hasAnyDirective(bar, JUMP_DIRECTIVE_TYPES)) return false;
+  if (hasAnyFlag(bar, JUMP_DIRECTIVE_BOUNDARY_FLAGS)) return false;
+  return hasAnyFlag(nextBar, FOLLOWING_JUMP_BOUNDARY_FLAGS);
+}
+
 /**
  * @param {Map<number, Set<number>>} endingMap
  * @param {number} startIndex
@@ -360,10 +396,7 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
   /** @type {ChartPlaybackDiagnostic[]} */
   const diagnostics = [];
   const unsupportedDirectiveTypes = new Set([
-    'dc_on_cue',
-    'open_vamp',
     'open_instruction',
-    'vamp_instruction',
     'fade_out'
   ]);
   const reportedUnsupportedDirectives = new Set();
@@ -399,8 +432,71 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
   function runFormPass({ includeCodaOutro = false } = {}) {
     let repeatContext = null;
     let jumpState = null;
+    let deferredJumpDirectiveBar = null;
     let index = 0;
     const formEndIndex = includeCodaOutro || codaOutroStartIndex === null ? bars.length : codaOutroStartIndex;
+
+    function applyJumpDirective(bar) {
+      const dcAlEnding = findDirective(bar, 'dc_al_ending');
+      const dcAlFine = findDirective(bar, 'dc_al_fine');
+      const dcAlCoda = findDirective(bar, 'dc_al_coda');
+      const dsAlFine = findDirective(bar, 'ds_al_fine');
+      const dsAlCoda = findDirective(bar, 'ds_al_coda');
+      const dsAlEnding = findDirective(bar, 'ds_al_ending');
+
+      if (!(dcAlEnding || dcAlFine || dcAlCoda || dsAlFine || dsAlCoda || dsAlEnding)) {
+        return false;
+      }
+
+      if ((dsAlFine || dsAlCoda || dsAlEnding) && navigationTargets.segnoIndex === null) {
+        pushMissingTargetDiagnostic('missing_segno_target', `No segno target found for bar ${bar.index}.`);
+      }
+      if ((dcAlFine || dsAlFine || dcAlEnding || dsAlEnding) && !bars.some((candidate) => candidate.flags.includes('fine'))) {
+        pushMissingTargetDiagnostic('missing_fine_target', `${bar.index} uses an al Fine/ending instruction, but no Fine target was found.`);
+      }
+      if ((dcAlCoda || dsAlCoda) && navigationTargets.codaIndex === null) {
+        pushMissingTargetDiagnostic('missing_coda_target', `${bar.index} uses al Coda, but no coda target was found.`);
+      }
+
+      if (dcAlEnding) {
+        jumpState = { type: 'dc_al_ending', forcedEnding: Number(dcAlEnding.ending || 2), stopAtFine: true };
+        index = 0;
+        repeatContext = null;
+        return true;
+      }
+      if (dcAlFine) {
+        jumpState = { type: 'dc_al_fine', stopAtFine: true };
+        index = 0;
+        repeatContext = null;
+        return true;
+      }
+      if (dcAlCoda) {
+        jumpState = { type: 'dc_al_coda', jumpToCoda: true };
+        index = 0;
+        repeatContext = null;
+        return true;
+      }
+      if (dsAlEnding) {
+        jumpState = { type: 'ds_al_ending', forcedEnding: Number(dsAlEnding.ending || 2), stopAtFine: true };
+        index = navigationTargets.segnoIndex ?? 0;
+        repeatContext = null;
+        return true;
+      }
+      if (dsAlFine) {
+        jumpState = { type: 'ds_al_fine', stopAtFine: true };
+        index = navigationTargets.segnoIndex ?? 0;
+        repeatContext = null;
+        return true;
+      }
+      if (dsAlCoda) {
+        jumpState = { type: 'ds_al_coda', jumpToCoda: true };
+        index = navigationTargets.segnoIndex ?? 0;
+        repeatContext = null;
+        return true;
+      }
+
+      return false;
+    }
 
     while (index < bars.length && index < formEndIndex && visitCounter < MAX_PLAYBACK_STEPS) {
       const bar = bars[index];
@@ -431,58 +527,16 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
         }
       }
 
-      const dcAlEnding = findDirective(bar, 'dc_al_ending');
-      const dcAlFine = findDirective(bar, 'dc_al_fine');
-      const dcAlCoda = findDirective(bar, 'dc_al_coda');
-      const dsAlFine = findDirective(bar, 'ds_al_fine');
-      const dsAlCoda = findDirective(bar, 'ds_al_coda');
-      const dsAlEnding = findDirective(bar, 'ds_al_ending');
+      if (deferredJumpDirectiveBar) {
+        const jumpWasApplied = applyJumpDirective(deferredJumpDirectiveBar);
+        deferredJumpDirectiveBar = null;
+        if (jumpWasApplied) continue;
+      }
 
-      if (dcAlEnding || dcAlFine || dcAlCoda || dsAlFine || dsAlCoda || dsAlEnding) {
-        if ((dsAlFine || dsAlCoda || dsAlEnding) && navigationTargets.segnoIndex === null) {
-          pushMissingTargetDiagnostic('missing_segno_target', `No segno target found for bar ${bar.index}.`);
-        }
-        if ((dcAlFine || dsAlFine || dcAlEnding || dsAlEnding) && !bars.some((candidate) => candidate.flags.includes('fine'))) {
-          pushMissingTargetDiagnostic('missing_fine_target', `${bar.index} uses an al Fine/ending instruction, but no Fine target was found.`);
-        }
-        if ((dcAlCoda || dsAlCoda) && navigationTargets.codaIndex === null) {
-          pushMissingTargetDiagnostic('missing_coda_target', `${bar.index} uses al Coda, but no coda target was found.`);
-        }
-
-        if (dcAlEnding) {
-          jumpState = { type: 'dc_al_ending', forcedEnding: Number(dcAlEnding.ending || 2), stopAtFine: true };
-          index = 0;
-          repeatContext = null;
-          continue;
-        }
-        if (dcAlFine) {
-          jumpState = { type: 'dc_al_fine', stopAtFine: true };
-          index = 0;
-          repeatContext = null;
-          continue;
-        }
-        if (dcAlCoda) {
-          jumpState = { type: 'dc_al_coda', jumpToCoda: true };
-          index = 0;
-          repeatContext = null;
-          continue;
-        }
-        if (dsAlEnding) {
-          jumpState = { type: 'ds_al_ending', forcedEnding: Number(dsAlEnding.ending || 2), stopAtFine: true };
-          index = navigationTargets.segnoIndex ?? 0;
-          repeatContext = null;
-          continue;
-        }
-        if (dsAlFine) {
-          jumpState = { type: 'ds_al_fine', stopAtFine: true };
-          index = navigationTargets.segnoIndex ?? 0;
-          repeatContext = null;
-          continue;
-        }
-        if (dsAlCoda) {
-          jumpState = { type: 'ds_al_coda', jumpToCoda: true };
-          index = navigationTargets.segnoIndex ?? 0;
-          repeatContext = null;
+      if (hasAnyDirective(bar, JUMP_DIRECTIVE_TYPES)) {
+        if (shouldDeferJumpDirectiveToFollowingBoundary(bars, index)) {
+          deferredJumpDirectiveBar = bar;
+        } else if (applyJumpDirective(bar)) {
           continue;
         }
       }

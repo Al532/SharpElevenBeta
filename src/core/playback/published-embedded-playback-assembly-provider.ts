@@ -4,6 +4,7 @@ import type {
   PlaybackAssemblyProvider,
   PlaybackOperationResult,
   PlaybackRuntime,
+  ChartPerformanceCue,
   PublishedEmbeddedPlaybackAssemblyProvider
 } from '../types/contracts';
 
@@ -15,6 +16,7 @@ type PlaybackAssemblySource = {
   applyEmbeddedPattern?: (
     payload: EmbeddedPatternPayload
   ) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
+  queuePerformanceCue?: (cue: ChartPerformanceCue) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
   getPlaybackState?: () => EmbeddedPlaybackRuntimeState;
 };
 
@@ -45,6 +47,7 @@ export function createPublishedEmbeddedPlaybackAssemblyProvider({
         readyEventName,
         playbackRuntime: assembly.playbackRuntime,
         applyEmbeddedPattern: assembly.applyEmbeddedPattern,
+        queuePerformanceCue: assembly.queuePerformanceCue,
         getPlaybackState: assembly.getPlaybackState
       });
     }

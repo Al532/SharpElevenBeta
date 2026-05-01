@@ -49,6 +49,12 @@ export function createEmbeddedPlaybackSessionAdapter({
         drumsVolume: payload.drumsVolume
       });
     },
+    async queuePerformanceCue(cue) {
+      const embeddedApi = await apiClient.ensureApi();
+      return typeof embeddedApi.queuePerformanceCue === 'function'
+        ? embeddedApi.queuePerformanceCue(cue)
+        : { ok: true, state: embeddedApi.getPlaybackState?.() || {} };
+    },
     async start() {
       const embeddedApi = await apiClient.ensureApi();
       return embeddedApi.startPlayback();

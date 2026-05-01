@@ -92,6 +92,22 @@ export function createPlaybackSessionController({
       }
       return result || { ok: true, settings: deepClone(playbackSettings) };
     },
+    async queuePerformanceCue(cue) {
+      const result = await adapter.queuePerformanceCue?.(
+        deepClone(cue),
+        deepClone(currentSession),
+        deepClone(playbackSettings)
+      );
+      if (result?.state) {
+        setRuntimeState({
+          ...result.state,
+          sessionId: currentSession?.id || ''
+        });
+      } else {
+        notify();
+      }
+      return result || { ok: true, state: controller.getState().runtime };
+    },
     async start() {
       const result = await adapter.start?.(deepClone(currentSession), deepClone(playbackSettings));
       if (result?.state) {

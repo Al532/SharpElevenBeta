@@ -1,6 +1,7 @@
 
 import pianoRhythmConfig from '../../core/music/piano-rhythm-config.js';
 import { PIANO_COMPING_CONFIG } from '../../config/trainer-config.js';
+import { getShortEndingDynamicMultiplier } from '../../core/playback/playback-ending-dynamics.js';
 
 type DrillLoadedSampleBuffers = Record<string, Record<string | number, AudioBuffer | undefined>>;
 
@@ -57,7 +58,13 @@ type DrillPlaySampleOptions = {
 };
 
 type DrillPlayNoteOptions = {
+  endingCue?: Record<string, unknown> | null;
   endingStyle?: string;
+  timeBeats?: number;
+  beatsPerBar?: number;
+  endingAccentMultiplier?: number;
+  endingFinalAccentMultiplier?: number;
+  endingCrescendoLeadMeasures?: number;
   slotDuration?: number;
   secondsPerBeat?: number;
   tailFadeTimeConstant?: number;
@@ -236,7 +243,16 @@ export function createPlaybackSamplePlaybackRuntime({
     }
     const gain = audioCtx.createGain();
     const normalizedVelocity = Math.max(0, Math.min(127, Number(velocity) || 127)) / 127;
-    const noteGain = bassGain * normalizedVelocity;
+    const dynamicMultiplier = getShortEndingDynamicMultiplier({
+      endingCue: options.endingCue,
+      timeBeats: options.timeBeats,
+      beatsPerBar: options.beatsPerBar,
+      isFinalEnding: options.endingStyle === 'short',
+      targetMultiplier: options.endingAccentMultiplier,
+      finalAccentMultiplier: options.endingFinalAccentMultiplier,
+      leadMeasures: options.endingCrescendoLeadMeasures
+    });
+    const noteGain = bassGain * normalizedVelocity * dynamicMultiplier;
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(noteGain, time + bassNoteAttack);
 

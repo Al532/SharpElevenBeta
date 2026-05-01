@@ -14,12 +14,14 @@ export function bootstrapEmbeddedPlaybackBridge({
   playbackRuntime,
   playbackController,
   applyEmbeddedPattern,
+  queuePerformanceCue,
   getPlaybackState,
   publishedPlaybackAssemblyProvider
 }: {
   playbackRuntime?: PlaybackRuntime;
   playbackController?: PlaybackSessionController;
   applyEmbeddedPattern?: (payload: EmbeddedPatternPayload) => PlaybackOperationResult;
+  queuePerformanceCue?: (cue: any) => PlaybackOperationResult;
   getPlaybackState?: () => EmbeddedPlaybackRuntimeState;
   publishedPlaybackAssemblyProvider?: PublishedEmbeddedPlaybackAssemblyProvider | null;
 } = {}): EmbeddedPlaybackApi {
@@ -27,6 +29,7 @@ export function bootstrapEmbeddedPlaybackBridge({
     playbackRuntime,
     playbackController,
     applyEmbeddedPattern,
+    queuePerformanceCue,
     getPlaybackState,
     publishedPlaybackAssemblyProvider
   });

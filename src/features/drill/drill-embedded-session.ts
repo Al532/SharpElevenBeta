@@ -64,6 +64,7 @@ export function createEmbeddedPatternAdapter({
     patternName = 'Chart Dev',
     patternString = '',
     endingCue = null,
+    performanceMap = null,
     patternMode = 'both',
     tempo = null,
     transposition = null,
@@ -128,6 +129,7 @@ export function createEmbeddedPatternAdapter({
       ok: Boolean(isValid),
       errorMessage: isValid ? null : String(getPatternErrorText?.() || 'Invalid custom pattern'),
       normalizedPattern,
+      performanceMap,
       currentPatternString: getCurrentPatternString?.()
     };
   };

@@ -56,6 +56,7 @@ export function applyPracticeSessionToEmbeddedPattern({
     patternName: session.title || 'Imported session',
     patternString: session?.playback?.enginePatternString || session?.playback?.patternString || '',
     endingCue: session?.playback?.endingCue || null,
+    performanceMap: session?.playback?.performanceMap || null,
     patternMode: 'both',
     tempo: session.tempo || 120,
     repetitionsPerKey: 1,

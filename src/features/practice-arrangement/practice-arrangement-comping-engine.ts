@@ -32,6 +32,10 @@ type PracticeArrangementCompingScheduleWindowOptions = {
   plan: PracticeArrangementCompingPlan | null | undefined;
   nextProgression?: PracticeArrangementCompingProgressionState;
   nextPlan?: PracticeArrangementCompingPlan | null;
+  endingCue?: Record<string, unknown> | null;
+  endingAccentMultiplier?: number;
+  endingFinalAccentMultiplier?: number;
+  endingCrescendoLeadMeasures?: number;
   slotDuration: number;
   windowStartBeats: number;
   windowEndBeats: number;
@@ -46,6 +50,9 @@ type PracticeArrangementCompingScheduleEndingOptions = {
   time: number;
   durationSeconds?: number | null;
   endingStyle?: string;
+  endingAccentMultiplier?: number;
+  endingFinalAccentMultiplier?: number;
+  endingCrescendoLeadMeasures?: number;
   slotDuration: number;
   secondsPerBeat: number;
 };
@@ -63,6 +70,10 @@ type PracticeArrangementCompingStyleModule = {
     event: { timeBeats?: number } & Record<string, unknown>;
     plan: PracticeArrangementCompingPlan;
     nextPlan?: PracticeArrangementCompingPlan | null;
+    endingCue?: Record<string, unknown> | null;
+    endingAccentMultiplier?: number;
+    endingFinalAccentMultiplier?: number;
+    endingCrescendoLeadMeasures?: number;
     time: number;
     slotDuration: number;
     secondsPerBeat: number;
@@ -166,6 +177,10 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
     plan,
     nextProgression,
     nextPlan,
+    endingCue,
+    endingAccentMultiplier,
+    endingFinalAccentMultiplier,
+    endingCrescendoLeadMeasures,
     slotDuration,
     windowStartBeats,
     windowEndBeats,
@@ -183,6 +198,10 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
         event,
         plan,
         nextPlan,
+        endingCue,
+        endingAccentMultiplier,
+        endingFinalAccentMultiplier,
+        endingCrescendoLeadMeasures,
         time: eventTime,
         slotDuration,
         secondsPerBeat,
@@ -197,6 +216,10 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
     chordIndex,
     time,
     durationSeconds,
+    endingStyle,
+    endingAccentMultiplier,
+    endingFinalAccentMultiplier,
+    endingCrescendoLeadMeasures,
     slotDuration,
     secondsPerBeat,
   }: PracticeArrangementCompingScheduleEndingOptions) {
@@ -206,6 +229,10 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
       chordIndex,
       time,
       durationSeconds,
+      endingStyle,
+      endingAccentMultiplier,
+      endingFinalAccentMultiplier,
+      endingCrescendoLeadMeasures,
       slotDuration,
       secondsPerBeat,
     });

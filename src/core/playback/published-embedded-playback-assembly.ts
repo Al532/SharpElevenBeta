@@ -3,7 +3,8 @@ import type {
   EmbeddedPlaybackAssembly,
   EmbeddedPlaybackRuntimeState,
   PlaybackOperationResult,
-  PlaybackRuntime
+  PlaybackRuntime,
+  ChartPerformanceCue
 } from '../types/contracts';
 
 import { createEmbeddedPlaybackAssembly } from './embedded-playback-assembly.js';
@@ -15,6 +16,7 @@ export function createPublishedEmbeddedPlaybackAssembly({
   readyEventName = PLAYBACK_API_READY_EVENT,
   playbackRuntime,
   applyEmbeddedPattern,
+  queuePerformanceCue,
   getPlaybackState
 }: {
   targetWindow?: Window | null;
@@ -23,11 +25,13 @@ export function createPublishedEmbeddedPlaybackAssembly({
   applyEmbeddedPattern?: (
     payload: EmbeddedPatternPayload
   ) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
+  queuePerformanceCue?: (cue: ChartPerformanceCue) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
   getPlaybackState?: () => EmbeddedPlaybackRuntimeState;
 }): EmbeddedPlaybackAssembly {
   const assembly = createEmbeddedPlaybackAssembly({
     playbackRuntime,
     applyEmbeddedPattern,
+    queuePerformanceCue,
     getPlaybackState
   });
 

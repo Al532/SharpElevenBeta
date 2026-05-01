@@ -8,6 +8,16 @@ export {
   cloneChartDocument,
   clonePlaybackPlan
 } from './chart-types.js';
+export {
+  DEFAULT_CHART_SIMPLE_PERFORMANCE,
+  createChartPerformanceMap,
+  createDefaultChartPerformance,
+  getChartSimplePerformanceLabel,
+  normalizeChartPerformance,
+  normalizeChartPerformancePanelMode,
+  normalizeChartPerformanceRepeatMode,
+  normalizeChartSimplePerformanceState
+} from './chart-performance.js';
 export { createChartDocumentFromIReal, createChartDocumentsFromIRealText } from './chart-import-ireal.js';
 export { createChartPlaybackPlanFromDocument } from './chart-interpreter.js';
 export {

@@ -4,6 +4,7 @@ import type {
   EmbeddedPlaybackRuntimeState,
   PlaybackOperationResult,
   PlaybackRuntime,
+  ChartPerformanceCue,
   PlaybackSessionController
 } from '../types/contracts';
 
@@ -11,6 +12,7 @@ export function createEmbeddedPlaybackApi({
   playbackRuntime,
   playbackController,
   applyEmbeddedPattern,
+  queuePerformanceCue,
   getPlaybackState
 }: {
   playbackRuntime?: PlaybackRuntime;
@@ -18,6 +20,7 @@ export function createEmbeddedPlaybackApi({
   applyEmbeddedPattern?: (
     payload: EmbeddedPatternPayload
   ) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
+  queuePerformanceCue?: (cue: ChartPerformanceCue) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
   getPlaybackState?: () => EmbeddedPlaybackRuntimeState;
 } = {}): EmbeddedPlaybackApi {
   const resolvedPlaybackController = playbackController || playbackRuntime?.ensurePlaybackController?.() || null;
@@ -34,6 +37,9 @@ export function createEmbeddedPlaybackApi({
     applyEmbeddedPattern,
     applyEmbeddedPlaybackSettings(options = {}) {
       return resolvedPlaybackController.updatePlaybackSettings(options);
+    },
+    queuePerformanceCue(cue) {
+      return queuePerformanceCue?.(cue) || resolvedPlaybackController.queuePerformanceCue(cue);
     },
     getPlaybackState: readPlaybackState,
     startPlayback() {

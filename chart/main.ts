@@ -1,5 +1,7 @@
 ﻿import type {
   ChartDocument,
+  ChartPerformance,
+  ChartSimplePerformanceState,
   ChartSetlist,
   ChartPlaybackController,
   ChartPlaybackPlan,
@@ -17,11 +19,16 @@ import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
 import { enforceBetaAccess } from '../src/features/app/app-beta-access.js';
 import {
   createChartDocumentsFromIRealText,
+  createDefaultChartPerformance,
   createPracticeSessionFromChartPlaybackPlan,
   createPracticeSessionFromChartSelection,
+  getChartSimplePerformanceLabel,
+  normalizeChartPerformance,
+  normalizeChartPerformancePanelMode,
   parseNoteSymbol,
   normalizeChartChordDisplayLevel,
   normalizeChordEnrichmentMode,
+  normalizeChartSimplePerformanceState,
   transposeKeySymbol
 } from './index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
@@ -146,7 +153,7 @@ import voicingConfig from '../src/core/music/voicing-config.js';
 import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
 const DEFAULT_TEMPO = 120;
-const DEFAULT_CHART_REPEAT_COUNT = 3;
+const DEFAULT_CHART_REPEAT_COUNT = 1;
 const CHART_REPEAT_INFINITE_LABEL = '\u221e';
 const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = 'default-library.dat';
@@ -252,6 +259,9 @@ type ExtendedChartScreenState = ChartScreenState & {
   selectionLoopActive: boolean,
   selectionLoopPlaybackPending: boolean,
   selectionLoopRestartPending: boolean,
+  chartSimplePerformance: ChartSimplePerformanceState,
+  chartPerformance: ChartPerformance | null,
+  chartPerformances: Record<string, ChartPerformance>,
   playFromBarPracticeSession: PracticeSessionSpec | null
 };
 
@@ -283,6 +293,9 @@ const state: ExtendedChartScreenState = {
   selectionLoopActive: false,
   selectionLoopPlaybackPending: false,
   selectionLoopRestartPending: false,
+  chartSimplePerformance: { mode: 'infinite', repeatMode: 'infinite' },
+  chartPerformance: null,
+  chartPerformances: {},
   playFromBarPracticeSession: null
 };
 
@@ -500,14 +513,27 @@ function applyPersistedPlaybackSettings() {
     dom.drumsVolume.value = String(persisted.drumsVolume);
   }
 
-  if (persisted.chartRepeatCount !== undefined) {
-    syncRepeatCountControls(persisted.chartRepeatCount);
+  if (persisted.chartSimplePerformance !== undefined) {
+    state.chartSimplePerformance = normalizeChartSimplePerformanceState(persisted.chartSimplePerformance);
+  } else if (persisted.chartRepeatInfinite !== undefined) {
+    state.chartSimplePerformance = {
+      mode: persisted.chartRepeatInfinite === true ? 'infinite' : 'once',
+      repeatMode: persisted.chartRepeatInfinite === true ? 'infinite' : 'finite'
+    };
   }
-  if (persisted.chartRepeatInfinite !== undefined) {
-    syncRepeatCountControls(undefined, {
-      infinite: persisted.chartRepeatInfinite === true
-    });
+  state.chartPerformance = normalizeChartPerformance(persisted.chartPerformance, null);
+  const persistedPerformanceMap = persisted.chartPerformances && typeof persisted.chartPerformances === 'object'
+    ? persisted.chartPerformances as Record<string, unknown>
+    : {};
+  state.chartPerformances = Object.fromEntries(
+    Object.entries(persistedPerformanceMap)
+      .map(([chartId, value]) => [chartId, normalizeChartPerformance(value, null)])
+      .filter((entry): entry is [string, ChartPerformance] => Boolean(entry[1]))
+  );
+  if (state.chartPerformance) {
+    state.chartPerformances[state.chartPerformance.chartId] = state.chartPerformance;
   }
+  syncRepeatCountControls();
 }
 
 function normalizeHarmonyDisplayMode(mode: string | undefined) {
@@ -628,10 +654,14 @@ const {
 
 function getPlaybackSettings(): PlaybackSettings {
   const chartRepeatInfinite = isChartRepeatInfinite();
+  const activePerformance = getActiveChartPerformance();
   return {
     transposition: getChartTransposeSemitones(),
     chartRepeatCount: getChartRepeatCount(),
     chartRepeatInfinite,
+    chartSimplePerformance: state.chartSimplePerformance,
+    chartPerformance: activePerformance,
+    chartPerformances: state.chartPerformances,
     finitePlayback: state.selectionLoopActive ? false : !chartRepeatInfinite,
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
@@ -831,12 +861,39 @@ function normalizeChartRepeatCount(value: unknown, fallback = DEFAULT_CHART_REPE
   return Number.isFinite(parsed) ? Math.max(1, Math.min(10, Math.round(parsed))) : fallback;
 }
 
+function getCurrentChartPerformance() {
+  const activeChartId = String(state.currentChartDocument?.metadata?.id || '');
+  const currentPerformance = activeChartId
+    ? state.chartPerformances[activeChartId] || state.chartPerformance
+    : state.chartPerformance;
+  if (!currentPerformance) return null;
+  if (activeChartId && currentPerformance.chartId !== activeChartId) return null;
+  return currentPerformance;
+}
+
+function getChartPerformancePanelMode() {
+  return normalizeChartPerformancePanelMode(state.chartSimplePerformance.mode || state.chartSimplePerformance.repeatMode);
+}
+
+function getActiveChartPerformance() {
+  const currentPerformance = getCurrentChartPerformance();
+  if (getChartPerformancePanelMode() !== 'performance') return null;
+  if (!currentPerformance?.active) return null;
+  return currentPerformance;
+}
+
 function getChartRepeatCount() {
-  return normalizeChartRepeatCount(dom.repeatCountInput?.value);
+  const activePerformance = getActiveChartPerformance();
+  if (activePerformance) {
+    return normalizeChartRepeatCount(activePerformance.repeatCount, 1);
+  }
+  return 1;
 }
 
 function isChartRepeatInfinite() {
-  return dom.repeatInfiniteButton?.getAttribute('aria-pressed') === 'true';
+  const activePerformance = getActiveChartPerformance();
+  if (activePerformance) return activePerformance.repeatMode === 'infinite';
+  return getChartPerformancePanelMode() !== 'once';
 }
 
 function getChartRepeatPlanCount() {
@@ -851,22 +908,39 @@ function syncRepeatCountControls(
   value: unknown = getChartRepeatCount(),
   { infinite = isChartRepeatInfinite() }: { infinite?: boolean } = {}
 ) {
+  const activePerformance = getActiveChartPerformance();
+  const currentPerformance = getCurrentChartPerformance();
+  const panelMode = getChartPerformancePanelMode();
   const normalizedRepeatCount = normalizeChartRepeatCount(value);
-  const label = infinite ? CHART_REPEAT_INFINITE_LABEL : `${normalizedRepeatCount}x`;
+  const label = activePerformance
+    ? (activePerformance.repeatMode === 'infinite' ? CHART_REPEAT_INFINITE_LABEL : `${normalizedRepeatCount}x`)
+    : getChartSimplePerformanceLabel(state.chartSimplePerformance);
   if (dom.repeatCountInput) dom.repeatCountInput.value = String(normalizedRepeatCount);
-  if (dom.repeatCountRange) dom.repeatCountRange.value = String(normalizedRepeatCount);
   if (dom.repeatCountLabel) dom.repeatCountLabel.textContent = label;
   if (dom.repeatCountValue) dom.repeatCountValue.textContent = label;
-  dom.repeatCountLabel?.classList.toggle('chart-repeat-infinity-symbol', infinite);
-  dom.repeatCountValue?.classList.toggle('chart-repeat-infinity-symbol', infinite);
-  if (dom.repeatInfiniteButton) dom.repeatInfiniteButton.setAttribute('aria-pressed', infinite ? 'true' : 'false');
-  if (dom.repeatCountPopover) dom.repeatCountPopover.classList.toggle('is-infinite', infinite);
-  if (dom.repeatCountRange) dom.repeatCountRange.disabled = infinite;
-  if (dom.repeatCountDecrease) dom.repeatCountDecrease.disabled = infinite;
-  if (dom.repeatCountIncrease) dom.repeatCountIncrease.disabled = infinite;
+  dom.repeatCountLabel?.classList.toggle('chart-repeat-infinity-symbol', label === CHART_REPEAT_INFINITE_LABEL);
+  dom.repeatCountValue?.classList.toggle('chart-repeat-infinity-symbol', label === CHART_REPEAT_INFINITE_LABEL);
+  if (dom.repeatInfiniteButton) {
+    dom.repeatInfiniteButton.setAttribute('aria-pressed', panelMode === 'infinite' ? 'true' : 'false');
+  }
+  if (dom.repeatOnceButton) {
+    dom.repeatOnceButton.setAttribute('aria-pressed', panelMode === 'once' ? 'true' : 'false');
+  }
+  if (dom.performanceModeButton) {
+    dom.performanceModeButton.setAttribute('aria-pressed', panelMode === 'performance' ? 'true' : 'false');
+  }
+  if (dom.repeatCountPopover) {
+    dom.repeatCountPopover.classList.toggle('is-infinite', infinite);
+    dom.repeatCountPopover.classList.toggle('has-active-performance', panelMode === 'performance');
+  }
+  if (dom.performanceActionButton) {
+    dom.performanceActionButton.textContent = currentPerformance ? 'Edit performance' : 'Edit performance';
+    dom.performanceActionButton.disabled = !currentPerformance || panelMode !== 'performance';
+  }
 }
 
 function setChartRepeatCount(value: unknown, { render = true }: { render?: boolean } = {}) {
+  state.chartSimplePerformance = { mode: 'once', repeatMode: 'finite' };
   syncRepeatCountControls(value, { infinite: false });
   persistPlaybackSettings();
   if (render) {
@@ -877,6 +951,10 @@ function setChartRepeatCount(value: unknown, { render = true }: { render?: boole
 }
 
 function setChartRepeatInfinite(value: boolean, { render = true }: { render?: boolean } = {}) {
+  state.chartSimplePerformance = {
+    mode: value ? 'infinite' : 'once',
+    repeatMode: value ? 'infinite' : 'finite'
+  };
   syncRepeatCountControls(undefined, { infinite: value });
   persistPlaybackSettings();
   if (render) {
@@ -1022,28 +1100,51 @@ function bindBottomControlPopovers() {
     setTempo(dom.tempoInput?.value || DEFAULT_TEMPO, { syncPlayback: true });
   });
 
-  dom.repeatCountRange?.addEventListener('input', () => {
-    syncRepeatCountControls(dom.repeatCountRange?.value || DEFAULT_CHART_REPEAT_COUNT);
-  });
-
-  dom.repeatCountRange?.addEventListener('change', () => {
-    setChartRepeatCount(dom.repeatCountRange?.value || DEFAULT_CHART_REPEAT_COUNT);
-  });
-
-  dom.repeatCountInput?.addEventListener('change', () => {
-    setChartRepeatCount(dom.repeatCountInput?.value || DEFAULT_CHART_REPEAT_COUNT);
-  });
-
   dom.repeatInfiniteButton?.addEventListener('click', () => {
-    setChartRepeatInfinite(!isChartRepeatInfinite());
+    setChartRepeatInfinite(true);
   });
 
-  dom.repeatCountDecrease?.addEventListener('click', () => {
-    setChartRepeatCount(getChartRepeatCount() - 1);
+  dom.repeatOnceButton?.addEventListener('click', () => {
+    setChartRepeatCount(1);
   });
 
-  dom.repeatCountIncrease?.addEventListener('click', () => {
-    setChartRepeatCount(getChartRepeatCount() + 1);
+  dom.performanceModeButton?.addEventListener('click', () => {
+    const selectedDocument = state.currentChartDocument;
+    if (!selectedDocument) return;
+    let currentPerformance = getCurrentChartPerformance();
+    if (!currentPerformance) {
+      currentPerformance = createDefaultChartPerformance(selectedDocument);
+      state.chartPerformance = currentPerformance;
+      state.chartPerformances[selectedDocument.metadata?.id || currentPerformance.chartId] = currentPerformance;
+    }
+    state.chartSimplePerformance = { mode: 'performance', repeatMode: currentPerformance.repeatMode };
+    syncRepeatCountControls();
+    persistPlaybackSettings();
+    renderFixture();
+  });
+
+  dom.performanceActionButton?.addEventListener('click', () => {
+    const selectedDocument = state.currentChartDocument;
+    if (!selectedDocument) return;
+    const currentPerformance = getCurrentChartPerformance();
+    if (!currentPerformance) return;
+    if (currentPerformance) {
+      const nextRepeatCount = window.prompt('Performance repeat count', String(currentPerformance.repeatCount || 1));
+      if (nextRepeatCount === null) return;
+      state.chartPerformance = createDefaultChartPerformance(selectedDocument, {
+        ...currentPerformance,
+        repeatMode: 'finite',
+        repeatCount: normalizeChartRepeatCount(nextRepeatCount, currentPerformance.repeatCount || 1),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    state.chartPerformances[selectedDocument.metadata?.id || state.chartPerformance.chartId] = state.chartPerformance;
+    if (getChartPerformancePanelMode() === 'performance') {
+      state.chartSimplePerformance = { mode: 'performance', repeatMode: state.chartPerformance.repeatMode };
+    }
+    syncRepeatCountControls();
+    persistPlaybackSettings();
+    renderFixture();
   });
 
   document.addEventListener('click', (event) => {
@@ -1706,7 +1807,15 @@ function renderFixture() {
   const selectedDocument = availableDocuments.find((document) => document.metadata.id === selectedId);
   populateTransposeOptions(selectedDocument);
   if (isNewChartSelection) {
-    syncRepeatCountControls(getSourceRepeatCount(selectedDocument));
+    const normalizedPerformance = normalizeChartPerformance(
+      selectedDocument ? state.chartPerformances[selectedDocument.metadata?.id || ''] : null,
+      selectedDocument
+    );
+    state.chartPerformance = normalizedPerformance;
+    if (selectedDocument && normalizedPerformance) {
+      state.chartPerformances[selectedDocument.metadata?.id || ''] = normalizedPerformance;
+    }
+    syncRepeatCountControls();
   }
   renderSelectedFixture(createChartFixtureRenderBindings({
     state,

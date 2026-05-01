@@ -8,8 +8,11 @@ export const DEFAULT_PLAYBACK_ENDING_CONFIG = Object.freeze({
   onbeatLongMaxBpm: 85,
   shortMinBpm: 170,
   longHoldMs: 4000,
-  shortTailStopDelaySeconds: 1.1,
-  shortTailFadeTimeConstantSeconds: 0.24
+  shortTailStopDelaySeconds: 1,
+  shortTailFadeTimeConstantSeconds: 0.24,
+  shortAccentMultiplier: 2,
+  shortFinalAccentMultiplier: 2,
+  shortCrescendoLeadMeasures: 2
 });
 
 type PlaybackEndingStyleThresholds = {

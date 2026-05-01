@@ -200,6 +200,69 @@ export interface ChartPlaybackNavigation {
   [key: string]: unknown;
 }
 
+export type ChartPerformanceRepeatMode = 'infinite' | 'finite';
+export type ChartPerformancePanelMode = 'infinite' | 'once' | 'performance';
+export type ChartPerformanceCueType =
+  | 'arm_coda'
+  | 'exit_repeat'
+  | 'half_time'
+  | 'double_time'
+  | string;
+export type ChartPerformanceCueBoundary =
+  | 'next_section'
+  | 'next_coda_jump'
+  | 'next_repeat_boundary'
+  | string;
+
+export interface ChartPerformanceCue {
+  id: string;
+  type: ChartPerformanceCueType;
+  boundary: ChartPerformanceCueBoundary;
+  status?: 'queued' | 'armed' | 'consumed' | string;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface ChartPerformance {
+  schemaVersion: ChartSchemaVersion;
+  id: string;
+  chartId: string;
+  name: string;
+  active: boolean;
+  repeatMode: ChartPerformanceRepeatMode;
+  repeatCount: number | null;
+  cues: ChartPerformanceCue[];
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface ChartSimplePerformanceState {
+  mode: ChartPerformancePanelMode;
+  repeatMode: ChartPerformanceRepeatMode;
+}
+
+export interface ChartPerformanceRepeatRegion {
+  id: string;
+  kind: 'repeat' | string;
+  startBarId: string;
+  endBarId: string;
+  startBarIndex: number;
+  endBarIndex: number;
+  isVamp: boolean;
+  [key: string]: unknown;
+}
+
+export interface ChartPerformanceMap {
+  schemaVersion: ChartSchemaVersion;
+  chartId: string;
+  chartTitle: string;
+  repeatRegions: ChartPerformanceRepeatRegion[];
+  cuePoints: Array<Record<string, unknown>>;
+  sectionBoundaries: Array<Record<string, unknown>>;
+  navigation: ChartPlaybackNavigation;
+  [key: string]: unknown;
+}
+
 export interface PracticePlaybackBar {
   id: string;
   index: number;
@@ -239,6 +302,7 @@ export interface PracticeSessionPlayback {
   patternString: string;
   enginePatternString: string;
   endingCue?: PlaybackEndingCue | null;
+  performanceMap?: ChartPerformanceMap | null;
 }
 
 export interface PracticeSessionSpec {
@@ -269,6 +333,8 @@ export interface PlaybackSettings {
   finitePlayback?: boolean | null;
   chartRepeatCount?: number | null;
   chartRepeatInfinite?: boolean | null;
+  chartSimplePerformance?: ChartSimplePerformanceState | null;
+  chartPerformance?: ChartPerformance | null;
   displayMode?: DisplayMode | null;
   harmonyDisplayMode?: HarmonyDisplayMode | null;
   showBeatIndicator?: boolean | null;
@@ -310,6 +376,7 @@ export type PlaybackStateListener = (snapshot: PlaybackSessionSnapshot) => void;
 export interface PlaybackSessionAdapter {
   loadSession?(sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings): Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   updatePlaybackSettings?(playbackSettings: PlaybackSettings, sessionSpec: PracticeSessionSpec | null): Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
+  queuePerformanceCue?(cue: ChartPerformanceCue, sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings): Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   start?(sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings): Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   stop?(sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings): Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   pauseToggle?(sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings): Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
@@ -320,6 +387,7 @@ export interface PlaybackSessionAdapter {
 export interface PlaybackSessionController {
   loadSession(sessionSpec: PracticeSessionSpec): Promise<PlaybackOperationResult>;
   updatePlaybackSettings(nextSettings?: PlaybackSettings): Promise<PlaybackOperationResult>;
+  queuePerformanceCue(cue: ChartPerformanceCue): Promise<PlaybackOperationResult>;
   start(): Promise<PlaybackOperationResult>;
   stop(): Promise<PlaybackOperationResult>;
   pauseToggle(): Promise<PlaybackOperationResult>;
@@ -382,6 +450,7 @@ export interface EmbeddedPatternPayload {
   patternName: string;
   patternString: string;
   endingCue?: PlaybackEndingCue | null;
+  performanceMap?: ChartPerformanceMap | null;
   patternMode: 'both' | 'major' | 'minor' | string;
   tempo: number | null;
   transposition?: number | string | null;
@@ -404,6 +473,7 @@ export interface EmbeddedPlaybackApi {
   version?: number;
   applyEmbeddedPattern(payload: EmbeddedPatternPayload): Promise<PlaybackOperationResult> | PlaybackOperationResult;
   applyEmbeddedPlaybackSettings(settings: PlaybackSettings): Promise<PlaybackOperationResult> | PlaybackOperationResult;
+  queuePerformanceCue?(cue: ChartPerformanceCue): Promise<PlaybackOperationResult> | PlaybackOperationResult;
   startPlayback(): Promise<PlaybackOperationResult> | PlaybackOperationResult;
   stopPlayback(): Promise<PlaybackOperationResult> | PlaybackOperationResult;
   togglePausePlayback(): Promise<PlaybackOperationResult> | PlaybackOperationResult;

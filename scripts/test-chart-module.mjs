@@ -8,8 +8,12 @@ import {
   PRACTICE_SESSION_CONTRACT,
   createChartDocument,
   createChartDocumentsFromIRealSource,
+  createChartPerformanceMap,
   createChartPlaybackPlanFromDocument,
+  createDefaultChartPerformance,
   createChartViewModel,
+  getChartSimplePerformanceLabel,
+  normalizeChartSimplePerformanceState,
   createPracticeSessionExportFromPlaybackPlan,
   createPracticeSessionFromChartDocument,
   createPracticeSessionFromChartDocumentWithPlaybackPlan,
@@ -224,8 +228,10 @@ import { createPracticeArrangementWalkingBassAppBindings } from '../src/features
 import { createPianoComping } from '../src/features/practice-arrangement/practice-arrangement-comping-piano.ts';
 import {
   applyAnticipationEffect,
+  applyFirstBeatAnticipationEffect,
   createWalkingBassGenerator,
   getAnticipationEligibleBeatPairKind,
+  isFirstBeatAnticipationEligibleBeatPair,
   isAnticipationEligibleBeatPair
 } from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
 import {
@@ -2249,6 +2255,12 @@ const fakeAudioContext = {
       playbackRate: { value: 1 },
       start(time) {
         audioPlaybackEvents.push(`buffer:start:${time}`);
+      },
+      addEventListener(eventName, listener) {
+        audioPlaybackEvents.push(`buffer:on:${eventName}`);
+        if (eventName === 'ended' && typeof listener === 'function') {
+          listener();
+        }
       }
     });
   }
@@ -2763,6 +2775,44 @@ assert.equal(
     false,
     'Piano arranger does not place a chord on the offbeat before an onbeat ending.'
   );
+
+  const highTempoOffbeatEndingCue = { style: 'offbeat_long', targetBeat: 4, targetChordIndex: 4 };
+  const highTempoComping = createPianoComping({
+    helpers: {
+      getSecondsPerBeat: () => 60 / 250,
+      getSwingRatio: () => 2
+    }
+  });
+  Math.random = () => 0;
+  try {
+    const highTempoPianoPlan = highTempoComping.buildPlan({
+      chords: [
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'm7' },
+        { semitones: 5, bassSemitones: 5, qualityMajor: '7', qualityMinor: 'm7' },
+        { semitones: 7, bassSemitones: 7, qualityMajor: '7', qualityMinor: 'm7' },
+        { semitones: 11, bassSemitones: 11, qualityMajor: '7', qualityMinor: 'm7' },
+        { semitones: 0, bassSemitones: 0, qualityMajor: '6', qualityMinor: 'm6' }
+      ],
+      key: 0,
+      isMinor: false,
+      beatsPerChord: 1,
+      beatsPerBar: 4,
+      endingCue: highTempoOffbeatEndingCue
+    });
+    assert.ok(highTempoPianoPlan.events.length > 0, 'Piano arranger still produces a playable plan around a high-tempo offbeat ending.');
+    assert.equal(
+      highTempoPianoPlan.events.some((event) => Math.abs(event.timeBeats - 3) < 0.001),
+      false,
+      'Piano arranger avoids the beat before an offbeat ending when a one-eighth jump has zero weight at that tempo.'
+    );
+    assert.equal(
+      highTempoPianoPlan.events.some((event) => Math.abs(event.timeBeats - preEndingOffbeat) < 0.001),
+      false,
+      'Piano arranger leaves the imposed offbeat ending chord to the ending scheduler.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 {
   const offbeatPosition = getSwingOffbeatPositionBeats(2);
@@ -3991,6 +4041,53 @@ assert.deepEqual(
   'Playback interprets iReal repeat text such as 3x as the local repeat count.'
 );
 
+{
+  const vampInRepeatDocument = createChartDocument({
+    metadata: { title: 'Vamp In Repeat', id: 'vamp-in-repeat' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7', flags: ['repeat_start_barline'] }),
+      makeSyntheticChartBar(2, { symbol: 'F7', directives: [{ type: 'open_vamp' }] }),
+      makeSyntheticChartBar(3, { symbol: 'G7', flags: ['repeat_end_barline'] })
+    ]
+  });
+  const vampOutOfRepeatDocument = createChartDocument({
+    metadata: { title: 'Vamp Out Of Repeat', id: 'vamp-out-of-repeat' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7', directives: [{ type: 'vamp_instruction', text: 'Vamp' }] }),
+      makeSyntheticChartBar(2, { symbol: 'F7' })
+    ]
+  });
+  const vampInRepeatMap = createChartPerformanceMap(vampInRepeatDocument);
+  const vampOutOfRepeatMap = createChartPerformanceMap(vampOutOfRepeatDocument);
+
+  assert.deepEqual(
+    vampInRepeatMap.repeatRegions.map((region) => ({
+      start: region.startBarIndex,
+      end: region.endBarIndex,
+      isVamp: region.isVamp
+    })),
+    [{ start: 1, end: 3, isVamp: true }],
+    'Performance maps make vamps actionable only when they are inside an explicit repeat.'
+  );
+  assert.deepEqual(
+    vampOutOfRepeatMap.repeatRegions,
+    [],
+    'Performance maps ignore vamp text that is not enclosed by an explicit repeat.'
+  );
+  assert.equal(
+    getChartSimplePerformanceLabel(normalizeChartSimplePerformanceState({ repeatMode: 'finite' })),
+    '1x',
+    'Simple chart performance mode exposes the 1x label.'
+  );
+  assert.equal(
+    createDefaultChartPerformance(vampInRepeatDocument).chartId,
+    'vamp-in-repeat',
+    'Default chart performances stay linked to the active chart id.'
+  );
+}
+
 assert.deepEqual(
   syntheticPlaybackBarIndices({
     metadata: { title: 'Coda Outro', id: 'coda-outro', sourceRepeats: 3 },
@@ -4018,6 +4115,23 @@ assert.deepEqual(
   }),
   [1, 2, 3, 1, 2],
   'Playback stops at Fine after D.C. al Fine instead of jumping forever.'
+);
+
+assert.deepEqual(
+  syntheticPlaybackBarIndices({
+    metadata: { title: 'Deferred DC Ending', id: 'deferred-dc-ending' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3', 'bar-4', 'bar-5', 'bar-6'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7', flags: ['repeat_start_barline'] }),
+      makeSyntheticChartBar(2, { symbol: 'Dm7' }),
+      makeSyntheticChartBar(3, { symbol: 'G7', flags: ['repeat_end_barline'], endings: [1] }),
+      makeSyntheticChartBar(4, { symbol: 'C6', flags: ['fine'], endings: [2] }),
+      makeSyntheticChartBar(5, { symbol: 'A7', directives: [{ type: 'dc_al_ending', ending: 2 }] }),
+      makeSyntheticChartBar(6, { symbol: 'D7', flags: ['section_end_barline'] })
+    ]
+  }),
+  [1, 2, 3, 1, 2, 4, 5, 6, 1, 2, 4],
+  'Playback defers an iReal D.C. al ending marker from the penultimate display bar to the following section boundary.'
 );
 
 {
@@ -6204,6 +6318,11 @@ assert.equal(
   'Walking bass anticipation ornament identifies first-beat anticipation separately from interval-constrained anticipations.'
 );
 assert.equal(
+  isFirstBeatAnticipationEligibleBeatPair({ timeBeats: 3 }, { timeBeats: 4 }, 4),
+  true,
+  'Walking bass first-beat anticipation ornament exposes its own eligibility helper.'
+);
+assert.equal(
   isAnticipationEligibleBeatPair({ timeBeats: 1 }, { timeBeats: 2 }, 4),
   false,
   'Walking bass anticipation ornament does not allow every weak-to-strong pair.'
@@ -6212,13 +6331,28 @@ assert.equal(
   const originalRandom = Math.random;
   Math.random = () => 0;
   try {
-    const firstBeatAnticipation = applyAnticipationEffect([
+    const firstBeatViaGeneralAnticipation = applyAnticipationEffect([
+      { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 4, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
+    ], undefined, 4);
+    assert.equal(
+      firstBeatViaGeneralAnticipation[1].timeBeats,
+      4,
+      'Walking bass general anticipation ornament leaves first-beat anticipation to its dedicated ornament.'
+    );
+
+    const firstBeatAnticipation = applyFirstBeatAnticipationEffect([
       { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
       { timeBeats: 4, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
     ], undefined, 4);
     assert.ok(
       firstBeatAnticipation[1].timeBeats < 4,
       'Walking bass first-beat anticipation does not require a descending interval.'
+    );
+    assert.equal(
+      firstBeatAnticipation[1].source,
+      'bass-first-beat-anticipation',
+      'Walking bass first-beat anticipation records a distinct ornament source.'
     );
 
     const strongToWeakAnticipation = applyAnticipationEffect([

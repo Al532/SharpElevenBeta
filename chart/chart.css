@@ -385,14 +385,13 @@ select {
 }
 
 .chart-repeat-popover-header {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
 }
 
 .chart-repeat-popover-header .chart-bottom-popover-title {
-  grid-column: 2;
   justify-self: center;
 }
 
@@ -461,33 +460,54 @@ select {
   cursor: pointer;
 }
 
-.chart-repeat-infinite-button {
-  grid-column: 3;
-  justify-self: end;
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid transparent;
+.chart-performance-simple-row {
+  width: 100%;
+}
+
+.chart-performance-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
   border-radius: 999px;
   background: var(--chart-ui-field-on-accent);
+}
+
+.chart-performance-toggle-button {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
   color: var(--chart-ui-accent);
+  font: inherit;
+  font-weight: 800;
   cursor: pointer;
 }
 
-.chart-repeat-infinite-button::before {
-  content: "";
-  width: 21px;
-  height: 13px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M22 13C16.4 4.6 10.3 3.1 6.1 7.3C2.2 11.2 2.2 14.8 6.1 18.7C10.3 22.9 16.4 21.4 22 13C27.6 4.6 33.7 3.1 37.9 7.3C41.8 11.2 41.8 14.8 37.9 18.7C33.7 22.9 27.6 21.4 22 13Z' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M22 13C16.4 4.6 10.3 3.1 6.1 7.3C2.2 11.2 2.2 14.8 6.1 18.7C10.3 22.9 16.4 21.4 22 13C27.6 4.6 33.7 3.1 37.9 7.3C41.8 11.2 41.8 14.8 37.9 18.7C33.7 22.9 27.6 21.4 22 13Z' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.chart-repeat-infinite-button[aria-pressed="true"] {
+.chart-performance-toggle-button[aria-pressed="true"] {
   border-color: var(--chart-ui-accent);
   background: var(--chart-ui-accent);
   color: var(--chart-ui-bottom-overlay);
+}
+
+.chart-performance-action-button {
+  width: 100%;
+  min-height: 38px;
+  border-color: var(--chart-ui-accent);
+  background: var(--chart-ui-accent);
+  color: var(--chart-ui-bottom-overlay);
+  border: 1px solid var(--chart-ui-accent);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chart-performance-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .chart-repeat-popover.is-infinite .chart-repeat-stepper {

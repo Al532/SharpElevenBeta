@@ -108,21 +108,22 @@
             </div>
           </div>
           <div class="chart-bottom-popover-wrap chart-repeat-field">
-            <input id="chart-repeat-count-input" type="number" min="1" max="10" step="1" value="3" hidden>
+            <input id="chart-repeat-count-input" type="number" min="1" max="10" step="1" value="1" hidden>
             <button id="chart-repeat-count-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
-              <span id="chart-repeat-count-label">3x</span>
+              <span id="chart-repeat-count-label">∞</span>
             </button>
             <div id="chart-repeat-count-popover" class="chart-bottom-popover chart-repeat-popover" hidden>
               <div class="chart-repeat-popover-header">
-                <span class="chart-bottom-popover-title">Repeats</span>
-                <button id="chart-repeat-infinite-button" type="button" class="chart-repeat-infinite-button" aria-label="Repeat forever" aria-pressed="false" title="Repeat forever"></button>
+                <span class="chart-bottom-popover-title">Performance</span>
               </div>
-              <strong id="chart-repeat-count-value">3x</strong>
-              <div class="chart-repeat-stepper" role="group" aria-label="Repeat count">
-                <button id="chart-repeat-count-decrease" type="button" class="chart-stepper-button" aria-label="Decrease repeats">-</button>
-                <input id="chart-repeat-count-range" type="range" min="1" max="10" step="1" value="3">
-                <button id="chart-repeat-count-increase" type="button" class="chart-stepper-button" aria-label="Increase repeats">+</button>
+              <div class="chart-performance-simple-row">
+                <div class="chart-performance-toggle" role="group" aria-label="Playback mode">
+                  <button id="chart-repeat-infinite-button" type="button" class="chart-performance-toggle-button" aria-pressed="true">∞</button>
+                  <button id="chart-repeat-once-button" type="button" class="chart-performance-toggle-button" aria-pressed="false">1x</button>
+                  <button id="chart-performance-mode-button" type="button" class="chart-performance-toggle-button" aria-pressed="false">Performance</button>
+                </div>
               </div>
+              <button id="chart-performance-action-button" type="button" class="chart-performance-action-button" disabled>Edit performance</button>
             </div>
           </div>
           <label class="chart-select-field chart-drums-playback-setting">

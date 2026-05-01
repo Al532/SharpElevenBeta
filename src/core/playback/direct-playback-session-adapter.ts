@@ -35,7 +35,7 @@ export function createDirectPlaybackSessionAdapter({
   togglePausePlayback,
   ...fallbackOptions
 }: DirectPlaybackSessionAdapterOptions = {}): PlaybackSessionAdapter {
-  const fallbackAdapter = createPracticePlaybackSessionAdapter(fallbackOptions);
+  const fallbackAdapter: PlaybackSessionAdapter = createPracticePlaybackSessionAdapter(fallbackOptions);
 
   return {
     async loadSession(sessionSpec, playbackSettings) {
@@ -49,6 +49,9 @@ export function createDirectPlaybackSessionAdapter({
         return updateDirectPlaybackSettings(playbackSettings || {}, sessionSpec || null);
       }
       return fallbackAdapter.updatePlaybackSettings?.(playbackSettings || {}, sessionSpec || null);
+    },
+    async queuePerformanceCue(cue, sessionSpec, playbackSettings) {
+      return fallbackAdapter.queuePerformanceCue?.(cue, sessionSpec || null, playbackSettings || {});
     },
     async start(sessionSpec, playbackSettings) {
       if (typeof loadDirectSession === 'function' || typeof updateDirectPlaybackSettings === 'function') {

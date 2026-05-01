@@ -14,6 +14,7 @@ import {
   createPracticeSessionSpec
 } from '../../core/models/practice-session.js';
 import { createChartPlaybackPlanFromDocument } from '../../../chart/chart-interpreter.js';
+import { createChartPerformanceMap } from '../../../chart/chart-performance.js';
 import { transposeChordSymbol, transposeKeySymbol } from '../../../chart/chart-harmony.js';
 import { createChartDocument } from '../../../chart/chart-types.js';
 
@@ -120,7 +121,11 @@ export function createPracticeSessionFromChartPlaybackPlan({
     title,
     tempo: Number(tempo || chartDocument?.metadata?.tempo || 120),
     timeSignature: chartDocument?.metadata?.primaryTimeSignature || playbackPlan?.timeSignature || '',
-    playback: { bars, endingCue },
+    playback: {
+      bars,
+      endingCue,
+      performanceMap: createChartPerformanceMap(chartDocument, playbackPlan?.navigation || {})
+    },
     display,
     selection,
     origin

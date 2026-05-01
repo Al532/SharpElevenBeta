@@ -124,6 +124,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           endingStyle: cue.style,
           slotDuration,
           secondsPerBeat,
+          endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+          endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+          endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures,
           tailFadeTimeConstant: getEndingTailFadeTimeConstantSeconds(cue.style)
         }
       );
@@ -134,6 +137,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       endingStyle: cue.style,
       slotDuration,
       secondsPerBeat,
+      endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+      endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+      endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures,
       tailFadeTimeConstant: getEndingTailFadeTimeConstantSeconds(cue.style)
     });
 
@@ -143,11 +149,15 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         chords: state.paddedChords,
         key: state.currentKey,
         isMinor,
+        beatsPerBar: getMeasureBeatCount(cue.targetChordIndex),
       },
       chordIndex: cue.targetChordIndex,
       time: endingTime,
       durationSeconds,
       endingStyle: cue.style,
+      endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+      endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+      endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures,
       slotDuration,
       secondsPerBeat,
     });
@@ -417,7 +427,13 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         ? Math.max(windowStartBeats, endingAttackBeat)
         : windowEndBeats;
 
-      scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb, measureInfo);
+      scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb, measureInfo, {
+        endingCue,
+        beatsPerBar: beatsPerMeasure,
+        endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+        endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+        endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures
+      });
 
       if (customBassEnabled) {
         const bassEvents = state.currentBassPlan.filter((event) => (
@@ -431,7 +447,15 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
               bassEvent.midi,
               state.nextBeatTime + eventOffsetSeconds,
               bassEvent.durationBeats * spb,
-              bassEvent.velocity
+              bassEvent.velocity,
+              {
+                endingCue,
+                timeBeats: bassEvent.timeBeats,
+                beatsPerBar: beatsPerMeasure,
+                endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+                endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+                endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures
+              }
             );
           });
         }
@@ -463,7 +487,14 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           const sustainDuration = sustainSlots * beatsPerChord * spb;
 
           const midi = helpers.getBassMidi(state.currentKey, chord.bassSemitones ?? chord.semitones);
-          playNote(midi, state.nextBeatTime, sustainDuration);
+          playNote(midi, state.nextBeatTime, sustainDuration, 127, {
+            endingCue,
+            timeBeats: windowStartBeats,
+            beatsPerBar: beatsPerMeasure,
+            endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+            endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+            endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures
+          });
         }
         state.lastPlayedChordIdx = state.currentChordIdx;
       }
@@ -476,14 +507,20 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
             chords: state.paddedChords,
             key: state.currentKey,
             isMinor,
+            beatsPerBar: beatsPerMeasure,
           },
           plan: state.currentCompingPlan,
           nextProgression: {
             chords: state.nextPaddedChords,
             key: state.nextKeyValue,
             isMinor,
+            beatsPerBar: beatsPerMeasure,
           },
           nextPlan: state.nextCompingPlan,
+          endingCue,
+          endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+          endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+          endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures,
           slotDuration: noteDuration,
           windowStartBeats,
           windowEndBeats: normalWindowEndBeats,

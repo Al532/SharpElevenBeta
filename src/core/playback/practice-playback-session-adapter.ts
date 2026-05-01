@@ -46,6 +46,7 @@ export function createPracticePlaybackSessionAdapter({
         patternName: sessionSpec?.title || 'Imported session',
         patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
         endingCue: sessionSpec?.playback?.endingCue || null,
+        performanceMap: sessionSpec?.playback?.performanceMap || null,
         patternMode: 'both',
         tempo: sessionSpec?.tempo || playbackSettings?.tempo || null,
         transposition: playbackSettings?.transposition ?? null,
@@ -64,6 +65,13 @@ export function createPracticePlaybackSessionAdapter({
         stringsVolume: playbackSettings?.stringsVolume ?? null,
         drumsVolume: playbackSettings?.drumsVolume ?? null
       });
+    },
+    queuePerformanceCue(cue) {
+      return {
+        ok: true,
+        state: getEmbeddedPlaybackState?.(),
+        cue
+      };
     },
     async updatePlaybackSettings(playbackSettings: PlaybackSettings = {}, _sessionSpec: PracticeSessionSpec | null = null) {
       const result = applyEmbeddedPlaybackSettings(playbackSettings);

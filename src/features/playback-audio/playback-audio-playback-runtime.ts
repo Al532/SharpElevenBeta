@@ -6,6 +6,7 @@ import {
 import pianoRhythmConfig from '../../core/music/piano-rhythm-config.js';
 import { getSwingOffbeatPositionBeats } from '../../core/music/swing-utils.js';
 import { PIANO_COMPING_CONFIG } from '../../config/trainer-config.js';
+import { getShortEndingDynamicMultiplier } from '../../core/playback/playback-ending-dynamics.js';
 
 type DrillMixerNodes = Record<string, GainNode>;
 
@@ -32,12 +33,26 @@ type PlaybackAudioPlaybackRuntimeOptions = {
 };
 
 type DrumSamplePlaybackOptions = {
+  endingCue?: Record<string, unknown> | null;
   endingStyle?: string;
+  timeBeats?: number | null;
+  beatsPerBar?: number;
+  endingAccentMultiplier?: number;
+  endingFinalAccentMultiplier?: number;
+  endingCrescendoLeadMeasures?: number;
   slotDuration?: number;
   secondsPerBeat?: number;
   tailFadeTimeConstant?: number;
   tailFadeStart?: number;
 };
+
+type ActiveDrumSample = {
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+  gainValue: number;
+};
+
+const ENDING_TAIL_FADE_SETTLE_MULTIPLIER = 3.5;
 
 /**
  * @param {object} [options]
@@ -83,6 +98,7 @@ export function createPlaybackAudioPlaybackRuntime({
   initialRideSampleCursor = Math.floor(Math.random() * Math.max(1, drumRideSampleUrls.length))
 }: PlaybackAudioPlaybackRuntimeOptions = {}) {
   let rideSampleCursor = initialRideSampleCursor;
+  const activeRideSamples = new Set<ActiveDrumSample>();
 
   function initAudio() {
     if (getAudioContext()) return;
@@ -176,6 +192,40 @@ export function createPlaybackAudioPlaybackRuntime({
     );
   }
 
+  function scheduleDrumSampleTailFade(
+    entry: ActiveDrumSample,
+    fadeStart: number,
+    timeConstant: number
+  ) {
+    if (!Number.isFinite(fadeStart) || !Number.isFinite(timeConstant) || timeConstant <= 0) return;
+    const fadeSettleTime = fadeStart + (timeConstant * ENDING_TAIL_FADE_SETTLE_MULTIPLIER);
+
+    try {
+      if (typeof entry.gain.gain.cancelAndHoldAtTime === 'function') {
+        entry.gain.gain.cancelAndHoldAtTime(fadeStart);
+      } else {
+        entry.gain.gain.cancelScheduledValues(fadeStart);
+        entry.gain.gain.setValueAtTime(entry.gainValue, fadeStart);
+      }
+      entry.gain.gain.setTargetAtTime(0.0001, fadeStart, timeConstant);
+      entry.gain.gain.setValueAtTime(0, fadeSettleTime);
+    } catch {
+      // Ignore samples that have already finished or been disconnected.
+    }
+
+    try {
+      entry.source.stop(fadeSettleTime);
+    } catch {
+      // Ignore duplicate stop scheduling or sources that have already ended.
+    }
+  }
+
+  function fadeActiveRideSamples(fadeStart: number, timeConstant: number) {
+    for (const entry of activeRideSamples) {
+      scheduleDrumSampleTailFade(entry, fadeStart, timeConstant);
+    }
+  }
+
   function playClick(time: number, accent: boolean) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('drums');
@@ -209,19 +259,40 @@ export function createPlaybackAudioPlaybackRuntime({
     src.buffer = buffer;
     src.playbackRate.value = playbackRate;
 
+    const dynamicMultiplier = getShortEndingDynamicMultiplier({
+      endingCue: options.endingCue,
+      timeBeats: options.timeBeats,
+      beatsPerBar: options.beatsPerBar,
+      isFinalEnding: options.endingStyle === 'short',
+      targetMultiplier: options.endingAccentMultiplier,
+      finalAccentMultiplier: options.endingFinalAccentMultiplier,
+      leadMeasures: options.endingCrescendoLeadMeasures
+    });
     const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(gainValue, time);
+    const resolvedGainValue = gainValue * dynamicMultiplier;
+    gain.gain.setValueAtTime(resolvedGainValue, time);
+    const activeEntry = { source: src, gain, gainValue: resolvedGainValue };
+    const isRideSample = name.startsWith('ride_');
+
+    src.connect(gain).connect(destination);
+    src.start(time);
+    if (isRideSample) {
+      activeRideSamples.add(activeEntry);
+      src.addEventListener('ended', () => {
+        activeRideSamples.delete(activeEntry);
+      }, { once: true });
+    }
     if (Number.isFinite(options.tailFadeTimeConstant) && options.tailFadeTimeConstant > 0) {
       const resolvedTailFadeStart = options.endingStyle === 'short'
         ? time + getShortEndingDurationSeconds(options)
         : Number(options.tailFadeStart || time);
       const fadeStart = Math.max(time, resolvedTailFadeStart);
-      gain.gain.setValueAtTime(gainValue, fadeStart);
-      gain.gain.setTargetAtTime(0.0001, fadeStart, options.tailFadeTimeConstant);
+      if (isRideSample) {
+        fadeActiveRideSamples(fadeStart, options.tailFadeTimeConstant);
+      } else {
+        scheduleDrumSampleTailFade(activeEntry, fadeStart, options.tailFadeTimeConstant);
+      }
     }
-
-    src.connect(gain).connect(destination);
-    src.start(time);
     trackScheduledSource(src, [gain]);
   }
 
@@ -257,7 +328,14 @@ export function createPlaybackAudioPlaybackRuntime({
     time: number,
     beatIndex: number,
     spb: number,
-    measureInfo: { beatCount?: number } | null = null
+    measureInfo: { beatCount?: number; startBeat?: number } | null = null,
+    options: {
+      endingCue?: Record<string, unknown> | null;
+      beatsPerBar?: number;
+      endingAccentMultiplier?: number;
+      endingFinalAccentMultiplier?: number;
+      endingCrescendoLeadMeasures?: number;
+    } = {}
   ) {
     const mode = getDrumsMode();
     if (mode === drumModeOff) return;
@@ -282,9 +360,26 @@ export function createPlaybackAudioPlaybackRuntime({
       const drumSwingRatio = typeof getDrumSwingRatio === 'function' ? getDrumSwingRatio() : getSwingRatio();
       const swingOffsetSeconds = spb * getSwingOffbeatPositionBeats(drumSwingRatio);
 
-      playRide(time, rideMainGain, beatIndex === 0 ? 1.01 : 1);
+      const beatTimeBeats = Number.isFinite(measureInfo?.startBeat)
+        ? Number(measureInfo?.startBeat) + beatIndex
+        : null;
+      playRide(time, rideMainGain, beatIndex === 0 ? 1.01 : 1, {
+        endingCue: options.endingCue,
+        timeBeats: beatTimeBeats,
+        beatsPerBar: options.beatsPerBar ?? beatCount,
+        endingAccentMultiplier: options.endingAccentMultiplier,
+        endingFinalAccentMultiplier: options.endingFinalAccentMultiplier,
+        endingCrescendoLeadMeasures: options.endingCrescendoLeadMeasures
+      });
       if (isWeakBeat) {
-        playRide(time + swingOffsetSeconds, rideSkipGain, 0.99);
+        playRide(time + swingOffsetSeconds, rideSkipGain, 0.99, {
+          endingCue: options.endingCue,
+          timeBeats: beatTimeBeats === null ? null : beatTimeBeats + getSwingOffbeatPositionBeats(drumSwingRatio),
+          beatsPerBar: options.beatsPerBar ?? beatCount,
+          endingAccentMultiplier: options.endingAccentMultiplier,
+          endingFinalAccentMultiplier: options.endingFinalAccentMultiplier,
+          endingCrescendoLeadMeasures: options.endingCrescendoLeadMeasures
+        });
         playHiHat(time, true);
       }
     }

@@ -52,6 +52,7 @@ const REPEATED_NOTE_EFFECT_THRESHOLD = 5;
 const REPEATED_NOTE_EFFECT_PROBABILITY = 0.1;
 const REPEATED_NOTE_VELOCITY_DROP = 28;
 const ANTICIPATION_EFFECT_PROBABILITY = 0.2;
+const FIRST_BEAT_ANTICIPATION_EFFECT_PROBABILITY = 0.05;
 const ANTICIPATION_EFFECT_MIN_DESCENDING_INTERVAL = 5;
 const ANTICIPATION_EFFECT_VELOCITY_BOOST = 20;
 
@@ -437,6 +438,10 @@ export function isAnticipationEligibleBeatPair(leftEvent, rightEvent, beatsPerBa
   return getAnticipationEligibleBeatPairKind(leftEvent, rightEvent, beatsPerBar) !== null;
 }
 
+export function isFirstBeatAnticipationEligibleBeatPair(leftEvent, rightEvent, beatsPerBar = 4) {
+  return getAnticipationEligibleBeatPairKind(leftEvent, rightEvent, beatsPerBar) === 'first-beat';
+}
+
 function isAtBeat(value, targetBeat) {
   return Number.isFinite(value)
     && Number.isFinite(targetBeat)
@@ -448,6 +453,31 @@ function getOnbeatEndingTargetBeat(endingCue) {
   const targetBeat = Number(endingCue.targetBeat ?? endingCue.targetChordIndex);
   if (!Number.isFinite(targetBeat) || targetBeat <= 0) return null;
   return targetBeat;
+}
+
+function applyAnticipationToEventPair(events, index, anticipationEffectStepBeats, sourceSuffix) {
+  const currentEvent = events[index];
+  const nextEvent = events[index + 1];
+  const anticipatedStart = nextEvent.timeBeats - anticipationEffectStepBeats;
+  const currentAvailableDuration = anticipatedStart - currentEvent.timeBeats;
+  if (currentAvailableDuration <= 0) return false;
+
+  const nextFollowingEvent = events[index + 2] || null;
+  const nextNaturalEnd = nextFollowingEvent
+    ? nextFollowingEvent.timeBeats
+    : (nextEvent.timeBeats + (Number.isFinite(nextEvent.durationBeats) ? nextEvent.durationBeats : 1));
+  const anticipatedDuration = nextNaturalEnd - anticipatedStart;
+  if (anticipatedDuration <= 0) return false;
+
+  currentEvent.durationBeats = currentAvailableDuration;
+  nextEvent.timeBeats = anticipatedStart;
+  nextEvent.durationBeats = anticipatedDuration;
+  nextEvent.velocity = Math.min(
+    VELOCITY_ARRIVAL,
+    (Number(nextEvent.velocity) || VELOCITY_NEUTRAL) + ANTICIPATION_EFFECT_VELOCITY_BOOST
+  );
+  nextEvent.source = `${nextEvent.source}-${sourceSuffix}`;
+  return true;
 }
 
 export function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4, {
@@ -463,35 +493,36 @@ export function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO
     const currentEvent = anticipated[index];
     const nextEvent = anticipated[index + 1];
     const beatPairKind = getAnticipationEligibleBeatPairKind(currentEvent, nextEvent, beatsPerBar);
-    if (!beatPairKind) continue;
+    if (beatPairKind !== 'strong-to-weak') continue;
     if (isAtBeat(Number(nextEvent.timeBeats), onbeatEndingTargetBeat)) continue;
 
     const descendingInterval = currentEvent.midi - nextEvent.midi;
-    if (
-      beatPairKind !== 'first-beat'
-      && descendingInterval < ANTICIPATION_EFFECT_MIN_DESCENDING_INTERVAL
-    ) continue;
+    if (descendingInterval < ANTICIPATION_EFFECT_MIN_DESCENDING_INTERVAL) continue;
     if (Math.random() >= ANTICIPATION_EFFECT_PROBABILITY) continue;
 
-    const anticipatedStart = nextEvent.timeBeats - anticipationEffectStepBeats;
-    const currentAvailableDuration = anticipatedStart - currentEvent.timeBeats;
-    if (currentAvailableDuration <= 0) continue;
+    applyAnticipationToEventPair(anticipated, index, anticipationEffectStepBeats, 'anticipation');
+  }
 
-    const nextFollowingEvent = anticipated[index + 2] || null;
-    const nextNaturalEnd = nextFollowingEvent
-      ? nextFollowingEvent.timeBeats
-      : (nextEvent.timeBeats + (Number.isFinite(nextEvent.durationBeats) ? nextEvent.durationBeats : 1));
-    const anticipatedDuration = nextNaturalEnd - anticipatedStart;
-    if (anticipatedDuration <= 0) continue;
+  return anticipated;
+}
 
-    currentEvent.durationBeats = currentAvailableDuration;
-    nextEvent.timeBeats = anticipatedStart;
-    nextEvent.durationBeats = anticipatedDuration;
-    nextEvent.velocity = Math.min(
-      VELOCITY_ARRIVAL,
-      (Number(nextEvent.velocity) || VELOCITY_NEUTRAL) + ANTICIPATION_EFFECT_VELOCITY_BOOST
-    );
-    nextEvent.source = `${nextEvent.source}-anticipation`;
+export function applyFirstBeatAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4, {
+  endingCue = null
+} = {}) {
+  if (!Array.isArray(events) || events.length < 2) return events;
+
+  const anticipated = events.map((event) => ({ ...event }));
+  const anticipationEffectStepBeats = getSwingSecondSubdivisionDurationBeats(swingRatio);
+  const onbeatEndingTargetBeat = getOnbeatEndingTargetBeat(endingCue);
+
+  for (let index = 0; index < anticipated.length - 1; index += 1) {
+    const currentEvent = anticipated[index];
+    const nextEvent = anticipated[index + 1];
+    if (!isFirstBeatAnticipationEligibleBeatPair(currentEvent, nextEvent, beatsPerBar)) continue;
+    if (isAtBeat(Number(nextEvent.timeBeats), onbeatEndingTargetBeat)) continue;
+    if (Math.random() >= FIRST_BEAT_ANTICIPATION_EFFECT_PROBABILITY) continue;
+
+    applyAnticipationToEventPair(anticipated, index, anticipationEffectStepBeats, 'first-beat-anticipation');
   }
 
   return anticipated;
@@ -499,6 +530,7 @@ export function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO
 
 const REPEATED_NOTE_EFFECT_MAX_BPM = 170;
 const ANTICIPATION_EFFECT_MAX_BPM = 190;
+const FIRST_BEAT_ANTICIPATION_EFFECT_MAX_BPM = 170;
 
 type PracticeArrangementWalkingBassConstants = {
   BASS_LOW?: number;
@@ -1265,13 +1297,17 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
   function applyLineOrnaments(events, swingRatio = DEFAULT_SWING_RATIO, tempoBpm = 120, beatsPerBar = 4, endingCue = null) {
     const allowRepeatedNoteEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= REPEATED_NOTE_EFFECT_MAX_BPM + 1);
     const allowAnticipationEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= ANTICIPATION_EFFECT_MAX_BPM + 1);
+    const allowFirstBeatAnticipationEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= FIRST_BEAT_ANTICIPATION_EFFECT_MAX_BPM + 1);
 
     const embellishedEvents = allowRepeatedNoteEffect
       ? applyRepeatedNoteEffect(events, BASS_LOW, BASS_HIGH, swingRatio, beatsPerBar)
       : events;
-    return allowAnticipationEffect
+    const anticipatedEvents = allowAnticipationEffect
       ? applyAnticipationEffect(embellishedEvents, swingRatio, beatsPerBar, { endingCue })
       : embellishedEvents;
+    return allowFirstBeatAnticipationEffect
+      ? applyFirstBeatAnticipationEffect(anticipatedEvents, swingRatio, beatsPerBar, { endingCue })
+      : anticipatedEvents;
   }
 
   function buildLine({

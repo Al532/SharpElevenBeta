@@ -287,7 +287,11 @@ export function buildLegacyEnginePatternStringFromPracticeBars(
 }
 
 type PracticeSessionSpecInput = Omit<Partial<PracticeSessionSpec>, 'playback'> & {
-  playback?: { bars?: PracticePlaybackBar[]; endingCue?: PlaybackEndingCue | null };
+  playback?: {
+    bars?: PracticePlaybackBar[];
+    endingCue?: PlaybackEndingCue | null;
+    performanceMap?: PracticeSessionSpec['playback']['performanceMap'];
+  };
 };
 
 export function createPracticeSessionSpec({
@@ -322,7 +326,8 @@ export function createPracticeSessionSpec({
       bars,
       patternString,
       enginePatternString,
-      endingCue
+      endingCue,
+      performanceMap: playback?.performanceMap == null ? null : deepClone(playback.performanceMap)
     },
     display: deepClone(normalizeObject(display)) || {},
     selection: selection ? deepClone(selection) : null,
