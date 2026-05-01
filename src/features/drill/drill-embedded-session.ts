@@ -14,6 +14,7 @@ export function createEmbeddedPatternAdapter({
   syncPatternSelectionFromInput,
   setLastPatternSelectValue,
   applyEmbeddedPlaybackSettings,
+  setPlaybackEndingCue,
   syncCustomPatternUI,
   normalizeChordsPerBarForCurrentPattern,
   applyPatternModeAvailability,
@@ -41,6 +42,7 @@ export function createEmbeddedPatternAdapter({
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
+  setPlaybackEndingCue?: (endingCue: EmbeddedPatternPayload['endingCue'] | null) => void;
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -61,6 +63,7 @@ export function createEmbeddedPatternAdapter({
   return function applyEmbeddedPattern({
     patternName = 'Chart Dev',
     patternString = '',
+    endingCue = null,
     patternMode = 'both',
     tempo = null,
     transposition = null,
@@ -86,6 +89,7 @@ export function createEmbeddedPatternAdapter({
     setCustomPatternSelection?.();
     setPatternName?.(normalizePresetName?.(patternName) || patternName);
     setCustomPatternValue?.(normalizedPattern);
+    setPlaybackEndingCue?.(endingCue || null);
     setEditorPatternMode?.(normalizePatternMode?.(patternMode || 'both') || patternMode || 'both');
     syncPatternSelectionFromInput?.();
     setLastPatternSelectValue?.();

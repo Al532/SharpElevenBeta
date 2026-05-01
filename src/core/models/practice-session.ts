@@ -1,5 +1,6 @@
 import type {
   ChartPlaybackEntry,
+  PlaybackEndingCue,
   PracticePlaybackBar,
   PracticeSessionSpec
 } from '../types/contracts';
@@ -23,6 +24,27 @@ function normalizeObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function normalizeEndingCue(value: unknown): PlaybackEndingCue | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const cue = value as Record<string, unknown>;
+  const style = normalizeString(cue.style).trim();
+  const kind = normalizeString(cue.kind).trim();
+  if (!style || !kind) return null;
+  return {
+    ...deepClone(cue),
+    kind,
+    style,
+    source: normalizeString(cue.source, 'natural_end'),
+    holdMs: normalizeNumber(cue.holdMs, 0),
+    barId: normalizeString(cue.barId),
+    barIndex: normalizeNumber(cue.barIndex, 0),
+    beatIndex: normalizeNumber(cue.beatIndex, 0),
+    targetBeat: normalizeNumber(cue.targetBeat, 0),
+    targetChordIndex: normalizeNumber(cue.targetChordIndex, 0),
+    targetSymbol: normalizeString(cue.targetSymbol)
+  };
 }
 
 export const PRACTICE_SESSION_SCHEMA_VERSION = '1.0.0';
@@ -206,10 +228,36 @@ export function createPracticePlaybackBarsFromChartEntries(
       metadata: {
         sourceEvent: sourceEntry?.sourceEvent || null,
         flags: Array.isArray(sourceEntry?.flags) ? [...sourceEntry.flags] : [],
-        repeatedFromBar: sourceEntry?.repeatedFromBar || null
+        repeatedFromBar: sourceEntry?.repeatedFromBar || null,
+        endingCue: normalizeEndingCue(sourceEntry?.endingCue)
       }
     });
   }).filter((bar) => bar.symbols.length > 0 || bar.beatSlots.length > 0);
+}
+
+export function createPracticePlaybackEndingCueFromBars(
+  bars: PracticePlaybackBar[] = []
+): PlaybackEndingCue | null {
+  let currentBeat = 0;
+  for (const bar of bars || []) {
+    const cue = normalizeEndingCue(bar?.metadata?.endingCue);
+    const beatSlots = Array.isArray(bar?.beatSlots) ? bar.beatSlots : [];
+    if (cue) {
+      const beatIndex = Math.max(
+        0,
+        Math.min(Math.max(0, beatSlots.length - 1), Math.round(Number(cue.beatIndex || 0)))
+      );
+      const targetBeat = currentBeat + beatIndex;
+      return {
+        ...cue,
+        targetBeat,
+        targetChordIndex: targetBeat,
+        targetSymbol: beatSlots[beatIndex] || bar.symbols?.[0] || ''
+      };
+    }
+    currentBeat += Math.max(1, beatSlots.length || bar.symbols?.length || 1);
+  }
+  return null;
 }
 
 export function buildLegacyPatternStringFromPracticeBars(bars: PracticePlaybackBar[] = []): string {
@@ -239,7 +287,7 @@ export function buildLegacyEnginePatternStringFromPracticeBars(
 }
 
 type PracticeSessionSpecInput = Omit<Partial<PracticeSessionSpec>, 'playback'> & {
-  playback?: { bars?: PracticePlaybackBar[] };
+  playback?: { bars?: PracticePlaybackBar[]; endingCue?: PlaybackEndingCue | null };
 };
 
 export function createPracticeSessionSpec({
@@ -260,6 +308,8 @@ export function createPracticeSessionSpec({
 
   const patternString = buildLegacyPatternStringFromPracticeBars(bars);
   const enginePatternString = buildLegacyEnginePatternStringFromPracticeBars(bars);
+  const endingCue = normalizeEndingCue(playback?.endingCue)
+    || createPracticePlaybackEndingCueFromBars(bars);
 
   return {
     schemaVersion: PRACTICE_SESSION_SCHEMA_VERSION,
@@ -271,7 +321,8 @@ export function createPracticeSessionSpec({
     playback: {
       bars,
       patternString,
-      enginePatternString
+      enginePatternString,
+      endingCue
     },
     display: deepClone(normalizeObject(display)) || {},
     selection: selection ? deepClone(selection) : null,

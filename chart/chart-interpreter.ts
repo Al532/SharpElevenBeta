@@ -13,13 +13,23 @@ import {
   CHORD_ENRICHMENT_MODES,
   reharmonizeChordSlotCollections
 } from './reharm.js';
+import {
+  DEFAULT_PLAYBACK_ENDING_CONFIG,
+  resolvePlaybackEndingStyle
+} from '../src/core/playback/playback-ending.js';
 
 const MAX_PLAYBACK_STEPS = 1024;
 
 type CreateChartPlaybackPlanFromDocumentOptions = {
   stopAtFine?: boolean,
   chordEnrichmentMode?: string,
-  repeatCount?: number
+  repeatCount?: number,
+  endingStyleThresholds?: {
+    onbeatLongMaxBpm?: number | null,
+    shortMinBpm?: number | null
+  },
+  endingStyle?: string | null,
+  longEndingHoldMs?: number
 };
 
 /**
@@ -244,6 +254,66 @@ function findHighestEndingWithinRange(endingMap, startIndex, endIndex) {
     }
   }
   return highest;
+}
+
+function findFirstPlayableCellBeatIndex(playbackCellSlots = []) {
+  for (const [index, cellSlot] of (playbackCellSlots || []).entries()) {
+    if (isPlayableChordSlot(cellSlot?.chord)) return index;
+  }
+  return 0;
+}
+
+function createEndingCue(entry, {
+  kind,
+  style,
+  source,
+  holdMs
+}) {
+  return {
+    kind,
+    style,
+    source,
+    holdMs,
+    barId: entry?.barId || '',
+    barIndex: Number(entry?.barIndex || 0),
+    beatIndex: findFirstPlayableCellBeatIndex(entry?.playbackCellSlots || [])
+  };
+}
+
+function applyPlaybackEndingCue(entries, chartDocument, options) {
+  if (!Array.isArray(entries) || entries.length === 0) return entries;
+
+  const tempo = Number(chartDocument?.metadata?.tempo || 120);
+  const fermataIndex = entries.findIndex((entry) => (entry?.flags || []).includes('fermata'));
+  const targetIndex = fermataIndex >= 0 ? fermataIndex : entries.length - 1;
+  const targetEntry = entries[targetIndex];
+  if (!targetEntry) return entries;
+
+  const isFermata = fermataIndex >= 0;
+  const style = resolvePlaybackEndingStyle({
+    tempo,
+    forceLong: isFermata,
+    style: options.endingStyle,
+    thresholds: options.endingStyleThresholds
+  });
+  const holdMs = style === 'short'
+    ? 0
+    : Number(options.longEndingHoldMs || DEFAULT_PLAYBACK_ENDING_CONFIG.longHoldMs);
+
+  targetEntry.endingCue = createEndingCue(targetEntry, {
+    kind: isFermata ? 'fermata' : 'final_chord',
+    style,
+    source: isFermata
+      ? 'fermata'
+      : ((targetEntry.flags || []).includes('fine') ? 'fine' : 'natural_end'),
+    holdMs
+  });
+
+  if (isFermata && targetIndex < entries.length - 1) {
+    entries.splice(targetIndex + 1);
+  }
+
+  return entries;
 }
 
 function normalizeRepeatCount(value, fallback = 1) {
@@ -476,6 +546,7 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
       entry.displayTokens = JSON.parse(JSON.stringify(entry.playbackSlots));
     }
   });
+  applyPlaybackEndingCue(entries, chartDocument, options);
 
   return createChartPlaybackPlan({
     document: chartDocument,

@@ -2,6 +2,7 @@ import { createEmbeddedPracticeRuntimeAppContextOptions } from './drill-embedded
 import { createDrillEmbeddedRuntimeHostBindings } from './drill-embedded-runtime-host.js';
 import { createDrillEmbeddedRuntimeContextBindings } from './drill-runtime-app-bindings.js';
 import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
+import type { PracticePlaybackPatternUiBindings } from '../practice-playback/practice-playback-types.js';
 
 type DrillEmbeddedRuntimeDom = Record<string, unknown>;
 type DrillEmbeddedPatternUiBindings = {
@@ -13,6 +14,7 @@ type DrillEmbeddedPatternUiBindings = {
   setEditorPatternMode?: (value: string) => void;
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
+  setPlaybackEndingCue?: PracticePlaybackPatternUiBindings['setPlaybackEndingCue'];
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;

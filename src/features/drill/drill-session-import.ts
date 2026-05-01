@@ -6,7 +6,7 @@ import type {
 } from '../../core/types/contracts';
 
 import { consumePendingPracticeSession } from '../../core/storage/app-state-storage.js';
-import { applyPracticeSessionToDrillUi } from './drill-session-builder.js';
+import { applyPracticeSessionToEmbeddedPattern } from '../../core/playback/practice-session-pattern-adapter.js';
 
 export function consumePendingPracticeSessionIntoUi({
   applyEmbeddedPattern,
@@ -20,7 +20,7 @@ export function consumePendingPracticeSessionIntoUi({
   const pendingPracticeSession = consumePendingPracticeSession();
   if (!pendingPracticeSession) return false;
 
-  applyPracticeSessionToDrillUi({
+  applyPracticeSessionToEmbeddedPattern({
     session: pendingPracticeSession,
     applyEmbeddedPattern,
     applyEmbeddedPlaybackSettings

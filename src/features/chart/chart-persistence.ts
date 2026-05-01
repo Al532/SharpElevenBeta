@@ -12,11 +12,6 @@ import {
   mergeChartSourceRefs,
   normalizeChartLibraryDocument
 } from './chart-library.js';
-import {
-  appendIRealBehaviorTestCharts,
-  isIRealBehaviorTestChart,
-  removeIRealBehaviorTestCharts
-} from '../../../chart/ireal-behavior-test-fixtures.js';
 
 const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
 const CHART_LIBRARY_STORE_NAME = 'libraries';
@@ -28,6 +23,10 @@ const DEFAULT_MASTER_VOLUME_PERCENT = 50;
 const DEFAULT_CHANNEL_VOLUME_PERCENT = 100;
 const EMPTY_PLAYLIST_NAME = 'playlist';
 const RECENT_CHART_STORAGE_LIMIT = 10;
+const TEMPORARY_CHART_TEST_SOURCE_NAMES = new Set([
+  'iReal behavior tests',
+  'Playback ending tests'
+]);
 
 type ChartLibraryPayload = {
   source: string;
@@ -37,6 +36,10 @@ type ChartLibraryPayload = {
 
 type LoadPersistedChartLibraryOptions = {
   includeIRealBehaviorTestCharts?: boolean;
+};
+
+type ChartTestFixtureModule = {
+  appendIRealBehaviorTestCharts?: (documents: ChartDocument[]) => ChartDocument[];
 };
 
 export type ChartImportSummary = {
@@ -174,14 +177,50 @@ async function normalizePersistedChartLibrary(
   };
 }
 
-function applyTemporaryChartFixtures(
+function getViteEnv(): Record<string, unknown> {
+  return ((import.meta as ImportMeta & { env?: Record<string, unknown> }).env || {});
+}
+
+function shouldIncludeTemporaryChartFixtures({
+  includeIRealBehaviorTestCharts = true
+}: LoadPersistedChartLibraryOptions = {}): boolean {
+  if (!includeIRealBehaviorTestCharts) return false;
+  const env = getViteEnv();
+  return env.DEV === true || env.VITE_INCLUDE_CHART_TEST_FIXTURES === 'true';
+}
+
+async function loadChartTestFixtureModule(): Promise<ChartTestFixtureModule | null> {
+  const env = import.meta.env as Record<string, unknown> | undefined;
+  if (env?.DEV === true || env?.VITE_INCLUDE_CHART_TEST_FIXTURES === 'true') {
+    return import('../../../chart/ireal-behavior-test-fixtures.js') as Promise<ChartTestFixtureModule>;
+  }
+  return null;
+}
+
+function isTemporaryChartTestChart(document: ChartDocument | null | undefined): boolean {
+  const documentId = String(document?.metadata?.id || '');
+  if (documentId.startsWith('ireal-behavior-')) return true;
+  if (documentId.startsWith('playback-ending-')) return true;
+  return document?.source?.sourceRefs?.some((sourceRef) => (
+    TEMPORARY_CHART_TEST_SOURCE_NAMES.has(String(sourceRef.name || ''))
+  )) === true;
+}
+
+function removeTemporaryChartTestCharts(documents: ChartDocument[] = []): ChartDocument[] {
+  return documents.filter((document) => !isTemporaryChartTestChart(document));
+}
+
+async function applyTemporaryChartFixtures(
   library: ChartLibraryPayload | null,
-  { includeIRealBehaviorTestCharts = true }: LoadPersistedChartLibraryOptions = {}
-): ChartLibraryPayload | null {
-  if (!library || !includeIRealBehaviorTestCharts) return library;
+  options: LoadPersistedChartLibraryOptions = {}
+): Promise<ChartLibraryPayload | null> {
+  if (!library || !shouldIncludeTemporaryChartFixtures(options)) return library;
+  const fixtureModule = await loadChartTestFixtureModule();
+  const appendTestCharts = fixtureModule?.appendIRealBehaviorTestCharts;
+  if (typeof appendTestCharts !== 'function') return library;
   return {
     ...library,
-    documents: appendIRealBehaviorTestCharts(library.documents)
+    documents: appendTestCharts(library.documents)
   };
 }
 
@@ -303,7 +342,7 @@ function normalizeHomeChartSummary(value: unknown): HomeChartSummary | null {
 }
 
 function createHomeChartSummary(library: ChartLibraryPayload | null): HomeChartSummary | null {
-  const documents = removeIRealBehaviorTestCharts(library?.documents || []);
+  const documents = removeTemporaryChartTestCharts(library?.documents || []);
   if (documents.length === 0) return null;
 
   const documentsById = new Map(
@@ -376,7 +415,7 @@ function updateHomeChartSummaryRecentChart(chartDocument: ChartDocument | null |
 
 export function recordRecentChartDocument(chartDocument: ChartDocument | null | undefined): void {
   if (!chartDocument?.metadata?.id) return;
-  if (isIRealBehaviorTestChart(chartDocument)) return;
+  if (isTemporaryChartTestChart(chartDocument)) return;
   persistChartId(String(chartDocument.metadata.id || ''), {
     chartDocument
   });
@@ -762,7 +801,7 @@ export async function loadPersistedChartLibrary(
         const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readonly');
         const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
         const persistedValue = await waitForRequest(store.get(IMPORTED_CHART_LIBRARY_KEY));
-        return applyTemporaryChartFixtures(
+        return await applyTemporaryChartFixtures(
           await normalizePersistedChartLibrary(persistedValue),
           options
         );
@@ -775,7 +814,7 @@ export async function loadPersistedChartLibrary(
   }
 
   const chartUiSettings = loadChartUiSettings();
-  return applyTemporaryChartFixtures(
+  return await applyTemporaryChartFixtures(
     await normalizePersistedChartLibrary(chartUiSettings?.importedChartLibrary),
     options
   );
@@ -792,7 +831,7 @@ export async function persistChartLibrary({
 }): Promise<ChartLibraryPayload | null> {
   const normalizedLibrary = await normalizePersistedChartLibrary({
     source,
-    documents: removeIRealBehaviorTestCharts(documents)
+    documents: removeTemporaryChartTestCharts(documents)
   });
 
   if (!normalizedLibrary) {
@@ -839,7 +878,7 @@ export async function persistChartLibrary({
         importedChartLibrarySource: mergedLibrary.source,
         homeChartSummary: createHomeChartSummary(mergedLibrary)
       });
-      return applyTemporaryChartFixtures(mergedLibrary);
+      return await applyTemporaryChartFixtures(mergedLibrary);
     }
     try {
       const storeNames = database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)
@@ -875,7 +914,7 @@ export async function persistChartLibrary({
     });
   }
 
-  return applyTemporaryChartFixtures(mergedLibrary);
+  return await applyTemporaryChartFixtures(mergedLibrary);
 }
 
 export async function loadPersistedSetlists(): Promise<ChartSetlist[]> {

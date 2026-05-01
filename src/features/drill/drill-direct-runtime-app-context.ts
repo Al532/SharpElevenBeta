@@ -6,7 +6,7 @@ import type {
   PlaybackSettings
 } from '../../core/types/contracts';
 
-import { createDirectPlaybackSessionHost } from './drill-direct-session.js';
+import { createDirectPlaybackSessionHost } from '../../core/playback/direct-playback-session-host.js';
 
 type DrillDirectPlaybackRuntime = Pick<
   DirectPlaybackControllerOptions,

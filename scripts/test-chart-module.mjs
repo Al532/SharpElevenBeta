@@ -39,6 +39,7 @@ import { createPracticePlaybackAssembly } from '../src/core/playback/practice-pl
 import { createPracticePlaybackAssemblyProvider } from '../src/core/playback/practice-playback-assembly-provider.ts';
 import { createPracticePlaybackRuntime as createCorePracticePlaybackRuntime } from '../src/core/playback/practice-playback-runtime.ts';
 import { createPracticePlaybackRuntimeProvider } from '../src/core/playback/practice-playback-runtime-provider.ts';
+import { resolvePlaybackEndingStyle } from '../src/core/playback/playback-ending.ts';
 import { createEmbeddedPlaybackSessionAdapter } from '../src/core/playback/embedded-playback-session-adapter.ts';
 import { createDirectPlaybackSessionAdapter } from '../src/core/playback/direct-playback-session-adapter.ts';
 import { createPracticePlaybackSessionAdapter } from '../src/core/playback/practice-playback-session-adapter.ts';
@@ -141,11 +142,13 @@ import { createDrillHarmonyDisplayHelpers } from '../src/features/drill/drill-di
 import { createDrillHarmonyLayoutHelpers } from '../src/features/drill/drill-display-runtime.ts';
 import { createDrillPreviewTimingHelpers } from '../src/features/drill/drill-display-runtime.ts';
 import { createDirectDrillRuntimeAppContextOptions } from '../src/features/drill/drill-direct-runtime-app-context.ts';
-import { createDirectPlaybackSessionHandlers, createDirectPlaybackSessionHost } from '../src/features/drill/drill-direct-session.ts';
+import { createDirectPlaybackSessionHandlers, createDirectPlaybackSessionHost } from '../src/core/playback/direct-playback-session-host.ts';
+import { applyPracticeSessionToEmbeddedPattern } from '../src/core/playback/practice-session-pattern-adapter.ts';
 import { createDrillDirectRuntimeAppAssembly } from '../src/features/drill/drill-direct-runtime-app-assembly.ts';
 import { createPracticePlaybackPreparationRuntime } from '../src/features/practice-playback/practice-playback-preparation-runtime.ts';
 import { createPracticePlaybackPreparationAppContext } from '../src/features/practice-playback/practice-playback-preparation-app-context.ts';
 import { createPracticePlaybackResourcesAppFacade } from '../src/features/practice-playback/practice-playback-resources-app-facade.ts';
+import { createPlaybackScheduler } from '../src/features/practice-playback/practice-playback-scheduler.ts';
 import { createPracticePlaybackSettingsRuntime } from '../src/features/practice-playback/practice-playback-settings-runtime.ts';
 import { createDrillSessionAnalytics } from '../src/features/drill/drill-session-analytics.ts';
 import { createDrillKeyPoolRuntime } from '../src/features/drill/drill-key-pool-runtime.ts';
@@ -218,7 +221,18 @@ import {
 } from '../src/features/practice-playback/practice-playback-app-context.ts';
 import { createPracticeArrangementVoicingRuntimeAppBindings } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-app-bindings.ts';
 import { createPracticeArrangementWalkingBassAppBindings } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-app-bindings.ts';
-import { createWalkingBassGenerator } from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
+import {
+  applyAnticipationEffect,
+  createWalkingBassGenerator,
+  getAnticipationEligibleBeatPairKind,
+  isAnticipationEligibleBeatPair
+} from '../src/features/practice-arrangement/practice-arrangement-walking-bass.ts';
+import {
+  PLAYBACK_ENDING_TEST_SOURCE,
+  appendIRealBehaviorTestCharts,
+  createPlaybackEndingTestCharts,
+  removeIRealBehaviorTestCharts
+} from '../chart/ireal-behavior-test-fixtures.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2692,6 +2706,127 @@ assert.equal(
   'ctx-next-plan',
   'Practice playback preparation app context preserves next-progression comping writes.'
 );
+{
+  const preEndingOffbeat = 3 + getSwingOffbeatPositionBeats();
+  const scheduledBassNotes = [];
+  let scheduledCompingPlan = null;
+  const schedulerState = {
+    audioCtx: { currentTime: 0 },
+    currentBeat: 3,
+    currentChordIdx: 3,
+    currentKey: 0,
+    currentKeyRepetition: 1,
+    currentBassPlan: [
+      { timeBeats: preEndingOffbeat, durationBeats: 0.333, midi: 39, velocity: 120, source: 'bass-anticipation' },
+      { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, source: 'bass' }
+    ],
+    currentCompingPlan: {
+      style: 'piano',
+      anticipatesNextStart: false,
+      events: [
+        { timeBeats: preEndingOffbeat, slotIndex: 7, slotKind: 'offbeat' },
+        { timeBeats: 3, slotIndex: 6, slotKind: 'beat' }
+      ]
+    },
+    nextCompingPlan: { style: 'piano', events: [] },
+    paddedChords: [
+      { semitones: 0 },
+      { semitones: 5 },
+      { semitones: 7 },
+      { semitones: 11 },
+      { semitones: 0 }
+    ],
+    nextPaddedChords: [{ semitones: 2 }],
+    nextKeyValue: 0,
+    nextRawChords: [{ semitones: 2 }],
+    nextBeatTime: 0,
+    isPlaying: true,
+    isPaused: false,
+    isIntro: false,
+    pendingDisplayTimeouts: new Set(),
+    lastPlayedChordIdx: -1
+  };
+  const scheduler = createPlaybackScheduler({
+    dom: {
+      majorMinor: { checked: false },
+      keyDisplay: { innerHTML: '', textContent: '' },
+      chordDisplay: { innerHTML: '' },
+      nextKeyDisplay: { innerHTML: '', textContent: '' },
+      nextChordDisplay: { innerHTML: '' }
+    },
+    state: schedulerState,
+    constants: { SCHEDULE_AHEAD: 1.5 },
+    helpers: {
+      applyDisplaySideLayout: () => {},
+      buildPreparedBassPlan: () => [],
+      buildLegacyVoicingPlan: () => [],
+      buildPreparedCompingPlans: () => {},
+      buildLoopRepVoicings: () => [],
+      buildVoicingPlanForSlots: () => [],
+      canLoopTrimProgression: () => false,
+      chordSymbolHtml: () => '',
+      compingEngine: {
+        scheduleWindow: ({ plan }) => { scheduledCompingPlan = plan; },
+        scheduleEnding: () => {}
+      },
+      createOneChordToken: () => ({}),
+      createVoicingSlot: () => ({}),
+      fitHarmonyDisplay: () => {},
+      getCurrentPatternString: () => 'I',
+      getPatternKeyOverridePitchClass: () => null,
+      getCompingStyle: () => 'piano',
+      getBeatsPerChord: () => 1,
+      getChordsPerBar: () => 4,
+      getPlaybackMeasurePlan: () => null,
+      getMeasureInfoForChordIndex: () => null,
+      getRemainingBeatsUntilNextProgression: () => 1,
+      getRepetitionsPerKey: () => 1,
+      getFinitePlayback: () => false,
+      getPlaybackEndingCue: () => ({
+        style: 'onbeat_long',
+        targetBeat: 4,
+        targetChordIndex: 4,
+        holdMs: 2000
+      }),
+      getSecondsPerBeat: () => 1,
+      getSwingRatio: () => 2,
+      hideNextCol: () => {},
+      ensureNearTermSamplePreload: () => {},
+      isWalkingBassEnabled: () => true,
+      isChordsEnabled: () => true,
+      isVoiceLeadingV2Enabled: () => false,
+      keyNameHtml: () => '',
+      nextKey: () => 0,
+      padProgression: (chords) => chords,
+      parseOneChordSpec: () => ({ active: false }),
+      parsePattern: () => [{ semitones: 0 }],
+      playClick: () => {},
+      playNote: (midi, time) => { scheduledBassNotes.push({ midi, time }); },
+      playRide: () => {},
+      renderAccidentalTextHtml: () => '',
+      scheduleDrumsForBeat: () => {},
+      shouldShowNextPreview: () => false,
+      showNextCol: () => {},
+      stopPlayback: () => {},
+      takeNextOneChordQuality: () => '',
+      trackProgressionOccurrence: () => {},
+      updateBeatDots: () => {},
+      getBassMidi: (_key, semitones) => 36 + semitones
+    }
+  });
+
+  scheduler.scheduleBeat();
+  assert.deepEqual(
+    scheduledBassNotes.map((event) => event.midi),
+    [40, 36],
+    'Practice playback suppresses the walking-bass anticipation before an onbeat ending while preserving the beat bass and ending bass.'
+  );
+  assert.deepEqual(
+    scheduledCompingPlan?.events?.map((event) => event.timeBeats),
+    [3],
+    'Practice playback suppresses the piano chord on the offbeat before an onbeat ending.'
+  );
+}
 const playbackResourcesFacade = createPracticePlaybackResourcesAppFacade({
   audioFacade: {
     preloadStartupSamples: () => 'startup',
@@ -3620,6 +3755,140 @@ function syntheticPlaybackBarIndices(chartDocument, options = {}) {
   return createChartPlaybackPlanFromDocument(createChartDocument(chartDocument), options)
     .entries
     .map((entry) => entry.barIndex);
+}
+
+function syntheticPlaybackPlan(chartDocument, options = {}) {
+  return createChartPlaybackPlanFromDocument(createChartDocument(chartDocument), options);
+}
+
+function makeSyntheticEndingChart({ tempo = 120, fermataBarIndex = null } = {}) {
+  return {
+    metadata: { title: 'Ending Cue', id: `ending-cue-${tempo}`, tempo },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'F7', flags: fermataBarIndex === 2 ? ['fermata'] : [] }),
+      makeSyntheticChartBar(3, { symbol: 'Bbmaj7' })
+    ]
+  };
+}
+
+assert.equal(resolvePlaybackEndingStyle({ tempo: 85 }), 'onbeat_long', 'Ending style uses the onbeat long threshold through 85 bpm.');
+assert.equal(resolvePlaybackEndingStyle({ tempo: 86 }), 'offbeat_long', 'Ending style switches to offbeat long above 85 bpm.');
+assert.equal(resolvePlaybackEndingStyle({ tempo: 169 }), 'offbeat_long', 'Ending style keeps offbeat long below 170 bpm.');
+assert.equal(resolvePlaybackEndingStyle({ tempo: 170 }), 'short', 'Ending style switches to short at 170 bpm.');
+assert.equal(resolvePlaybackEndingStyle({ tempo: 220, forceLong: true }), 'offbeat_long', 'Forced-long endings never resolve to short.');
+assert.equal(resolvePlaybackEndingStyle({ tempo: 70, style: 'short' }), 'short', 'Ending style can be configured explicitly.');
+assert.equal(resolvePlaybackEndingStyle({ tempo: 210, style: 'onbeat_long' }), 'onbeat_long', 'Configured ending styles override BPM thresholds.');
+
+{
+  const slowEndingPlan = syntheticPlaybackPlan(makeSyntheticEndingChart({ tempo: 80 }));
+  const mediumEndingPlan = syntheticPlaybackPlan(makeSyntheticEndingChart({ tempo: 120 }));
+  const fastEndingPlan = syntheticPlaybackPlan(makeSyntheticEndingChart({ tempo: 180 }));
+  assert.equal(
+    slowEndingPlan.entries[slowEndingPlan.entries.length - 1]?.endingCue?.style,
+    'onbeat_long',
+    'Slow charts mark the final chord as an onbeat long ending.'
+  );
+  assert.equal(
+    mediumEndingPlan.entries[mediumEndingPlan.entries.length - 1]?.endingCue?.style,
+    'offbeat_long',
+    'Medium charts mark the final chord as an offbeat long ending.'
+  );
+  assert.equal(
+    fastEndingPlan.entries[fastEndingPlan.entries.length - 1]?.endingCue?.style,
+    'short',
+    'Fast charts mark the final chord as a short ending.'
+  );
+
+  const fermataPlan = syntheticPlaybackPlan(makeSyntheticEndingChart({ tempo: 180, fermataBarIndex: 2 }));
+  const fermataEntry = fermataPlan.entries[fermataPlan.entries.length - 1];
+  assert.equal(fermataEntry.barIndex, 2, 'A reached fermata truncates playback after the fermata bar.');
+  assert.equal(fermataEntry.endingCue?.kind, 'fermata', 'A reached fermata is exposed as a fermata ending cue.');
+  assert.equal(fermataEntry.endingCue?.style, 'offbeat_long', 'A fermata stays long even above the short-ending threshold.');
+
+  const endingSession = createPracticeSessionFromChartDocument(
+    createChartDocument(makeSyntheticEndingChart({ tempo: 120 })),
+    { playbackPlan: mediumEndingPlan }
+  );
+  assert.equal(endingSession.playback.endingCue?.style, 'offbeat_long', 'Practice sessions preserve the chart ending style.');
+  assert.equal(Number.isFinite(endingSession.playback.endingCue?.targetBeat), true, 'Practice sessions resolve an absolute ending beat.');
+  assert.equal(endingSession.playback.endingCue?.targetSymbol, 'Bbmaj7', 'Practice sessions resolve the final ending symbol.');
+
+  const configuredEndingPlan = syntheticPlaybackPlan(makeSyntheticEndingChart({ tempo: 210 }), { endingStyle: 'onbeat_long' });
+  assert.equal(
+    configuredEndingPlan.entries[configuredEndingPlan.entries.length - 1]?.endingCue?.style,
+    'onbeat_long',
+    'Chart playback can force one of the configured ending styles.'
+  );
+}
+
+{
+  const endingFixtureCharts = createPlaybackEndingTestCharts();
+  assert.equal(endingFixtureCharts.length, 4, 'Playback ending fixtures provide a compact test source.');
+  assert.deepEqual(
+    endingFixtureCharts[0].bars[0].notation.tokens[0],
+    {
+      kind: 'chord',
+      symbol: 'Cmaj7',
+      root: 'C',
+      quality: 'maj7',
+      bass: null,
+      alternate: null
+    },
+    'Playback ending fixtures expose display-ready chord tokens, not playback-only symbols.'
+  );
+  assert.deepEqual(
+    [...new Set(endingFixtureCharts.flatMap((document) => (
+      document.source?.sourceRefs || []
+    ).map((sourceRef) => sourceRef.name)))],
+    [PLAYBACK_ENDING_TEST_SOURCE],
+    'Playback ending fixtures use their own chart source name.'
+  );
+
+  const endingStylesByFixtureId = new Map(
+    endingFixtureCharts.map((document) => {
+      const plan = createChartPlaybackPlanFromDocument(document);
+      const finalEntry = plan.entries[plan.entries.length - 1];
+      return [document.metadata.id, {
+        barIndex: finalEntry?.barIndex,
+        kind: finalEntry?.endingCue?.kind,
+        style: finalEntry?.endingCue?.style
+      }];
+    })
+  );
+  assert.equal(
+    endingStylesByFixtureId.get('playback-ending-onbeat-long-72')?.style,
+    'onbeat_long',
+    'Playback ending fixture covers the onbeat long style.'
+  );
+  assert.equal(
+    endingStylesByFixtureId.get('playback-ending-offbeat-long-120')?.style,
+    'offbeat_long',
+    'Playback ending fixture covers the offbeat long style.'
+  );
+  assert.equal(
+    endingStylesByFixtureId.get('playback-ending-short-190')?.style,
+    'short',
+    'Playback ending fixture covers the short style.'
+  );
+  assert.deepEqual(
+    endingStylesByFixtureId.get('playback-ending-fermata-long-190'),
+    { barIndex: 4, kind: 'fermata', style: 'offbeat_long' },
+    'Playback ending fixture covers fast fermata as a long ending that stops at the fermata bar.'
+  );
+
+  const appendedFixtures = appendIRealBehaviorTestCharts([]);
+  assert.equal(
+    appendedFixtures.some((document) => document.source?.sourceRefs?.some((sourceRef) => sourceRef.name === PLAYBACK_ENDING_TEST_SOURCE)),
+    true,
+    'Temporary chart fixtures append the playback ending source.'
+  );
+  assert.equal(
+    removeIRealBehaviorTestCharts(appendedFixtures).some((document) => document.metadata.id?.startsWith('playback-ending-')),
+    false,
+    'Temporary fixture cleanup removes playback ending charts.'
+  );
 }
 
 assert.deepEqual(
@@ -5089,7 +5358,7 @@ directSessionHost.loadDirectSession(satinSession, { stringsVolume: 60 });
 assert.equal(
   directAdapterCalls.some(call => call.kind === 'direct-host-pattern'),
   true,
-  'Direct playback session host can adapt a practice session onto the current drill UI/runtime implementation.'
+  'Direct playback session host can adapt a practice session onto the embedded pattern runtime.'
 );
 assert.equal(
   directSessionHost.getDirectPlaybackState()?.currentBeat,
@@ -5434,6 +5703,27 @@ assert.equal(
   satinSession.tempo || 160,
   'Chart playback payload builder preserves session tempo when present.'
 );
+assert.deepEqual(
+  chartPlaybackPayloadBuilder(satinSession, { transposition: 2 }).endingCue,
+  satinSession.playback.endingCue,
+  'Chart playback payload builder forwards the session ending cue to embedded playback.'
+);
+{
+  const applyPracticeSessionPayloads = [];
+  const applyPracticeSessionResult = applyPracticeSessionToEmbeddedPattern({
+    session: satinSession,
+    applyEmbeddedPattern(payload) {
+      applyPracticeSessionPayloads.push(payload);
+      return { ok: true, state: drillRuntimeState };
+    }
+  });
+  assert.equal(applyPracticeSessionResult.ok, true, 'Embedded pattern session application accepts a chart session.');
+  assert.deepEqual(
+    applyPracticeSessionPayloads[0]?.endingCue,
+    satinSession.playback.endingCue,
+    'Embedded pattern session application forwards ending cues to the embedded pattern adapter.'
+  );
+}
 const PracticePlaybackAssembly = createPracticePlaybackAssembly({
   applyEmbeddedPattern(payload) {
     drillAdapterCalls.push({ kind: 'assembly-pattern', payload });
@@ -5811,6 +6101,52 @@ const f9BassLine = walkingBassGenerator.buildLine({
   isMinor: false
 });
 assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sustained F9 bar.');
+assert.equal(
+  isAnticipationEligibleBeatPair({ timeBeats: 0 }, { timeBeats: 1 }, 4),
+  true,
+  'Walking bass anticipation ornament still allows strong-to-weak adjacent beats.'
+);
+assert.equal(
+  isAnticipationEligibleBeatPair({ timeBeats: 3 }, { timeBeats: 4 }, 4),
+  true,
+  'Walking bass anticipation ornament allows anticipation into the first beat.'
+);
+assert.equal(
+  getAnticipationEligibleBeatPairKind({ timeBeats: 3 }, { timeBeats: 4 }, 4),
+  'first-beat',
+  'Walking bass anticipation ornament identifies first-beat anticipation separately from interval-constrained anticipations.'
+);
+assert.equal(
+  isAnticipationEligibleBeatPair({ timeBeats: 1 }, { timeBeats: 2 }, 4),
+  false,
+  'Walking bass anticipation ornament does not allow every weak-to-strong pair.'
+);
+{
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const firstBeatAnticipation = applyAnticipationEffect([
+      { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 4, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
+    ], undefined, 4);
+    assert.ok(
+      firstBeatAnticipation[1].timeBeats < 4,
+      'Walking bass first-beat anticipation does not require a descending interval.'
+    );
+
+    const strongToWeakAnticipation = applyAnticipationEffect([
+      { timeBeats: 0, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 1, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
+    ], undefined, 4);
+    assert.equal(
+      strongToWeakAnticipation[1].timeBeats,
+      1,
+      'Walking bass strong-to-weak anticipation still requires the descending-interval constraint.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+}
 
 {
   const makeChart = (id, title, { origin = 'imported', sourceRefs = [] } = {}) => ({

@@ -26,6 +26,7 @@ export function createChartPlaybackPayloadBuilder({
     return {
       patternName: sessionSpec?.title || getCurrentChartTitle?.() || 'Chart Dev',
       patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
+      endingCue: sessionSpec?.playback?.endingCue || null,
       patternMode: 'both',
       tempo: sessionSpec?.tempo || getTempo?.() || 120,
       transposition: playbackSettings?.transposition ?? null,

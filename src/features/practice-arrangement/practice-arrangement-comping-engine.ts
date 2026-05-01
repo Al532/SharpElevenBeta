@@ -38,6 +38,16 @@ type PracticeArrangementCompingScheduleWindowOptions = {
   secondsPerBeat: number;
 };
 
+type PracticeArrangementCompingScheduleEndingOptions = {
+  style: string;
+  progression: PracticeArrangementCompingProgressionState;
+  chordIndex: number;
+  time: number;
+  durationSeconds: number;
+  slotDuration: number;
+  secondsPerBeat: number;
+};
+
 type PracticeArrangementCompingEngineOptions = {
   constants?: Record<string, unknown>;
   helpers?: Record<string, unknown>;
@@ -56,6 +66,7 @@ type PracticeArrangementCompingStyleModule = {
     secondsPerBeat: number;
     nextProgression?: PracticeArrangementCompingProgressionState;
   }) => void;
+  playEnding?: (options: Omit<PracticeArrangementCompingScheduleEndingOptions, 'style'>) => void;
   stopAll?: (stopTime: number, fadeDuration: number) => void;
   clear: () => void;
 };
@@ -176,6 +187,26 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
     }
   }
 
+  function scheduleEnding({
+    style,
+    progression,
+    chordIndex,
+    time,
+    durationSeconds,
+    slotDuration,
+    secondsPerBeat,
+  }: PracticeArrangementCompingScheduleEndingOptions) {
+    if (style === 'off') return;
+    getStyleModule(style).playEnding?.({
+      progression,
+      chordIndex,
+      time,
+      durationSeconds,
+      slotDuration,
+      secondsPerBeat,
+    });
+  }
+
   function stopActiveComping(stopTime: number, fadeDuration: number) {
     stringsComping.stopAll?.(stopTime, fadeDuration);
     pianoComping.stopAll?.(stopTime, fadeDuration);
@@ -190,6 +221,7 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
     buildPreparedPlans,
     collectSampleNotes,
     scheduleWindow,
+    scheduleEnding,
     stopActiveComping,
     clear,
   };

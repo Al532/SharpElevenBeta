@@ -413,19 +413,31 @@ function getMeasureBeatPosition(timeBeats, beatsPerBar = 4) {
   return ((Math.round(timeBeats) % normalizedBeatsPerBar) + normalizedBeatsPerBar) % normalizedBeatsPerBar;
 }
 
-function isStrongToWeakBeatPair(leftEvent, rightEvent, beatsPerBar = 4) {
-  if (!leftEvent || !rightEvent) return false;
-  if (!isWholeBeat(leftEvent.timeBeats) || !isWholeBeat(rightEvent.timeBeats)) return false;
-  if (Math.abs((rightEvent.timeBeats - leftEvent.timeBeats) - 1) > 0.001) return false;
+export function getAnticipationEligibleBeatPairKind(leftEvent, rightEvent, beatsPerBar = 4) {
+  if (!leftEvent || !rightEvent) return null;
+  if (!isWholeBeat(leftEvent.timeBeats) || !isWholeBeat(rightEvent.timeBeats)) return null;
+  if (Math.abs((rightEvent.timeBeats - leftEvent.timeBeats) - 1) > 0.001) return null;
 
   const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
   const strengths = getMetricBeatStrengths(normalizedBeatsPerBar);
   const leftBeatPosition = getMeasureBeatPosition(leftEvent.timeBeats, normalizedBeatsPerBar);
   const rightBeatPosition = getMeasureBeatPosition(rightEvent.timeBeats, normalizedBeatsPerBar);
-  return strengths[leftBeatPosition] === 'strong' && strengths[rightBeatPosition] === 'weak';
+  const isStrongToWeakPair = strengths[leftBeatPosition] === 'strong' && strengths[rightBeatPosition] === 'weak';
+  if (isStrongToWeakPair) return 'strong-to-weak';
+
+  const isFirstBeatAnticipationPair = rightBeatPosition === 0
+    && strengths[leftBeatPosition] === 'weak'
+    && strengths[rightBeatPosition] === 'strong';
+  if (isFirstBeatAnticipationPair) return 'first-beat';
+
+  return null;
 }
 
-function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4) {
+export function isAnticipationEligibleBeatPair(leftEvent, rightEvent, beatsPerBar = 4) {
+  return getAnticipationEligibleBeatPairKind(leftEvent, rightEvent, beatsPerBar) !== null;
+}
+
+export function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4) {
   if (!Array.isArray(events) || events.length < 2) return events;
 
   const anticipated = events.map((event) => ({ ...event }));
@@ -434,10 +446,14 @@ function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beats
   for (let index = 0; index < anticipated.length - 1; index += 1) {
     const currentEvent = anticipated[index];
     const nextEvent = anticipated[index + 1];
-    if (!isStrongToWeakBeatPair(currentEvent, nextEvent, beatsPerBar)) continue;
+    const beatPairKind = getAnticipationEligibleBeatPairKind(currentEvent, nextEvent, beatsPerBar);
+    if (!beatPairKind) continue;
 
     const descendingInterval = currentEvent.midi - nextEvent.midi;
-    if (descendingInterval < ANTICIPATION_EFFECT_MIN_DESCENDING_INTERVAL) continue;
+    if (
+      beatPairKind !== 'first-beat'
+      && descendingInterval < ANTICIPATION_EFFECT_MIN_DESCENDING_INTERVAL
+    ) continue;
     if (Math.random() >= ANTICIPATION_EFFECT_PROBABILITY) continue;
 
     const anticipatedStart = nextEvent.timeBeats - anticipationEffectStepBeats;

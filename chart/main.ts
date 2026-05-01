@@ -43,6 +43,7 @@ import {
   importDocumentsFromIRealText as importChartDocumentsFromIRealText,
   previewProtectedChartDelete
 } from '../src/features/chart/chart-library.js';
+import { readChartLibrarySubsetSession } from '../src/features/chart/chart-library-subset-session.js';
 import {
   renderSelectedFixture
 } from '../src/features/chart/chart-fixture-controller.js';
@@ -631,7 +632,7 @@ function getPlaybackSettings(): PlaybackSettings {
     transposition: getChartTransposeSemitones(),
     chartRepeatCount: getChartRepeatCount(),
     chartRepeatInfinite,
-    finitePlayback: !chartRepeatInfinite,
+    finitePlayback: state.selectionLoopActive ? false : !chartRepeatInfinite,
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
     customMediumSwingBass: dom.walkingBassToggle?.checked,
@@ -1413,6 +1414,10 @@ function createSelectionLoopPracticeSession(): PracticeSessionSpec | null {
   return {
     ...practiceSession,
     id: `${practiceSession.id || 'chart-selection'}-loop`,
+    playback: {
+      ...practiceSession.playback,
+      endingCue: null
+    },
     origin: {
       ...(practiceSession.origin || {}),
       mode: 'chart-selection-loop'
@@ -1857,8 +1862,9 @@ function getSelectionMenuVerticalBounds() {
   const viewport = window.visualViewport;
   const viewportHeight = viewport?.height || window.innerHeight || document.documentElement.clientHeight;
   const viewportTop = viewport?.offsetTop || 0;
-  let top = viewportTop;
-  let bottom = viewportTop + viewportHeight;
+  const appRect = dom.chartApp?.getBoundingClientRect();
+  let top = Math.max(viewportTop, appRect?.top ?? viewportTop);
+  let bottom = Math.min(viewportTop + viewportHeight, appRect?.bottom ?? viewportTop + viewportHeight);
 
   if (dom.chartApp?.classList.contains('overlay-open')) {
     const topBarRect = getVisibleOverlayRect(dom.chartTopOverlay?.querySelector('.chart-top-bar') || dom.chartTopOverlay);
@@ -1879,19 +1885,26 @@ function positionSelectionMenu() {
   const selectionBounds = getSelectedBarBounds();
   if (!selectionBounds) return;
 
-  const menuRect = dom.selectionMenu.getBoundingClientRect();
   const viewport = window.visualViewport;
   const viewportWidth = viewport?.width || window.innerWidth || document.documentElement.clientWidth;
-  const viewportHeight = viewport?.height || window.innerHeight || document.documentElement.clientHeight;
   const viewportLeft = viewport?.offsetLeft || 0;
-  const viewportTop = viewport?.offsetTop || 0;
+  const appRect = dom.chartApp?.getBoundingClientRect();
+  const frameLeft = appRect?.left ?? 0;
+  const frameTop = appRect?.top ?? 0;
+  const boundsLeft = Math.max(viewportLeft, appRect?.left ?? viewportLeft);
+  const boundsRight = Math.min(viewportLeft + viewportWidth, appRect?.right ?? viewportLeft + viewportWidth);
   const margin = 8;
+  const availableWidth = Math.max(1, boundsRight - boundsLeft - (margin * 2));
+  dom.selectionMenu.style.maxWidth = `${availableWidth}px`;
+  const menuRect = dom.selectionMenu.getBoundingClientRect();
   const menuWidth = Math.max(menuRect.width, 1);
   const menuHeight = Math.max(menuRect.height, 1);
   const preferredLeft = selectionBounds.left + (selectionBounds.width / 2);
-  const minLeft = viewportLeft + margin + (menuWidth / 2);
-  const maxLeft = viewportLeft + viewportWidth - margin - (menuWidth / 2);
-  const nextLeft = Math.max(minLeft, Math.min(maxLeft, preferredLeft));
+  const minLeft = boundsLeft + margin + (menuWidth / 2);
+  const maxLeft = boundsRight - margin - (menuWidth / 2);
+  const nextLeft = maxLeft >= minLeft
+    ? Math.max(minLeft, Math.min(maxLeft, preferredLeft))
+    : boundsLeft + ((boundsRight - boundsLeft) / 2);
   const verticalBounds = getSelectionMenuVerticalBounds();
   const topCandidate = selectionBounds.top - menuHeight - margin;
   const bottomCandidate = selectionBounds.bottom + margin;
@@ -1903,8 +1916,8 @@ function positionSelectionMenu() {
     ? topCandidate
     : Math.min(bottomCandidate, verticalBounds.bottom - menuHeight - margin);
 
-  dom.selectionMenu.style.left = `${nextLeft}px`;
-  dom.selectionMenu.style.top = `${Math.max(verticalBounds.top + margin, nextTop)}px`;
+  dom.selectionMenu.style.left = `${nextLeft - frameLeft}px`;
+  dom.selectionMenu.style.top = `${Math.max(verticalBounds.top + margin, nextTop) - frameTop}px`;
 }
 
 function createChartMetadataText(tagName: string, className: string, textContent: string): HTMLElement {
@@ -2207,6 +2220,29 @@ function exportCurrentChartPdf() {
   }, 0);
 }
 
+function getRequestedLibrarySubset(documents: ChartDocument[] = []): { documents: ChartDocument[]; source: string } | null {
+  const requestedOrigin = String(new URLSearchParams(window.location.search).get('from') || '').trim().toLowerCase();
+  if (requestedOrigin !== 'library') return null;
+
+  const subsetSession = readChartLibrarySubsetSession();
+  if (!subsetSession) return null;
+
+  const requestedChartId = getRequestedChartId();
+  if (requestedChartId && !subsetSession.chartIds.includes(requestedChartId)) return null;
+
+  const documentsById = new Map(documents.map((document) => [String(document.metadata?.id || ''), document]));
+  const subsetDocuments = subsetSession.chartIds
+    .map((chartId) => documentsById.get(chartId))
+    .filter((document): document is ChartDocument => Boolean(document));
+
+  if (subsetDocuments.length === 0) return null;
+
+  return {
+    documents: subsetDocuments,
+    source: subsetSession.source || 'Library selection'
+  };
+}
+
 async function importDefaultFixtureLibrary() {
   const preferredId = loadPersistedChartId();
   const snapshotStartedAt = getChartRenderPerfNow();
@@ -2268,6 +2304,22 @@ async function importDefaultFixtureLibrary() {
           return;
         }
       }
+    }
+
+    const requestedLibrarySubset = getRequestedLibrarySubset(persistedLibrary.documents);
+    if (requestedLibrarySubset) {
+      const requestedChartId = getRequestedChartId();
+      const preferredLibraryDocument = requestedChartId
+        ? requestedLibrarySubset.documents.find((document) => document.metadata.id === requestedChartId)
+        : null;
+      renderImportedLibrary({
+        documents: requestedLibrarySubset.documents,
+        source: requestedLibrarySubset.source,
+        preferredId: (preferredLibraryDocument || requestedLibrarySubset.documents[0]).metadata.id,
+        statusMessage: `Loaded ${requestedLibrarySubset.source} (${requestedLibrarySubset.documents.length} charts). Use previous and next to move manually.`,
+        renderSelectedChart: true
+      });
+      return;
     }
 
     const canKeepCurrentChart = Boolean(

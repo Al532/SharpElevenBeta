@@ -1,5 +1,13 @@
+import {
+  DEFAULT_PLAYBACK_ENDING_CONFIG,
+  isLongPlaybackEndingStyle,
+  isOffbeatPlaybackEndingStyle
+} from '../../core/playback/playback-ending.js';
+import { getSwingOffbeatPositionBeats } from '../../core/music/swing-utils.js';
+
 export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   const { SCHEDULE_AHEAD } = constants;
+  let scheduledEndingStopTime = null;
   const {
     applyDisplaySideLayout,
     buildPreparedBassPlan,
@@ -24,7 +32,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getFinitePlayback,
+    getPlaybackEndingCue,
     getSecondsPerBeat,
+    getSwingRatio,
     hideNextCol,
     ensureNearTermSamplePreload,
     isWalkingBassEnabled,
@@ -38,6 +48,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     parsePattern,
     playClick,
     playNote,
+    playRide,
     renderAccidentalTextHtml,
     scheduleDrumsForBeat,
     shouldShowNextPreview,
@@ -47,6 +58,125 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     trackProgressionOccurrence,
     updateBeatDots
   } = helpers;
+
+  function normalizeEndingCue() {
+    const cue = typeof getPlaybackEndingCue === 'function' ? getPlaybackEndingCue() : null;
+    if (!cue || typeof cue !== 'object') return null;
+    const targetBeat = Number(cue.targetBeat ?? cue.targetChordIndex);
+    if (!Number.isFinite(targetBeat)) return null;
+    const style = String(cue.style || '');
+    if (!style) return null;
+    return {
+      ...cue,
+      style,
+      targetBeat: Math.max(0, targetBeat),
+      targetChordIndex: Math.max(0, Math.round(Number(cue.targetChordIndex ?? targetBeat))),
+      holdSeconds: isLongPlaybackEndingStyle(style)
+        ? Math.max(0.1, Number(cue.holdMs || DEFAULT_PLAYBACK_ENDING_CONFIG.longHoldMs) / 1000)
+        : null
+    };
+  }
+
+  function getEndingAttackBeat(cue) {
+    if (!cue) return null;
+    if (!isOffbeatPlaybackEndingStyle(cue.style)) return cue.targetBeat;
+    if (cue.targetBeat <= 0) return cue.targetBeat;
+    const swingRatio = typeof getSwingRatio === 'function' ? getSwingRatio() : undefined;
+    return Math.max(0, Math.floor(cue.targetBeat) - 1 + getSwingOffbeatPositionBeats(swingRatio));
+  }
+
+  function getPreOnbeatEndingOffbeatBeat(cue) {
+    if (!cue || cue.style !== 'onbeat_long') return null;
+    const targetBeat = Number(cue.targetBeat);
+    if (!Number.isFinite(targetBeat) || targetBeat <= 0) return null;
+    const swingRatio = typeof getSwingRatio === 'function' ? getSwingRatio() : undefined;
+    return Math.max(0, Math.floor(targetBeat) - 1 + getSwingOffbeatPositionBeats(swingRatio));
+  }
+
+  function isAtBeat(value, targetBeat) {
+    return Number.isFinite(value)
+      && Number.isFinite(targetBeat)
+      && Math.abs(value - targetBeat) < 0.001;
+  }
+
+  function shouldSuppressPreOnbeatEndingBassEvent(event, cue) {
+    const preEndingOffbeatBeat = getPreOnbeatEndingOffbeatBeat(cue);
+    if (!Number.isFinite(preEndingOffbeatBeat)) return false;
+    if (!isAtBeat(Number(event?.timeBeats), preEndingOffbeatBeat)) return false;
+    return String(event?.source || '').includes('anticipation');
+  }
+
+  function withoutPreOnbeatEndingPianoEvent(plan, cue, style) {
+    if (style !== 'piano' || !plan?.events?.length) return plan;
+    const preEndingOffbeatBeat = getPreOnbeatEndingOffbeatBeat(cue);
+    if (!Number.isFinite(preEndingOffbeatBeat)) return plan;
+    const events = plan.events.filter((event) => !isAtBeat(Number(event?.timeBeats), preEndingOffbeatBeat));
+    return events.length === plan.events.length ? plan : { ...plan, events };
+  }
+
+  function getShortEndingDurationSeconds(slotDuration, secondsPerBeat) {
+    const fallback = Number.isFinite(secondsPerBeat) ? secondsPerBeat : 0.25;
+    return Math.max(0.08, Math.min(fallback, Number(slotDuration || fallback)));
+  }
+
+  function scheduleEndingCue({
+    cue,
+    endingTime,
+    chord,
+    slotDuration,
+    secondsPerBeat,
+    isMinor
+  }) {
+    if (!cue || !chord) return false;
+    const isLong = isLongPlaybackEndingStyle(cue.style);
+    const durationSeconds = isLong
+      ? cue.holdSeconds
+      : getShortEndingDurationSeconds(slotDuration, secondsPerBeat);
+
+    if (typeof playRide === 'function') {
+      playRide(endingTime, isOffbeatPlaybackEndingStyle(cue.style) ? 0.24 : 0.34, isOffbeatPlaybackEndingStyle(cue.style) ? 0.99 : 1.01);
+    }
+
+    const midi = helpers.getBassMidi(state.currentKey, chord.bassSemitones ?? chord.semitones);
+    playNote(midi, endingTime, durationSeconds, 127);
+
+    compingEngine.scheduleEnding?.({
+      style: getCompingStyle(),
+      progression: {
+        chords: state.paddedChords,
+        key: state.currentKey,
+        isMinor,
+      },
+      chordIndex: cue.targetChordIndex,
+      time: endingTime,
+      durationSeconds,
+      slotDuration,
+      secondsPerBeat,
+    });
+
+    scheduleDisplay(endingTime, () => {
+      state.displayedIsIntro = false;
+      state.displayedCurrentBeat = 0;
+      state.displayedCurrentChordIdx = cue.targetChordIndex;
+      applyDisplaySideLayout();
+      dom.keyDisplay.innerHTML = keyNameHtml(state.currentKey);
+      dom.chordDisplay.innerHTML = chordSymbolHtml(state.currentKey, chord, null, null);
+      dom.nextKeyDisplay.textContent = '';
+      dom.nextChordDisplay.innerHTML = '';
+      hideNextCol();
+      fitHarmonyDisplay();
+      updateBeatDots(0, false);
+    });
+
+    const stopTime = endingTime + durationSeconds;
+    scheduledEndingStopTime = stopTime;
+    scheduleDisplay(stopTime, () => {
+      scheduledEndingStopTime = null;
+      stopPlayback?.();
+    });
+    state.nextBeatTime = stopTime;
+    return true;
+  }
 
   function getMeasureInfo(chordIndex = state.currentChordIdx) {
     return typeof getMeasureInfoForChordIndex === 'function'
@@ -65,6 +195,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   }
 
   function prepareNextProgression() {
+    scheduledEndingStopTime = null;
     const carriedBassTargetMidi = state.pendingBassTargetMidi ?? null;
     const previousKey = state.currentKey;
     const currentPlanAnticipatesNextStart = Boolean(state.currentCompingPlan?.anticipatesNextStart);
@@ -202,6 +333,14 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     const beatsPerChord = getBeatsPerChord(chordsPerBar);
 
     while (state.nextBeatTime < state.audioCtx.currentTime + SCHEDULE_AHEAD) {
+      if (scheduledEndingStopTime !== null) {
+        if (state.audioCtx.currentTime >= scheduledEndingStopTime) {
+          scheduledEndingStopTime = null;
+          stopPlayback?.();
+        }
+        return;
+      }
+
       if (state.isIntro) {
         playClick(state.nextBeatTime, state.currentBeat === 0);
 
@@ -237,8 +376,6 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const explicitMeasurePlan = hasExplicitMeasurePlan();
       const measureInfo = getMeasureInfo(state.currentChordIdx);
       const beatsPerMeasure = Math.max(1, Number(measureInfo?.beatCount || 4));
-      scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb, measureInfo);
-
       const chord = state.paddedChords[state.currentChordIdx];
       const noteDuration = beatsPerChord * spb;
       const chordsPerMeasure = chordsPerBar;
@@ -256,10 +393,36 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       const measureStartBeats = explicitMeasurePlan && measureInfo
         ? measureInfo.startBeat
         : Math.floor(windowStartBeats / 4) * 4;
+      const endingCue = normalizeEndingCue();
+      const endingAttackBeat = getEndingAttackBeat(endingCue);
 
+      if (
+        endingCue
+        && Number.isFinite(endingAttackBeat)
+        && endingAttackBeat >= windowStartBeats
+        && endingAttackBeat < windowEndBeats
+      ) {
+        const endingChord = state.paddedChords[endingCue.targetChordIndex] || chord;
+        const endingTime = state.nextBeatTime + ((endingAttackBeat - windowStartBeats) * spb);
+        const scheduled = scheduleEndingCue({
+          cue: endingCue,
+          endingTime,
+          chord: endingChord,
+          slotDuration: noteDuration,
+          secondsPerBeat: spb,
+          isMinor: dom.majorMinor.checked
+        });
+        if (scheduled) return;
+      }
+
+      scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb, measureInfo);
 
       if (customBassEnabled) {
-        const bassEvents = state.currentBassPlan.filter((event) => event.timeBeats >= windowStartBeats && event.timeBeats < windowEndBeats);
+        const bassEvents = state.currentBassPlan.filter((event) => (
+          event.timeBeats >= windowStartBeats
+          && event.timeBeats < windowEndBeats
+          && !shouldSuppressPreOnbeatEndingBassEvent(event, endingCue)
+        ));
         if (bassEvents.length) {
           bassEvents.forEach((bassEvent) => {
             const eventOffsetSeconds = (bassEvent.timeBeats - windowStartBeats) * spb;
@@ -306,14 +469,15 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
       if (isChordsEnabled()) {
         const isMinor = dom.majorMinor.checked;
+        const compingStyle = getCompingStyle();
         compingEngine.scheduleWindow({
-          style: getCompingStyle(),
+          style: compingStyle,
           progression: {
             chords: state.paddedChords,
             key: state.currentKey,
             isMinor,
           },
-          plan: state.currentCompingPlan,
+          plan: withoutPreOnbeatEndingPianoEvent(state.currentCompingPlan, endingCue, compingStyle),
           nextProgression: {
             chords: state.nextPaddedChords,
             key: state.nextKeyValue,

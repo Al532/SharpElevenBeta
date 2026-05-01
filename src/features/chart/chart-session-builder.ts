@@ -9,6 +9,7 @@ import type {
 } from '../../core/types/contracts';
 
 import {
+  createPracticePlaybackEndingCueFromBars,
   createPracticePlaybackBarsFromChartEntries,
   createPracticeSessionSpec
 } from '../../core/models/practice-session.js';
@@ -102,6 +103,7 @@ export function createPracticeSessionFromChartPlaybackPlan({
     symbols: (bar.symbols || []).map((symbol) => transposeChordSymbol(symbol, transposeSemitones)),
     beatSlots: (bar.beatSlots || []).map((symbol) => transposeChordSymbol(symbol, transposeSemitones))
   }));
+  const endingCue = createPracticePlaybackEndingCueFromBars(bars);
   const displayKey = transposeKeySymbol(
     chartDocument?.metadata?.displayKey || chartDocument?.metadata?.sourceKey || '',
     transposeSemitones
@@ -118,7 +120,7 @@ export function createPracticeSessionFromChartPlaybackPlan({
     title,
     tempo: Number(tempo || chartDocument?.metadata?.tempo || 120),
     timeSignature: chartDocument?.metadata?.primaryTimeSignature || playbackPlan?.timeSignature || '',
-    playback: { bars },
+    playback: { bars, endingCue },
     display,
     selection,
     origin

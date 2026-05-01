@@ -1116,10 +1116,11 @@ select {
 }
 
 .chart-selection-menu {
-  position: fixed;
+  position: absolute;
   left: 50%;
   top: 0;
   z-index: 180;
+  max-width: calc(100vw - 16px);
   opacity: 1;
   transform: translateX(-50%);
   transition: opacity 180ms ease, transform 180ms ease;
@@ -1133,14 +1134,16 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-width: calc(100vw - 16px);
-  padding: 6px;
-  border-radius: 8px;
-  background: var(--chart-ui-menu);
-  color: var(--chart-ui-text-inverse);
-  box-shadow: 0 16px 32px var(--chart-ui-shadow-menu);
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--chart-ui-text) 12%, transparent 88%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chart-ui-bg) 94%, var(--chart-ui-control) 6%);
+  color: var(--chart-ui-text);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--chart-ui-shadow-soft) 70%, transparent 30%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -1156,19 +1159,21 @@ select {
 .chart-selection-menu-button {
   position: relative;
   isolation: isolate;
+  flex: 0 0 auto;
   min-height: 34px;
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--chart-ui-text-inverse) 84%, transparent 16%);
-  color: var(--chart-ui-accent-strong);
+  background: transparent;
+  color: var(--chart-ui-accent);
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .chart-selection-menu-button:active {
-  background: var(--chart-ui-control);
+  background: color-mix(in srgb, var(--chart-ui-accent) 12%, transparent 88%);
 }
 
 .chart-selection-menu-button:disabled {
@@ -1182,9 +1187,9 @@ select {
 }
 
 .chart-selection-menu-button-primary {
-  background: var(--chart-ui-text-inverse);
-  color: var(--chart-ui-accent-strong);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chart-ui-text-inverse) 42%, transparent 58%);
+  background: var(--chart-ui-accent);
+  color: var(--chart-ui-text-inverse);
+  box-shadow: none;
 }
 
 .chart-selection-menu-button-secondary:active {
@@ -1192,8 +1197,8 @@ select {
 }
 
 .chart-selection-menu-button.is-active {
-  background: linear-gradient(135deg, var(--chart-ui-accent-soft), var(--chart-ui-text-inverse));
-  color: var(--chart-ui-accent-strong);
+  background: var(--chart-ui-accent);
+  color: var(--chart-ui-text-inverse);
 }
 
 .chart-sheet-panel,
@@ -2422,7 +2427,7 @@ select {
   .chart-selection-menu-card {
     display: inline-flex;
     width: max-content;
-    max-width: calc(100vw - 24px);
+    max-width: 100%;
   }
 }
 
@@ -2997,30 +3002,6 @@ select {
     color: var(--ui-accent);
   }
 
-  .chart-selection-menu-card {
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--chart-mobile-panel-line);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--chart-mobile-panel-bg) 94%, transparent 6%);
-    color: var(--ui-text);
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--ui-shadow-color-soft) 70%, transparent 30%);
-  }
-
-  .chart-selection-menu-button {
-    min-height: 34px;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--ui-accent);
-    padding: 0 12px;
-  }
-
-  .chart-selection-menu-button-primary,
-  .chart-selection-menu-button-secondary,
-  .chart-selection-menu-button.is-active {
-    background: var(--ui-accent);
-    color: var(--ui-text-inverse);
-  }
 }
 
 @media (max-width: 760px) and (prefers-reduced-motion: no-preference) {

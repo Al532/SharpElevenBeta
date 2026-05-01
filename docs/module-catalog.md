@@ -4,7 +4,7 @@ This catalog records the current module ownership map. Keep it practical: it
 should help future consolidation, renaming, and refactoring decisions without
 becoming a second codebase.
 
-Last reviewed: 2026-04-28.
+Last reviewed: 2026-05-01.
 
 ## Naming Baseline
 
@@ -115,13 +115,13 @@ Keep here:
 
 Current structural pressure:
 
-- Embedded/direct runtime adapters still live here because they translate between practice playback contracts and the drill UI/runtime.
+- Some root-app adapters still translate the old `app.ts` state shape into narrower drill UI modules.
 - Thin `*-assembly`, `*-bindings`, and `*-context` files should be consolidated when they only copy options or rename fields.
 
 Refactor signals:
 
 - A module is used by chart and drill, or by direct/embedded playback, without depending on drill UI or drill runtime state.
-- Tests import drill files only to exercise shared contracts.
+- Tests import drill files only to exercise true drill UI behavior.
 
 ### `src/features/practice-arrangement`
 
@@ -165,7 +165,7 @@ Keep here:
 - Practice playback root assembly and root context wiring.
 - Practice playback resources, preparation, and resource facade.
 - Runtime host, scheduler, transport, and runtime app assembly that group app state, audio, preload, constants, and helper bindings before delegating to an injected runtime adapter.
-- App-level embedded/direct playback composition through injected adapters supplied by the drill trainer while those adapters still depend on drill UI/runtime details.
+- App-level embedded/direct playback composition through injected playback adapters.
 
 Refactor signals:
 

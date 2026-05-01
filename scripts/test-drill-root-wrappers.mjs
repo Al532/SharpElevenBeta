@@ -2786,12 +2786,12 @@ function testTrainerConfigExportsExpectedDefaults() {
   );
   assert.equal(
     TRAINER_RESOURCE_PATHS.patternHelp,
-    'progression-suffixes.txt',
+    'assets/se-help-9a.dat',
     'Trainer config preserves resource path defaults.'
   );
   assert.equal(
     REVIEW_STANDARD_CONVERSIONS_URL,
-    './parsing-projects/review-standard-conversions.txt',
+    './assets/se-review-6c.dat',
     'Trainer config preserves the welcome standards review source URL.'
   );
   assert.equal(

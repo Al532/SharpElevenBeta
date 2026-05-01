@@ -1,6 +1,6 @@
 import type { ChartSelectionController } from '../../core/types/contracts';
 
-const LONG_PRESS_MS = 380;
+const LONG_PRESS_MS = 180;
 const TAP_TRIGGER_DISTANCE_PX = 28;
 const LONG_PRESS_CANCEL_DISTANCE_PX = 18;
 const SWIPE_LOCK_DISTANCE_PX = 18;

@@ -3,10 +3,10 @@ import type {
   PlaybackOperationResult,
   PlaybackSettings,
   PracticeSessionSpec
-} from '../../core/types/contracts';
+} from '../types/contracts';
 
 export function createPracticeSessionFromPracticePattern({
-  patternName = 'Custom drill',
+  patternName = 'Custom practice pattern',
   patternString = '',
   tempo = 120,
   source = 'custom'
@@ -18,9 +18,9 @@ export function createPracticeSessionFromPracticePattern({
 } = {}): PracticeSessionSpec {
   return {
     schemaVersion: '1.0.0',
-    id: `drill-${String(patternName || 'custom').toLowerCase().replace(/[^\w]+/g, '-')}`,
+    id: `practice-pattern-${String(patternName || 'custom').toLowerCase().replace(/[^\w]+/g, '-')}`,
     source,
-    title: String(patternName || 'Custom drill'),
+    title: String(patternName || 'Custom practice pattern'),
     tempo: Number.isFinite(Number(tempo)) ? Number(tempo) : 120,
     timeSignature: '4/4',
     playback: {
@@ -36,7 +36,7 @@ export function createPracticeSessionFromPracticePattern({
   };
 }
 
-export function applyPracticeSessionToDrillUi({
+export function applyPracticeSessionToEmbeddedPattern({
   session,
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings
@@ -48,13 +48,14 @@ export function applyPracticeSessionToDrillUi({
   if (!session || typeof applyEmbeddedPattern !== 'function') {
     return {
       ok: false,
-      errorMessage: 'Missing drill session adapter.'
+      errorMessage: 'Missing practice session playback adapter.'
     };
   }
 
   const applyResult = applyEmbeddedPattern({
     patternName: session.title || 'Imported session',
     patternString: session?.playback?.enginePatternString || session?.playback?.patternString || '',
+    endingCue: session?.playback?.endingCue || null,
     patternMode: 'both',
     tempo: session.tempo || 120,
     repetitionsPerKey: 1,

@@ -148,6 +148,20 @@ export interface ChartPlaybackPlan {
   entries: ChartPlaybackEntry[];
 }
 
+export interface PlaybackEndingCue {
+  kind: 'final_chord' | 'fermata' | string;
+  style: 'onbeat_long' | 'offbeat_long' | 'short' | string;
+  source: 'natural_end' | 'fine' | 'fermata' | string;
+  holdMs?: number;
+  barId?: string;
+  barIndex?: number;
+  beatIndex?: number;
+  targetBeat?: number;
+  targetChordIndex?: number;
+  targetSymbol?: string;
+  [key: string]: unknown;
+}
+
 export interface ChartPlaybackEntry {
   sequenceIndex: number;
   barId: string;
@@ -170,6 +184,7 @@ export interface ChartPlaybackEntry {
   spacerCount?: number;
   chordSizes?: number[];
   overlaySlots?: ChartChordSlot[];
+  endingCue?: PlaybackEndingCue | null;
 }
 
 export interface ChartPlaybackDiagnostic {
@@ -223,6 +238,7 @@ export interface PracticeSessionPlayback {
   bars: PracticePlaybackBar[];
   patternString: string;
   enginePatternString: string;
+  endingCue?: PlaybackEndingCue | null;
 }
 
 export interface PracticeSessionSpec {
@@ -365,6 +381,7 @@ export interface ChartScreenState {
 export interface EmbeddedPatternPayload {
   patternName: string;
   patternString: string;
+  endingCue?: PlaybackEndingCue | null;
   patternMode: 'both' | 'major' | 'minor' | string;
   tempo: number | null;
   transposition?: number | string | null;
@@ -562,6 +579,7 @@ export interface EmbeddedPatternAdapterOptions {
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
+  setPlaybackEndingCue?: (endingCue: PlaybackEndingCue | null) => void;
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;

@@ -4,9 +4,9 @@ import type {
   PlaybackRuntimeState,
   PlaybackSettings,
   PracticeSessionSpec
-} from '../../core/types/contracts';
+} from '../types/contracts';
 
-import { applyPracticeSessionToDrillUi } from './drill-session-builder.js';
+import { applyPracticeSessionToEmbeddedPattern } from './practice-session-pattern-adapter.js';
 
 export function createDirectPlaybackSessionHandlers({
   applyPracticeSession,
@@ -61,7 +61,7 @@ export function createDirectPlaybackSessionHost({
 } = {}) {
   return createDirectPlaybackSessionHandlers({
     applyPracticeSession(sessionSpec) {
-      return applyPracticeSessionToDrillUi({
+      return applyPracticeSessionToEmbeddedPattern({
         session: sessionSpec,
         applyEmbeddedPattern,
         applyEmbeddedPlaybackSettings

@@ -630,6 +630,7 @@ let playStopSuggestionCount = 0;
 let sessionEngagedTracked = false;
 let sessionDurationTracked = false;
 let sessionActionCount = 0;
+let playbackEndingCue = null;
 
 const {
   normalizePatternMode,
@@ -2060,7 +2061,9 @@ const {
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getFinitePlayback: () => finitePlayback,
+    getPlaybackEndingCue: () => playbackEndingCue,
     getSecondsPerBeat,
+    getSwingRatio,
     hideNextCol,
     ensureNearTermSamplePreload,
     isWalkingBassEnabled,
@@ -2073,6 +2076,7 @@ const {
     parsePattern,
     playClick,
     playNote,
+    playRide,
     keyNameHtml,
     renderAccidentalTextHtml,
     scheduleDrumsForBeat,
@@ -2757,6 +2761,7 @@ const {
       updateKeyPickerLabels,
       refreshDisplayedHarmony,
       fitHarmonyDisplay,
+      setPlaybackEndingCue: (value) => { playbackEndingCue = value || null; },
       validateCustomPattern: () => validateCustomPattern(),
       getCurrentPatternString,
       getCurrentPatternMode

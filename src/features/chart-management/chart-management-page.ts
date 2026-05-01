@@ -15,6 +15,7 @@ import {
   previewProtectedChartDelete,
   reorderSetlistItems
 } from '../chart/chart-library.js';
+import { writeChartLibrarySubsetSession } from '../chart/chart-library-subset-session.js';
 import type { ChartDocument, ChartSetlist } from '../../core/types/contracts';
 import {
   createChartEntryActionsController,
@@ -347,6 +348,10 @@ function getLibraryBatchScopeLabel(documents: ChartDocument[]): string {
   return hasActiveLibraryScope() ? 'Current filters' : 'Entire library';
 }
 
+function getLibrarySubsetSourceLabel(documents: ChartDocument[]): string {
+  return `Library - ${getLibraryBatchScopeLabel(documents).toLowerCase()}`;
+}
+
 function getActiveLibraryDeleteSourceName(): string {
   if (filterState.activeModes.source !== 'custom') return '';
   const activeSources = Array.from(filterState.activeFilters.source).filter(Boolean);
@@ -413,6 +418,12 @@ function renderManageChartRows(documents: ChartDocument[], previewStart: number,
     const content = document.createElement('a');
     content.className = `home-chart-entry-link ${getPageClassName('chart-link')}`;
     content.href = createChartHref(chartDocument);
+    content.addEventListener('click', () => {
+      writeChartLibrarySubsetSession({
+        documents,
+        source: getLibrarySubsetSourceLabel(documents)
+      });
+    });
     content.append(createTextElement('span', 'home-list-title', chartDocument.metadata.title || 'Untitled chart'));
     const subtitle = getChartSubtitle(chartDocument);
     if (subtitle) {

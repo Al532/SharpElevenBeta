@@ -5447,7 +5447,6 @@ input[type="number"]:focus {
   align-items: center;
   margin: auto 0 0;
   padding: 0.54rem 0 0.08rem;
-  border-top: 1px solid color-mix(in srgb, var(--ui-text) 9%, transparent 91%);
 }
 
 .library-batch-count {

@@ -2429,10 +2429,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     });
     if (!playbackEventData) return;
 
-    const globalDelayMs = Number.isFinite(rhythmConfig.pianoGlobalDelayMs)
-      ? rhythmConfig.pianoGlobalDelayMs
-      : 0;
-    const startTime = Math.max(time + (globalDelayMs / 1000), audioCtx.currentTime);
+    const startTime = getPianoScheduledStartTime(audioCtx, time);
     const playbackState = buildPianoEventPlaybackState({
       event,
       entries: playbackEventData.entries,
@@ -2472,6 +2469,66 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     }
   }
 
+  function getPianoScheduledStartTime(audioCtx, time) {
+    const globalDelayMs = Number.isFinite(rhythmConfig.pianoGlobalDelayMs)
+      ? rhythmConfig.pianoGlobalDelayMs
+      : 0;
+    return Math.max(time + (globalDelayMs / 1000), audioCtx.currentTime);
+  }
+
+  function playEnding({ progression, chordIndex = 0, time, durationSeconds, slotDuration, secondsPerBeat }) {
+    const audioCtx = getAudioContext();
+    if (!audioCtx || typeof playSample !== 'function' || !progression?.chords?.length) return;
+
+    const safeChordIndex = Math.max(
+      0,
+      Math.min(progression.chords.length - 1, Math.round(Number(chordIndex) || 0))
+    );
+    const chord = progression.chords[safeChordIndex] || null;
+    const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
+    const voicing = typeof getVoicingAtIndex === 'function'
+      ? getVoicingAtIndex(progression.chords, progression.key, safeChordIndex, progression.isMinor)
+      : null;
+    const entries = getPianoChordVoiceEntries(
+      voicing,
+      chord,
+      progression.key,
+      progression.isMinor,
+      null,
+      activeMode
+    );
+    if (entries.length === 0) return;
+
+    const fallbackShortDuration = Math.max(
+      Number.isFinite(PIANO_COMP_MIN_DURATION) ? PIANO_COMP_MIN_DURATION : 0.08,
+      Math.min(
+        Number.isFinite(PIANO_COMP_MAX_DURATION) ? PIANO_COMP_MAX_DURATION : 0.45,
+        Number(slotDuration || secondsPerBeat || 0.25) * (Number.isFinite(PIANO_COMP_DURATION_RATIO) ? PIANO_COMP_DURATION_RATIO : 0.72)
+      )
+    );
+    const duration = Number.isFinite(durationSeconds) && durationSeconds > 0
+      ? durationSeconds
+      : fallbackShortDuration;
+    const startTime = getPianoScheduledStartTime(audioCtx, time);
+    const endingVolumeMultiplier = activeMode === 'twoHand' ? 1.08 : 1.14;
+
+    for (const voice of entries) {
+      const finalVolume = voice.volume * endingVolumeMultiplier;
+      const pianoSample = getPianoSampleLayerGain(finalVolume);
+      playSample(
+        voice.category,
+        voice.midi,
+        startTime,
+        duration,
+        pianoSample.adjustedVolume,
+        {
+          layer: pianoSample.layer,
+          legato: duration > fallbackShortDuration,
+        }
+      );
+    }
+  }
+
   function stopAll() {
     // Piano comping uses short one-shot samples only; nothing persistent to stop.
   }
@@ -2483,6 +2540,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     buildPlan,
     collectSampleNotes,
     playEvent,
+    playEnding,
     stopAll,
     clear,
   };

@@ -7,12 +7,14 @@ import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator';
 const packageJsonUrl = new URL('../../package.json', import.meta.url);
 const packageJson = JSON.parse(readFileSync(fileURLToPath(packageJsonUrl), 'utf8'));
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const includeChartTestFixtures = process.env.VITE_INCLUDE_CHART_TEST_FIXTURES ?? 'true';
 
 export default defineConfig({
   base: './',
   publicDir: 'public',
   define: {
-    __APP_VERSION__: JSON.stringify(packageJson.version)
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+    'import.meta.env.VITE_INCLUDE_CHART_TEST_FIXTURES': JSON.stringify(includeChartTestFixtures)
   },
   plugins: [
     obfuscatorPlugin({

@@ -1,5 +1,6 @@
 import { createEmbeddedPracticeRuntimeAppOptions } from './drill-runtime-boundary.js';
 import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
+import type { PracticePlaybackPatternUiBindings } from '../practice-playback/practice-playback-types.js';
 
 type DrillEmbeddedRuntimeDom = Record<string, unknown>;
 type DrillEmbeddedPatternUiBindings = {
@@ -11,6 +12,7 @@ type DrillEmbeddedPatternUiBindings = {
   setEditorPatternMode?: (value: string) => void;
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
+  setPlaybackEndingCue?: PracticePlaybackPatternUiBindings['setPlaybackEndingCue'];
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -85,6 +87,7 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
     setEditorPatternMode: patternUi.setEditorPatternMode,
     syncPatternSelectionFromInput: patternUi.syncPatternSelectionFromInput,
     setLastPatternSelectValue: patternUi.setLastPatternSelectValue,
+    setPlaybackEndingCue: patternUi.setPlaybackEndingCue,
     syncCustomPatternUI: patternUi.syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern: patternUi.normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability: patternUi.applyPatternModeAvailability,

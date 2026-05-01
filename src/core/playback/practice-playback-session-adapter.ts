@@ -45,6 +45,7 @@ export function createPracticePlaybackSessionAdapter({
       return applyEmbeddedPattern({
         patternName: sessionSpec?.title || 'Imported session',
         patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
+        endingCue: sessionSpec?.playback?.endingCue || null,
         patternMode: 'both',
         tempo: sessionSpec?.tempo || playbackSettings?.tempo || null,
         transposition: playbackSettings?.transposition ?? null,
