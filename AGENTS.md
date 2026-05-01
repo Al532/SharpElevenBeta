@@ -96,6 +96,7 @@ Synced static assets:
 - Treat `docs/visual-theme.md` as the source of truth for the app's visual language, theme tokens, and palette workflow.
 - Before changing UI styles, inspect the nearby existing CSS/components and preserve the current music-library language: search-first, calm, spacious, soft controls, and minimal chrome.
 - Keep style edits in `public/` source files when a synced static asset exists, then sync generated root copies.
+- Do not run visual browser or screenshot verification by default for small targeted UI/CSS adjustments. Wait for the user to request visual verification, except when the issue cannot be reasonably validated without reproducing it in a browser.
 
 ## On-Demand Workflows
 
@@ -144,6 +145,7 @@ Synced static assets:
 - If port `8000` is not already serving the repository, start a simple local static server from the repository root, then retry.
 - Use a local browser automation/debug loop when available to capture `console` and `pageerror`, fix the issue, and iterate.
 - Prefer this local reproduction loop over asking the user to manually copy browser console errors.
+- For purely visual feedback or small style tuning, do not use screenshots or browser visual checks unless the user explicitly asks for them.
 - Only ask for manual repro details if the issue appears to depend on an environment not represented by `http://localhost:8000/index.html`.
 
 ## Final State

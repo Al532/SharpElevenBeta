@@ -1,6 +1,7 @@
 ﻿import type {
   ChartDocument,
   ChartPerformance,
+  ChartPerformanceCue,
   ChartSimplePerformanceState,
   ChartSetlist,
   ChartPlaybackController,
@@ -318,6 +319,18 @@ let chartTransitionCleanupTimer = 0;
 const CHART_ACTION_FEEDBACK_CLASS = 'is-chart-action-feedback';
 const CHART_ACTION_FEEDBACK_DURATION_MS = 520;
 const CHART_ACTION_POINTER_CLICK_SUPPRESS_MS = 700;
+const CHART_PERFORMANCE_CUE_TYPES = Object.freeze({
+  armCoda: 'arm_coda',
+  exitRepeat: 'exit_repeat',
+  modulate: 'modulate'
+});
+const CHART_PERFORMANCE_CUE_BOUNDARIES = Object.freeze({
+  nextCodaJump: 'next_coda_jump',
+  nextRepeatBoundary: 'next_repeat_boundary',
+  nextSection: 'next_section'
+});
+const CHART_PERFORMANCE_MODULATE_MIN = -12;
+const CHART_PERFORMANCE_MODULATE_MAX = 12;
 const chartActionFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
 const chartActionFeedbackPointerTimes = new WeakMap<HTMLButtonElement, number>();
 
@@ -871,6 +884,209 @@ function getCurrentChartPerformance() {
   return currentPerformance;
 }
 
+function createChartPerformanceCueId(type: string) {
+  const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `chart-cue-${type}-${suffix}`;
+}
+
+function getChartPerformanceCueLabel(cue: ChartPerformanceCue | null | undefined) {
+  if (!cue) return '';
+  if (cue.type === CHART_PERFORMANCE_CUE_TYPES.armCoda) return 'coda';
+  if (cue.type === CHART_PERFORMANCE_CUE_TYPES.exitRepeat) return 'exit repeat';
+  if (cue.type === CHART_PERFORMANCE_CUE_TYPES.modulate) {
+    const semitones = Number(cue.semitones || 0);
+    const signed = semitones > 0 ? `+${semitones}` : String(semitones);
+    return `mod ${signed}`;
+  }
+  return String(cue.type || 'cue').replace(/_/g, ' ');
+}
+
+function getChartPerformanceCueBoundary(type: string) {
+  if (type === CHART_PERFORMANCE_CUE_TYPES.armCoda) return CHART_PERFORMANCE_CUE_BOUNDARIES.nextCodaJump;
+  if (type === CHART_PERFORMANCE_CUE_TYPES.exitRepeat) return CHART_PERFORMANCE_CUE_BOUNDARIES.nextRepeatBoundary;
+  return CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection;
+}
+
+function normalizeModulateSemitones(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(CHART_PERFORMANCE_MODULATE_MIN, Math.min(CHART_PERFORMANCE_MODULATE_MAX, Math.round(parsed)));
+}
+
+function updateCurrentChartPerformance(nextPerformance: ChartPerformance | null) {
+  const selectedDocument = state.currentChartDocument;
+  if (!selectedDocument || !nextPerformance) return;
+  state.chartPerformance = nextPerformance;
+  state.chartPerformances[selectedDocument.metadata?.id || nextPerformance.chartId] = nextPerformance;
+  if (getChartPerformancePanelMode() === 'performance') {
+    state.chartSimplePerformance = { mode: 'performance', repeatMode: nextPerformance.repeatMode };
+  }
+  syncRepeatCountControls();
+  renderPerformanceCueBar();
+  persistPlaybackSettings();
+}
+
+function createPerformanceCue(type: string): ChartPerformanceCue {
+  const cue: ChartPerformanceCue = {
+    id: createChartPerformanceCueId(type),
+    type,
+    boundary: getChartPerformanceCueBoundary(type),
+    status: 'idle',
+    createdAt: new Date().toISOString()
+  };
+  if (type === CHART_PERFORMANCE_CUE_TYPES.modulate) {
+    cue.semitones = normalizeModulateSemitones(dom.performanceModulateInput?.value);
+  }
+  return cue;
+}
+
+function addPerformanceCue(type: string) {
+  const selectedDocument = state.currentChartDocument;
+  if (!selectedDocument) return;
+  const currentPerformance = getCurrentChartPerformance() || createDefaultChartPerformance(selectedDocument);
+  const nextPerformance = createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    cues: [...(currentPerformance.cues || []), createPerformanceCue(type)],
+    updatedAt: new Date().toISOString()
+  });
+  updateCurrentChartPerformance(nextPerformance);
+}
+
+function getCurrentPlaybackBarIndex() {
+  const entry = state.activePlaybackEntryIndex >= 0
+    ? state.currentPlaybackPlan?.entries?.[state.activePlaybackEntryIndex]
+    : null;
+  const parsedEntryIndex = Number(entry?.barIndex);
+  if (Number.isFinite(parsedEntryIndex) && parsedEntryIndex > 0) return parsedEntryIndex;
+  const parsedActiveBarIndex = Number(state.currentChartDocument?.bars?.find((bar) => bar.id === state.activeBarId)?.index);
+  return Number.isFinite(parsedActiveBarIndex) && parsedActiveBarIndex > 0 ? parsedActiveBarIndex : 0;
+}
+
+function getNextCodaCueBarIndex(currentBarIndex: number) {
+  const cuePoints = (state.currentPracticeSession?.playback?.performanceMap?.cuePoints || []) as Array<Record<string, unknown>>;
+  const codaPoint = cuePoints
+    .filter((point) => point.type === 'coda')
+    .map((point) => Number(point.barIndex))
+    .filter((barIndex) => Number.isFinite(barIndex) && barIndex >= currentBarIndex)
+    .sort((a, b) => a - b)[0];
+  return Number.isFinite(codaPoint) ? codaPoint : null;
+}
+
+function getNextRepeatBoundaryBarIndex(currentBarIndex: number) {
+  const repeatRegions = state.currentPracticeSession?.playback?.performanceMap?.repeatRegions || [];
+  const activeRegion = repeatRegions.find((region) => {
+    const start = Number(region.startBarIndex);
+    const end = Number(region.endBarIndex);
+    return Number.isFinite(start) && Number.isFinite(end) && currentBarIndex >= start && currentBarIndex <= end;
+  });
+  if (activeRegion) return Number(activeRegion.endBarIndex);
+  const nextRegion = repeatRegions
+    .filter((region) => Number(region.endBarIndex) >= currentBarIndex)
+    .sort((a, b) => Number(a.endBarIndex) - Number(b.endBarIndex))[0];
+  return nextRegion ? Number(nextRegion.endBarIndex) : null;
+}
+
+function getNextSectionBoundaryBarIndex(currentBarIndex: number) {
+  const sectionBoundaries = (state.currentPracticeSession?.playback?.performanceMap?.sectionBoundaries || []) as Array<Record<string, unknown>>;
+  const nextBoundary = sectionBoundaries
+    .map((section) => Number(section.barIndex))
+    .filter((barIndex) => Number.isFinite(barIndex) && barIndex > currentBarIndex)
+    .sort((a, b) => a - b)[0];
+  return Number.isFinite(nextBoundary) ? nextBoundary : null;
+}
+
+function resolvePerformanceCueTargetBarIndex(cue: ChartPerformanceCue, currentBarIndex = getCurrentPlaybackBarIndex()) {
+  if (cue.boundary === CHART_PERFORMANCE_CUE_BOUNDARIES.nextCodaJump) return getNextCodaCueBarIndex(currentBarIndex);
+  if (cue.boundary === CHART_PERFORMANCE_CUE_BOUNDARIES.nextRepeatBoundary) return getNextRepeatBoundaryBarIndex(currentBarIndex);
+  return getNextSectionBoundaryBarIndex(currentBarIndex);
+}
+
+function getUpdatedCueStatus(cue: ChartPerformanceCue) {
+  return cue.status === 'armed' ? 'idle' : 'armed';
+}
+
+async function queuePerformanceCue(cue: ChartPerformanceCue) {
+  try {
+    await getChartPlaybackController().queuePerformanceCue(cue);
+  } catch (error) {
+    if (dom.transportStatus) dom.transportStatus.textContent = `Cue error: ${getErrorMessage(error)}`;
+  }
+}
+
+function togglePerformanceCue(cueId: string) {
+  const selectedDocument = state.currentChartDocument;
+  const currentPerformance = getCurrentChartPerformance();
+  if (!selectedDocument || !currentPerformance) return;
+  let queuedCue: ChartPerformanceCue | null = null;
+  const nextCues = (currentPerformance.cues || []).map((cue) => {
+    if (cue.id !== cueId) return cue;
+    const status = getUpdatedCueStatus(cue);
+    const targetBarIndex = status === 'armed' ? resolvePerformanceCueTargetBarIndex(cue) : null;
+    const nextCue = {
+      ...cue,
+      status,
+      targetBarIndex,
+      armedAtBarIndex: status === 'armed' ? getCurrentPlaybackBarIndex() : null
+    };
+    if (status === 'armed') queuedCue = nextCue;
+    return nextCue;
+  });
+  updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    cues: nextCues,
+    updatedAt: new Date().toISOString()
+  }));
+  if (queuedCue) void queuePerformanceCue(queuedCue);
+}
+
+function consumeExecutedPerformanceCues() {
+  const selectedDocument = state.currentChartDocument;
+  const currentPerformance = getCurrentChartPerformance();
+  if (!selectedDocument || !currentPerformance?.cues?.length) return;
+  const currentBarIndex = getCurrentPlaybackBarIndex();
+  if (!currentBarIndex) return;
+  const nextCues = currentPerformance.cues.filter((cue) => {
+    if (cue.status !== 'armed') return true;
+    const targetBarIndex = Number(cue.targetBarIndex || 0);
+    return !targetBarIndex || currentBarIndex < targetBarIndex;
+  });
+  if (nextCues.length === currentPerformance.cues.length) return;
+  updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    cues: nextCues,
+    updatedAt: new Date().toISOString()
+  }));
+}
+
+function syncPerformanceCueBarPosition() {
+  if (!dom.performanceCueBar) return;
+  const activeCell = state.activeBarId
+    ? document.querySelector<HTMLElement>(`.chart-bar-cell[data-bar-id="${CSS.escape(state.activeBarId)}"]`)
+    : null;
+  const appRect = dom.chartApp?.getBoundingClientRect();
+  const cellRect = activeCell?.getBoundingClientRect();
+  const threshold = appRect ? appRect.top + appRect.height * 0.66 : window.innerHeight * 0.66;
+  const shouldMoveTop = Boolean(cellRect && cellRect.top + cellRect.height / 2 >= threshold);
+  dom.performanceCueBar.classList.toggle('chart-performance-cue-bar-top', shouldMoveTop);
+  dom.performanceCueBar.classList.toggle('chart-performance-cue-bar-bottom', !shouldMoveTop);
+}
+
+function renderPerformanceCueBar() {
+  const cueBar = dom.performanceCueBar;
+  if (!cueBar) return;
+  const performance = getChartPerformancePanelMode() === 'performance' ? getCurrentChartPerformance() : null;
+  const cues = (performance?.cues || []).filter((cue) => cue.status !== 'consumed');
+  cueBar.hidden = cues.length === 0;
+  cueBar.innerHTML = cues.map((cue) => {
+    const isArmed = cue.status === 'armed';
+    const label = getChartPerformanceCueLabel(cue);
+    return `<button type="button" class="chart-performance-cue-pill${isArmed ? ' is-armed' : ''}" data-chart-performance-cue-id="${cue.id}" aria-pressed="${isArmed ? 'true' : 'false'}">${label}</button>`;
+  }).join('');
+  syncPerformanceCueBarPosition();
+}
+
 function getChartPerformancePanelMode() {
   return normalizeChartPerformancePanelMode(state.chartSimplePerformance.mode || state.chartSimplePerformance.repeatMode);
 }
@@ -936,7 +1152,9 @@ function syncRepeatCountControls(
   if (dom.performanceActionButton) {
     dom.performanceActionButton.textContent = currentPerformance ? 'Edit performance' : 'Edit performance';
     dom.performanceActionButton.disabled = !currentPerformance || panelMode !== 'performance';
+    dom.performanceActionButton.setAttribute('aria-expanded', dom.performanceMenu && !dom.performanceMenu.hidden ? 'true' : 'false');
   }
+  renderPerformanceCueBar();
 }
 
 function setChartRepeatCount(value: unknown, { render = true }: { render?: boolean } = {}) {
@@ -969,6 +1187,8 @@ function closeBottomPopovers() {
   if (dom.tempoButton) dom.tempoButton.setAttribute('aria-expanded', 'false');
   if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
   if (dom.repeatCountButton) dom.repeatCountButton.setAttribute('aria-expanded', 'false');
+  if (dom.performanceMenu) dom.performanceMenu.hidden = true;
+  if (dom.performanceActionButton) dom.performanceActionButton.setAttribute('aria-expanded', 'false');
   if (dom.keyPopover) dom.keyPopover.hidden = true;
   if (dom.keyButton) dom.keyButton.setAttribute('aria-expanded', 'false');
   if (dom.mixerPopover) dom.mixerPopover.hidden = true;
@@ -1123,28 +1343,35 @@ function bindBottomControlPopovers() {
     renderFixture();
   });
 
-  dom.performanceActionButton?.addEventListener('click', () => {
+  dom.performanceActionButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
     const selectedDocument = state.currentChartDocument;
     if (!selectedDocument) return;
     const currentPerformance = getCurrentChartPerformance();
     if (!currentPerformance) return;
-    if (currentPerformance) {
-      const nextRepeatCount = window.prompt('Performance repeat count', String(currentPerformance.repeatCount || 1));
-      if (nextRepeatCount === null) return;
-      state.chartPerformance = createDefaultChartPerformance(selectedDocument, {
-        ...currentPerformance,
-        repeatMode: 'finite',
-        repeatCount: normalizeChartRepeatCount(nextRepeatCount, currentPerformance.repeatCount || 1),
-        updatedAt: new Date().toISOString()
-      });
-    }
-    state.chartPerformances[selectedDocument.metadata?.id || state.chartPerformance.chartId] = state.chartPerformance;
-    if (getChartPerformancePanelMode() === 'performance') {
-      state.chartSimplePerformance = { mode: 'performance', repeatMode: state.chartPerformance.repeatMode };
-    }
+    const willOpen = Boolean(dom.performanceMenu?.hidden);
+    if (dom.performanceMenu) dom.performanceMenu.hidden = !willOpen;
+    dom.performanceActionButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    syncMobileOverlayDrawerLayout();
+  });
+
+  dom.performanceMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const cueButton = target?.closest<HTMLButtonElement>('[data-chart-performance-cue-type]');
+    if (!cueButton) return;
+    addPerformanceCue(cueButton.dataset.chartPerformanceCueType || '');
+    if (dom.performanceMenu) dom.performanceMenu.hidden = true;
+    dom.performanceActionButton?.setAttribute('aria-expanded', 'false');
     syncRepeatCountControls();
-    persistPlaybackSettings();
-    renderFixture();
+    syncMobileOverlayDrawerLayout();
+  });
+
+  dom.performanceCueBar?.addEventListener('click', (event) => {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const cueButton = target?.closest<HTMLButtonElement>('[data-chart-performance-cue-id]');
+    if (!cueButton) return;
+    togglePerformanceCue(cueButton.dataset.chartPerformanceCueId || '');
   });
 
   document.addEventListener('click', (event) => {
@@ -1270,8 +1497,10 @@ function renderDiagnostics(playbackPlan: ChartPlaybackPlan | null) {
 function setActivePlaybackPosition(barId: string | null, entryIndex: number) {
   state.activeBarId = barId;
   state.activePlaybackEntryIndex = entryIndex;
+  consumeExecutedPerformanceCues();
   renderTransport();
   updateActiveHighlights();
+  syncPerformanceCueBarPosition();
 }
 
 function resetActivePlaybackPosition() {
@@ -1778,6 +2007,7 @@ function renderChartSelector(preferredId: string | null = null) {
       state.currentPracticeSession = null;
       state.currentSelectionPracticeSession = null;
       resetActivePlaybackPosition();
+      renderPerformanceCueBar();
       renderTransport();
       renderSelectionState();
     }
@@ -1858,6 +2088,7 @@ function renderFixture() {
     renderSelectionState,
     updateChartNavigationState
   }));
+  renderPerformanceCueBar();
   if (dom.chartMetadataPopover && !dom.chartMetadataPopover.hidden) {
     void renderChartMetadataPopover();
   }
@@ -2661,6 +2892,10 @@ async function loadFixtures() {
       window.visualViewport?.addEventListener('resize', positionSelectionMenu);
       window.visualViewport?.addEventListener('scroll', positionSelectionMenu);
       dom.sheetGrid?.addEventListener('scroll', positionSelectionMenu, { passive: true });
+      window.addEventListener('resize', syncPerformanceCueBarPosition);
+      window.visualViewport?.addEventListener('resize', syncPerformanceCueBarPosition);
+      window.visualViewport?.addEventListener('scroll', syncPerformanceCueBarPosition);
+      document.querySelector<HTMLElement>('.chart-workspace')?.addEventListener('scroll', syncPerformanceCueBarPosition, { passive: true });
       bindBottomControlPopovers();
       createChartGestureController({
         sheetGrid: dom.sheetGrid,

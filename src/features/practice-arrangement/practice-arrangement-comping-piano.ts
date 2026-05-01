@@ -12,10 +12,10 @@ import { isOffbeatPlaybackEndingStyle } from '../../core/playback/playback-endin
 import { getMetricBeatStrengths } from '../../core/music/meter.js';
 import {
   clamp,
+  getInterpolatedNumber,
   getInterpolatedWeightMap,
   shuffleArray,
   weightedPick,
-  weightedPickExcludingJump,
 } from './practice-arrangement-comping-utils.js';
 
 const PIANO_SHAPE_INVERSION_START_INDEX = 2;
@@ -87,6 +87,8 @@ type DrillPianoRhythmConfig = {
   pianoGlobalDelayMs?: number;
   twoHandExtraTopBaseVolume?: number;
   twoHandGlobalVolumeBoost?: number;
+  longNoteProbability?: number;
+  longNoteProbability250Bpm?: number;
 };
 
 type DrillPianoVoicingConfig = {
@@ -117,7 +119,14 @@ const rhythmConfig = rawRhythmConfig as DrillPianoRhythmConfig;
 const voicingConfig = rawVoicingConfig as PracticeArrangementCompingVoicingConfig;
 const pianoVoicingConfig = rawPianoVoicingConfig as DrillPianoVoicingConfig;
 
+function isNoChord(chord) {
+  return Boolean(chord?.noChord || chord?.inputType === 'no-chord');
+}
+
 function chordsMatch(left, right) {
+  if (isNoChord(left) || isNoChord(right)) {
+    return isNoChord(left) && isNoChord(right);
+  }
   return Boolean(left && right
     && left.semitones === right.semitones
     && (left.bassSemitones ?? left.semitones) === (right.bassSemitones ?? right.semitones)
@@ -139,7 +148,7 @@ function formatPianoChoiceDebug(choice) {
   return `[${choice.notes.join(',')}]`;
 }
 
-function shouldStartOneStepRun(slotKind, nextJump, activeMode = 'piano', previousJump = null) {
+function shouldStartOneStepRun(slotKind, nextJump, activeMode = 'piano', previousJump = null, fallbackRecorder = null) {
   if (activeMode === 'twoHand') return false;
   if (nextJump !== 1) return false;
   if (slotKind === 'offbeat' && previousJump === 1) return false;
@@ -147,15 +156,59 @@ function shouldStartOneStepRun(slotKind, nextJump, activeMode = 'piano', previou
     ? rhythmConfig.offBeatOneStepRunProbability
     : rhythmConfig.onBeatOneStepRunProbability;
   const fallbackProbability = rhythmConfig.onBeatOneStepRunProbability;
+  if (!Number.isFinite(configuredProbability) && Number.isFinite(fallbackProbability)) {
+    fallbackRecorder?.record('one-step-run-probability-used-onbeat-fallback', {
+      slotKind,
+      fallbackProbability,
+    });
+  }
   const probability = Number.isFinite(configuredProbability)
     ? Math.max(0, Math.min(1, configuredProbability))
     : (Number.isFinite(fallbackProbability)
         ? Math.max(0, Math.min(1, fallbackProbability))
         : 0);
+  if (!Number.isFinite(configuredProbability) && !Number.isFinite(fallbackProbability)) {
+    fallbackRecorder?.record('one-step-run-probability-invalid-zero', {
+      slotKind,
+    });
+  }
   return Math.random() < probability;
 }
 
-function getOneStepRunRemainingJumps(slotKind) {
+function hasPositiveWeightedEntries(weightMap) {
+  return Object.entries(weightMap || {}).some(([jump, weight]) =>
+    Number.isFinite(Number(jump))
+    && Number.isFinite(Number(weight))
+    && Number(weight) > 0
+  );
+}
+
+function pickWeightedOrRecordFallback(weightMap, fallbackRecorder, name, context = {}) {
+  const hasEntries = hasPositiveWeightedEntries(weightMap);
+  if (!hasEntries) {
+    fallbackRecorder?.record(name, {
+      ...context,
+      fallbackJump: 3,
+    });
+  }
+  return weightedPick(weightMap);
+}
+
+function pickWeightedExcludingJumpOrRecordFallback(weightMap, excludedJump, fallbackRecorder, context = {}) {
+  const filteredWeightMap = Object.fromEntries(
+    Object.entries(weightMap || {}).filter(([jump]) => Number(jump) !== excludedJump)
+  );
+  if (!hasPositiveWeightedEntries(filteredWeightMap)) {
+    fallbackRecorder?.record('jump-exclusion-empty-default', {
+      ...context,
+      excludedJump,
+      fallbackJump: 3,
+    });
+  }
+  return weightedPick(filteredWeightMap);
+}
+
+function getOneStepRunRemainingJumps(slotKind, fallbackRecorder = null) {
   const configuredLengthWeights = slotKind === 'offbeat'
     ? rhythmConfig.offBeatOneStepRunLengthWeights
     : rhythmConfig.onBeatOneStepRunLengthWeights;
@@ -180,7 +233,18 @@ function getOneStepRunRemainingJumps(slotKind) {
       ? matchingLengthWeights
       : fallbackLengthWeights
   );
-  if (!Number.isFinite(totalNotes)) return 0;
+  if (Object.keys(matchingLengthWeights).length === 0 && Object.keys(fallbackLengthWeights).length > 0) {
+    fallbackRecorder?.record('one-step-run-length-legacy-parity', {
+      slotKind,
+      availableLengths: Object.keys(fallbackLengthWeights),
+    });
+  }
+  if (!Number.isFinite(totalNotes)) {
+    fallbackRecorder?.record('one-step-run-length-invalid-zero', {
+      slotKind,
+    });
+    return 0;
+  }
   return Math.max(0, totalNotes - 2);
 }
 
@@ -343,176 +407,64 @@ function getJumpWeights(slotKind, activeMode = 'piano', secondsPerBeat = null) {
   );
 }
 
-function getRawJumpWeight(weightMap, jump) {
-  if (!weightMap || typeof weightMap !== 'object') return null;
-  const rawWeight = weightMap[String(jump)] ?? weightMap[jump];
-  const weight = Number(rawWeight);
-  return Number.isFinite(weight) ? weight : null;
-}
-
 function getTempoBpm(secondsPerBeat) {
   return Number.isFinite(secondsPerBeat) && secondsPerBeat > 0
     ? 60 / secondsPerBeat
     : null;
 }
 
-function getJumpWeightDebugContext(slotKind, jump, activeMode = 'piano', secondsPerBeat = null) {
-  const baseWeights = slotKind === 'beat'
-    ? rhythmConfig.onBeatJumpWeights
-    : rhythmConfig.offBeatJumpWeights;
-  const highTempoWeights = slotKind === 'beat'
-    ? rhythmConfig.onBeatJumpWeights250Bpm
-    : rhythmConfig.offBeatJumpWeights250Bpm;
-  const resolvedWeights = getJumpWeights(slotKind, activeMode, secondsPerBeat);
-  return {
-    activeMode,
-    slotKind,
-    jump,
-    tempoBpm: getTempoBpm(secondsPerBeat),
-    baseWeight: getRawJumpWeight(baseWeights, jump),
-    highTempo250BpmWeight: getRawJumpWeight(highTempoWeights, jump),
-    resolvedWeight: getRawJumpWeight(resolvedWeights, jump),
-  };
+function getTempoMappedProbability(baseValue, highTempoValue, secondsPerBeat, fallbackValue = 0) {
+  return clamp(
+    getInterpolatedNumber(baseValue, highTempoValue, getTempoBpm(secondsPerBeat), fallbackValue),
+    0,
+    1
+  );
 }
 
-function isPositiveJumpWeight(weight) {
-  return Number.isFinite(weight) && weight > 0;
-}
-
-function getSlotDebugLabel(slotIndex, swingRatio = DEFAULT_SWING_RATIO) {
-  if (!Number.isFinite(slotIndex)) return 'unknown';
-  const timeBeats = getSlotTimeBeats(slotIndex, swingRatio);
-  return `${getSlotKind(slotIndex)} slot ${slotIndex} @ beat ${Number(timeBeats.toFixed(3))}`;
-}
-
-function getJumpDecision(debugInfo, fromSlot, toSlot) {
-  return debugInfo?.jumpDecisions?.find(decision =>
-    decision.fromSlot === fromSlot
-    && decision.toSlot === toSlot
-  ) || null;
-}
-
-function getSlotSource(debugInfo, slotIndex) {
-  return debugInfo?.slotSources instanceof Map
-    ? (debugInfo.slotSources.get(slotIndex) || null)
-    : null;
-}
-
-function explainTwoSlotGapCause({
-  debugInfo,
-  fromSlot,
-  toSlot,
-  isReservedEndingGap = false,
-}) {
-  const directDecision = getJumpDecision(debugInfo, fromSlot, toSlot);
-  if (directDecision) {
-    return `direct ${directDecision.source}`;
-  }
-
-  const fromSource = getSlotSource(debugInfo, fromSlot);
-  const toSource = getSlotSource(debugInfo, toSlot);
-  if (toSource?.stage === 'block-representation') {
-    return 'block representation inserted the destination slot after the weighted walk';
-  }
-  if (fromSource?.stage === 'block-representation') {
-    return 'block representation inserted the source slot after the weighted walk';
-  }
-  if (isReservedEndingGap) {
-    return 'gap into reserved ending; the ending is scheduled outside piano plan events';
-  }
-  if (debugInfo?.endingResolution?.removedSlots?.length) {
-    return 'reserved-ending resolution removed later candidate slots, changing the final spacing';
-  }
-  return 'final spacing after plan normalization, not a direct weighted jump';
-}
-
-function collectZeroWeightTwoSlotJumpDiagnostics({
-  events,
-  reservedEndingSlotIndex,
-  endingCue,
-  activeMode,
-  secondsPerBeat,
-  swingRatio,
-  debugInfo,
-}) {
-  if (!Array.isArray(events) || events.length === 0) return [];
-
-  const diagnostics = [];
-  const addDiagnostic = ({ leftEvent, rightEvent = null, rightSlot, isReservedEndingGap = false }) => {
-    const gapSlots = rightSlot - leftEvent.slotIndex;
-    if (gapSlots !== 2) return;
-
-    const weightContext = getJumpWeightDebugContext(
-      getSlotKind(leftEvent.slotIndex),
-      gapSlots,
-      activeMode,
-      secondsPerBeat
-    );
-    if (isPositiveJumpWeight(weightContext.resolvedWeight)) return;
-
-    diagnostics.push({
-      kind: isReservedEndingGap ? 'event-to-reserved-ending' : 'event-to-event',
-      cause: explainTwoSlotGapCause({
-        debugInfo,
-        fromSlot: leftEvent.slotIndex,
-        toSlot: rightSlot,
-        isReservedEndingGap,
-      }),
-      from: {
-        slot: leftEvent.slotIndex,
-        label: getSlotDebugLabel(leftEvent.slotIndex, swingRatio),
-        chordIdx: leftEvent.chordIdx,
-        source: getSlotSource(debugInfo, leftEvent.slotIndex),
-      },
-      to: rightEvent
-        ? {
-            slot: rightEvent.slotIndex,
-            label: getSlotDebugLabel(rightEvent.slotIndex, swingRatio),
-            chordIdx: rightEvent.chordIdx,
-            source: getSlotSource(debugInfo, rightEvent.slotIndex),
-          }
-        : {
-            slot: rightSlot,
-            label: getSlotDebugLabel(rightSlot, swingRatio),
-            endingStyle: endingCue?.style || null,
-          },
-      weightContext,
-      directDecision: getJumpDecision(debugInfo, leftEvent.slotIndex, rightSlot),
-      endingResolution: debugInfo?.endingResolution || null,
-    });
-  };
-
-  for (let index = 0; index < events.length - 1; index++) {
-    addDiagnostic({
-      leftEvent: events[index],
-      rightEvent: events[index + 1],
-      rightSlot: events[index + 1].slotIndex,
-    });
-  }
-
-  if (Number.isInteger(reservedEndingSlotIndex)) {
-    const lastBeforeEnding = [...events]
-      .reverse()
-      .find(event => event.slotIndex < reservedEndingSlotIndex);
-    if (lastBeforeEnding) {
-      addDiagnostic({
-        leftEvent: lastBeforeEnding,
-        rightSlot: reservedEndingSlotIndex,
-        isReservedEndingGap: true,
-      });
+function createFallbackRecorder(scope, baseContext = {}) {
+  const entries = [];
+  const formatValue = (value) => {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
     }
-  }
+  };
+  return {
+    record(name, context = {}) {
+      entries.push({ name, context });
+    },
+    flush(context = {}) {
+      if (!entries.length || typeof console === 'undefined' || typeof console.info !== 'function') return;
 
-  return diagnostics;
-}
+      const grouped = new Map();
+      for (const entry of entries) {
+        const group = grouped.get(entry.name) || {
+          name: entry.name,
+          count: 0,
+          examples: [],
+        };
+        group.count += 1;
+        if (group.examples.length < 3) {
+          group.examples.push(entry.context);
+        }
+        grouped.set(entry.name, group);
+      }
 
-function logZeroWeightTwoSlotJumpDiagnostics(diagnostics, planContext) {
-  if (!diagnostics.length || typeof console === 'undefined' || typeof console.info !== 'function') return;
-  console.info('[piano-rhythm] jump/gap 2 with zero resolved weight', {
-    ...planContext,
-    note: 'A weight of 0 only excludes direct weighted picks. Final plan spacing can still become 2 after block coverage or ending reservation adjustments.',
-    diagnostics,
-  });
+      const flushContext = {
+        ...baseContext,
+        ...context,
+      };
+      for (const group of [...grouped.values()].sort((left, right) =>
+        right.count - left.count || left.name.localeCompare(right.name)
+      )) {
+        console.info(
+          `[piano-fallback] scope=${scope} name=${group.name} count=${group.count} `
+          + `context=${formatValue(flushContext)} examples=${formatValue(group.examples)}`
+        );
+      }
+    },
+  };
 }
 
 function getPositiveConfiguredJumpWeight(slotIndex, jump, activeMode = 'piano', secondsPerBeat = null) {
@@ -579,6 +531,11 @@ function resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, 
         candidates,
       };
     }
+    debugInfo?.fallbackRecorder?.record('ending-candidates-all-zero-removed', {
+      reservedEndingSlotIndex,
+      removedSlotsCount: removedSlots.length,
+      candidateSlots: removedSlots.slice(0, 6),
+    });
     return true;
   }
 
@@ -613,7 +570,21 @@ function resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, 
       candidates,
     };
   }
+  if (changed) {
+    debugInfo?.fallbackRecorder?.record('ending-candidates-pruned-after-weighted-choice', {
+      reservedEndingSlotIndex,
+      selectedSlot,
+      removedSlotsCount: removedSlots.length,
+      removedSlots: removedSlots.slice(0, 6),
+    });
+  }
   return changed;
+}
+
+function isSlotPlayable(slotIndex, chosenSlots) {
+  return !chosenSlots.has(slotIndex - 1)
+    && !chosenSlots.has(slotIndex)
+    && !chosenSlots.has(slotIndex + 1);
 }
 
 function buildPianoPlanEvent({
@@ -674,7 +645,187 @@ function buildSortedPianoPlanEvents(chosenSlots, eventOptions) {
     .sort((left, right) => left.timeBeats - right.timeBeats);
 }
 
-function annotatePianoEventSpacing(events, blocks) {
+function getBlockRepresentationOffsets(block) {
+  const durationBeats = Number(block?.endBeat) - Number(block?.startBeat);
+  return Number.isFinite(durationBeats) && durationBeats >= 4
+    ? [0, -1, 1, 2]
+    : [0, -1, 1];
+}
+
+function getBlockRepresentationSlotCandidates(block, context: Record<string, any> = {}) {
+  const {
+    eventOptions,
+    totalSlots,
+    minimumStartSlot = 0,
+    isBlockedSlot = (_slot) => false,
+    isReservedEndingSlot = (_slot) => false,
+  } = context;
+  const blockStartSlot = Number(block?.startBeat) * 2;
+  if (!Number.isInteger(blockStartSlot)) return [];
+
+  return getBlockRepresentationOffsets(block)
+    .map((offset, rank) => ({
+      slot: blockStartSlot + offset,
+      offset,
+      rank,
+    }))
+    .filter(candidate => (
+      Number.isInteger(candidate.slot)
+      && candidate.slot >= Math.max(0, minimumStartSlot)
+      && candidate.slot < totalSlots
+      && !isBlockedSlot(candidate.slot)
+      && !isReservedEndingSlot(candidate.slot)
+    ))
+    .filter(candidate => {
+      const event = buildPianoPlanEvent({
+        slot: candidate.slot,
+        ...eventOptions,
+      });
+      return Boolean(
+        event
+        && !event.targetsNextProgression
+        && event.targetBlockIdx === block.blockIdx
+      );
+    });
+}
+
+function getBlockRepresentingSlots(chosenSlots, block, representationContext) {
+  return getBlockRepresentationSlotCandidates(block, representationContext)
+    .filter(candidate => chosenSlots.has(candidate.slot))
+    .map(candidate => candidate.slot);
+}
+
+function getCriticalRepresentationSlots(chosenSlots, blocks, skippedBlockIdx, representationContext, preRepresentedBlockIndices = new Set()) {
+  const criticalSlots = new Set();
+  for (const block of blocks) {
+    if (!block || block.blockIdx === skippedBlockIdx || preRepresentedBlockIndices.has(block.blockIdx)) continue;
+    const representingSlots = getBlockRepresentingSlots(chosenSlots, block, representationContext);
+    if (representingSlots.length === 1) {
+      criticalSlots.add(representingSlots[0]);
+    }
+  }
+  return criticalSlots;
+}
+
+function chooseRepresentationSlot(chosenSlots, candidates, protectedSlots) {
+  const availableCandidates = candidates.filter(candidate => !chosenSlots.has(candidate.slot));
+  const playableCandidate = availableCandidates.find(candidate => isSlotPlayable(candidate.slot, chosenSlots));
+  if (playableCandidate) {
+    return {
+      candidate: playableCandidate,
+      removedSlots: [],
+      protectedConflictCount: 0,
+    };
+  }
+
+  let bestChoice = null;
+  for (const candidate of availableCandidates) {
+    const conflicts = [candidate.slot - 1, candidate.slot, candidate.slot + 1]
+      .filter(slot => chosenSlots.has(slot));
+    const removedSlots = conflicts.filter(slot => !protectedSlots.has(slot));
+    const protectedConflictCount = conflicts.length - removedSlots.length;
+    const score = {
+      candidate,
+      removedSlots,
+      protectedConflictCount,
+    };
+    if (
+      !bestChoice
+      || score.protectedConflictCount < bestChoice.protectedConflictCount
+      || (
+        score.protectedConflictCount === bestChoice.protectedConflictCount
+        && score.removedSlots.length > bestChoice.removedSlots.length
+      )
+      || (
+        score.protectedConflictCount === bestChoice.protectedConflictCount
+        && score.removedSlots.length === bestChoice.removedSlots.length
+        && candidate.rank < bestChoice.candidate.rank
+      )
+    ) {
+      bestChoice = score;
+    }
+  }
+
+  return bestChoice;
+}
+
+function ensureStrictBlockRepresentations(chosenSlots, blocks, {
+  preRepresentedBlockIndices = new Set(),
+  debugInfo = null,
+  ...representationContext
+} = {}) {
+  if (!chosenSlots || !Array.isArray(blocks) || blocks.length === 0) return false;
+
+  let changed = false;
+  for (const block of blocks) {
+    if (preRepresentedBlockIndices.has(block.blockIdx)) continue;
+    const candidates = getBlockRepresentationSlotCandidates(block, representationContext);
+    if (candidates.length === 0) {
+      debugInfo?.fallbackRecorder?.record('strict-block-representation-no-candidate', {
+        blockIdx: block.blockIdx,
+        startBeat: block.startBeat,
+        endBeat: block.endBeat,
+      });
+      continue;
+    }
+    if (candidates.some(candidate => chosenSlots.has(candidate.slot))) continue;
+
+    const protectedSlots = getCriticalRepresentationSlots(
+      chosenSlots,
+      blocks,
+      block.blockIdx,
+      representationContext,
+      preRepresentedBlockIndices
+    );
+    const choice = chooseRepresentationSlot(chosenSlots, candidates, protectedSlots);
+    if (!choice?.candidate) {
+      debugInfo?.fallbackRecorder?.record('strict-block-representation-no-choice', {
+        blockIdx: block.blockIdx,
+        candidateSlots: candidates.map(candidate => candidate.slot),
+      });
+      continue;
+    }
+
+    for (const removedSlot of choice.removedSlots) {
+      chosenSlots.delete(removedSlot);
+    }
+    chosenSlots.add(choice.candidate.slot);
+    changed = true;
+
+    if (choice.removedSlots.length > 0) {
+      debugInfo?.fallbackRecorder?.record('strict-block-representation-removed-neighbor-slots', {
+        blockIdx: block.blockIdx,
+        startBeat: block.startBeat,
+        selectedSlot: choice.candidate.slot,
+        offset: choice.candidate.offset,
+        removedSlots: choice.removedSlots,
+      });
+    }
+    if (choice.protectedConflictCount > 0) {
+      debugInfo?.fallbackRecorder?.record('strict-block-representation-added-near-protected-slot', {
+        blockIdx: block.blockIdx,
+        startBeat: block.startBeat,
+        selectedSlot: choice.candidate.slot,
+        offset: choice.candidate.offset,
+        protectedConflictCount: choice.protectedConflictCount,
+      });
+    }
+  }
+
+  return changed;
+}
+
+function getLongNoteProbability(secondsPerBeat) {
+  return getTempoMappedProbability(
+    rhythmConfig.longNoteProbability,
+    rhythmConfig.longNoteProbability250Bpm,
+    secondsPerBeat,
+    1
+  );
+}
+
+function annotatePianoEventSpacing(events, blocks, secondsPerBeat = null) {
+  const longNoteProbability = getLongNoteProbability(secondsPerBeat);
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
     const previousEvent = i > 0 ? events[i - 1] : null;
@@ -693,7 +844,9 @@ function annotatePianoEventSpacing(events, blocks) {
     event.nextGapSteps = nextGapSteps;
     event.nextGapBeats = nextEvent ? Math.max(0, nextEventBeat - event.timeBeats) : null;
     event.forceHoldToNextAttack = nextGapSteps === 1;
-    event.isLong = !event.isAnticipation && durationBeats >= 1;
+    // TODO: verify whether anticipations need a lower long-note probability.
+    event.isLong = durationBeats >= 1
+      && Math.random() < longNoteProbability;
     event.isIsolated = !event.isAnticipation
       && previousEventGapSteps > 1
       && nextGapSteps > 1;
@@ -723,9 +876,10 @@ function annotatePianoOneStepRuns(events) {
   }
 }
 
-function assignLooseBlockRepresentations(events, blocks, {
+function assignRareBlockRepresentationFallbacks(events, blocks, {
   preRepresentedBlockIndices = new Set(),
   debugInfo = null,
+  ...representationContext
 } = {}) {
   if (!Array.isArray(events) || !events.length || !Array.isArray(blocks) || !blocks.length) {
     return events;
@@ -743,12 +897,18 @@ function assignLooseBlockRepresentations(events, blocks, {
   }
   for (const event of eligibleEvents) {
     event.representedBlockIdx = event.targetBlockIdx;
-    representedCounts.set(event.targetBlockIdx, (representedCounts.get(event.targetBlockIdx) || 0) + 1);
+    const representsTargetBlock = getBlockRepresentationSlotCandidates(
+      blocks[event.targetBlockIdx],
+      representationContext
+    ).some(candidate => candidate.slot === event.slotIndex);
+    if (representsTargetBlock) {
+      representedCounts.set(event.targetBlockIdx, (representedCounts.get(event.targetBlockIdx) || 0) + 1);
+    }
   }
 
   const overrides = [];
   for (const block of blocks) {
-    if (representedCounts.has(block.blockIdx)) continue;
+    if ((representedCounts.get(block.blockIdx) || 0) > 0) continue;
 
     let selectedEvent = null;
     let selectedDistance = Infinity;
@@ -757,6 +917,11 @@ function assignLooseBlockRepresentations(events, blocks, {
         ? event.representedBlockIdx
         : event.targetBlockIdx;
       if ((representedCounts.get(currentBlockIdx) || 0) <= 1) continue;
+      const representsCurrentBlock = getBlockRepresentationSlotCandidates(
+        blocks[currentBlockIdx],
+        representationContext
+      ).some(candidate => candidate.slot === event.slotIndex);
+      if (!representsCurrentBlock) continue;
 
       const distance = Math.abs((Number(event.timeBeats) || 0) - block.startBeat);
       if (distance < selectedDistance) {
@@ -765,15 +930,28 @@ function assignLooseBlockRepresentations(events, blocks, {
       }
     }
 
-    if (!selectedEvent) continue;
+    if (!selectedEvent) {
+      debugInfo?.fallbackRecorder?.record('strict-block-representation-fallback-unavailable', {
+        blockIdx: block.blockIdx,
+        startBeat: block.startBeat,
+        endBeat: block.endBeat,
+      });
+      continue;
+    }
 
     const previousBlockIdx = Number.isInteger(selectedEvent.representedBlockIdx)
       ? selectedEvent.representedBlockIdx
       : selectedEvent.targetBlockIdx;
     representedCounts.set(previousBlockIdx, Math.max(0, (representedCounts.get(previousBlockIdx) || 0) - 1));
     selectedEvent.representedBlockIdx = block.blockIdx;
-    selectedEvent.representationOverrideReason = 'missing-block-nearest-duplicate';
+    selectedEvent.representationOverrideReason = 'missing-block-rare-fallback';
     representedCounts.set(block.blockIdx, 1);
+    debugInfo?.fallbackRecorder?.record('strict-block-representation-rare-fallback', {
+      slotIndex: selectedEvent.slotIndex,
+      timeBeats: Number(Number(selectedEvent.timeBeats).toFixed(3)),
+      fromBlockIdx: previousBlockIdx,
+      toBlockIdx: block.blockIdx,
+    });
     overrides.push({
       slotIndex: selectedEvent.slotIndex,
       timeBeats: selectedEvent.timeBeats,
@@ -840,22 +1018,24 @@ function createPianoPlan({
     && candidateSlot === reservedEndingSlotIndex
   );
   const minimumStartSlot = getBoundaryBlockedSlotCount(totalSlots, previousTailBeats, hasIncomingAnticipation, swingRatio);
+  const fallbackRecorder = createFallbackRecorder('comping');
   const debugInfo = {
-    jumpDecisions: [],
-    slotSources: new Map(),
     endingResolution: null,
     harmonyRepresentationOverrides: [],
+    fallbackRecorder,
+  };
+  const preRepresentedBlockIndices = new Set(hasIncomingAnticipation ? [0] : []);
+  const representationContext = {
+    eventOptions,
+    totalSlots,
+    minimumStartSlot,
+    isBlockedSlot,
+    isReservedEndingSlot,
   };
   let slotIndex = Math.max(
     minimumStartSlot,
     getInitialSlotIndex(shouldReset, hasIncomingAnticipation)
   );
-  let incomingSlotSource: Record<string, unknown> = {
-    stage: 'initial',
-    minimumStartSlot,
-    shouldReset,
-    hasIncomingAnticipation,
-  };
   let forcedOneStepJumpsRemaining = 0;
   let oneStepRunCooldownRemaining = 0;
   let oneStepRunCooldownPending = 0;
@@ -864,54 +1044,54 @@ function createPianoPlan({
   while (slotExistsWithinProgression(slotIndex, totalSlots)) {
     if (!isBlockedSlot(slotIndex) && !isReservedEndingSlot(slotIndex)) {
       chosenSlots.add(slotIndex);
-      if (!debugInfo.slotSources.has(slotIndex)) {
-        debugInfo.slotSources.set(slotIndex, incomingSlotSource);
-      }
     }
     if (forcedOneStepJumpsRemaining <= 0 && oneStepRunCooldownRemaining > 0) {
       oneStepRunCooldownRemaining -= 1;
     }
     const slotKind = getSlotKind(slotIndex);
-    let nextJumpSource = forcedOneStepJumpsRemaining > 0
-      ? 'forced-one-step-run'
-      : 'weighted-pick';
     let nextJump = forcedOneStepJumpsRemaining > 0
       ? 1
-      : weightedPick(getJumpWeights(slotKind, activeMode, secondsPerBeat));
+      : pickWeightedOrRecordFallback(
+          getJumpWeights(slotKind, activeMode, secondsPerBeat),
+          fallbackRecorder,
+          'jump-weights-empty-default',
+          {
+            slotIndex,
+            slotKind,
+            activeMode,
+            tempoBpm: getTempoBpm(secondsPerBeat),
+          }
+        );
     if (forcedOneStepJumpsRemaining <= 0 && previousJump === 1 && nextJump === 1) {
-      nextJump = weightedPickExcludingJump(
+      nextJump = pickWeightedExcludingJumpOrRecordFallback(
         getJumpWeights(slotKind, activeMode, secondsPerBeat),
-        1
+        1,
+        fallbackRecorder,
+        {
+          slotIndex,
+          slotKind,
+          activeMode,
+          tempoBpm: getTempoBpm(secondsPerBeat),
+        }
       );
-      nextJumpSource = 'weighted-pick-excluding-repeat-1';
+      fallbackRecorder.record('consecutive-one-jump-rerolled', {
+        slotIndex,
+        slotKind,
+        replacementJump: nextJump,
+      });
     }
     const destinationSlot = slotIndex + nextJump;
-    const jumpDecision = {
-      fromSlot: slotIndex,
-      toSlot: destinationSlot,
-      jump: nextJump,
-      source: nextJumpSource,
-      slotKind,
-      previousJump,
-      weightContext: getJumpWeightDebugContext(slotKind, nextJump, activeMode, secondsPerBeat),
-    };
-    debugInfo.jumpDecisions.push(jumpDecision);
-    incomingSlotSource = {
-      stage: 'weighted-walk',
-      fromSlot: slotIndex,
-      jump: nextJump,
-      source: nextJumpSource,
-      slotKind,
-      weightContext: jumpDecision.weightContext,
-    };
     if (forcedOneStepJumpsRemaining > 0) {
       forcedOneStepJumpsRemaining -= 1;
       if (forcedOneStepJumpsRemaining <= 0 && oneStepRunCooldownPending > 0) {
         oneStepRunCooldownRemaining = oneStepRunCooldownPending;
         oneStepRunCooldownPending = 0;
       }
-    } else if (oneStepRunCooldownRemaining <= 0 && shouldStartOneStepRun(slotKind, nextJump, activeMode, previousJump)) {
-      forcedOneStepJumpsRemaining = getOneStepRunRemainingJumps(slotKind);
+    } else if (
+      oneStepRunCooldownRemaining <= 0
+      && shouldStartOneStepRun(slotKind, nextJump, activeMode, previousJump, fallbackRecorder)
+    ) {
+      forcedOneStepJumpsRemaining = getOneStepRunRemainingJumps(slotKind, fallbackRecorder);
       const configuredCooldownJumps = Number.isFinite(rhythmConfig.oneStepRunCooldownJumps)
         ? Math.max(0, Math.round(rhythmConfig.oneStepRunCooldownJumps))
         : 0;
@@ -925,36 +1105,27 @@ function createPianoPlan({
     slotIndex = destinationSlot;
   }
 
+  ensureStrictBlockRepresentations(chosenSlots, blocks, {
+    ...representationContext,
+    preRepresentedBlockIndices,
+    debugInfo,
+  });
+  resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode, secondsPerBeat, debugInfo);
+  ensureStrictBlockRepresentations(chosenSlots, blocks, {
+    ...representationContext,
+    preRepresentedBlockIndices,
+    debugInfo,
+  });
   resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode, secondsPerBeat, debugInfo);
 
   const finalEvents = buildSortedPianoPlanEvents(chosenSlots, eventOptions);
-  annotatePianoEventSpacing(finalEvents, blocks);
+  annotatePianoEventSpacing(finalEvents, blocks, secondsPerBeat);
   annotatePianoOneStepRuns(finalEvents);
-  assignLooseBlockRepresentations(finalEvents, blocks, {
-    preRepresentedBlockIndices: new Set(hasIncomingAnticipation ? [0] : []),
+  assignRareBlockRepresentationFallbacks(finalEvents, blocks, {
+    ...representationContext,
+    preRepresentedBlockIndices,
     debugInfo,
   });
-
-  logZeroWeightTwoSlotJumpDiagnostics(
-    collectZeroWeightTwoSlotJumpDiagnostics({
-      events: finalEvents,
-      reservedEndingSlotIndex,
-      endingCue,
-      activeMode,
-      secondsPerBeat,
-      swingRatio,
-      debugInfo,
-    }),
-    {
-      activeMode,
-      beatsPerBar,
-      beatsPerChord,
-      chordsCount: chords.length,
-      tempoBpm: getTempoBpm(secondsPerBeat),
-      reservedEndingSlotIndex,
-      endingStyle: endingCue?.style || null,
-    }
-  );
 
   const anticipatesNextStart = finalEvents.some(event =>
     event.isAnticipation
@@ -989,6 +1160,13 @@ function createPianoPlan({
       const repeatedChordIdx = hasRepresentationOverride
         ? representedBlock.startChordIdx
         : naturalRepeatedChordIdx;
+      if (!hasRepresentationOverride && !chords[naturalRepeatedChordIdx] && chords[event.targetVoicingChordIdx]) {
+        fallbackRecorder.record('plan-chord-target-index-fallback', {
+          slotIndex: event.slotIndex,
+          naturalRepeatedChordIdx,
+          targetVoicingChordIdx: event.targetVoicingChordIdx,
+        });
+      }
       const planChord = event.targetsNextProgression
         ? (nextFirstChord || null)
         : (event.isAnticipation
@@ -1004,6 +1182,7 @@ function createPianoPlan({
         planIsMinor: event.targetsNextProgression ? nextIsMinor : isMinor,
       };
     })
+    .filter(event => !isNoChord(event.planChord))
     .sort((left, right) => left.timeBeats - right.timeBeats);
 
   const voicingChoicesByEventIndex = typeof buildVoicingChoicePlan === 'function'
@@ -1019,6 +1198,15 @@ function createPianoPlan({
     playbackEventIndex: index,
     voicingChoice: voicingChoicesByEventIndex[index] || null,
   }));
+
+  fallbackRecorder.flush({
+    activeMode,
+    beatsPerBar,
+    beatsPerChord,
+    chordsCount: chords.length,
+    tempoBpm: getTempoBpm(secondsPerBeat),
+    endingStyle: endingCue?.style || null,
+  });
 
   return {
     style: 'piano',
@@ -1082,8 +1270,22 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     modes: pianoModes = {},
     ranges: pianoRanges = {},
   } = pianoVoicingConfig;
+  let activeVoicingFallbackRecorder = null;
+
+  function recordVoicingFallback(name, context = {}) {
+    activeVoicingFallbackRecorder?.record(name, context);
+  }
+
   function dbToGain(db) {
     return Math.pow(10, db / 20);
+  }
+
+  function formatChordForDebug(chord, key, isMinor = false) {
+    if (isNoChord(chord)) return 'NC';
+    if (!chord) return 'null';
+    const rootPitchClass = getChordRootPitchClass(chord, key);
+    const rootName = Number.isFinite(rootPitchClass) ? NOTE_NAMES[rootPitchClass] : '?';
+    return `${rootName}${getPlayedChordQuality(chord, isMinor) || ''}`;
   }
 
   function getPianoSampleLayer(finalVolume) {
@@ -1233,6 +1435,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
   }
 
   function getPlayedChordQuality(chord, isMinor) {
+    if (isNoChord(chord)) return '';
     const canonicalQuality = isMinor ? chord?.qualityMinor : chord?.qualityMajor;
     if (!canonicalQuality) return '';
     const contextualQuality = applyContextualQualityRules(chord, canonicalQuality);
@@ -1272,11 +1475,13 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
   }
 
   function getChordRootPitchClass(chord, key) {
+    if (isNoChord(chord)) return null;
     if (!chord || !Number.isFinite(key)) return null;
     return ((key + chord.semitones) % 12 + 12) % 12;
   }
 
   function formatPianoHarmonyLabel(chord, key, isMinor) {
+    if (isNoChord(chord)) return 'NC';
     const playedQuality = getPlayedChordQuality(chord, isMinor);
     const rootPitchClass = getChordRootPitchClass(chord, key);
     const rootName = Number.isFinite(rootPitchClass) ? NOTE_NAMES[rootPitchClass] : '?';
@@ -1371,11 +1576,25 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
 
   function getPianoModeConfig() {
     const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
+    if (!pianoModes[activeMode] && !pianoModes.piano) {
+      recordVoicingFallback('mode-config-default-guide-tones', {
+        requestedMode: activeMode,
+      });
+    } else if (!pianoModes[activeMode]) {
+      recordVoicingFallback('mode-config-fell-back-to-piano', {
+        requestedMode: activeMode,
+      });
+    }
     return pianoModes[activeMode] || pianoModes.piano || { guideToneIndices: [0, 2], shapes: {} };
   }
 
   function resolvePianoModeName(modeOverride = null) {
     const activeMode = modeOverride || getPianoVoicingMode?.() || defaultPianoMode;
+    if (!pianoModes[activeMode]) {
+      recordVoicingFallback('mode-name-fell-back-to-piano', {
+        requestedMode: activeMode,
+      });
+    }
     return pianoModes[activeMode] ? activeMode : 'piano';
   }
 
@@ -1387,6 +1606,16 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
 
     const twoHandOverride = pianoModes.twoHand?.shapes?.[quality] || null;
     if (!baseShape && !twoHandOverride) return null;
+    if (!twoHandOverride && baseShape) {
+      recordVoicingFallback('twohand-shape-fell-back-to-piano-shape', {
+        quality,
+      });
+    }
+    if (twoHandOverride && !twoHandOverride.B && baseShape?.B) {
+      recordVoicingFallback('twohand-shape-b-fell-back-to-piano-b', {
+        quality,
+      });
+    }
     return {
       A: twoHandOverride?.A || baseShape?.A || null,
       B: twoHandOverride?.B || baseShape?.B || null,
@@ -1398,7 +1627,13 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
 
     const activeMode = resolvePianoModeName(modeOverride);
     const shapeSpec = getShapeSpecForQuality(activeMode, quality);
-    if (!shapeSpec?.A) return null;
+    if (!shapeSpec?.A) {
+      recordVoicingFallback('shape-missing-no-candidates', {
+        quality,
+        activeMode,
+      });
+      return null;
+    }
 
     const normalizedRootPitchClass = ((rootPitchClass % 12) + 12) % 12;
     const baseIntervalsA = shapeSpec.A.map(resolveIntervalValue);
@@ -1440,6 +1675,13 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       candidate.lowestMidi >= pianoRanges.lowestNoteZoneLow
       && candidate.lowestMidi <= pianoRanges.lowestNoteZoneHigh
     );
+    if (!inZoneCandidates.length && sortedCandidates.length) {
+      recordVoicingFallback('shape-candidates-out-of-zone-using-all', {
+        quality,
+        activeMode,
+        candidatesCount: sortedCandidates.length,
+      });
+    }
     return inZoneCandidates.length ? inZoneCandidates : sortedCandidates;
   }
 
@@ -1882,7 +2124,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
   }
 
   function buildPianoShapeCandidates(chord, key, isMinor, modeOverride = null) {
-    if (!chord || !Number.isFinite(key)) return null;
+    if (!chord || isNoChord(chord) || !Number.isFinite(key)) return null;
 
     const playedQuality = getPlayedChordQuality(chord, isMinor);
     const rootPitchClass = (key + chord.semitones) % 12;
@@ -1914,6 +2156,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
   }
 
   function buildPianoShapeNotes(chord, key, isMinor, planChoice = null, modeOverride = null) {
+    if (isNoChord(chord)) return null;
     const resolvedMode = resolvePianoModeName(modeOverride);
     if (resolvedMode === 'twoHand') {
       if (planChoice?.notes?.length) {
@@ -1921,12 +2164,22 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
           return planChoice;
         }
         const derivedChoice = deriveTwoHandChoiceFromOneHandChoice(planChoice);
-        if (derivedChoice) return derivedChoice;
+        if (derivedChoice) {
+          recordVoicingFallback('twohand-derived-from-onehand-plan-choice', {
+            chord: formatChordForDebug(chord, key, isMinor),
+          });
+          return derivedChoice;
+        }
       }
 
       const baseChoice = buildPianoShapeNotes(chord, key, isMinor, null, 'piano');
       const derivedChoice = deriveTwoHandChoiceFromOneHandChoice(baseChoice);
-      if (derivedChoice) return derivedChoice;
+      if (derivedChoice) {
+        recordVoicingFallback('twohand-derived-from-fresh-onehand-choice', {
+          chord: formatChordForDebug(chord, key, isMinor),
+        });
+        return derivedChoice;
+      }
     }
 
     if (planChoice?.notes?.length && (!modeOverride || planChoice.modeName === resolvedMode)) {
@@ -2312,6 +2565,10 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     } = {}
   ) {
     if (!Array.isArray(sequence) || !Array.isArray(candidatesByIndex) || candidatesByIndex.length === 0) {
+      recordVoicingFallback('choice-solver-empty-input', {
+        sequenceLength: Array.isArray(sequence) ? sequence.length : null,
+        candidatesRows: Array.isArray(candidatesByIndex) ? candidatesByIndex.length : null,
+      });
       return [];
     }
 
@@ -2322,6 +2579,11 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       prevIndex: -1,
     }));
     const scoreRows = [previousScores];
+    const rejectionTotals = {
+      invalidPreviousScore: 0,
+      sameVoicingRunMove: 0,
+      thinnedOuterVoices: 0,
+    };
 
     for (let rowIndex = 1; rowIndex < candidatesByIndex.length; rowIndex++) {
       const rowCandidates = candidatesByIndex[rowIndex];
@@ -2375,6 +2637,9 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
         return bestScore;
       });
 
+      rejectionTotals.invalidPreviousScore += debugReasons.invalidPreviousScore;
+      rejectionTotals.sameVoicingRunMove += debugReasons.sameVoicingRunMove;
+      rejectionTotals.thinnedOuterVoices += debugReasons.thinnedOuterVoices;
       scoreRows.push(nextScores);
       previousScores = nextScores;
     }
@@ -2388,6 +2653,11 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       }
     }
     if (bestFinalIndex === -1) {
+      recordVoicingFallback('choice-solver-no-complete-path', {
+        sequenceLength: sequence.length,
+        candidatesRows: candidatesByIndex.length,
+        rejectionTotals,
+      });
       return new Array(sequence.length).fill(null);
     }
 
@@ -2395,6 +2665,12 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     for (let rowIndex = scoreRows.length - 1, candidateIndex = bestFinalIndex; rowIndex >= 0; rowIndex--) {
       const score = scoreRows[rowIndex][candidateIndex];
       if (!score) {
+        recordVoicingFallback('choice-solver-backtrace-hole', {
+          sequenceLength: sequence.length,
+          rowIndex,
+          candidateIndex,
+          rejectionTotals,
+        });
         return new Array(sequence.length).fill(null);
       }
       chosen[rowIndex] = score.candidate;
@@ -2414,6 +2690,10 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     } = {}
   ) {
     if (!Array.isArray(sequence) || !Array.isArray(candidatesByIndex) || candidatesByIndex.length === 0) {
+      recordVoicingFallback('choice-path-empty-input', {
+        sequenceLength: Array.isArray(sequence) ? sequence.length : null,
+        candidatesRows: Array.isArray(candidatesByIndex) ? candidatesByIndex.length : null,
+      });
       return [];
     }
 
@@ -2477,6 +2757,11 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
 
       const diminishedCandidates = buildPassingDiminishedCandidates(entry) || [];
       if (!diminishedCandidates.length) {
+        recordVoicingFallback('passing-diminished-hit-no-candidates', {
+          eventIndex: entry.eventIndex,
+          slotIndex: entry.slotIndex,
+          chord: formatChordForDebug(entry.chord, entry.key, entry.isMinor),
+        });
         return normalCandidates;
       }
 
@@ -2489,16 +2774,23 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
 
   function mergePianoChoiceFallback(sequence, preferredChoices, fallbackChoices) {
     if (!Array.isArray(preferredChoices) || !Array.isArray(fallbackChoices)) {
+      recordVoicingFallback('choice-merge-invalid-fallback-input', {
+        preferredIsArray: Array.isArray(preferredChoices),
+        fallbackIsArray: Array.isArray(fallbackChoices),
+      });
       return Array.isArray(preferredChoices) ? preferredChoices : [];
     }
 
     const merged = [...preferredChoices];
+    let replacedChoices = 0;
+    let replacedSegments = 0;
     let index = 0;
     while (index < merged.length) {
       const entry = sequence[index] || null;
       if (!entry || entry.isSentinel) {
         if (!merged[index]?.notes?.length && fallbackChoices[index]?.notes?.length) {
           merged[index] = fallbackChoices[index];
+          replacedChoices += 1;
         }
         index += 1;
         continue;
@@ -2518,9 +2810,11 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
         .slice(index, segmentEnd + 1)
         .some((choice) => !choice?.notes?.length);
       if (segmentHasMissingChoice) {
+        replacedSegments += 1;
         for (let cursor = index; cursor <= segmentEnd; cursor++) {
           if (fallbackChoices[cursor]?.notes?.length) {
             merged[cursor] = fallbackChoices[cursor];
+            replacedChoices += 1;
           }
         }
       }
@@ -2528,7 +2822,22 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       index = segmentEnd + 1;
     }
 
-    return merged.map((choice, idx) => choice?.notes?.length ? choice : (fallbackChoices[idx] || null));
+    const finalMerged = merged.map((choice, idx) => {
+      if (choice?.notes?.length) return choice;
+      if (fallbackChoices[idx]?.notes?.length) {
+        replacedChoices += 1;
+        return fallbackChoices[idx];
+      }
+      return null;
+    });
+    if (replacedChoices > 0) {
+      recordVoicingFallback('choice-merge-used-fallback-choices', {
+        replacedChoices,
+        replacedSegments,
+        sequenceLength: sequence.length,
+      });
+    }
+    return finalMerged;
   }
 
   function buildPianoVoicingChoicePlan({
@@ -2539,70 +2848,97 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     secondsPerBeat = null,
   }) {
     if (!Array.isArray(events) || !events.length) return [];
+    const fallbackRecorder = createFallbackRecorder('voicing');
+    const previousFallbackRecorder = activeVoicingFallbackRecorder;
+    activeVoicingFallbackRecorder = fallbackRecorder;
 
-    const sequence = events.map((event, eventIndex) => ({
-      chord: event.planChord,
-      eventIndex,
-      key: event.planKey,
-      isMinor: event.planIsMinor,
-      slotIndex: event.slotIndex,
-      oneStepRunLength: event.oneStepRunLength,
-      oneStepRunPosition: event.oneStepRunPosition,
-      targetsNextProgression: event.targetsNextProgression,
-      isSentinel: false,
-    }));
+    try {
+      const sequence = events.map((event, eventIndex) => ({
+        chord: event.planChord,
+        eventIndex,
+        key: event.planKey,
+        isMinor: event.planIsMinor,
+        slotIndex: event.slotIndex,
+        oneStepRunLength: event.oneStepRunLength,
+        oneStepRunPosition: event.oneStepRunPosition,
+        targetsNextProgression: event.targetsNextProgression,
+        isSentinel: false,
+      }));
 
-    if (nextFirstChord && Number.isFinite(nextKey)) {
-      sequence.push({
-        chord: nextFirstChord,
-        eventIndex: -1,
-        key: nextKey,
-        isMinor: nextIsMinor,
-        oneStepRunLength: null,
-        oneStepRunPosition: null,
-        targetsNextProgression: true,
-        slotIndex: Number.POSITIVE_INFINITY,
-        isSentinel: true,
+      if (nextFirstChord && Number.isFinite(nextKey)) {
+        sequence.push({
+          chord: nextFirstChord,
+          eventIndex: -1,
+          key: nextKey,
+          isMinor: nextIsMinor,
+          oneStepRunLength: null,
+          oneStepRunPosition: null,
+          targetsNextProgression: true,
+          slotIndex: Number.POSITIVE_INFINITY,
+          isSentinel: true,
+        });
+      }
+
+      const candidatesByIndex = sequence.map((entry) => {
+        const candidates = buildPianoShapeCandidates(entry.chord, entry.key, entry.isMinor);
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+          recordVoicingFallback('shape-candidates-missing-using-null-choice', {
+            eventIndex: entry.eventIndex,
+            slotIndex: entry.slotIndex,
+            chord: formatChordForDebug(entry.chord, entry.key, entry.isMinor),
+          });
+          return [null];
+        }
+        return candidates;
       });
+      const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
+      const chosen = resolvePianoChoicePath(sequence, candidatesByIndex, activeMode, secondsPerBeat, {
+        enforceRunMovement: false,
+        enforceThinnedOuterMovement: false,
+      });
+      const repeatedMotionChoices = applyRepeatedChordMotion(sequence, chosen);
+      const repeatedMotionCandidateSets = buildRepeatedChordMotionCandidateSets(sequence, chosen);
+      const constrainedNormalChoices = resolvePianoChoicePath(
+        sequence,
+        repeatedMotionCandidateSets,
+        activeMode,
+        secondsPerBeat
+      );
+      const integratedCandidatesByIndex = buildIntegratedPassingDiminishedCandidates(
+        sequence,
+        repeatedMotionCandidateSets,
+        activeMode,
+        secondsPerBeat
+      );
+      const adjustedChosen = resolvePianoChoicePath(
+        sequence,
+        integratedCandidatesByIndex,
+        activeMode,
+        secondsPerBeat
+      );
+      const hasConstrainedFallback = constrainedNormalChoices.some(choice => choice?.notes?.length);
+      if (!hasConstrainedFallback) {
+        recordVoicingFallback('constrained-normal-empty-using-repeated-motion', {
+          sequenceLength: sequence.length,
+        });
+      }
+      const mergedChosen = mergePianoChoiceFallback(
+        sequence,
+        adjustedChosen,
+        hasConstrainedFallback
+          ? constrainedNormalChoices
+          : repeatedMotionChoices
+      );
+      fallbackRecorder.flush({
+        activeMode,
+        eventsCount: events.length,
+        sequenceLength: sequence.length,
+        tempoBpm: getTempoBpm(secondsPerBeat),
+      });
+      return mergedChosen.slice(0, events.length);
+    } finally {
+      activeVoicingFallbackRecorder = previousFallbackRecorder;
     }
-
-    const candidatesByIndex = sequence.map((entry) => {
-      const candidates = buildPianoShapeCandidates(entry.chord, entry.key, entry.isMinor);
-      return Array.isArray(candidates) && candidates.length ? candidates : [null];
-    });
-    const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
-    const chosen = resolvePianoChoicePath(sequence, candidatesByIndex, activeMode, secondsPerBeat, {
-      enforceRunMovement: false,
-      enforceThinnedOuterMovement: false,
-    });
-    const repeatedMotionChoices = applyRepeatedChordMotion(sequence, chosen);
-    const repeatedMotionCandidateSets = buildRepeatedChordMotionCandidateSets(sequence, chosen);
-    const constrainedNormalChoices = resolvePianoChoicePath(
-      sequence,
-      repeatedMotionCandidateSets,
-      activeMode,
-      secondsPerBeat
-    );
-    const integratedCandidatesByIndex = buildIntegratedPassingDiminishedCandidates(
-      sequence,
-      repeatedMotionCandidateSets,
-      activeMode,
-      secondsPerBeat
-    );
-    const adjustedChosen = resolvePianoChoicePath(
-      sequence,
-      integratedCandidatesByIndex,
-      activeMode,
-      secondsPerBeat
-    );
-    const mergedChosen = mergePianoChoiceFallback(
-      sequence,
-      adjustedChosen,
-      constrainedNormalChoices.some(choice => choice?.notes?.length)
-        ? constrainedNormalChoices
-        : repeatedMotionChoices
-    );
-    return mergedChosen.slice(0, events.length);
   }
 
   function getPianoChordVoiceEntries(
@@ -2615,6 +2951,14 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
   ) {
     const shapedNotes = buildPianoShapeNotes(chord, key, isMinor, planChoice, modeOverride);
     const resolvedMode = shapedNotes?.modeName || resolvePianoModeName(modeOverride);
+    if (!shapedNotes?.notes?.length && (voicing?.guideTones?.length || voicing?.colorTones?.length)) {
+      recordVoicingFallback('shape-notes-missing-using-legacy-voicing-tones', {
+        chord: formatChordForDebug(chord, key, isMinor),
+        mode: resolvedMode,
+        guideTonesCount: voicing?.guideTones?.length || 0,
+        colorTonesCount: voicing?.colorTones?.length || 0,
+      });
+    }
     const pianoNotes = shapedNotes?.notes?.length
       ? [...shapedNotes.notes]
       : [...(voicing?.guideTones || []), ...buildPianoColorToneSet(voicing?.colorTones || [])]
@@ -2704,6 +3048,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     if (!voicing) return null;
 
     const chord = event.planChord || targetProgression.chords[effectiveChordIdx] || null;
+    if (isNoChord(chord)) return null;
     const planChoice = event.voicingChoice || null;
     const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
     const playbackMode = resolvePlaybackTextureForEvent(
@@ -2927,6 +3272,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       Math.min(progression.chords.length - 1, Math.round(Number(chordIndex) || 0))
     );
     const chord = progression.chords[safeChordIndex] || null;
+    if (isNoChord(chord)) return;
     const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
     const voicing = typeof getVoicingAtIndex === 'function'
       ? getVoicingAtIndex(progression.chords, progression.key, safeChordIndex, progression.isMinor)

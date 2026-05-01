@@ -44,6 +44,19 @@ function getTempoInterpolationProgress(tempoBpm, startBpm = 150, endBpm = 250) {
   return (tempoBpm - startBpm) / (endBpm - startBpm);
 }
 
+export function getInterpolatedNumber(baseValue, highTempoValue, tempoBpm, fallbackValue = 0) {
+  const numericBaseValue = Number(baseValue);
+  const safeBaseValue = Number.isFinite(numericBaseValue) ? numericBaseValue : fallbackValue;
+  const numericHighTempoValue = Number(highTempoValue);
+  if (!Number.isFinite(numericHighTempoValue)) return safeBaseValue;
+
+  return interpolateLinear(
+    safeBaseValue,
+    numericHighTempoValue,
+    getTempoInterpolationProgress(tempoBpm)
+  );
+}
+
 export function getInterpolatedWeightMap(baseWeights, highTempoWeights, tempoBpm) {
   const progress = getTempoInterpolationProgress(tempoBpm);
   if (progress <= 0 || !highTempoWeights || typeof highTempoWeights !== 'object') {

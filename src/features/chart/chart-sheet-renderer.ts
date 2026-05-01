@@ -134,6 +134,11 @@ type RowChordVisualBoundsOptions = {
   includeAlternates?: boolean
 };
 
+const REPEAT_SIGN_SVG_PATHS = Object.freeze({
+  repeatPreviousBar: 'M422 211C424 214 426 217 426 219C426 222 424 223 421 223H336C331 223 327 218 322 211L2 -189C1 -190 0 -193 0 -194C0 -198 2 -200 6 -200H86C93 -200 98 -194 102 -189ZM50 160C22 160 0 138 0 110C0 82 22 60 50 60C78 60 100 82 100 110C100 138 78 160 50 160ZM375 -39C348 -39 326 -62 326 -90C326 -117 348 -139 375 -139C403 -139 426 -117 426 -90C426 -62 403 -39 375 -39Z',
+  repeatPreviousTwoBars: 'M606 211C608 214 610 217 610 219C610 222 608 223 605 223H520C515 223 511 218 506 211L186 -189C185 -190 184 -193 184 -194C184 -198 186 -200 190 -200H270C277 -200 282 -194 286 -189ZM422 211C424 214 426 217 426 219C426 222 424 223 421 223H336C331 223 327 218 322 211L2 -189C1 -190 0 -193 0 -194C0 -198 2 -200 6 -200H86C93 -200 98 -194 102 -189ZM50 160C22 160 0 138 0 110C0 82 22 60 50 60C78 60 100 82 100 110C100 138 78 160 50 160ZM559 -39C532 -39 510 -62 510 -90C510 -117 532 -139 559 -139C587 -139 610 -117 610 -90C610 -62 587 -39 559 -39Z'
+});
+
 const layoutDebugRuntimeBypasses: Record<string, boolean> = {};
 let lastLayoutPipelineStepsRun: string[] = [];
 
@@ -193,12 +198,14 @@ function runLayoutPipelineStep(stepName, callback) {
 function renderRepeatTokenMarkup(token) {
   const isTwoBarRepeat = token?.kind === 'repeat_previous_two_bars';
   const label = isTwoBarRepeat ? 'Repeat previous two bars' : 'Repeat previous bar';
-  const entity = isTwoBarRepeat ? '&#x1D10F;' : '&#x1D10E;';
+  const path = isTwoBarRepeat ? REPEAT_SIGN_SVG_PATHS.repeatPreviousTwoBars : REPEAT_SIGN_SVG_PATHS.repeatPreviousBar;
+  const width = isTwoBarRepeat ? 610 : 426;
+  const className = isTwoBarRepeat ? 'chart-repeat-sign is-two-bar' : 'chart-repeat-sign';
 
   return `
-    <span class="chart-repeat-sign" aria-label="${label}">
-      ${entity}
-    </span>
+    <svg class="${className}" viewBox="0 0 ${width} 423" aria-label="${label}" role="img">
+      <path d="${path}" transform="matrix(1 0 0 -1 0 223)" />
+    </svg>
   `;
 }
 

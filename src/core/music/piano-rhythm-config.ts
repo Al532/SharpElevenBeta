@@ -6,6 +6,8 @@ const pianoRhythmConfig = {
   offBeatShortNoteDurationMultiplier: 0.82,
   forcedLegatoOverlapMs: 45,
   isolatedTwoHandMinSwitchSeconds: 0.5,
+  longNoteProbability: 1,
+  longNoteProbability250Bpm: 1,
   pianoFadeOut: {
     timeConstantLow: 0.2,
     timeConstantHigh: 0.15,

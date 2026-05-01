@@ -732,6 +732,7 @@ export interface ChartPlaybackController {
   stopPlayback(options?: { resetPosition?: boolean }): Promise<TransportPlaybackStatus>;
   startPlayback(): Promise<{ ok: boolean } | TransportPlaybackStatus>;
   syncPlaybackSettings(): Promise<PlaybackOperationResult>;
+  queuePerformanceCue(cue: ChartPerformanceCue): Promise<PlaybackOperationResult>;
   pauseToggle(): Promise<TransportPlaybackStatus>;
   navigateToPracticeWithSelection(): boolean;
   getTotalBars(): number;

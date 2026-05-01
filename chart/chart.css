@@ -1,11 +1,3 @@
-@font-face {
-  font-family: "ChartMusicSymbols";
-  src: url("../assets/fonts/BravuraText-Latin-400.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-
 :root {
   --chart-paper: #ffffff;
   --chart-ink: #000000;
@@ -508,6 +500,114 @@ select {
 .chart-performance-action-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.chart-performance-menu-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.chart-performance-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--chart-ui-accent-border-soft);
+  border-radius: 8px;
+  background: var(--chart-ui-menu);
+  color: var(--chart-ui-accent);
+  box-shadow: 0 12px 28px var(--chart-ui-shadow-popover);
+}
+
+.chart-performance-menu[hidden] {
+  display: none;
+}
+
+.chart-performance-menu-title,
+.chart-performance-modulate-field span {
+  color: var(--chart-ui-muted-on-accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.chart-performance-menu-item {
+  min-height: 36px;
+  border: 1px solid var(--chart-ui-accent-border-soft);
+  border-radius: 8px;
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-accent);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chart-performance-modulate-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 8px;
+  align-items: center;
+}
+
+.chart-performance-modulate-field input {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--chart-ui-accent-border-soft);
+  border-radius: 8px;
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-accent);
+  text-align: center;
+}
+
+.chart-performance-cue-bar {
+  position: fixed;
+  left: 50%;
+  z-index: 260;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  width: min(100% - 24px, 390px);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.chart-performance-cue-bar[hidden] {
+  display: none;
+}
+
+.chart-performance-cue-bar-bottom {
+  bottom: calc(var(--chart-mobile-bottom-overlay-height) + max(10px, env(safe-area-inset-bottom)));
+}
+
+.chart-performance-cue-bar-top {
+  top: calc(var(--chart-mobile-top-overlay-height) + max(10px, env(safe-area-inset-top)));
+}
+
+.chart-performance-cue-pill {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--chart-sheet-pill) 28%, transparent 72%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chart-paper) 88%, transparent 12%);
+  color: var(--chart-sheet-text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.chart-performance-cue-pill.is-armed {
+  border-color: var(--chart-ui-accent);
+  background: var(--chart-ui-accent);
+  color: var(--chart-ui-text-inverse);
 }
 
 .chart-repeat-popover.is-infinite .chart-repeat-stepper {
@@ -1893,18 +1993,15 @@ select {
 }
 
 .chart-repeat-sign {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: "ChartMusicSymbols", serif;
-  font-size: 1.14em;
-  font-weight: 400;
-  line-height: 1;
+  display: block;
+  width: 0.58em;
+  height: 0.58em;
   color: currentColor;
-  font-synthesis: none;
-  text-rendering: geometricPrecision;
-  font-variant-ligatures: none;
-  transform: translateY(0.16em);
+  fill: currentColor;
+}
+
+.chart-repeat-sign.is-two-bar {
+  width: 0.84em;
 }
 
 .chart-slash-marker {

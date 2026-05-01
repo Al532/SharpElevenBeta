@@ -1,6 +1,7 @@
 import type {
   ChartPlaybackController,
   ChartPlaybackControllerOptions,
+  ChartPerformanceCue,
   PlaybackBridge,
   PlaybackBridgeProvider,
   PlaybackOperationResult,
@@ -188,6 +189,10 @@ export function createChartPlaybackController({
     return result;
   }
 
+  async function queuePerformanceCue(cue: ChartPerformanceCue): Promise<PlaybackOperationResult> {
+    return await ensurePlaybackController().queuePerformanceCue(cue);
+  }
+
   async function pauseToggle(): Promise<TransportPlaybackStatus> {
     await ensurePlaybackController().pauseToggle();
     return syncPlaybackState();
@@ -213,6 +218,7 @@ export function createChartPlaybackController({
     stopPlayback,
     startPlayback,
     syncPlaybackSettings,
+    queuePerformanceCue,
     pauseToggle,
     navigateToPracticeWithSelection,
     getTotalBars

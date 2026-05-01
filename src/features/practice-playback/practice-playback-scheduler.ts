@@ -8,6 +8,7 @@ import { getSwingOffbeatPositionBeats } from '../../core/music/swing-utils.js';
 export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   const { SCHEDULE_AHEAD } = constants;
   let scheduledEndingStopTime = null;
+  const isNoChord = (chord) => Boolean(chord?.noChord || chord?.inputType === 'no-chord');
   const {
     applyDisplaySideLayout,
     buildPreparedBassPlan,
@@ -411,15 +412,17 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       if (endingFallsInCurrentWindow && isAtOrBeforeBeat(endingAttackBeat, windowStartBeats)) {
         const endingChord = state.paddedChords[endingCue.targetChordIndex] || chord;
         const endingTime = state.nextBeatTime + ((endingAttackBeat - windowStartBeats) * spb);
-        const scheduled = scheduleEndingCue({
-          cue: endingCue,
-          endingTime,
-          chord: endingChord,
-          slotDuration: noteDuration,
-          secondsPerBeat: spb,
-          isMinor: dom.majorMinor.checked
-        });
-        if (scheduled) return;
+        if (!isNoChord(endingChord)) {
+          const scheduled = scheduleEndingCue({
+            cue: endingCue,
+            endingTime,
+            chord: endingChord,
+            slotDuration: noteDuration,
+            secondsPerBeat: spb,
+            isMinor: dom.majorMinor.checked
+          });
+          if (scheduled) return;
+        }
       }
 
       const deferredEndingCue = endingFallsInCurrentWindow ? endingCue : null;
@@ -463,8 +466,12 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           state.lastPlayedChordIdx = state.currentChordIdx;
         }
       } else if (isChordBeat) {
+        if (isNoChord(chord)) {
+          state.lastPlayedChordIdx = state.currentChordIdx;
+          continue;
+        }
         const prevChord = state.lastPlayedChordIdx >= 0 ? state.paddedChords[state.lastPlayedChordIdx] : null;
-        const sameChord = prevChord && prevChord.semitones === chord.semitones
+        const sameChord = prevChord && !isNoChord(prevChord) && prevChord.semitones === chord.semitones
           && (prevChord.bassSemitones ?? prevChord.semitones) === (chord.bassSemitones ?? chord.semitones)
           && prevChord.qualityMajor === chord.qualityMajor
           && prevChord.qualityMinor === chord.qualityMinor;
@@ -474,7 +481,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           for (let i = state.currentChordIdx + 1; i < state.paddedChords.length; i++) {
             const nextChord = state.paddedChords[i];
             if (
-              nextChord.semitones === chord.semitones
+              !isNoChord(nextChord)
+              && nextChord.semitones === chord.semitones
               && (nextChord.bassSemitones ?? nextChord.semitones) === (chord.bassSemitones ?? chord.semitones)
               && nextChord.qualityMajor === chord.qualityMajor
               && nextChord.qualityMinor === chord.qualityMinor

@@ -5,6 +5,8 @@ type PracticeArrangementVoicingChord = {
   roman?: string;
   qualityMajor?: string;
   qualityMinor?: string;
+  inputType?: string;
+  noChord?: boolean;
   [key: string]: unknown;
 };
 
@@ -126,7 +128,7 @@ export function createPracticeArrangementVoicingRuntime({
   }
 
   function getCanonicalChordQuality(chord: PracticeArrangementVoicingChord | null | undefined, isMinor: boolean) {
-    if (!chord) return '';
+    if (!chord || chord.noChord || chord.inputType === 'no-chord') return '';
     return isMinor ? chord.qualityMinor : chord.qualityMajor;
   }
 
@@ -408,7 +410,7 @@ export function createPracticeArrangementVoicingRuntime({
   }
 
   function createVoicingSlot(chord, key, isMinor, segment = 'current', nextChord = null) {
-    if (!chord) {
+    if (!chord || chord.noChord || chord.inputType === 'no-chord') {
       return { chord: null, key, segment, candidateSet: [null] };
     }
 
@@ -666,6 +668,7 @@ export function createPracticeArrangementVoicingRuntime({
   }
 
   function getVoicing(key, chord, isMinor, nextChord = null) {
+    if (!chord || chord.noChord || chord.inputType === 'no-chord') return null;
     const quality = getPlayedChordQuality(chord, isMinor, nextChord);
     const category = classifyQuality(quality);
     if (!category) return null;

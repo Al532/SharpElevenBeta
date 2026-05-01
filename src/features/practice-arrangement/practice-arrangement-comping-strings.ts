@@ -22,6 +22,10 @@ export function createStringsComping({
 
   const activeChordVoices = new Map();
 
+  function isNoChord(chord) {
+    return Boolean(chord?.noChord || chord?.inputType === 'no-chord');
+  }
+
   function getChordVoiceEntries(voicing) {
     if (!voicing) return [];
 
@@ -67,6 +71,10 @@ export function createStringsComping({
     let previousChord = null;
     for (let chordIdx = 0; chordIdx < chords.length; chordIdx++) {
       const chord = chords[chordIdx];
+      if (isNoChord(chord)) {
+        previousChord = null;
+        continue;
+      }
       const sameAsPrevious = previousChord
         && previousChord.semitones === chord.semitones
         && (previousChord.bassSemitones ?? previousChord.semitones) === (chord.bassSemitones ?? chord.semitones)
@@ -222,6 +230,9 @@ export function createStringsComping({
   function playEvent({ progression, event, time, slotDuration, nextProgression }) {
     const audioCtx = getAudioContext();
     if (!audioCtx) return;
+
+    const chord = progression?.chords?.[event.targetVoicingChordIdx] || null;
+    if (isNoChord(chord)) return;
 
     const voicing = getVoicingAtIndex(progression.chords, progression.key, event.targetVoicingChordIdx, progression.isMinor);
     if (!voicing) return;

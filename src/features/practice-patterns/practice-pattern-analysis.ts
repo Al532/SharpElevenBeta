@@ -59,8 +59,9 @@ type PracticePatternToken = {
   bassSemitones: number;
   qualityMajor: string;
   qualityMinor: string;
-  inputType: 'degree' | 'note' | 'one-chord';
+  inputType: 'degree' | 'note' | 'one-chord' | 'no-chord';
   slashBassLabel: string | null;
+  noChord?: boolean;
 };
 
 type OneChordSpec = {
@@ -259,6 +260,21 @@ export function createPracticePatternAnalysis({
     };
   }
 
+  function createNoChordToken(): PracticePatternToken {
+    return {
+      label: 'NC',
+      roman: 'I',
+      modifier: '',
+      semitones: 0,
+      bassSemitones: 0,
+      qualityMajor: '',
+      qualityMinor: '',
+      inputType: 'no-chord',
+      slashBassLabel: null,
+      noChord: true
+    };
+  }
+
   function noteNameToPitchClass(letter: string, accidental = ''): number | null {
     const base = noteLetterToSemitone[String(letter || '').toUpperCase()];
     if (base === undefined) return null;
@@ -439,6 +455,7 @@ export function createPracticePatternAnalysis({
   function parseToken(token: string, basePitchClass = 0): PracticePatternToken | null {
     const normalized = normalizeMusicalText(token).trim();
     if (!normalized) return null;
+    if (/^N\.?C\.?$/i.test(normalized)) return createNoChordToken();
 
     const parts = normalized.split('/');
     if (parts.length === 1) {

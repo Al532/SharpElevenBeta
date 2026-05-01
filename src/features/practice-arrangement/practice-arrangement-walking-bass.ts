@@ -62,6 +62,10 @@ function mod12(value) {
   return ((value % 12) + 12) % 12;
 }
 
+function isNoChord(chord) {
+  return Boolean(chord?.noChord || chord?.inputType === 'no-chord');
+}
+
 function resolveIntervalValue(interval) {
   if (typeof interval === 'number') return interval;
   if (typeof interval === 'string' && interval in INTERVAL_SEMITONES) {
@@ -96,6 +100,7 @@ function resolveDominantQuality(chord, quality, isMinor) {
 }
 
 function chordIdentity(chord) {
+  if (isNoChord(chord)) return 'NC';
   return [
     chord.semitones,
     chord.bassSemitones ?? chord.semitones,
@@ -247,6 +252,7 @@ function buildChordPools(chord, key, isMinor, low, high, nextChord = null) {
 function appendSpans(spans, chords, beatsPerChord, key, isMinor, low, high, startBeat = 0) {
   for (let index = 0; index < chords.length; index++) {
     const chord = chords[index];
+    if (isNoChord(chord)) continue;
     const lastSpan = spans[spans.length - 1];
     if (
       lastSpan
@@ -1324,6 +1330,16 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     swingRatio = DEFAULT_SWING_RATIO,
     endingCue = null
   } = {}) {
+    const currentNoChordWindows = Array.isArray(chords)
+      ? chords
+          .map((chord, index) => isNoChord(chord)
+            ? {
+                startBeat: index * beatsPerChord,
+                endBeat: (index + 1) * beatsPerChord,
+              }
+            : null)
+          .filter(Boolean)
+      : [];
     const { currentTotalBeats, preparedSpans } = buildPreparedSpans(
       chords,
       beatsPerChord,
@@ -1348,7 +1364,11 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
       pendingTargetMidi = previousEvent?.rank === 'approach' ? previousEvent.targetMidi : null;
     });
 
-    return applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar, endingCue);
+    return applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar, endingCue)
+      .filter((event) => !currentNoChordWindows.some((window) =>
+        event.timeBeats >= window.startBeat
+        && event.timeBeats < window.endBeat
+      ));
   }
 
   return {

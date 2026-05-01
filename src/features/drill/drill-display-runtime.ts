@@ -7,6 +7,7 @@ type DrillChordToken = {
   semitones?: number;
   bassSemitones?: number;
   inputType?: string;
+  noChord?: boolean;
 };
 
 type ChordSymbolRenderOptions = {
@@ -233,6 +234,9 @@ export function createDrillHarmonyDisplayHelpers({
   }
 
   function chordSymbol(key, chord, isMinorOverride = null, nextChord = null) {
+    if (chord?.noChord || chord?.inputType === 'no-chord') {
+      return 'NC';
+    }
     if (chord?.inputType === 'one-chord') {
       const rootName = normalizeDisplayedRootName(keyNamesMajor[transposeDisplayPitchClass(key)]);
       return rootName + getDisplayedQuality(chord, false, nextChord);
@@ -247,6 +251,9 @@ export function createDrillHarmonyDisplayHelpers({
   }
 
   function chordSymbolHtml(key, chord, isMinorOverride = null, nextChord = null) {
+    if (chord?.noChord || chord?.inputType === 'no-chord') {
+      return renderChordSymbolHtml('NC', '', null, getChordSymbolRenderOptions());
+    }
     if (chord?.inputType === 'one-chord') {
       const rootName = normalizeDisplayedRootName(keyNamesMajor[transposeDisplayPitchClass(key)]);
       return renderChordSymbolHtml(rootName, getDisplayedQuality(chord, false, nextChord), null, getChordSymbolRenderOptions());
