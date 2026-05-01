@@ -124,6 +124,7 @@ import {
   measureChartTextScaleCompensation,
   syncChartCutoutPadding
 } from '../src/features/chart/chart-display-css.js';
+import { appendIRealBehaviorTestCharts } from './ireal-behavior-test-fixtures.js';
 import {
   getChartBackHref,
   getChartBackOrigin,
@@ -143,6 +144,7 @@ import voicingConfig from '../src/core/music/voicing-config.js';
 import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
 const DEFAULT_TEMPO = 120;
+const DEFAULT_CHART_REPEAT_COUNT = 3;
 const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = 'default-library.dat';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
@@ -383,6 +385,7 @@ function syncChartPopoverButtonStates() {
   dom.chartMetadataButton?.setAttribute('aria-expanded', dom.chartMetadataPopover && !dom.chartMetadataPopover.hidden ? 'true' : 'false');
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden ? 'true' : 'false');
   dom.tempoButton?.setAttribute('aria-expanded', dom.tempoPopover && !dom.tempoPopover.hidden ? 'true' : 'false');
+  dom.repeatCountButton?.setAttribute('aria-expanded', dom.repeatCountPopover && !dom.repeatCountPopover.hidden ? 'true' : 'false');
   dom.keyButton?.setAttribute('aria-expanded', dom.keyPopover && !dom.keyPopover.hidden ? 'true' : 'false');
   dom.mixerButton?.setAttribute('aria-expanded', dom.mixerPopover && !dom.mixerPopover.hidden ? 'true' : 'false');
 }
@@ -491,6 +494,10 @@ function applyPersistedPlaybackSettings() {
   if (persisted.drumsVolume !== undefined && dom.drumsVolume) {
     dom.drumsVolume.value = String(persisted.drumsVolume);
   }
+
+  if (persisted.chartRepeatCount !== undefined) {
+    syncRepeatCountControls(persisted.chartRepeatCount);
+  }
 }
 
 function normalizeHarmonyDisplayMode(mode: string | undefined) {
@@ -505,7 +512,7 @@ function getChordDisplayHelpText(displayMode: string) {
     return 'Shows a lighter version, making the grid visually clearer.';
   }
   if (normalizedMode === HARMONY_DISPLAY_MODE_RICH) {
-    return 'Shows the chords as rendered by playback after reharmonization.';
+    return 'Shows the chords as rendered by playback after chord enrichment.';
   }
   return 'Shows the chords as initially entered.';
 }
@@ -605,6 +612,7 @@ const {
   setImportStatus,
   getRequestedPlaylist,
   applySearchFilter,
+  augmentDocuments: appendIRealBehaviorTestCharts,
   getChartRenderPerfNow,
   logChartRenderPerf
 });
@@ -612,6 +620,7 @@ const {
 function getPlaybackSettings(): PlaybackSettings {
   return {
     transposition: getChartTransposeSemitones(),
+    chartRepeatCount: getChartRepeatCount(),
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
     customMediumSwingBass: dom.walkingBassToggle?.checked,
@@ -798,9 +807,43 @@ function setTempo(value: number | string, { syncPlayback = false }: { syncPlayba
   }
 }
 
+function normalizeChartRepeatCount(value: unknown, fallback = DEFAULT_CHART_REPEAT_COUNT) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(1, Math.min(10, Math.round(parsed))) : fallback;
+}
+
+function getChartRepeatCount() {
+  return normalizeChartRepeatCount(dom.repeatCountInput?.value);
+}
+
+function getSourceRepeatCount(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  return normalizeChartRepeatCount(chartDocument?.metadata?.sourceRepeats, DEFAULT_CHART_REPEAT_COUNT);
+}
+
+function syncRepeatCountControls(value: unknown = getChartRepeatCount()) {
+  const normalizedRepeatCount = normalizeChartRepeatCount(value);
+  const label = `${normalizedRepeatCount}x`;
+  if (dom.repeatCountInput) dom.repeatCountInput.value = String(normalizedRepeatCount);
+  if (dom.repeatCountRange) dom.repeatCountRange.value = String(normalizedRepeatCount);
+  if (dom.repeatCountLabel) dom.repeatCountLabel.textContent = label;
+  if (dom.repeatCountValue) dom.repeatCountValue.textContent = label;
+}
+
+function setChartRepeatCount(value: unknown, { render = true }: { render?: boolean } = {}) {
+  syncRepeatCountControls(value);
+  persistPlaybackSettings();
+  if (render) {
+    renderFixture();
+  } else {
+    renderTransport();
+  }
+}
+
 function closeBottomPopovers() {
   if (dom.tempoPopover) dom.tempoPopover.hidden = true;
   if (dom.tempoButton) dom.tempoButton.setAttribute('aria-expanded', 'false');
+  if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
+  if (dom.repeatCountButton) dom.repeatCountButton.setAttribute('aria-expanded', 'false');
   if (dom.keyPopover) dom.keyPopover.hidden = true;
   if (dom.keyButton) dom.keyButton.setAttribute('aria-expanded', 'false');
   if (dom.mixerPopover) dom.mixerPopover.hidden = true;
@@ -814,6 +857,7 @@ function isMetadataPopoverActive() {
 
 function bindBottomControlPopovers() {
   syncTempoControls();
+  syncRepeatCountControls();
 
   dom.tempoButton?.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -836,6 +880,33 @@ function bindBottomControlPopovers() {
     event.stopPropagation();
   });
 
+  dom.repeatCountButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (isMetadataPopoverActive()) {
+      event.preventDefault();
+      closeBottomPopovers();
+      return;
+    }
+    const willOpen = Boolean(dom.repeatCountPopover?.hidden);
+    closeAllChartPopovers((createChartPopoverBindings({
+      popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
+    }) as { popovers: Array<HTMLElement | null> }).popovers);
+    dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
+    if (dom.tempoPopover) dom.tempoPopover.hidden = true;
+    dom.tempoButton?.setAttribute('aria-expanded', 'false');
+    if (dom.keyPopover) dom.keyPopover.hidden = true;
+    dom.keyButton?.setAttribute('aria-expanded', 'false');
+    if (dom.mixerPopover) dom.mixerPopover.hidden = true;
+    dom.mixerButton?.setAttribute('aria-expanded', 'false');
+    if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = !willOpen;
+    syncChartPopoverButtonStates();
+    syncMobileOverlayDrawerLayout();
+  });
+
+  dom.repeatCountPopover?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
   dom.keyButton?.addEventListener('click', (event) => {
     event.stopPropagation();
     if (isMetadataPopoverActive()) {
@@ -850,6 +921,8 @@ function bindBottomControlPopovers() {
     dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
     if (dom.tempoPopover) dom.tempoPopover.hidden = true;
     dom.tempoButton?.setAttribute('aria-expanded', 'false');
+    if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
+    dom.repeatCountButton?.setAttribute('aria-expanded', 'false');
     if (dom.mixerPopover) dom.mixerPopover.hidden = true;
     dom.mixerButton?.setAttribute('aria-expanded', 'false');
     renderTransposeTiles();
@@ -877,6 +950,8 @@ function bindBottomControlPopovers() {
     dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
     if (dom.tempoPopover) dom.tempoPopover.hidden = true;
     dom.tempoButton?.setAttribute('aria-expanded', 'false');
+    if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
+    dom.repeatCountButton?.setAttribute('aria-expanded', 'false');
     if (dom.keyPopover) dom.keyPopover.hidden = true;
     dom.keyButton?.setAttribute('aria-expanded', 'false');
     if (dom.mixerPopover) dom.mixerPopover.hidden = !willOpen;
@@ -898,6 +973,26 @@ function bindBottomControlPopovers() {
 
   dom.tempoInput?.addEventListener('change', () => {
     setTempo(dom.tempoInput?.value || DEFAULT_TEMPO, { syncPlayback: true });
+  });
+
+  dom.repeatCountRange?.addEventListener('input', () => {
+    syncRepeatCountControls(dom.repeatCountRange?.value || DEFAULT_CHART_REPEAT_COUNT);
+  });
+
+  dom.repeatCountRange?.addEventListener('change', () => {
+    setChartRepeatCount(dom.repeatCountRange?.value || DEFAULT_CHART_REPEAT_COUNT);
+  });
+
+  dom.repeatCountInput?.addEventListener('change', () => {
+    setChartRepeatCount(dom.repeatCountInput?.value || DEFAULT_CHART_REPEAT_COUNT);
+  });
+
+  dom.repeatCountDecrease?.addEventListener('click', () => {
+    setChartRepeatCount(getChartRepeatCount() - 1);
+  });
+
+  dom.repeatCountIncrease?.addEventListener('click', () => {
+    setChartRepeatCount(getChartRepeatCount() + 1);
   });
 
   document.addEventListener('click', (event) => {
@@ -1513,7 +1608,11 @@ function renderFixture() {
   const availableDocuments = getAvailableDocuments();
   const selectedId = dom.fixtureSelect?.value || availableDocuments[0]?.metadata?.id || '';
   const isNewChartSelection = state.currentChartDocument?.metadata?.id !== selectedId;
-  populateTransposeOptions(availableDocuments.find((document) => document.metadata.id === selectedId));
+  const selectedDocument = availableDocuments.find((document) => document.metadata.id === selectedId);
+  populateTransposeOptions(selectedDocument);
+  if (isNewChartSelection) {
+    syncRepeatCountControls(getSourceRepeatCount(selectedDocument));
+  }
   renderSelectedFixture(createChartFixtureRenderBindings({
     state,
     fixtureSelect: dom.fixtureSelect,
@@ -1523,6 +1622,9 @@ function renderFixture() {
     getAvailableDocuments,
     resetTempo: isNewChartSelection,
     stopPlayback,
+    createPlaybackPlanOptions: () => ({
+      repeatCount: getChartRepeatCount()
+    }),
     createPracticeSessionOptions: (playbackPlan) => ({
       playbackPlan,
       tempo: getTempo(),
@@ -1876,7 +1978,7 @@ function bindMobileOverlayDrawerLayout() {
 }
 
 function handleSyntheticAndroidBack() {
-  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.keyPopover, dom.mixerPopover];
+  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.repeatCountPopover, dom.keyPopover, dom.mixerPopover];
   const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
   if (hasOpenPopover) {
     closeAllPopovers();

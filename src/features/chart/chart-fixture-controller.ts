@@ -58,6 +58,7 @@ export async function renderSelectedFixture({
   resetTempo = true,
   stopPlayback,
   createPracticeSessionOptions,
+  createPlaybackPlanOptions,
   persistChartId,
   selectionController,
   sheetStyle,
@@ -82,6 +83,7 @@ export async function renderSelectedFixture({
   resetTempo?: boolean;
   stopPlayback?: (options?: { resetPosition?: boolean }) => Promise<unknown>;
   createPracticeSessionOptions?: (playbackPlan: ChartPlaybackPlan) => { playbackPlan?: ChartPlaybackPlan; tempo?: number; transposition?: number };
+  createPlaybackPlanOptions?: (chartDocument: ChartDocument) => Record<string, unknown>;
   persistChartId?: (chartId: string, chartDocument?: ChartDocument) => void;
   selectionController?: ChartSelectionController;
   sheetStyle?: HTMLElement | null;
@@ -115,7 +117,7 @@ export async function renderSelectedFixture({
     displayTransposeSemitones: transposeSemitones,
     chordDisplayLevel
   });
-  const playbackPlan = createChartPlaybackPlanFromDocument(chartDocument) as ChartPlaybackPlan;
+  const playbackPlan = createChartPlaybackPlanFromDocument(chartDocument, createPlaybackPlanOptions?.(chartDocument) || {}) as ChartPlaybackPlan;
   const practiceSession = createPracticeSessionFromChartDocument(chartDocument, createPracticeSessionOptions?.(playbackPlan) || {});
 
   state.currentChartDocument = chartDocument;

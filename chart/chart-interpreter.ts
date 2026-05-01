@@ -18,7 +18,8 @@ const MAX_PLAYBACK_STEPS = 1024;
 
 type CreateChartPlaybackPlanFromDocumentOptions = {
   stopAtFine?: boolean,
-  chordEnrichmentMode?: string
+  chordEnrichmentMode?: string,
+  repeatCount?: number
 };
 
 /**
@@ -100,13 +101,22 @@ function buildEndingMap(bars) {
 function collectNavigationTargets(bars) {
   let segnoIndex = null;
   let codaIndex = null;
+  let codaJumpIndex = null;
+  const codaIndices = [];
 
   for (const [index, bar] of bars.entries()) {
     if (bar.flags.includes('segno') && segnoIndex === null) segnoIndex = index;
-    if (bar.flags.includes('coda') && codaIndex === null) codaIndex = index;
+    if (bar.flags.includes('coda')) codaIndices.push(index);
   }
 
-  return { segnoIndex, codaIndex };
+  if (codaIndices.length > 1) {
+    codaJumpIndex = codaIndices[0];
+    codaIndex = codaIndices[1];
+  } else if (codaIndices.length === 1) {
+    codaIndex = codaIndices[0];
+  }
+
+  return { segnoIndex, codaIndex, codaJumpIndex };
 }
 
 /**
@@ -210,6 +220,34 @@ function findHighestEndingWithinRange(endingMap, startIndex, endIndex) {
   return highest;
 }
 
+function normalizeRepeatCount(value, fallback = 1) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(32, Math.round(parsed)));
+}
+
+function getRepeatHintWithinRange(bars, startIndex, endIndex) {
+  let highestHint = 0;
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    for (const directive of bars[index]?.directives || []) {
+      if (directive?.type !== 'repeat_hint') continue;
+      highestHint = Math.max(highestHint, normalizeRepeatCount(directive.times, 0));
+    }
+  }
+  return highestHint || null;
+}
+
+function hasAlCodaDirective(bars) {
+  return bars.some((bar) => (bar.directives || []).some(
+    (directive) => directive?.type === 'dc_al_coda' || directive?.type === 'ds_al_coda'
+  ));
+}
+
+function findCodaOutroStartIndex(bars, navigationTargets) {
+  if (navigationTargets.codaIndex === null) return null;
+  return navigationTargets.codaIndex;
+}
+
 /**
  * @param {ChartDocument | null | undefined} chartDocument
  * @param {CreateChartPlaybackPlanFromDocumentOptions} [options]
@@ -220,10 +258,12 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
   const repeatMap = buildRepeatMap(bars);
   const endingMap = buildEndingMap(bars);
   const navigationTargets = collectNavigationTargets(bars);
+  const requestedRepeatCount = normalizeRepeatCount(options.repeatCount, 1);
+  const codaIsPartOfForm = hasAlCodaDirective(bars);
+  const codaOutroStartIndex = codaIsPartOfForm ? null : findCodaOutroStartIndex(bars, navigationTargets);
   /** @type {ChartPlaybackDiagnostic[]} */
   const diagnostics = [];
   const unsupportedDirectiveTypes = new Set([
-    'repeat_hint',
     'dc_on_cue',
     'open_vamp',
     'open_instruction',
@@ -233,31 +273,9 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
   const reportedUnsupportedDirectives = new Set();
   /** @type {ChartPlaybackEntry[]} */
   const entries = [];
-  let repeatContext = null;
-  let pendingJump = null;
   let visitCounter = 0;
-  let index = 0;
 
-  while (index < bars.length && visitCounter < MAX_PLAYBACK_STEPS) {
-    const bar = bars[index];
-    const activeEndingPass = repeatContext?.pass || 1;
-    const explicitEndings = endingMap.get(index);
-
-    if (explicitEndings && explicitEndings.size > 0 && !explicitEndings.has(activeEndingPass)) {
-      index += 1;
-      continue;
-    }
-
-    entries.push(createEntry(bar, visitCounter));
-    visitCounter += 1;
-
-    const dcAlEnding = findDirective(bar, 'dc_al_ending');
-    const dcAlFine = findDirective(bar, 'dc_al_fine');
-    const dcAlCoda = findDirective(bar, 'dc_al_coda');
-    const dsAlFine = findDirective(bar, 'ds_al_fine');
-    const dsAlCoda = findDirective(bar, 'ds_al_coda');
-    const dsAlEnding = findDirective(bar, 'ds_al_ending');
-
+  function reportUnsupportedDirectives(bar) {
     for (const directive of bar.directives || []) {
       const directiveType = typeof directive?.type === 'string' ? directive.type : '';
       if (!directiveType || !unsupportedDirectiveTypes.has(directiveType)) continue;
@@ -270,80 +288,140 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
         message: `Bar ${bar.index} includes ${directiveType}, which is preserved but not yet interpreted by playback.`
       });
     }
+  }
 
-    if (dcAlEnding) {
-      pendingJump = { type: 'dc_al_ending', targetIndex: 0, ending: Number(dcAlEnding.ending || 2) };
-    } else if (dcAlFine) {
-      pendingJump = { type: 'dc_al_fine', targetIndex: 0, stopAtFine: true };
-    } else if (dcAlCoda) {
-      pendingJump = { type: 'dc_al_coda', targetIndex: 0, jumpToCoda: true };
-    } else if (dsAlFine) {
-      pendingJump = { type: 'ds_al_fine', targetIndex: navigationTargets.segnoIndex ?? 0, stopAtFine: true };
-    } else if (dsAlCoda) {
-      pendingJump = { type: 'ds_al_coda', targetIndex: navigationTargets.segnoIndex ?? 0, jumpToCoda: true };
-    } else if (dsAlEnding) {
-      pendingJump = { type: 'ds_al_ending', targetIndex: navigationTargets.segnoIndex ?? 0, ending: Number(dsAlEnding.ending || 2) };
-    }
+  function pushMissingTargetDiagnostic(code, message) {
+    if (reportedUnsupportedDirectives.has(code)) return;
+    reportedUnsupportedDirectives.add(code);
+    diagnostics.push({
+      level: 'warning',
+      code,
+      message
+    });
+  }
 
-    if (
-      (bar.flags.includes('repeat_start_barline') || bar.flags.includes('section_start_barline'))
-      && repeatMap.has(index)
-      && (!repeatContext || repeatContext.startIndex !== index)
-    ) {
-      const endIndex = repeatMap.get(index);
-      repeatContext = {
-        startIndex: index,
-        endIndex,
-        pass: 1,
-        maxPass: Math.max(2, findHighestEndingWithinRange(endingMap, index, endIndex))
-      };
-    }
+  function runFormPass({ includeCodaOutro = false } = {}) {
+    let repeatContext = null;
+    let jumpState = null;
+    let index = 0;
+    const formEndIndex = includeCodaOutro || codaOutroStartIndex === null ? bars.length : codaOutroStartIndex;
 
-    if ((bar.flags.includes('repeat_end_barline') || bar.flags.includes('section_end_barline')) && repeatContext && repeatContext.endIndex === index) {
-      if (repeatContext.pass < repeatContext.maxPass) {
-        repeatContext.pass += 1;
-        index = repeatContext.startIndex;
-        continue;
-      }
-      repeatContext = null;
-    }
+    while (index < bars.length && index < formEndIndex && visitCounter < MAX_PLAYBACK_STEPS) {
+      const bar = bars[index];
+      const activeEndingPass = repeatContext?.pass || jumpState?.forcedEnding || 1;
+      const explicitEndings = endingMap.get(index);
 
-    if (pendingJump) {
-      if (pendingJump.ending) {
-        index = pendingJump.targetIndex;
-        repeatContext = {
-          startIndex: pendingJump.targetIndex,
-          endIndex: repeatMap.get(pendingJump.targetIndex) ?? pendingJump.targetIndex,
-          pass: pendingJump.ending,
-          maxPass: pendingJump.ending
-        };
-        pendingJump = null;
+      if (explicitEndings && explicitEndings.size > 0 && !explicitEndings.has(activeEndingPass)) {
+        index += 1;
         continue;
       }
 
-      if (pendingJump.jumpToCoda) {
+      entries.push(createEntry(bar, visitCounter));
+      visitCounter += 1;
+      reportUnsupportedDirectives(bar);
+
+      if (jumpState?.stopAtFine && bar.flags.includes('fine')) break;
+
+      if (jumpState?.jumpToCoda && navigationTargets.codaJumpIndex === index) {
         if (navigationTargets.codaIndex === null) {
-          diagnostics.push({
-            level: 'warning',
-            code: 'missing_coda_target',
-            message: `No coda target found for ${pendingJump.type}.`
-          });
+          pushMissingTargetDiagnostic('missing_coda_target', `No coda target found for ${jumpState.type}.`);
         } else {
           index = navigationTargets.codaIndex;
-          pendingJump = null;
+          jumpState = null;
           continue;
         }
       }
 
-      if (pendingJump.stopAtFine && bar.flags.includes('fine')) break;
+      const dcAlEnding = findDirective(bar, 'dc_al_ending');
+      const dcAlFine = findDirective(bar, 'dc_al_fine');
+      const dcAlCoda = findDirective(bar, 'dc_al_coda');
+      const dsAlFine = findDirective(bar, 'ds_al_fine');
+      const dsAlCoda = findDirective(bar, 'ds_al_coda');
+      const dsAlEnding = findDirective(bar, 'ds_al_ending');
 
-      index = pendingJump.targetIndex;
-      pendingJump = null;
-      continue;
+      if (dcAlEnding || dcAlFine || dcAlCoda || dsAlFine || dsAlCoda || dsAlEnding) {
+        if ((dsAlFine || dsAlCoda || dsAlEnding) && navigationTargets.segnoIndex === null) {
+          pushMissingTargetDiagnostic('missing_segno_target', `No segno target found for bar ${bar.index}.`);
+        }
+        if ((dcAlFine || dsAlFine || dcAlEnding || dsAlEnding) && !bars.some((candidate) => candidate.flags.includes('fine'))) {
+          pushMissingTargetDiagnostic('missing_fine_target', `${bar.index} uses an al Fine/ending instruction, but no Fine target was found.`);
+        }
+        if ((dcAlCoda || dsAlCoda) && navigationTargets.codaIndex === null) {
+          pushMissingTargetDiagnostic('missing_coda_target', `${bar.index} uses al Coda, but no coda target was found.`);
+        }
+
+        if (dcAlEnding) {
+          jumpState = { type: 'dc_al_ending', forcedEnding: Number(dcAlEnding.ending || 2), stopAtFine: true };
+          index = 0;
+          repeatContext = null;
+          continue;
+        }
+        if (dcAlFine) {
+          jumpState = { type: 'dc_al_fine', stopAtFine: true };
+          index = 0;
+          repeatContext = null;
+          continue;
+        }
+        if (dcAlCoda) {
+          jumpState = { type: 'dc_al_coda', jumpToCoda: true };
+          index = 0;
+          repeatContext = null;
+          continue;
+        }
+        if (dsAlEnding) {
+          jumpState = { type: 'ds_al_ending', forcedEnding: Number(dsAlEnding.ending || 2), stopAtFine: true };
+          index = navigationTargets.segnoIndex ?? 0;
+          repeatContext = null;
+          continue;
+        }
+        if (dsAlFine) {
+          jumpState = { type: 'ds_al_fine', stopAtFine: true };
+          index = navigationTargets.segnoIndex ?? 0;
+          repeatContext = null;
+          continue;
+        }
+        if (dsAlCoda) {
+          jumpState = { type: 'ds_al_coda', jumpToCoda: true };
+          index = navigationTargets.segnoIndex ?? 0;
+          repeatContext = null;
+          continue;
+        }
+      }
+
+      if (
+        (bar.flags.includes('repeat_start_barline') || bar.flags.includes('section_start_barline'))
+        && repeatMap.has(index)
+        && (!repeatContext || repeatContext.startIndex !== index)
+      ) {
+        const endIndex = repeatMap.get(index);
+        repeatContext = {
+          startIndex: index,
+          endIndex,
+          pass: jumpState?.forcedEnding || 1,
+          maxPass: jumpState?.forcedEnding
+            || getRepeatHintWithinRange(bars, index, endIndex)
+            || Math.max(2, findHighestEndingWithinRange(endingMap, index, endIndex))
+        };
+      }
+
+      if ((bar.flags.includes('repeat_end_barline') || bar.flags.includes('section_end_barline')) && repeatContext && repeatContext.endIndex === index) {
+        if (repeatContext.pass < repeatContext.maxPass) {
+          repeatContext.pass += 1;
+          index = repeatContext.startIndex;
+          continue;
+        }
+        repeatContext = null;
+      }
+
+      if (options.stopAtFine && bar.flags.includes('fine')) break;
+      index += 1;
     }
+  }
 
-    if (options.stopAtFine && bar.flags.includes('fine')) break;
-    index += 1;
+  for (let pass = 1; pass <= requestedRepeatCount && visitCounter < MAX_PLAYBACK_STEPS; pass += 1) {
+    runFormPass({
+      includeCodaOutro: codaIsPartOfForm || pass === requestedRepeatCount
+    });
   }
 
   if (visitCounter >= MAX_PLAYBACK_STEPS) {
@@ -375,6 +453,9 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
     document: chartDocument,
     entries,
     diagnostics,
-    navigation: navigationTargets
+    navigation: {
+      segnoIndex: navigationTargets.segnoIndex,
+      codaIndex: navigationTargets.codaIndex
+    }
   });
 }

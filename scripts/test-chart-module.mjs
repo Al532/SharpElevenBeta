@@ -3509,8 +3509,8 @@ const butterfly = byTitle.get('Butterfly');
 assert.ok(butterfly, 'Butterfly is present in the raw source import.');
 const butterflyPlan = createChartPlaybackPlanFromDocument(butterfly);
 assert.ok(
-  butterflyPlan.diagnostics.some(diagnostic => diagnostic.code === 'unsupported_repeat_hint'),
-  'Playback diagnostics flag preserved repeat hints that are not yet interpreted.'
+  !butterflyPlan.diagnostics.some(diagnostic => diagnostic.code === 'unsupported_repeat_hint'),
+  'Playback diagnostics no longer flag repeat hints as unsupported because they are interpreted.'
 );
 
 const normalizedDocument = createChartDocument({
@@ -3590,6 +3590,94 @@ assert.deepEqual(
   normalizedPlaybackPlan.navigation,
   { segnoIndex: null, codaIndex: null },
   'Playback plans normalize missing navigation targets to explicit null indices.'
+);
+
+function makeSyntheticChartBar(index, {
+  symbol,
+  flags = [],
+  directives = [],
+  endings = []
+} = {}) {
+  return {
+    id: `bar-${index}`,
+    index,
+    sectionId: 'A-1',
+    sectionLabel: 'A',
+    timeSignature: '4/4',
+    notation: { kind: 'written', tokens: [{ kind: 'chord', symbol }] },
+    playback: {
+      slots: [{ kind: 'chord', symbol }],
+      cellSlots: [{ chord: { symbol } }]
+    },
+    endings,
+    flags,
+    directives,
+    comments: []
+  };
+}
+
+function syntheticPlaybackBarIndices(chartDocument, options = {}) {
+  return createChartPlaybackPlanFromDocument(createChartDocument(chartDocument), options)
+    .entries
+    .map((entry) => entry.barIndex);
+}
+
+assert.deepEqual(
+  syntheticPlaybackBarIndices({
+    metadata: { title: 'Repeat Hint', id: 'repeat-hint' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7', flags: ['repeat_start_barline'] }),
+      makeSyntheticChartBar(2, { symbol: 'F7', flags: ['repeat_end_barline'], directives: [{ type: 'repeat_hint', times: 3 }] })
+    ]
+  }),
+  [1, 2, 1, 2, 1, 2],
+  'Playback interprets iReal repeat text such as 3x as the local repeat count.'
+);
+
+assert.deepEqual(
+  syntheticPlaybackBarIndices({
+    metadata: { title: 'Coda Outro', id: 'coda-outro', sourceRepeats: 3 },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3', 'bar-4'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'Dm7' }),
+      makeSyntheticChartBar(3, { symbol: 'G7', flags: ['coda'] }),
+      makeSyntheticChartBar(4, { symbol: 'C6' })
+    ]
+  }, { repeatCount: 3 }),
+  [1, 2, 1, 2, 1, 2, 3, 4],
+  'Playback treats a coda without D.C./D.S. al Coda as an outro on the final global repeat.'
+);
+
+assert.deepEqual(
+  syntheticPlaybackBarIndices({
+    metadata: { title: 'DC Fine', id: 'dc-fine' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'F7', flags: ['fine'] }),
+      makeSyntheticChartBar(3, { symbol: 'G7', directives: [{ type: 'dc_al_fine' }] })
+    ]
+  }),
+  [1, 2, 3, 1, 2],
+  'Playback stops at Fine after D.C. al Fine instead of jumping forever.'
+);
+
+assert.deepEqual(
+  syntheticPlaybackBarIndices({
+    metadata: { title: 'DC Coda', id: 'dc-coda' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3', 'bar-4', 'bar-5'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'Dm7', flags: ['coda'] }),
+      makeSyntheticChartBar(3, { symbol: 'G7', directives: [{ type: 'dc_al_coda' }] }),
+      makeSyntheticChartBar(4, { symbol: 'Em7', flags: ['coda'] }),
+      makeSyntheticChartBar(5, { symbol: 'A7' })
+    ]
+  }),
+  [1, 2, 3, 1, 2, 4, 5],
+  'Playback waits until the coda jump marker after D.C. al Coda before jumping to the coda target.'
 );
 
 const satinSession = createPracticeSessionFromChartDocument(satinDoll, { playbackPlan: satinPlan });

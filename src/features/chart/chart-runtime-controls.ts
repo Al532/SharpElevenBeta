@@ -10,6 +10,7 @@ type BindChartRuntimeControlsOptions = {
   useHalfDiminishedSymbol?: HTMLInputElement | null,
   useDiminishedSymbol?: HTMLInputElement | null,
   tempoInput?: HTMLInputElement | null,
+  repeatCountInput?: HTMLInputElement | null,
   compingStyleSelect?: HTMLSelectElement | null,
   drumsSelect?: HTMLSelectElement | null,
   walkingBassToggle?: HTMLInputElement | null,
@@ -30,6 +31,7 @@ type BindChartRuntimeControlsOptions = {
   onChordEnrichmentModeChange?: EventListener | null,
   onSymbolToggleChange?: EventListener | null,
   onTempoChange?: EventListener | null,
+  onRepeatCountChange?: EventListener | null,
   onPlaybackSettingChange?: EventListener | null,
   onMixerInput?: EventListener | null,
   onPlayClick?: EventListener | null,
@@ -56,6 +58,7 @@ export function bindChartRuntimeControls({
   useHalfDiminishedSymbol,
   useDiminishedSymbol,
   tempoInput,
+  repeatCountInput,
   compingStyleSelect,
   drumsSelect,
   walkingBassToggle,
@@ -76,6 +79,7 @@ export function bindChartRuntimeControls({
   onChordEnrichmentModeChange,
   onSymbolToggleChange,
   onTempoChange,
+  onRepeatCountChange,
   onPlaybackSettingChange,
   onMixerInput,
   onPlayClick,
@@ -101,6 +105,7 @@ export function bindChartRuntimeControls({
   });
 
   tempoInput?.addEventListener('change', onTempoChange);
+  repeatCountInput?.addEventListener('change', onRepeatCountChange);
   compingStyleSelect?.addEventListener('change', onPlaybackSettingChange);
   drumsSelect?.addEventListener('change', onPlaybackSettingChange);
   walkingBassToggle?.addEventListener('change', onPlaybackSettingChange);

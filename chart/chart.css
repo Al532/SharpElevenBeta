@@ -377,7 +377,8 @@ select {
   display: none;
 }
 
-.chart-tempo-popover {
+.chart-tempo-popover,
+.chart-repeat-popover {
   display: grid;
   justify-items: center;
   gap: 10px;
@@ -388,13 +389,37 @@ select {
   color: var(--chart-ui-muted-on-accent);
 }
 
-.chart-tempo-popover strong {
+.chart-tempo-popover strong,
+.chart-repeat-popover strong {
   font-size: 2.2rem;
   line-height: 1;
 }
 
-.chart-tempo-popover input[type="range"] {
+.chart-tempo-popover input[type="range"],
+.chart-repeat-popover input[type="range"] {
   width: 100%;
+}
+
+.chart-repeat-stepper {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.chart-stepper-button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-accent);
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .chart-key-popover {
@@ -2425,7 +2450,7 @@ select {
   }
 
   .chart-transport-controls {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.9fr);
     align-items: center;
     gap: 12px;
   }
@@ -2493,7 +2518,8 @@ select {
     padding: 0 10px;
   }
 
-  .chart-tempo-field {
+  .chart-tempo-field,
+  .chart-repeat-field {
     width: auto;
     white-space: nowrap;
   }
@@ -2512,7 +2538,8 @@ select {
     transform: none;
   }
 
-  .chart-tempo-popover strong {
+  .chart-tempo-popover strong,
+  .chart-repeat-popover strong {
     font-size: 2rem;
   }
 
@@ -2807,11 +2834,13 @@ select {
     border-radius: 18px 18px 0 0;
   }
 
-  .chart-tempo-popover {
+  .chart-tempo-popover,
+  .chart-repeat-popover {
     gap: 12px;
   }
 
-  .chart-tempo-popover strong {
+  .chart-tempo-popover strong,
+  .chart-repeat-popover strong {
     color: var(--ui-text);
     font-size: 2.4rem;
     font-weight: 800;
@@ -2872,8 +2901,14 @@ select {
   }
 
   .chart-slider-row input[type="range"],
-  .chart-tempo-popover input[type="range"] {
+  .chart-tempo-popover input[type="range"],
+  .chart-repeat-popover input[type="range"] {
     accent-color: var(--ui-accent);
+  }
+
+  .chart-stepper-button {
+    background: var(--chart-mobile-control-bg);
+    color: var(--ui-accent);
   }
 
   .chart-selection-menu-card {
