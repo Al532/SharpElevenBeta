@@ -10,8 +10,8 @@ export const DEFAULT_PLAYBACK_ENDING_CONFIG = Object.freeze({
   longHoldMs: 4000,
   shortTailStopDelaySeconds: 1,
   shortTailFadeTimeConstantSeconds: 0.24,
-  shortAccentMultiplier: 2,
-  shortFinalAccentMultiplier: 2,
+  shortAccentMultiplier: 1.8,
+  shortFinalAccentMultiplier: 1.8,
   shortCrescendoLeadMeasures: 2
 });
 

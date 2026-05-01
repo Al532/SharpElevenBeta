@@ -343,6 +343,178 @@ function getJumpWeights(slotKind, activeMode = 'piano', secondsPerBeat = null) {
   );
 }
 
+function getRawJumpWeight(weightMap, jump) {
+  if (!weightMap || typeof weightMap !== 'object') return null;
+  const rawWeight = weightMap[String(jump)] ?? weightMap[jump];
+  const weight = Number(rawWeight);
+  return Number.isFinite(weight) ? weight : null;
+}
+
+function getTempoBpm(secondsPerBeat) {
+  return Number.isFinite(secondsPerBeat) && secondsPerBeat > 0
+    ? 60 / secondsPerBeat
+    : null;
+}
+
+function getJumpWeightDebugContext(slotKind, jump, activeMode = 'piano', secondsPerBeat = null) {
+  const baseWeights = slotKind === 'beat'
+    ? rhythmConfig.onBeatJumpWeights
+    : rhythmConfig.offBeatJumpWeights;
+  const highTempoWeights = slotKind === 'beat'
+    ? rhythmConfig.onBeatJumpWeights250Bpm
+    : rhythmConfig.offBeatJumpWeights250Bpm;
+  const resolvedWeights = getJumpWeights(slotKind, activeMode, secondsPerBeat);
+  return {
+    activeMode,
+    slotKind,
+    jump,
+    tempoBpm: getTempoBpm(secondsPerBeat),
+    baseWeight: getRawJumpWeight(baseWeights, jump),
+    highTempo250BpmWeight: getRawJumpWeight(highTempoWeights, jump),
+    resolvedWeight: getRawJumpWeight(resolvedWeights, jump),
+  };
+}
+
+function isPositiveJumpWeight(weight) {
+  return Number.isFinite(weight) && weight > 0;
+}
+
+function getSlotDebugLabel(slotIndex, swingRatio = DEFAULT_SWING_RATIO) {
+  if (!Number.isFinite(slotIndex)) return 'unknown';
+  const timeBeats = getSlotTimeBeats(slotIndex, swingRatio);
+  return `${getSlotKind(slotIndex)} slot ${slotIndex} @ beat ${Number(timeBeats.toFixed(3))}`;
+}
+
+function getJumpDecision(debugInfo, fromSlot, toSlot) {
+  return debugInfo?.jumpDecisions?.find(decision =>
+    decision.fromSlot === fromSlot
+    && decision.toSlot === toSlot
+  ) || null;
+}
+
+function getSlotSource(debugInfo, slotIndex) {
+  return debugInfo?.slotSources instanceof Map
+    ? (debugInfo.slotSources.get(slotIndex) || null)
+    : null;
+}
+
+function explainTwoSlotGapCause({
+  debugInfo,
+  fromSlot,
+  toSlot,
+  isReservedEndingGap = false,
+}) {
+  const directDecision = getJumpDecision(debugInfo, fromSlot, toSlot);
+  if (directDecision) {
+    return `direct ${directDecision.source}`;
+  }
+
+  const fromSource = getSlotSource(debugInfo, fromSlot);
+  const toSource = getSlotSource(debugInfo, toSlot);
+  if (toSource?.stage === 'block-representation') {
+    return 'block representation inserted the destination slot after the weighted walk';
+  }
+  if (fromSource?.stage === 'block-representation') {
+    return 'block representation inserted the source slot after the weighted walk';
+  }
+  if (isReservedEndingGap) {
+    return 'gap into reserved ending; the ending is scheduled outside piano plan events';
+  }
+  if (debugInfo?.endingResolution?.removedSlots?.length) {
+    return 'reserved-ending resolution removed later candidate slots, changing the final spacing';
+  }
+  return 'final spacing after plan normalization, not a direct weighted jump';
+}
+
+function collectZeroWeightTwoSlotJumpDiagnostics({
+  events,
+  reservedEndingSlotIndex,
+  endingCue,
+  activeMode,
+  secondsPerBeat,
+  swingRatio,
+  debugInfo,
+}) {
+  if (!Array.isArray(events) || events.length === 0) return [];
+
+  const diagnostics = [];
+  const addDiagnostic = ({ leftEvent, rightEvent = null, rightSlot, isReservedEndingGap = false }) => {
+    const gapSlots = rightSlot - leftEvent.slotIndex;
+    if (gapSlots !== 2) return;
+
+    const weightContext = getJumpWeightDebugContext(
+      getSlotKind(leftEvent.slotIndex),
+      gapSlots,
+      activeMode,
+      secondsPerBeat
+    );
+    if (isPositiveJumpWeight(weightContext.resolvedWeight)) return;
+
+    diagnostics.push({
+      kind: isReservedEndingGap ? 'event-to-reserved-ending' : 'event-to-event',
+      cause: explainTwoSlotGapCause({
+        debugInfo,
+        fromSlot: leftEvent.slotIndex,
+        toSlot: rightSlot,
+        isReservedEndingGap,
+      }),
+      from: {
+        slot: leftEvent.slotIndex,
+        label: getSlotDebugLabel(leftEvent.slotIndex, swingRatio),
+        chordIdx: leftEvent.chordIdx,
+        source: getSlotSource(debugInfo, leftEvent.slotIndex),
+      },
+      to: rightEvent
+        ? {
+            slot: rightEvent.slotIndex,
+            label: getSlotDebugLabel(rightEvent.slotIndex, swingRatio),
+            chordIdx: rightEvent.chordIdx,
+            source: getSlotSource(debugInfo, rightEvent.slotIndex),
+          }
+        : {
+            slot: rightSlot,
+            label: getSlotDebugLabel(rightSlot, swingRatio),
+            endingStyle: endingCue?.style || null,
+          },
+      weightContext,
+      directDecision: getJumpDecision(debugInfo, leftEvent.slotIndex, rightSlot),
+      endingResolution: debugInfo?.endingResolution || null,
+    });
+  };
+
+  for (let index = 0; index < events.length - 1; index++) {
+    addDiagnostic({
+      leftEvent: events[index],
+      rightEvent: events[index + 1],
+      rightSlot: events[index + 1].slotIndex,
+    });
+  }
+
+  if (Number.isInteger(reservedEndingSlotIndex)) {
+    const lastBeforeEnding = [...events]
+      .reverse()
+      .find(event => event.slotIndex < reservedEndingSlotIndex);
+    if (lastBeforeEnding) {
+      addDiagnostic({
+        leftEvent: lastBeforeEnding,
+        rightSlot: reservedEndingSlotIndex,
+        isReservedEndingGap: true,
+      });
+    }
+  }
+
+  return diagnostics;
+}
+
+function logZeroWeightTwoSlotJumpDiagnostics(diagnostics, planContext) {
+  if (!diagnostics.length || typeof console === 'undefined' || typeof console.info !== 'function') return;
+  console.info('[piano-rhythm] jump/gap 2 with zero resolved weight', {
+    ...planContext,
+    note: 'A weight of 0 only excludes direct weighted picks. Final plan spacing can still become 2 after block coverage or ending reservation adjustments.',
+    diagnostics,
+  });
+}
+
 function getPositiveConfiguredJumpWeight(slotIndex, jump, activeMode = 'piano', secondsPerBeat = null) {
   if (!Number.isFinite(jump) || jump <= 0) return 0;
   const weights = getJumpWeights(getSlotKind(slotIndex), activeMode, secondsPerBeat) || {};
@@ -351,42 +523,97 @@ function getPositiveConfiguredJumpWeight(slotIndex, jump, activeMode = 'piano', 
   return Number.isFinite(weight) && weight > 0 ? weight : 0;
 }
 
-function canResolveIntoReservedEndingSlot(slotIndex, reservedEndingSlotIndex, activeMode = 'piano', secondsPerBeat = null) {
-  if (!Number.isInteger(reservedEndingSlotIndex)) return true;
-  if (!Number.isInteger(slotIndex) || slotIndex >= reservedEndingSlotIndex) return true;
+function getMaxConfiguredJump(slotKind, activeMode = 'piano', secondsPerBeat = null) {
+  const weights = getJumpWeights(slotKind, activeMode, secondsPerBeat) || {};
+  let maxJump = 0;
+  for (const jump of Object.keys(weights)) {
+    const numericJump = Number(jump);
+    if (Number.isFinite(numericJump) && numericJump > maxJump) {
+      maxJump = numericJump;
+    }
+  }
+  return maxJump;
+}
+
+function getReverseEndingCandidateWeight(slotIndex, reservedEndingSlotIndex, activeMode = 'piano', secondsPerBeat = null) {
+  if (!Number.isInteger(reservedEndingSlotIndex)) return 0;
+  if (!Number.isInteger(slotIndex) || slotIndex >= reservedEndingSlotIndex) return 0;
   const jumpToEnding = reservedEndingSlotIndex - slotIndex;
-  return getPositiveConfiguredJumpWeight(slotIndex, jumpToEnding, activeMode, secondsPerBeat) > 0;
+  const maxConfiguredJump = getMaxConfiguredJump(getSlotKind(slotIndex), activeMode, secondsPerBeat);
+  if (jumpToEnding > maxConfiguredJump) return null;
+  return getPositiveConfiguredJumpWeight(slotIndex, jumpToEnding, activeMode, secondsPerBeat);
 }
 
-function pruneSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode = 'piano', secondsPerBeat = null) {
+function resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode = 'piano', secondsPerBeat = null, debugInfo = null) {
   if (!Number.isInteger(reservedEndingSlotIndex)) return false;
+  const candidates = [...chosenSlots]
+    .filter(slot => Number.isInteger(slot) && slot < reservedEndingSlotIndex)
+    .map(slot => ({
+      slot,
+      weight: getReverseEndingCandidateWeight(slot, reservedEndingSlotIndex, activeMode, secondsPerBeat)
+    }))
+    .filter(entry => entry.weight !== null);
+  if (candidates.length === 0) return false;
+
+  let totalWeight = 0;
+  for (const candidate of candidates) {
+    const weight = Number(candidate.weight);
+    if (Number.isFinite(weight) && weight > 0) {
+      totalWeight += weight;
+    }
+  }
+
+  if (totalWeight <= 0) {
+    const removedSlots = [];
+    for (const candidate of candidates) {
+      chosenSlots.delete(candidate.slot);
+      removedSlots.push(candidate.slot);
+    }
+    if (debugInfo) {
+      debugInfo.endingResolution = {
+        reason: 'all-candidate-weights-zero',
+        reservedEndingSlotIndex,
+        totalWeight,
+        selectedSlot: null,
+        removedSlots,
+        candidates,
+      };
+    }
+    return true;
+  }
+
+  let cursor = Math.random() * totalWeight;
+  let selectedSlot = candidates[candidates.length - 1].slot;
+  for (const candidate of candidates) {
+    const weight = Number(candidate.weight);
+    if (!Number.isFinite(weight) || weight <= 0) continue;
+    cursor -= weight;
+    if (cursor <= 0) {
+      selectedSlot = candidate.slot;
+      break;
+    }
+  }
+
   let changed = false;
-
-  while (true) {
-    const previousSlot = [...chosenSlots]
-      .filter(slot => Number.isInteger(slot) && slot < reservedEndingSlotIndex)
-      .sort((left, right) => right - left)[0];
-    if (!Number.isInteger(previousSlot)) return changed;
-    if (canResolveIntoReservedEndingSlot(previousSlot, reservedEndingSlotIndex, activeMode, secondsPerBeat)) {
-      return changed;
-    }
-    chosenSlots.delete(previousSlot);
-    changed = true;
-  }
-}
-
-function chosenSlotsHasLaterSlotBeforeReservedEnding(chosenSlots, slotIndex, reservedEndingSlotIndex) {
-  if (!Number.isInteger(reservedEndingSlotIndex)) return false;
-  for (const chosenSlot of chosenSlots) {
-    if (
-      Number.isInteger(chosenSlot)
-      && chosenSlot > slotIndex
-      && chosenSlot < reservedEndingSlotIndex
-    ) {
-      return true;
+  const removedSlots = [];
+  for (const candidate of candidates) {
+    if (candidate.slot > selectedSlot) {
+      chosenSlots.delete(candidate.slot);
+      removedSlots.push(candidate.slot);
+      changed = true;
     }
   }
-  return false;
+  if (debugInfo) {
+    debugInfo.endingResolution = {
+      reason: 'weighted-ending-candidate',
+      reservedEndingSlotIndex,
+      totalWeight,
+      selectedSlot,
+      removedSlots,
+      candidates,
+    };
+  }
+  return changed;
 }
 
 function isSlotPlayable(slotIndex, chosenSlots) {
@@ -560,10 +787,21 @@ function createPianoPlan({
   );
   const representedBlocks = new Set(hasIncomingAnticipation ? [0] : []);
   const minimumStartSlot = getBoundaryBlockedSlotCount(totalSlots, previousTailBeats, hasIncomingAnticipation, swingRatio);
+  const debugInfo = {
+    jumpDecisions: [],
+    slotSources: new Map(),
+    endingResolution: null,
+  };
   let slotIndex = Math.max(
     minimumStartSlot,
     getInitialSlotIndex(shouldReset, hasIncomingAnticipation)
   );
+  let incomingSlotSource: Record<string, unknown> = {
+    stage: 'initial',
+    minimumStartSlot,
+    shouldReset,
+    hasIncomingAnticipation,
+  };
   let forcedOneStepJumpsRemaining = 0;
   let oneStepRunCooldownRemaining = 0;
   let oneStepRunCooldownPending = 0;
@@ -572,11 +810,17 @@ function createPianoPlan({
   while (slotExistsWithinProgression(slotIndex, totalSlots)) {
     if (!isBlockedSlot(slotIndex) && !isReservedEndingSlot(slotIndex)) {
       chosenSlots.add(slotIndex);
+      if (!debugInfo.slotSources.has(slotIndex)) {
+        debugInfo.slotSources.set(slotIndex, incomingSlotSource);
+      }
     }
     if (forcedOneStepJumpsRemaining <= 0 && oneStepRunCooldownRemaining > 0) {
       oneStepRunCooldownRemaining -= 1;
     }
     const slotKind = getSlotKind(slotIndex);
+    let nextJumpSource = forcedOneStepJumpsRemaining > 0
+      ? 'forced-one-step-run'
+      : 'weighted-pick';
     let nextJump = forcedOneStepJumpsRemaining > 0
       ? 1
       : weightedPick(getJumpWeights(slotKind, activeMode, secondsPerBeat));
@@ -585,7 +829,27 @@ function createPianoPlan({
         getJumpWeights(slotKind, activeMode, secondsPerBeat),
         1
       );
+      nextJumpSource = 'weighted-pick-excluding-repeat-1';
     }
+    const destinationSlot = slotIndex + nextJump;
+    const jumpDecision = {
+      fromSlot: slotIndex,
+      toSlot: destinationSlot,
+      jump: nextJump,
+      source: nextJumpSource,
+      slotKind,
+      previousJump,
+      weightContext: getJumpWeightDebugContext(slotKind, nextJump, activeMode, secondsPerBeat),
+    };
+    debugInfo.jumpDecisions.push(jumpDecision);
+    incomingSlotSource = {
+      stage: 'weighted-walk',
+      fromSlot: slotIndex,
+      jump: nextJump,
+      source: nextJumpSource,
+      slotKind,
+      weightContext: jumpDecision.weightContext,
+    };
     if (forcedOneStepJumpsRemaining > 0) {
       forcedOneStepJumpsRemaining -= 1;
       if (forcedOneStepJumpsRemaining <= 0 && oneStepRunCooldownPending > 0) {
@@ -604,10 +868,8 @@ function createPianoPlan({
       }
     }
     previousJump = nextJump;
-    slotIndex += nextJump;
+    slotIndex = destinationSlot;
   }
-
-  pruneSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode, secondsPerBeat);
 
   const ensureBlockRepresentation = (block) => {
     if (representedBlocks.has(block.blockIdx)) return;
@@ -619,14 +881,6 @@ function createPianoPlan({
     const allBlockCandidateSlots = findCandidateSlotIndices(blockCandidateStartSlot, block.usefulEndBeat, totalSlots, swingRatio)
       .filter(candidateSlot => {
         if (isBlockedSlot(candidateSlot) || isReservedEndingSlot(candidateSlot)) return false;
-        if (
-          Number.isInteger(reservedEndingSlotIndex)
-          && candidateSlot < reservedEndingSlotIndex
-          && !chosenSlotsHasLaterSlotBeforeReservedEnding(chosenSlots, candidateSlot, reservedEndingSlotIndex)
-          && !canResolveIntoReservedEndingSlot(candidateSlot, reservedEndingSlotIndex, activeMode, secondsPerBeat)
-        ) {
-          return false;
-        }
         const timeBeats = getSlotTimeBeats(candidateSlot, swingRatio);
         const candidateBlock = getBlockForTime(blocks, timeBeats);
         return Boolean(candidateBlock && candidateBlock.blockIdx === block.blockIdx);
@@ -650,12 +904,19 @@ function createPianoPlan({
     }
 
     chosenSlots.add(preferredSlot);
+    debugInfo.slotSources.set(preferredSlot, {
+      stage: 'block-representation',
+      blockIdx: block.blockIdx,
+      blockStartBeat: block.startBeat,
+      blockUsefulEndBeat: block.usefulEndBeat,
+      candidateSlotsCount: candidateSlots.length,
+      allBlockCandidateSlotsCount: allBlockCandidateSlots.length,
+    });
     if (isBlockedSlot(preferredSlot) || isReservedEndingSlot(preferredSlot)) {
       chosenSlots.delete(preferredSlot);
       return;
     }
     representedBlocks.add(block.blockIdx);
-    pruneSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode, secondsPerBeat);
   };
 
   const events = buildSortedPianoPlanEvents(chosenSlots, eventOptions);
@@ -675,9 +936,32 @@ function createPianoPlan({
     ensureBlockRepresentation(block);
   }
 
+  resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode, secondsPerBeat, debugInfo);
+
   const finalEvents = buildSortedPianoPlanEvents(chosenSlots, eventOptions);
   annotatePianoEventSpacing(finalEvents, blocks);
   annotatePianoOneStepRuns(finalEvents);
+
+  logZeroWeightTwoSlotJumpDiagnostics(
+    collectZeroWeightTwoSlotJumpDiagnostics({
+      events: finalEvents,
+      reservedEndingSlotIndex,
+      endingCue,
+      activeMode,
+      secondsPerBeat,
+      swingRatio,
+      debugInfo,
+    }),
+    {
+      activeMode,
+      beatsPerBar,
+      beatsPerChord,
+      chordsCount: chords.length,
+      tempoBpm: getTempoBpm(secondsPerBeat),
+      reservedEndingSlotIndex,
+      endingStyle: endingCue?.style || null,
+    }
+  );
 
   const anticipatesNextStart = finalEvents.some(event =>
     event.isAnticipation

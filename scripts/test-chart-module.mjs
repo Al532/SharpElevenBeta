@@ -2813,6 +2813,51 @@ assert.equal(
   } finally {
     Math.random = originalRandom;
   }
+
+  const mediumTempoComping = createPianoComping({
+    helpers: {
+      getSecondsPerBeat: () => 60 / 120,
+      getSwingRatio: () => 2
+    }
+  });
+  const buildMediumTempoOffbeatPlan = () => mediumTempoComping.buildPlan({
+    chords: [
+      { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'm7' },
+      { semitones: 5, bassSemitones: 5, qualityMajor: '7', qualityMinor: 'm7' },
+      { semitones: 7, bassSemitones: 7, qualityMajor: '7', qualityMinor: 'm7' },
+      { semitones: 11, bassSemitones: 11, qualityMajor: '7', qualityMinor: 'm7' },
+      { semitones: 0, bassSemitones: 0, qualityMajor: '6', qualityMinor: 'm6' }
+    ],
+    key: 0,
+    isMinor: false,
+    beatsPerChord: 1,
+    beatsPerBar: 4,
+    endingCue: highTempoOffbeatEndingCue
+  });
+  let randomSequence = [0.99];
+  Math.random = () => randomSequence.shift() ?? 0.99;
+  try {
+    const keptPianoPlan = buildMediumTempoOffbeatPlan();
+    assert.equal(
+      keptPianoPlan.events.some((event) => event.slotIndex === 6),
+      true,
+      'Piano arranger can keep a one-eighth pre-ending gap when the reverse weighted pick accepts it.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+  randomSequence = [0];
+  Math.random = () => randomSequence.shift() ?? 0;
+  try {
+    const prunedPianoPlan = buildMediumTempoOffbeatPlan();
+    assert.equal(
+      prunedPianoPlan.events.some((event) => event.slotIndex === 6),
+      false,
+      'Piano arranger penalizes nonzero one-eighth pre-ending gaps with a reverse weighted pick.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 {
   const offbeatPosition = getSwingOffbeatPositionBeats(2);

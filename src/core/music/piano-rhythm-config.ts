@@ -55,7 +55,7 @@ const pianoRhythmConfig = {
   oddEvenBeatVolumeSpread: 0.3,
   onBeatJumpWeights: {
     1: 2,
-    2: 1,
+    2: 0,
     3: 6,
     4: 3,
     5: 2,
@@ -65,11 +65,11 @@ const pianoRhythmConfig = {
   },
   onBeatJumpWeights250Bpm: {
     1: 0,
-    2: 2,
+    2: 0,
     3: 1,
-    4: 6,
+    4: 4,
     5: 1,
-    6: 5,
+    6: 7,
   },
   offBeatJumpWeights: {
     1: 0,
