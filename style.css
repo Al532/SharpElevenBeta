@@ -5365,6 +5365,12 @@ input[type="number"]:focus {
   min-height: auto;
 }
 
+.library-body .home-subsection {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .library-filter-grid {
   display: grid;
   gap: 0.38rem;
@@ -5439,9 +5445,9 @@ input[type="number"]:focus {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.42rem 0.58rem;
   align-items: center;
-  margin: 0.15rem 0 0.05rem;
-  padding: 0.54rem 0 0.56rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 9%, transparent 91%);
+  margin: auto 0 0;
+  padding: 0.54rem 0 0.08rem;
+  border-top: 1px solid color-mix(in srgb, var(--ui-text) 9%, transparent 91%);
 }
 
 .library-batch-count {

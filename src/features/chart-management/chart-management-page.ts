@@ -365,9 +365,12 @@ function getLibraryPreviewPageSize(): number {
   const bodyStyle = document.body ? getComputedStyle(document.body) : null;
   const bodyPaddingBottom = bodyStyle ? Number.parseFloat(bodyStyle.paddingBottom) || 0 : 0;
   const listTop = dom.manageChartList.getBoundingClientRect().top;
+  const summaryHeight = dom.manageLibrarySummary && !dom.manageLibrarySummary.hidden
+    ? dom.manageLibrarySummary.getBoundingClientRect().height
+    : 0;
   const availableHeight = Math.max(
     0,
-    bodyBottom - bodyPaddingBottom - listTop - LIBRARY_PREVIEW_BOTTOM_GAP_PX
+    bodyBottom - bodyPaddingBottom - listTop - summaryHeight - LIBRARY_PREVIEW_BOTTOM_GAP_PX
   );
   const listStyle = getComputedStyle(dom.manageChartList);
   const rowGap = Number.parseFloat(listStyle.rowGap) || 0;

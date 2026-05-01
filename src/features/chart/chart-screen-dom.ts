@@ -44,6 +44,7 @@ export function createChartScreenDomRefs(rootDocument: Document = document) {
     repeatCountRange: rootDocument.getElementById('chart-repeat-count-range') as HTMLInputElement | null,
     repeatCountDecrease: rootDocument.getElementById('chart-repeat-count-decrease') as HTMLButtonElement | null,
     repeatCountIncrease: rootDocument.getElementById('chart-repeat-count-increase') as HTMLButtonElement | null,
+    repeatInfiniteButton: rootDocument.getElementById('chart-repeat-infinite-button') as HTMLButtonElement | null,
     mixerButton: rootDocument.getElementById('chart-mixer-button') as HTMLButtonElement | null,
     mixerPopover: rootDocument.getElementById('mixer-popover'),
     sheetStyle: rootDocument.getElementById('sheet-style'),

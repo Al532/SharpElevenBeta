@@ -54,6 +54,7 @@ import { createDrillProgressionRootAppAssembly } from '../src/features/drill/dri
 import { createDrillSettingsPersistenceRootAppAssembly } from '../src/features/drill/drill-settings-persistence-root-app-assembly.ts';
 import { createDrillStartupDataRootAppAssembly } from '../src/features/drill/drill-startup-data-root-app-assembly.ts';
 import { createPracticePlaybackRuntimeHostAppBindings } from '../src/features/practice-playback/practice-playback-runtime-host-app-bindings.ts';
+import { createPlaybackTransport } from '../src/features/practice-playback/practice-playback-transport.ts';
 import { createDrillUiEventBindingsRootAppAssembly } from '../src/features/drill/drill-ui-event-bindings-root-app-assembly.ts';
 import { createDrillWelcomeRootAppFacade } from '../src/features/drill/drill-welcome-root-app-facade.ts';
 import {
@@ -524,6 +525,130 @@ function testPlaybackRuntimeHostBindingsPreserveDom() {
     dom,
     'Playback runtime host bindings preserve the grouped DOM contract needed by the transport layer.'
   );
+}
+
+async function testPlaybackStopCancelsPendingStartup() {
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let intervalId = 0;
+  const activeIntervals = new Set();
+  let scheduleBeatCalls = 0;
+  let nearTermPreloadCalls = 0;
+  let preloadResolve;
+  const preloadPromise = new Promise((resolve) => {
+    preloadResolve = resolve;
+  });
+  const classTokens = new Set();
+  const audioContext = {
+    currentTime: 12
+  };
+  const state = {
+    activeNoteGain: null,
+    audioCtx: audioContext,
+    currentBeat: 0,
+    currentChordIdx: 0,
+    displayedCurrentBeat: 0,
+    displayedCurrentChordIdx: -1,
+    displayedIsIntro: false,
+    currentKeyRepetition: 0,
+    firstPlayStartTracked: false,
+    playStopSuggestionCount: 0,
+    isIntro: false,
+    isPaused: false,
+    isPlaying: false,
+    keyPool: [],
+    loopVoicingTemplate: null,
+    nearTermSamplePreloadPromise: null,
+    nextBeatTime: 0,
+    nextKeyValue: null,
+    schedulerTimer: null,
+    startupSamplePreloadInProgress: false
+  };
+
+  globalThis.setInterval = (callback) => {
+    const id = ++intervalId;
+    activeIntervals.add({ id, callback });
+    return id;
+  };
+  globalThis.clearInterval = (id) => {
+    for (const entry of [...activeIntervals]) {
+      if (entry.id === id) activeIntervals.delete(entry);
+    }
+  };
+
+  try {
+    const transport = createPlaybackTransport({
+      dom: {
+        walkingBass: { checked: false },
+        startStop: {
+          textContent: 'Start',
+          classList: {
+            add: (token) => classTokens.add(token),
+            remove: (token) => classTokens.delete(token)
+          }
+        },
+        pause: {
+          textContent: 'Pause',
+          classList: {
+            add: () => {},
+            remove: () => {}
+          }
+        },
+        keyDisplay: { textContent: '', innerHTML: '' },
+        chordDisplay: { textContent: '', innerHTML: '' }
+      },
+      state,
+      constants: {
+        NOTE_FADEOUT: 0.1,
+        SCHEDULE_INTERVAL: 25
+      },
+      helpers: {
+        applyDisplaySideLayout: () => {},
+        clearBeatDots: () => {},
+        clearScheduledDisplays: () => {},
+        ensureWalkingBassGenerator: async () => null,
+        ensureNearTermSamplePreload: () => { nearTermPreloadCalls += 1; },
+        ensureSessionStarted: () => {},
+        fitHarmonyDisplay: () => {},
+        getPlaybackAnalyticsProps: () => ({}),
+        getProgressionAnalyticsProps: () => ({}),
+        hideNextCol: () => {},
+        initAudio: () => {},
+        resumeAudioContext: () => audioContext,
+        suspendAudioContext: () => {},
+        preloadStartupSamples: () => preloadPromise,
+        prepareNextProgression: () => {},
+        registerSessionAction: () => {},
+        scheduleBeat: () => { scheduleBeatCalls += 1; },
+        setDisplayPlaceholderMessage: () => {},
+        setDisplayPlaceholderVisible: () => {},
+        stopActiveComping: () => {},
+        stopScheduledAudio: () => {},
+        trackEvent: () => {},
+        trackProgressionEvent: () => {}
+      }
+    });
+
+    const startPromise = transport.start();
+    await Promise.resolve();
+    assert.equal(state.isPlaying, true, 'Playback start enters playing state before startup preload completes.');
+    assert.equal(state.startupSamplePreloadInProgress, true, 'Startup preload is marked in progress during startup.');
+
+    transport.stop();
+    assert.equal(state.isPlaying, false, 'Stop immediately clears playing state during startup preload.');
+    assert.equal(state.startupSamplePreloadInProgress, false, 'Stop clears the startup preload progress flag.');
+
+    preloadResolve();
+    await startPromise;
+    assert.equal(state.schedulerTimer, null, 'A stopped pending startup must not install a scheduler timer after preload completes.');
+    assert.equal(activeIntervals.size, 0, 'A stopped pending startup must not leave an active interval behind.');
+    assert.equal(scheduleBeatCalls, 0, 'A stopped pending startup must not schedule beats after preload completes.');
+    assert.equal(nearTermPreloadCalls, 0, 'A stopped pending startup must not continue near-term preload work.');
+    assert.equal(classTokens.has('running'), false, 'Stop leaves the transport button in the non-running state.');
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
 }
 
 function testSharedPlaybackRootContextBuildsSubcontexts() {
@@ -3421,6 +3546,7 @@ testPianoToolsRootWrapper();
 await testPianoMidiRuntimeRootAssemblyPreservesMidiWorkflow();
 testWalkingBassRootWrapper();
 testPlaybackRuntimeHostBindingsPreserveDom();
+await testPlaybackStopCancelsPendingStartup();
 testSharedPlaybackRootContextBuildsSubcontexts();
 testSharedPlaybackRootSubcontextsPreserveGlue();
 testDisplayRuntimeRootAssemblyPreservesHelpers();

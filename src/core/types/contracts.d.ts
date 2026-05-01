@@ -251,6 +251,8 @@ export interface PlaybackSettings {
   customMediumSwingBass?: boolean | null;
   repetitionsPerKey?: number | null;
   finitePlayback?: boolean | null;
+  chartRepeatCount?: number | null;
+  chartRepeatInfinite?: boolean | null;
   displayMode?: DisplayMode | null;
   harmonyDisplayMode?: HarmonyDisplayMode | null;
   showBeatIndicator?: boolean | null;

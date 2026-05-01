@@ -2363,8 +2363,8 @@ assert.equal(
 scheduledAudioRuntime.trackScheduledSource(trackedSource, [trackedGain]);
 scheduledAudioRuntime.stopScheduledAudio();
 assert.ok(
-  scheduledAudioEvents.includes('stop:4.02'),
-  'Drill scheduled audio runtime stops tracked sources with a small release window.'
+  scheduledAudioEvents.includes('stop:4'),
+  'Drill scheduled audio runtime stops tracked sources immediately at the requested stop time.'
 );
 scheduledAudioRuntime.getPendingDisplayTimeouts().add(12345);
 scheduledAudioRuntime.clearScheduledDisplays();

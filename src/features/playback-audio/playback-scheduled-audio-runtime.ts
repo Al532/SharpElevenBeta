@@ -2,6 +2,7 @@
 type ScheduledSourceGainNode = {
   gain: {
     value: number;
+    cancelAndHoldAtTime?: (time: number) => void;
     cancelScheduledValues: (time: number) => void;
     setValueAtTime: (value: number, time: number) => void;
     linearRampToValueAtTime: (value: number, time: number) => void;
@@ -14,6 +15,7 @@ type ScheduledAudioSource = {
     listener: () => void,
     options?: { once?: boolean }
   ) => void;
+  disconnect?: () => void;
   stop: (when?: number) => void;
 };
 
@@ -69,19 +71,31 @@ export function createPlaybackScheduledAudioRuntime({
       for (const gainNode of entry.gainNodes) {
         try {
           const currentValue = gainNode.gain.value;
-          gainNode.gain.cancelScheduledValues(stopTime);
-          gainNode.gain.setValueAtTime(currentValue, stopTime);
-          gainNode.gain.linearRampToValueAtTime(0, stopTime + 0.02);
+          if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') {
+            gainNode.gain.cancelAndHoldAtTime(stopTime);
+          } else {
+            gainNode.gain.cancelScheduledValues(stopTime);
+            gainNode.gain.setValueAtTime(currentValue, stopTime);
+          }
+          gainNode.gain.linearRampToValueAtTime(0, stopTime + 0.005);
         } catch {
           // Ignore nodes that have already been disconnected or stopped.
         }
       }
 
       try {
-        entry.source.stop(stopTime + 0.02);
+        entry.source.stop(stopTime);
       } catch {
         // Source may already be stopped; ignore duplicate stop scheduling.
       }
+
+      setTimeout(() => {
+        try {
+          entry.source.disconnect?.();
+        } catch {
+          // Source may already be disconnected.
+        }
+      }, 20);
     }
 
     scheduledAudioSources.clear();

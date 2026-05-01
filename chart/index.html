@@ -113,7 +113,10 @@
               <span id="chart-repeat-count-label">3x</span>
             </button>
             <div id="chart-repeat-count-popover" class="chart-bottom-popover chart-repeat-popover" hidden>
-              <span class="chart-bottom-popover-title">Repeats</span>
+              <div class="chart-repeat-popover-header">
+                <span class="chart-bottom-popover-title">Repeats</span>
+                <button id="chart-repeat-infinite-button" type="button" class="chart-repeat-infinite-button" aria-label="Repeat forever" aria-pressed="false" title="Repeat forever"></button>
+              </div>
               <strong id="chart-repeat-count-value">3x</strong>
               <div class="chart-repeat-stepper" role="group" aria-label="Repeat count">
                 <button id="chart-repeat-count-decrease" type="button" class="chart-stepper-button" aria-label="Decrease repeats">-</button>
@@ -225,9 +228,9 @@
     </main>
     <div class="chart-selection-menu" id="chart-selection-menu" hidden aria-hidden="true">
       <div class="chart-selection-menu-card">
-        <button id="selection-loop-button" type="button" class="chart-selection-menu-button">Loop</button>
-        <button id="selection-play-from-bar-button" type="button" class="chart-selection-menu-button chart-selection-menu-button-secondary">Play from this bar</button>
-        <button id="selection-create-drill-button" type="button" class="chart-selection-menu-button chart-selection-menu-button-secondary">Create a drill</button>
+        <button id="selection-loop-button" type="button" class="chart-selection-menu-button chart-selection-menu-button-primary">Loop</button>
+        <button id="selection-play-from-bar-button" type="button" class="chart-selection-menu-button">Play from this bar</button>
+        <button id="selection-create-drill-button" type="button" class="chart-selection-menu-button">Create a drill</button>
       </div>
     </div>
   </div>

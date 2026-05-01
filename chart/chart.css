@@ -384,6 +384,18 @@ select {
   gap: 10px;
 }
 
+.chart-repeat-popover-header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  width: 100%;
+}
+
+.chart-repeat-popover-header .chart-bottom-popover-title {
+  grid-column: 2;
+  justify-self: center;
+}
+
 .chart-bottom-popover-title {
   font-size: 0.78rem;
   color: var(--chart-ui-muted-on-accent);
@@ -393,6 +405,33 @@ select {
 .chart-repeat-popover strong {
   font-size: 2.2rem;
   line-height: 1;
+}
+
+.chart-repeat-infinity-symbol {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.8em;
+}
+
+.chart-repeat-infinity-symbol::before {
+  content: "";
+  width: 1.45em;
+  height: 0.86em;
+  min-width: 22px;
+  min-height: 13px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M22 13C16.4 4.6 10.3 3.1 6.1 7.3C2.2 11.2 2.2 14.8 6.1 18.7C10.3 22.9 16.4 21.4 22 13C27.6 4.6 33.7 3.1 37.9 7.3C41.8 11.2 41.8 14.8 37.9 18.7C33.7 22.9 27.6 21.4 22 13Z' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M22 13C16.4 4.6 10.3 3.1 6.1 7.3C2.2 11.2 2.2 14.8 6.1 18.7C10.3 22.9 16.4 21.4 22 13C27.6 4.6 33.7 3.1 37.9 7.3C41.8 11.2 41.8 14.8 37.9 18.7C33.7 22.9 27.6 21.4 22 13Z' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.chart-repeat-popover strong.chart-repeat-infinity-symbol,
+.chart-bottom-control-button .chart-repeat-infinity-symbol {
+  font-size: 0;
+}
+
+.chart-repeat-popover strong.chart-repeat-infinity-symbol::before {
+  width: 56px;
+  height: 32px;
 }
 
 .chart-tempo-popover input[type="range"],
@@ -420,6 +459,44 @@ select {
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
+}
+
+.chart-repeat-infinite-button {
+  grid-column: 3;
+  justify-self: end;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-accent);
+  cursor: pointer;
+}
+
+.chart-repeat-infinite-button::before {
+  content: "";
+  width: 21px;
+  height: 13px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M22 13C16.4 4.6 10.3 3.1 6.1 7.3C2.2 11.2 2.2 14.8 6.1 18.7C10.3 22.9 16.4 21.4 22 13C27.6 4.6 33.7 3.1 37.9 7.3C41.8 11.2 41.8 14.8 37.9 18.7C33.7 22.9 27.6 21.4 22 13Z' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M22 13C16.4 4.6 10.3 3.1 6.1 7.3C2.2 11.2 2.2 14.8 6.1 18.7C10.3 22.9 16.4 21.4 22 13C27.6 4.6 33.7 3.1 37.9 7.3C41.8 11.2 41.8 14.8 37.9 18.7C33.7 22.9 27.6 21.4 22 13Z' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.chart-repeat-infinite-button[aria-pressed="true"] {
+  border-color: var(--chart-ui-accent);
+  background: var(--chart-ui-accent);
+  color: var(--chart-ui-bottom-overlay);
+}
+
+.chart-repeat-popover.is-infinite .chart-repeat-stepper {
+  opacity: 0.45;
+}
+
+.chart-repeat-popover.is-infinite .chart-repeat-stepper input[type="range"],
+.chart-repeat-popover.is-infinite .chart-stepper-button {
+  cursor: not-allowed;
 }
 
 .chart-key-popover {
@@ -1083,7 +1160,7 @@ select {
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: var(--chart-ui-text-inverse);
+  background: color-mix(in srgb, var(--chart-ui-text-inverse) 84%, transparent 16%);
   color: var(--chart-ui-accent-strong);
   font-weight: 700;
   cursor: pointer;
@@ -1102,6 +1179,12 @@ select {
 .chart-selection-menu-button-secondary {
   background: var(--chart-ui-accent);
   color: var(--chart-ui-text-inverse);
+}
+
+.chart-selection-menu-button-primary {
+  background: var(--chart-ui-text-inverse);
+  color: var(--chart-ui-accent-strong);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chart-ui-text-inverse) 42%, transparent 58%);
 }
 
 .chart-selection-menu-button-secondary:active {
@@ -2932,6 +3015,7 @@ select {
     padding: 0 12px;
   }
 
+  .chart-selection-menu-button-primary,
   .chart-selection-menu-button-secondary,
   .chart-selection-menu-button.is-active {
     background: var(--ui-accent);

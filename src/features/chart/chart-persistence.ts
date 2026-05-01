@@ -723,6 +723,8 @@ export function persistPlaybackSettings({
   saveChartUiSettings({
     chartPlaybackSettings: {
       ...nextSettings,
+      chartRepeatCount: playbackSettings.chartRepeatCount,
+      chartRepeatInfinite: playbackSettings.chartRepeatInfinite === true,
       harmonyDisplayMode,
       chordEnrichmentMode,
       useChordSymbolV2,
@@ -736,6 +738,8 @@ export function persistPlaybackSettings({
   try {
     window.localStorage.setItem(legacyStorageKey, JSON.stringify({
       ...nextSettings,
+      chartRepeatCount: playbackSettings.chartRepeatCount,
+      chartRepeatInfinite: playbackSettings.chartRepeatInfinite === true,
       harmonyDisplayMode,
       chordEnrichmentMode,
       useChordSymbolV2,

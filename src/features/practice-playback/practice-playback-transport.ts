@@ -31,19 +31,57 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     trackProgressionEvent
   } = helpers;
 
+  let transportGeneration = 0;
+
+  function clearSchedulerTimer() {
+    if (!state.schedulerTimer) return;
+    clearInterval(state.schedulerTimer);
+    state.schedulerTimer = null;
+  }
+
+  function getAudioTime() {
+    return state.audioCtx?.currentTime ?? 0;
+  }
+
+  function isGenerationActive(generation) {
+    return generation === transportGeneration && state.isPlaying && !state.isPaused;
+  }
+
+  function fadeGainToSilence(gainNode, startTime, fadeDuration) {
+    if (!gainNode?.gain) return;
+    const fadeStart = Number.isFinite(startTime) ? startTime : 0;
+    const fadeEnd = fadeStart + Math.max(0.02, Number(fadeDuration) || 0);
+
+    try {
+      if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') {
+        gainNode.gain.cancelAndHoldAtTime(fadeStart);
+      } else {
+        const currentValue = gainNode.gain.value;
+        gainNode.gain.cancelScheduledValues(fadeStart);
+        gainNode.gain.setValueAtTime(currentValue, fadeStart);
+      }
+      gainNode.gain.linearRampToValueAtTime(0, fadeEnd);
+    } catch {
+      // Ignore nodes that have already been stopped or disconnected.
+    }
+  }
+
+  function schedulePlaybackLoop(generation) {
+    clearSchedulerTimer();
+    if (!isGenerationActive(generation)) return;
+
+    state.schedulerTimer = setInterval(() => {
+      if (!isGenerationActive(generation)) {
+        clearSchedulerTimer();
+        return;
+      }
+      scheduleBeat();
+    }, SCHEDULE_INTERVAL);
+  }
+
   async function start() {
+    const generation = ++transportGeneration;
     ensureSessionStarted('play_start');
-    let audioContext = null;
-    if (typeof resumeAudioContext === 'function') {
-      audioContext = await resumeAudioContext();
-    } else {
-      initAudio();
-      audioContext = state.audioCtx;
-    }
-    if (!audioContext) return;
-    if (dom.walkingBass?.checked) {
-      await ensureWalkingBassGenerator();
-    }
 
     state.isPlaying = true;
     state.isPaused = false;
@@ -53,6 +91,30 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     dom.startStop.classList.add('running');
     dom.pause.classList.remove('hidden', 'paused');
     dom.pause.textContent = 'Pause';
+
+    let audioContext = null;
+    if (typeof resumeAudioContext === 'function') {
+      audioContext = await resumeAudioContext();
+    } else {
+      initAudio();
+      audioContext = state.audioCtx;
+    }
+    if (!audioContext) {
+      if (generation === transportGeneration) {
+        state.isPlaying = false;
+        state.isPaused = false;
+        dom.startStop.textContent = 'Start';
+        dom.startStop.classList.remove('running');
+        dom.pause.classList.add('hidden');
+        dom.pause.classList.remove('paused');
+      }
+      return;
+    }
+    if (generation !== transportGeneration) return;
+    if (dom.walkingBass?.checked) {
+      await ensureWalkingBassGenerator();
+      if (generation !== transportGeneration) return;
+    }
 
     state.isIntro = true;
     state.currentBeat = 0;
@@ -75,8 +137,11 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     try {
       await preloadStartupSamples();
     } finally {
-      state.startupSamplePreloadInProgress = false;
+      if (generation === transportGeneration) {
+        state.startupSamplePreloadInProgress = false;
+      }
     }
+    if (!isGenerationActive(generation)) return;
     ensureNearTermSamplePreload();
     if (!state.firstPlayStartTracked) {
       state.firstPlayStartTracked = true;
@@ -90,15 +155,18 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     trackProgressionEvent('play_start', getPlaybackAnalyticsProps());
 
     state.nextBeatTime = audioContext.currentTime + 0.3;
-    state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
+    schedulePlaybackLoop(generation);
   }
 
   function stop() {
+    transportGeneration += 1;
     const shouldShowStopSuggestion = state.firstPlayStartTracked;
+    const audioTime = getAudioTime();
 
     trackProgressionEvent('play_stop', getPlaybackAnalyticsProps());
     state.isPlaying = false;
     state.isPaused = false;
+    state.startupSamplePreloadInProgress = false;
     state.displayedIsIntro = false;
     state.displayedCurrentBeat = 0;
     state.displayedCurrentChordIdx = -1;
@@ -107,17 +175,14 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     dom.startStop.classList.remove('running');
     dom.pause.classList.add('hidden');
     dom.pause.classList.remove('paused');
-    if (state.schedulerTimer) {
-      clearInterval(state.schedulerTimer);
-      state.schedulerTimer = null;
-    }
+    clearSchedulerTimer();
     clearScheduledDisplays();
-    stopScheduledAudio();
+    stopScheduledAudio(audioTime);
     if (state.activeNoteGain) {
-      state.activeNoteGain.gain.linearRampToValueAtTime(0, state.audioCtx.currentTime + NOTE_FADEOUT);
+      fadeGainToSilence(state.activeNoteGain, audioTime, NOTE_FADEOUT);
       state.activeNoteGain = null;
     }
-    stopActiveComping(state.audioCtx.currentTime, NOTE_FADEOUT);
+    stopActiveComping(audioTime, NOTE_FADEOUT);
     dom.keyDisplay.textContent = '';
     dom.chordDisplay.textContent = '';
     hideNextCol();
@@ -134,27 +199,27 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
   function togglePause() {
     if (!state.isPlaying) return;
     if (state.isPaused) {
+      const generation = transportGeneration;
       state.isPaused = false;
       dom.pause.textContent = 'Pause';
       dom.pause.classList.remove('paused');
       Promise.resolve(resumeAudioContext?.()).catch(() => {});
       trackProgressionEvent('play_resume', getPlaybackAnalyticsProps());
       state.nextBeatTime = state.audioCtx.currentTime + 0.05;
-      state.schedulerTimer = setInterval(scheduleBeat, SCHEDULE_INTERVAL);
+      schedulePlaybackLoop(generation);
       return;
     }
 
+    transportGeneration += 1;
+    const audioTime = getAudioTime();
     state.isPaused = true;
     dom.pause.textContent = 'Resume';
     dom.pause.classList.add('paused');
-    if (state.schedulerTimer) {
-      clearInterval(state.schedulerTimer);
-      state.schedulerTimer = null;
-    }
+    clearSchedulerTimer();
     clearScheduledDisplays();
-    stopScheduledAudio();
+    stopScheduledAudio(audioTime);
     state.activeNoteGain = null;
-    stopActiveComping(state.audioCtx.currentTime, NOTE_FADEOUT);
+    stopActiveComping(audioTime, NOTE_FADEOUT);
     Promise.resolve(suspendAudioContext?.()).catch(() => {});
     trackProgressionEvent('play_pause', getPlaybackAnalyticsProps());
   }

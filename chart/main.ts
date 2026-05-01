@@ -17,6 +17,7 @@ import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
 import { enforceBetaAccess } from '../src/features/app/app-beta-access.js';
 import {
   createChartDocumentsFromIRealText,
+  createPracticeSessionFromChartPlaybackPlan,
   createPracticeSessionFromChartSelection,
   parseNoteSymbol,
   normalizeChartChordDisplayLevel,
@@ -145,6 +146,7 @@ import { CHART_DISPLAY_CONFIG } from '../src/config/trainer-config.js';
 
 const DEFAULT_TEMPO = 120;
 const DEFAULT_CHART_REPEAT_COUNT = 3;
+const CHART_REPEAT_INFINITE_LABEL = '\u221e';
 const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = 'default-library.dat';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
@@ -500,6 +502,11 @@ function applyPersistedPlaybackSettings() {
   if (persisted.chartRepeatCount !== undefined) {
     syncRepeatCountControls(persisted.chartRepeatCount);
   }
+  if (persisted.chartRepeatInfinite !== undefined) {
+    syncRepeatCountControls(undefined, {
+      infinite: persisted.chartRepeatInfinite === true
+    });
+  }
 }
 
 function normalizeHarmonyDisplayMode(mode: string | undefined) {
@@ -619,9 +626,12 @@ const {
 });
 
 function getPlaybackSettings(): PlaybackSettings {
+  const chartRepeatInfinite = isChartRepeatInfinite();
   return {
     transposition: getChartTransposeSemitones(),
     chartRepeatCount: getChartRepeatCount(),
+    chartRepeatInfinite,
+    finitePlayback: !chartRepeatInfinite,
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
     customMediumSwingBass: dom.walkingBassToggle?.checked,
@@ -824,21 +834,49 @@ function getChartRepeatCount() {
   return normalizeChartRepeatCount(dom.repeatCountInput?.value);
 }
 
+function isChartRepeatInfinite() {
+  return dom.repeatInfiniteButton?.getAttribute('aria-pressed') === 'true';
+}
+
+function getChartRepeatPlanCount() {
+  return isChartRepeatInfinite() ? 1 : getChartRepeatCount();
+}
+
 function getSourceRepeatCount(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
   return normalizeChartRepeatCount(chartDocument?.metadata?.sourceRepeats, DEFAULT_CHART_REPEAT_COUNT);
 }
 
-function syncRepeatCountControls(value: unknown = getChartRepeatCount()) {
+function syncRepeatCountControls(
+  value: unknown = getChartRepeatCount(),
+  { infinite = isChartRepeatInfinite() }: { infinite?: boolean } = {}
+) {
   const normalizedRepeatCount = normalizeChartRepeatCount(value);
-  const label = `${normalizedRepeatCount}x`;
+  const label = infinite ? CHART_REPEAT_INFINITE_LABEL : `${normalizedRepeatCount}x`;
   if (dom.repeatCountInput) dom.repeatCountInput.value = String(normalizedRepeatCount);
   if (dom.repeatCountRange) dom.repeatCountRange.value = String(normalizedRepeatCount);
   if (dom.repeatCountLabel) dom.repeatCountLabel.textContent = label;
   if (dom.repeatCountValue) dom.repeatCountValue.textContent = label;
+  dom.repeatCountLabel?.classList.toggle('chart-repeat-infinity-symbol', infinite);
+  dom.repeatCountValue?.classList.toggle('chart-repeat-infinity-symbol', infinite);
+  if (dom.repeatInfiniteButton) dom.repeatInfiniteButton.setAttribute('aria-pressed', infinite ? 'true' : 'false');
+  if (dom.repeatCountPopover) dom.repeatCountPopover.classList.toggle('is-infinite', infinite);
+  if (dom.repeatCountRange) dom.repeatCountRange.disabled = infinite;
+  if (dom.repeatCountDecrease) dom.repeatCountDecrease.disabled = infinite;
+  if (dom.repeatCountIncrease) dom.repeatCountIncrease.disabled = infinite;
 }
 
 function setChartRepeatCount(value: unknown, { render = true }: { render?: boolean } = {}) {
-  syncRepeatCountControls(value);
+  syncRepeatCountControls(value, { infinite: false });
+  persistPlaybackSettings();
+  if (render) {
+    renderFixture();
+  } else {
+    renderTransport();
+  }
+}
+
+function setChartRepeatInfinite(value: boolean, { render = true }: { render?: boolean } = {}) {
+  syncRepeatCountControls(undefined, { infinite: value });
   persistPlaybackSettings();
   if (render) {
     renderFixture();
@@ -993,6 +1031,10 @@ function bindBottomControlPopovers() {
 
   dom.repeatCountInput?.addEventListener('change', () => {
     setChartRepeatCount(dom.repeatCountInput?.value || DEFAULT_CHART_REPEAT_COUNT);
+  });
+
+  dom.repeatInfiniteButton?.addEventListener('click', () => {
+    setChartRepeatInfinite(!isChartRepeatInfinite());
   });
 
   dom.repeatCountDecrease?.addEventListener('click', () => {
@@ -1197,18 +1239,28 @@ function renderSelectionMenu() {
   if (dom.selectionMenu) {
     dom.selectionMenu.hidden = false;
     dom.selectionMenu.setAttribute('aria-hidden', 'false');
-    positionSelectionMenu();
   }
+  const shouldShowPlayFromBar = selectionCount === 1;
+  const shouldShowSelectionActions = selectionCount > 1;
   if (dom.selectionLoopButton) {
+    dom.selectionLoopButton.hidden = !shouldShowSelectionActions;
     dom.selectionLoopButton.disabled = !hasSession;
     dom.selectionLoopButton.textContent = state.selectionLoopActive ? 'Looping...' : 'Loop';
     dom.selectionLoopButton.classList.toggle('is-active', state.selectionLoopActive);
+    dom.selectionLoopButton.classList.toggle('chart-selection-menu-button-primary', shouldShowSelectionActions);
   }
   if (dom.selectionPlayFromBarButton) {
+    dom.selectionPlayFromBarButton.hidden = !shouldShowPlayFromBar;
     dom.selectionPlayFromBarButton.disabled = !hasSession;
+    dom.selectionPlayFromBarButton.classList.toggle('chart-selection-menu-button-primary', shouldShowPlayFromBar);
   }
   if (dom.selectionCreateDrillButton) {
+    dom.selectionCreateDrillButton.hidden = !shouldShowSelectionActions;
     dom.selectionCreateDrillButton.disabled = !hasSession;
+    dom.selectionCreateDrillButton.classList.remove('chart-selection-menu-button-primary');
+  }
+  if (dom.selectionMenu) {
+    positionSelectionMenu();
   }
 }
 
@@ -1355,8 +1407,22 @@ function clearChartSelection() {
   }
 }
 
+function createSelectionLoopPracticeSession(): PracticeSessionSpec | null {
+  const practiceSession = state.currentSelectionPracticeSession;
+  if (!practiceSession?.playback?.enginePatternString) return null;
+  return {
+    ...practiceSession,
+    id: `${practiceSession.id || 'chart-selection'}-loop`,
+    origin: {
+      ...(practiceSession.origin || {}),
+      mode: 'chart-selection-loop'
+    }
+  };
+}
+
 async function startSelectionLoop() {
-  if (!hasActiveSelection() || !state.currentSelectionPracticeSession?.playback?.enginePatternString) return;
+  const practiceSession = createSelectionLoopPracticeSession();
+  if (!hasActiveSelection() || !practiceSession) return;
   clearPlayFromBarSession();
   setSelectionLoopActive(true);
   state.selectionLoopPlaybackPending = true;
@@ -1373,7 +1439,8 @@ async function startSelectionLoop() {
       });
     }
     await startPlayback({
-      cancelSelectionLoop: false
+      cancelSelectionLoop: false,
+      practiceSessionOverride: practiceSession
     });
     state.selectionLoopPlaybackPending = false;
     closeOverlay();
@@ -1646,7 +1713,7 @@ function renderFixture() {
     resetTempo: isNewChartSelection,
     stopPlayback,
     createPlaybackPlanOptions: () => ({
-      repeatCount: getChartRepeatCount()
+      repeatCount: getChartRepeatPlanCount()
     }),
     createPracticeSessionOptions: (playbackPlan) => ({
       playbackPlan,
@@ -1694,21 +1761,48 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
   const selectedBarIds = state.selectionController.getSelection().barIds;
   if (!chartDocument || selectedBarIds.length === 0) return null;
 
-  const selectedBarIdSet = new Set(selectedBarIds);
-  const firstSelectedIndex = (chartDocument.bars || []).findIndex((bar) => selectedBarIdSet.has(bar.id));
-  if (firstSelectedIndex < 0) return null;
+  const startBarId = selectedBarIds[0];
+  const startEntryIndex = (state.currentPlaybackPlan?.entries || []).findIndex((entry) => entry.barId === startBarId);
+  if (!state.currentPlaybackPlan || startEntryIndex < 0) return null;
 
-  const barIds = (chartDocument.bars || []).slice(firstSelectedIndex).map((bar) => bar.id);
-  if (barIds.length === 0) return null;
+  const entries = state.currentPlaybackPlan.entries
+    .slice(startEntryIndex)
+    .map((entry, index) => ({
+      ...JSON.parse(JSON.stringify(entry)),
+      sequenceIndex: index + 1
+    }));
+  if (entries.length === 0) return null;
 
-  return createPracticeSessionFromChartSelection(chartDocument, {
-    startBarId: barIds[0],
-    endBarId: barIds[barIds.length - 1],
-    barIds
-  }, {
+  const startBar = chartDocument.bars?.find((bar) => bar.id === startBarId) || null;
+  const lastEntry = entries[entries.length - 1];
+  const session = createPracticeSessionFromChartPlaybackPlan({
+    chartDocument,
+    playbackPlan: {
+      ...state.currentPlaybackPlan,
+      entries
+    },
+    source: 'chart-play-from-bar',
+    title: `${chartDocument.metadata?.title || 'Chart'} - from bar ${startBar?.index ?? entries[0]?.barIndex ?? ''}`.trim(),
     tempo: getTempo(),
-    transposition: getChartTransposeSemitones()
+    transposition: getChartTransposeSemitones(),
+    selection: {
+      startBarId,
+      endBarId: lastEntry?.barId || startBarId,
+      barIds: entries.map((entry) => entry.barId),
+      startBarIndex: startBar?.index ?? entries[0]?.barIndex ?? null,
+      endBarIndex: lastEntry?.barIndex ?? null
+    },
+    origin: {
+      chartId: chartDocument.metadata?.id || '',
+      sourceKey: chartDocument.metadata?.sourceKey || '',
+      mode: 'chart-selection'
+    }
   });
+
+  return {
+    ...session,
+    id: `${session.id || chartDocument.metadata?.id || 'chart'}-from-bar-${startBar?.index ?? startEntryIndex + 1}`
+  };
 }
 
 async function playFromSelectedBar() {
