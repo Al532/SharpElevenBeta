@@ -3,7 +3,9 @@ import {
   createMetricGroups,
   getMetricBeatStrengths
 } from '../../core/music/meter.js';
+import pianoRhythmConfig from '../../core/music/piano-rhythm-config.js';
 import { getSwingOffbeatPositionBeats } from '../../core/music/swing-utils.js';
+import { PIANO_COMPING_CONFIG } from '../../config/trainer-config.js';
 
 type DrillMixerNodes = Record<string, GainNode>;
 
@@ -27,6 +29,14 @@ type PlaybackAudioPlaybackRuntimeOptions = {
   getDrumSwingRatio?: () => number;
   getSwingRatio?: () => number;
   initialRideSampleCursor?: number;
+};
+
+type DrumSamplePlaybackOptions = {
+  endingStyle?: string;
+  slotDuration?: number;
+  secondsPerBeat?: number;
+  tailFadeTimeConstant?: number;
+  tailFadeStart?: number;
 };
 
 /**
@@ -133,6 +143,39 @@ export function createPlaybackAudioPlaybackRuntime({
     return getMixerNodes()?.[channel] || getAudioContext()?.destination || null;
   }
 
+  function getTempoAdaptiveShortDurationMultiplier(secondsPerBeat?: number) {
+    if (!Number.isFinite(secondsPerBeat) || Number(secondsPerBeat) <= 0) return 1;
+    const tempoBpm = 60 / Number(secondsPerBeat);
+    if (tempoBpm < 120) {
+      const lowTempoProgress = Math.min(1, (120 - tempoBpm) / 80);
+      return 1 + (lowTempoProgress * 0.32);
+    }
+    if (tempoBpm === 120) return 1;
+
+    const highTempoProgress = Math.min(1, (tempoBpm - 120) / 100);
+    return 1 - (highTempoProgress * 0.28);
+  }
+
+  function getShortEndingDurationSeconds(options: DrumSamplePlaybackOptions = {}) {
+    const safeSlotDuration = Number.isFinite(options.slotDuration) && Number(options.slotDuration) > 0
+      ? Number(options.slotDuration)
+      : (Number.isFinite(options.secondsPerBeat) && Number(options.secondsPerBeat) > 0 ? Number(options.secondsPerBeat) : 0.25);
+    const baseShortDuration = Math.max(
+      PIANO_COMPING_CONFIG.minDurationSeconds,
+      Math.min(
+        PIANO_COMPING_CONFIG.maxDurationSeconds,
+        safeSlotDuration * PIANO_COMPING_CONFIG.durationRatio
+      )
+    );
+    const offbeatMultiplier = Number.isFinite(pianoRhythmConfig.offBeatShortNoteDurationMultiplier)
+      ? Math.max(0.5, Math.min(1, Number(pianoRhythmConfig.offBeatShortNoteDurationMultiplier)))
+      : 1;
+    return Math.max(
+      PIANO_COMPING_CONFIG.minDurationSeconds,
+      baseShortDuration * getTempoAdaptiveShortDurationMultiplier(options.secondsPerBeat) * offbeatMultiplier
+    );
+  }
+
   function playClick(time: number, accent: boolean) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('drums');
@@ -150,7 +193,13 @@ export function createPlaybackAudioPlaybackRuntime({
     trackScheduledSource(osc, [gain]);
   }
 
-  function playDrumSample(name: string, time: number, gainValue = 1, playbackRate = 1) {
+  function playDrumSample(
+    name: string,
+    time: number,
+    gainValue = 1,
+    playbackRate = 1,
+    options: DrumSamplePlaybackOptions = {}
+  ) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('drums');
     const buffer = sampleBuffers?.drums?.[name];
@@ -162,6 +211,14 @@ export function createPlaybackAudioPlaybackRuntime({
 
     const gain = audioCtx.createGain();
     gain.gain.setValueAtTime(gainValue, time);
+    if (Number.isFinite(options.tailFadeTimeConstant) && options.tailFadeTimeConstant > 0) {
+      const resolvedTailFadeStart = options.endingStyle === 'short'
+        ? time + getShortEndingDurationSeconds(options)
+        : Number(options.tailFadeStart || time);
+      const fadeStart = Math.max(time, resolvedTailFadeStart);
+      gain.gain.setValueAtTime(gainValue, fadeStart);
+      gain.gain.setTargetAtTime(0.0001, fadeStart, options.tailFadeTimeConstant);
+    }
 
     src.connect(gain).connect(destination);
     src.start(time);
@@ -186,8 +243,8 @@ export function createPlaybackAudioPlaybackRuntime({
     return 'ride_0';
   }
 
-  function playRide(time: number, gainValue = 0.3, playbackRate = 1) {
-    playDrumSample(getNextRideSampleName(), time, gainValue * drumsGainMultiplier, playbackRate);
+  function playRide(time: number, gainValue = 0.3, playbackRate = 1, options: DrumSamplePlaybackOptions = {}) {
+    playDrumSample(getNextRideSampleName(), time, gainValue * drumsGainMultiplier, playbackRate, options);
   }
 
   function getMetricLocalBeat(beatIndex: number, beatCount = 4) {

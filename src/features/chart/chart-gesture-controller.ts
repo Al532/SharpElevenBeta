@@ -306,10 +306,12 @@ export function createChartGestureController({
 
     document.addEventListener('click', (event) => {
       if (Date.now() < gesture.suppressClickUntil) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-        return;
+        if (!isInteractiveControlTarget(event.target)) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation?.();
+          return;
+        }
       }
       if (isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target)) {
         if (closePopoversBeforeOverlay()) {
@@ -325,6 +327,7 @@ export function createChartGestureController({
         event.stopImmediatePropagation?.();
         return;
       }
+      if (isInteractiveControlTarget(event.target)) return;
       if (isEditableTarget(event.target)) return;
       if (!isChartTapTarget(event.target)) return;
       if (closePopoversBeforeOverlay()) {

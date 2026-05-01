@@ -1,4 +1,7 @@
 
+import pianoRhythmConfig from '../../core/music/piano-rhythm-config.js';
+import { PIANO_COMPING_CONFIG } from '../../config/trainer-config.js';
+
 type DrillLoadedSampleBuffers = Record<string, Record<string | number, AudioBuffer | undefined>>;
 
 type DrillTrackedAudioSource = AudioBufferSourceNode & {
@@ -51,6 +54,13 @@ type PlaybackSamplePlaybackRuntimeOptions = {
 type DrillPlaySampleOptions = {
   layer?: string;
   legato?: boolean;
+};
+
+type DrillPlayNoteOptions = {
+  endingStyle?: string;
+  slotDuration?: number;
+  secondsPerBeat?: number;
+  tailFadeTimeConstant?: number;
 };
 
 /**
@@ -143,7 +153,55 @@ export function createPlaybackSamplePlaybackRuntime({
     gainNode.gain.setValueAtTime(0, fadeEnd);
   }
 
-  function playNote(midi: number, time: number, maxDuration: number, velocity = 127) {
+  function scheduleBassTailFade(gainNode: GainNode | null, fadeStart: number, timeConstant: number) {
+    if (!gainNode || !Number.isFinite(timeConstant) || timeConstant <= 0) return;
+
+    if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') {
+      gainNode.gain.cancelAndHoldAtTime(fadeStart);
+    } else {
+      const currentValue = gainNode.gain.value;
+      gainNode.gain.cancelScheduledValues(fadeStart);
+      gainNode.gain.setValueAtTime(currentValue, fadeStart);
+    }
+
+    gainNode.gain.setTargetAtTime(0.0001, fadeStart, timeConstant);
+  }
+
+  function getTempoAdaptiveShortDurationMultiplier(secondsPerBeat?: number) {
+    if (!Number.isFinite(secondsPerBeat) || Number(secondsPerBeat) <= 0) return 1;
+    const tempoBpm = 60 / Number(secondsPerBeat);
+    if (tempoBpm < 120) {
+      const lowTempoProgress = Math.min(1, (120 - tempoBpm) / 80);
+      return 1 + (lowTempoProgress * 0.32);
+    }
+    if (tempoBpm === 120) return 1;
+
+    const highTempoProgress = Math.min(1, (tempoBpm - 120) / 100);
+    return 1 - (highTempoProgress * 0.28);
+  }
+
+  function resolveEndingBassDuration(maxDuration: number, options: DrillPlayNoteOptions = {}) {
+    if (options.endingStyle !== 'short') return maxDuration;
+    const safeSlotDuration = Number.isFinite(options.slotDuration) && Number(options.slotDuration) > 0
+      ? Number(options.slotDuration)
+      : (Number.isFinite(options.secondsPerBeat) && Number(options.secondsPerBeat) > 0 ? Number(options.secondsPerBeat) : maxDuration);
+    const baseShortDuration = Math.max(
+      PIANO_COMPING_CONFIG.minDurationSeconds,
+      Math.min(
+        PIANO_COMPING_CONFIG.maxDurationSeconds,
+        safeSlotDuration * PIANO_COMPING_CONFIG.durationRatio
+      )
+    );
+    const offbeatMultiplier = Number.isFinite(pianoRhythmConfig.offBeatShortNoteDurationMultiplier)
+      ? Math.max(0.5, Math.min(1, Number(pianoRhythmConfig.offBeatShortNoteDurationMultiplier)))
+      : 1;
+    return Math.max(
+      PIANO_COMPING_CONFIG.minDurationSeconds,
+      baseShortDuration * getTempoAdaptiveShortDurationMultiplier(options.secondsPerBeat) * offbeatMultiplier
+    );
+  }
+
+  function playNote(midi: number, time: number, maxDuration: number, velocity = 127, options: DrillPlayNoteOptions = {}) {
     const audioCtx = getAudioContext();
     const destination = getMixerDestination('bass');
     if (!audioCtx || !destination) return;
@@ -160,7 +218,8 @@ export function createPlaybackSamplePlaybackRuntime({
     }
     if (!buffer) return;
 
-    const sustainedMaxDuration = maxDuration ? (maxDuration + bassNoteOverlap) : maxDuration;
+    const noteDuration = resolveEndingBassDuration(maxDuration, options);
+    const sustainedMaxDuration = noteDuration ? (noteDuration + bassNoteOverlap) : noteDuration;
     const currentNoteFadeOut = getAdaptiveBassFadeDuration(maxDuration);
 
     const activeNoteGain = getActiveNoteGain();
@@ -181,7 +240,10 @@ export function createPlaybackSamplePlaybackRuntime({
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(noteGain, time + bassNoteAttack);
 
-    if (sustainedMaxDuration && buffer.duration > sustainedMaxDuration - currentNoteFadeOut) {
+    if (Number.isFinite(options.tailFadeTimeConstant) && options.tailFadeTimeConstant > 0 && noteDuration) {
+      gain.gain.setValueAtTime(noteGain, Math.max(time + bassNoteAttack, time + noteDuration));
+      scheduleBassTailFade(gain, time + noteDuration, options.tailFadeTimeConstant);
+    } else if (sustainedMaxDuration && buffer.duration > sustainedMaxDuration - currentNoteFadeOut) {
       const fadeStart = time + sustainedMaxDuration - currentNoteFadeOut;
       gain.gain.setValueAtTime(noteGain, Math.max(time + bassNoteAttack, fadeStart));
       scheduleBassGainRelease(gain, fadeStart, time + sustainedMaxDuration);

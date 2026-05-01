@@ -278,6 +278,15 @@ function slotExistsWithinProgression(slotIndex, totalSlots) {
   return Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < totalSlots;
 }
 
+function getPreOnbeatEndingOffbeatSlotIndex(endingCue) {
+  if (!endingCue || endingCue.style !== 'onbeat_long') return null;
+  const targetBeat = Number(endingCue.targetBeat ?? endingCue.targetChordIndex);
+  if (!Number.isFinite(targetBeat) || targetBeat <= 0) return null;
+  const beatIndex = Math.floor(targetBeat) - 1;
+  if (beatIndex < 0) return null;
+  return beatIndex * 2 + 1;
+}
+
 function getInitialSlotIndex(shouldReset, hasIncomingAnticipation = false) {
   if (hasIncomingAnticipation) return 2;
   if (!shouldReset) return 0;
@@ -460,6 +469,7 @@ function createPianoPlan({
   activeMode = 'piano',
   buildVoicingChoicePlan = null,
   swingRatio = DEFAULT_SWING_RATIO,
+  endingCue = null,
 }) {
   if (!Array.isArray(chords) || chords.length === 0) {
     return {
@@ -481,6 +491,11 @@ function createPianoPlan({
     swingRatio,
   };
   const chosenSlots = new Set();
+  const blockedSlotIndex = getPreOnbeatEndingOffbeatSlotIndex(endingCue);
+  const isBlockedSlot = (candidateSlot) => (
+    Number.isInteger(blockedSlotIndex)
+    && candidateSlot === blockedSlotIndex
+  );
   const representedBlocks = new Set(hasIncomingAnticipation ? [0] : []);
   const minimumStartSlot = getBoundaryBlockedSlotCount(totalSlots, previousTailBeats, hasIncomingAnticipation, swingRatio);
   let slotIndex = Math.max(
@@ -493,7 +508,9 @@ function createPianoPlan({
   let previousJump = null;
 
   while (slotExistsWithinProgression(slotIndex, totalSlots)) {
-    chosenSlots.add(slotIndex);
+    if (!isBlockedSlot(slotIndex)) {
+      chosenSlots.add(slotIndex);
+    }
     if (forcedOneStepJumpsRemaining <= 0 && oneStepRunCooldownRemaining > 0) {
       oneStepRunCooldownRemaining -= 1;
     }
@@ -537,6 +554,7 @@ function createPianoPlan({
       : blockStartSlot;
     const allBlockCandidateSlots = findCandidateSlotIndices(blockCandidateStartSlot, block.usefulEndBeat, totalSlots, swingRatio)
       .filter(candidateSlot => {
+        if (isBlockedSlot(candidateSlot)) return false;
         const timeBeats = getSlotTimeBeats(candidateSlot, swingRatio);
         const candidateBlock = getBlockForTime(blocks, timeBeats);
         return Boolean(candidateBlock && candidateBlock.blockIdx === block.blockIdx);
@@ -560,6 +578,10 @@ function createPianoPlan({
     }
 
     chosenSlots.add(preferredSlot);
+    if (isBlockedSlot(preferredSlot)) {
+      chosenSlots.delete(preferredSlot);
+      return;
+    }
     representedBlocks.add(block.blockIdx);
   };
 
@@ -2265,6 +2287,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     shouldReset,
     hasIncomingAnticipation,
     previousTailBeats = null,
+    endingCue = null,
   }) {
     const activeMode = getPianoVoicingMode?.() || defaultPianoMode;
     const swingRatio = getSwingRatio();
@@ -2286,6 +2309,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
       activeMode,
       buildVoicingChoicePlan: buildPianoVoicingChoicePlan,
       swingRatio,
+      endingCue,
     });
   }
 
@@ -2476,7 +2500,27 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     return Math.max(time + (globalDelayMs / 1000), audioCtx.currentTime);
   }
 
-  function playEnding({ progression, chordIndex = 0, time, durationSeconds, slotDuration, secondsPerBeat }) {
+  function getEndingShortDuration(slotDuration, secondsPerBeat, endingStyle = '') {
+    const safeSlotDuration = Number.isFinite(slotDuration) && slotDuration > 0
+      ? slotDuration
+      : (Number.isFinite(secondsPerBeat) && secondsPerBeat > 0 ? secondsPerBeat : 0.25);
+    const baseShortDuration = Math.max(
+      PIANO_COMP_MIN_DURATION,
+      Math.min(PIANO_COMP_MAX_DURATION, safeSlotDuration * PIANO_COMP_DURATION_RATIO)
+    );
+    const offBeatShortNoteDurationMultiplier = Number.isFinite(rhythmConfig.offBeatShortNoteDurationMultiplier)
+      ? clamp(rhythmConfig.offBeatShortNoteDurationMultiplier, 0.5, 1)
+      : 1;
+    const offbeatMultiplier = endingStyle === 'short'
+      ? offBeatShortNoteDurationMultiplier
+      : 1;
+    return Math.max(
+      PIANO_COMP_MIN_DURATION,
+      baseShortDuration * getTempoAdaptiveShortDurationMultiplier(secondsPerBeat) * offbeatMultiplier
+    );
+  }
+
+  function playEnding({ progression, chordIndex = 0, time, durationSeconds, endingStyle = '', slotDuration, secondsPerBeat }) {
     const audioCtx = getAudioContext();
     if (!audioCtx || typeof playSample !== 'function' || !progression?.chords?.length) return;
 
@@ -2508,7 +2552,7 @@ export function createPianoComping({ constants = {}, helpers = {} }: DrillPianoC
     );
     const duration = Number.isFinite(durationSeconds) && durationSeconds > 0
       ? durationSeconds
-      : fallbackShortDuration;
+      : getEndingShortDuration(slotDuration, secondsPerBeat, endingStyle);
     const startTime = getPianoScheduledStartTime(audioCtx, time);
     const endingVolumeMultiplier = activeMode === 'twoHand' ? 1.08 : 1.14;
 

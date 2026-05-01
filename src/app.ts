@@ -1291,7 +1291,8 @@ const {
     getCompingStyle,
     getTempoBpm: () => Number(dom.tempoSlider?.value || 120),
     isWalkingBassEnabled,
-    getSwingRatio
+    getSwingRatio,
+    getPlaybackEndingCue: () => playbackEndingCue
   },
   runtime: {
     compingEngine,

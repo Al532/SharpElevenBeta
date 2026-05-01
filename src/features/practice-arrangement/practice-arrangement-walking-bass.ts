@@ -437,17 +437,34 @@ export function isAnticipationEligibleBeatPair(leftEvent, rightEvent, beatsPerBa
   return getAnticipationEligibleBeatPairKind(leftEvent, rightEvent, beatsPerBar) !== null;
 }
 
-export function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4) {
+function isAtBeat(value, targetBeat) {
+  return Number.isFinite(value)
+    && Number.isFinite(targetBeat)
+    && Math.abs(value - targetBeat) < 0.001;
+}
+
+function getOnbeatEndingTargetBeat(endingCue) {
+  if (!endingCue || endingCue.style !== 'onbeat_long') return null;
+  const targetBeat = Number(endingCue.targetBeat ?? endingCue.targetChordIndex);
+  if (!Number.isFinite(targetBeat) || targetBeat <= 0) return null;
+  return targetBeat;
+}
+
+export function applyAnticipationEffect(events, swingRatio = DEFAULT_SWING_RATIO, beatsPerBar = 4, {
+  endingCue = null
+} = {}) {
   if (!Array.isArray(events) || events.length < 2) return events;
 
   const anticipated = events.map((event) => ({ ...event }));
   const anticipationEffectStepBeats = getSwingSecondSubdivisionDurationBeats(swingRatio);
+  const onbeatEndingTargetBeat = getOnbeatEndingTargetBeat(endingCue);
 
   for (let index = 0; index < anticipated.length - 1; index += 1) {
     const currentEvent = anticipated[index];
     const nextEvent = anticipated[index + 1];
     const beatPairKind = getAnticipationEligibleBeatPairKind(currentEvent, nextEvent, beatsPerBar);
     if (!beatPairKind) continue;
+    if (isAtBeat(Number(nextEvent.timeBeats), onbeatEndingTargetBeat)) continue;
 
     const descendingInterval = currentEvent.midi - nextEvent.midi;
     if (
@@ -1245,7 +1262,7 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     });
   }
 
-  function applyLineOrnaments(events, swingRatio = DEFAULT_SWING_RATIO, tempoBpm = 120, beatsPerBar = 4) {
+  function applyLineOrnaments(events, swingRatio = DEFAULT_SWING_RATIO, tempoBpm = 120, beatsPerBar = 4, endingCue = null) {
     const allowRepeatedNoteEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= REPEATED_NOTE_EFFECT_MAX_BPM + 1);
     const allowAnticipationEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= ANTICIPATION_EFFECT_MAX_BPM + 1);
 
@@ -1253,7 +1270,7 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
       ? applyRepeatedNoteEffect(events, BASS_LOW, BASS_HIGH, swingRatio, beatsPerBar)
       : events;
     return allowAnticipationEffect
-      ? applyAnticipationEffect(embellishedEvents, swingRatio, beatsPerBar)
+      ? applyAnticipationEffect(embellishedEvents, swingRatio, beatsPerBar, { endingCue })
       : embellishedEvents;
   }
 
@@ -1268,7 +1285,8 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     nextChords = [],
     nextKey = key,
     nextIsMinor = isMinor,
-    swingRatio = DEFAULT_SWING_RATIO
+    swingRatio = DEFAULT_SWING_RATIO,
+    endingCue = null
   } = {}) {
     const { currentTotalBeats, preparedSpans } = buildPreparedSpans(
       chords,
@@ -1294,7 +1312,7 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
       pendingTargetMidi = previousEvent?.rank === 'approach' ? previousEvent.targetMidi : null;
     });
 
-    return applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar);
+    return applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar, endingCue);
   }
 
   return {

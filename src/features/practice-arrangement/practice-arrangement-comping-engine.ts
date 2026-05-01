@@ -21,6 +21,7 @@ type PracticeArrangementCompingPreparedPlansOptions = {
   previousKey?: number | null;
   currentHasIncomingAnticipation?: boolean;
   currentPreviousTailBeats?: number | null;
+  endingCue?: Record<string, unknown> | null;
   current: PracticeArrangementCompingProgressionState;
   next: PracticeArrangementCompingProgressionState;
 };
@@ -43,7 +44,8 @@ type PracticeArrangementCompingScheduleEndingOptions = {
   progression: PracticeArrangementCompingProgressionState;
   chordIndex: number;
   time: number;
-  durationSeconds: number;
+  durationSeconds?: number | null;
+  endingStyle?: string;
   slotDuration: number;
   secondsPerBeat: number;
 };
@@ -96,6 +98,7 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
     previousKey,
     currentHasIncomingAnticipation = false,
     currentPreviousTailBeats = null,
+    endingCue = null,
     current,
     next,
   }: PracticeArrangementCompingPreparedPlansOptions) {
@@ -120,6 +123,7 @@ export function createCompingEngine({ constants, helpers }: PracticeArrangementC
         shouldReset: previousKey === null || previousKey !== current.key,
         hasIncomingAnticipation: currentHasIncomingAnticipation,
         previousTailBeats: currentPreviousTailBeats,
+        endingCue,
       });
       const previousTailBeats = getLastEventTailBeats(
         currentPlan,

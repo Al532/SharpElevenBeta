@@ -148,12 +148,12 @@ import { createDrillDirectRuntimeAppAssembly } from '../src/features/drill/drill
 import { createPracticePlaybackPreparationRuntime } from '../src/features/practice-playback/practice-playback-preparation-runtime.ts';
 import { createPracticePlaybackPreparationAppContext } from '../src/features/practice-playback/practice-playback-preparation-app-context.ts';
 import { createPracticePlaybackResourcesAppFacade } from '../src/features/practice-playback/practice-playback-resources-app-facade.ts';
-import { createPlaybackScheduler } from '../src/features/practice-playback/practice-playback-scheduler.ts';
 import { createPracticePlaybackSettingsRuntime } from '../src/features/practice-playback/practice-playback-settings-runtime.ts';
 import { createDrillSessionAnalytics } from '../src/features/drill/drill-session-analytics.ts';
 import { createDrillKeyPoolRuntime } from '../src/features/drill/drill-key-pool-runtime.ts';
 import { createDrillTempoRuntimeRootAppAssembly } from '../src/features/drill/drill-tempo-runtime-root-app-assembly.ts';
 import { createPracticePlaybackRuntimeHost } from '../src/features/practice-playback/practice-playback-runtime-host.ts';
+import { createPlaybackScheduler } from '../src/features/practice-playback/practice-playback-scheduler.ts';
 import { createPracticeArrangementVoicingRuntime } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime.ts';
 import {
   createDefaultDrillAppSettingsFactory,
@@ -221,6 +221,7 @@ import {
 } from '../src/features/practice-playback/practice-playback-app-context.ts';
 import { createPracticeArrangementVoicingRuntimeAppBindings } from '../src/features/practice-arrangement/practice-arrangement-voicing-runtime-app-bindings.ts';
 import { createPracticeArrangementWalkingBassAppBindings } from '../src/features/practice-arrangement/practice-arrangement-walking-bass-app-bindings.ts';
+import { createPianoComping } from '../src/features/practice-arrangement/practice-arrangement-comping-piano.ts';
 import {
   applyAnticipationEffect,
   createWalkingBassGenerator,
@@ -2568,6 +2569,8 @@ let preparedCurrentCompingPlan = null;
 let preparedNextCompingPlan = null;
 let preparedCurrentBassPlan = [];
 const walkingBassBuilds = [];
+const preparedCompingBuilds = [];
+const preparationEndingCue = { style: 'onbeat_long', targetBeat: 4, targetChordIndex: 4 };
 const playbackPreparationRuntime = createPracticePlaybackPreparationRuntime({
   getPlayedChordQuality: (chord, isMinor) => `${chord.quality}:${isMinor ? 'm' : 'M'}`,
   getVoicingPlanForProgression: (chords) => chords.map((_, index) => (index === 0 ? { planned: true } : null)),
@@ -2587,15 +2590,19 @@ const playbackPreparationRuntime = createPracticePlaybackPreparationRuntime({
   getTempoBpm: () => 140,
   isWalkingBassEnabled: () => true,
   getSwingRatio: () => 1.6,
+  getPlaybackEndingCue: () => preparationEndingCue,
   getCurrentBassPlan: () => preparedCurrentBassPlan,
   setCurrentBassPlan: (value) => { preparedCurrentBassPlan = value; },
   getNextPaddedChordsForBass: () => [{ semitones: 5 }],
   getNextKeyForBass: () => 5,
   compingEngine: {
-    buildPreparedPlans: () => ({
-      currentPlan: { id: 'current-plan' },
-      nextPlan: { id: 'next-plan' }
-    })
+    buildPreparedPlans: (options) => {
+      preparedCompingBuilds.push(options);
+      return {
+        currentPlan: { id: 'current-plan' },
+        nextPlan: { id: 'next-plan' }
+      };
+    }
   },
   walkingBassGenerator: {
     buildLine: (options) => {
@@ -2631,6 +2638,11 @@ assert.equal(
   'next-plan',
   'Practice playback preparation runtime stores rebuilt next comping plans.'
 );
+assert.equal(
+  preparedCompingBuilds[0]?.endingCue,
+  preparationEndingCue,
+  'Practice playback preparation runtime forwards ending cues to the comping arranger.'
+);
 const resolvedWalkingBassGenerator = await playbackPreparationRuntime.ensureWalkingBassGenerator();
 assert.ok(
   resolvedWalkingBassGenerator && typeof resolvedWalkingBassGenerator.buildLine === 'function',
@@ -2645,6 +2657,11 @@ assert.equal(
   walkingBassBuilds[0]?.tempoBpm,
   140,
   'Practice playback preparation runtime forwards tempo to the walking-bass generator.'
+);
+assert.equal(
+  walkingBassBuilds[0]?.endingCue,
+  preparationEndingCue,
+  'Practice playback preparation runtime forwards ending cues to the walking-bass arranger.'
 );
 let preparationCurrentCompingPlan = null;
 let preparationNextCompingPlan = null;
@@ -2707,125 +2724,195 @@ assert.equal(
   'Practice playback preparation app context preserves next-progression comping writes.'
 );
 {
+  const onbeatEndingCue = { style: 'onbeat_long', targetBeat: 4, targetChordIndex: 4 };
   const preEndingOffbeat = 3 + getSwingOffbeatPositionBeats();
-  const scheduledBassNotes = [];
-  let scheduledCompingPlan = null;
-  const schedulerState = {
-    audioCtx: { currentTime: 0 },
-    currentBeat: 3,
-    currentChordIdx: 3,
-    currentKey: 0,
-    currentKeyRepetition: 1,
-    currentBassPlan: [
-      { timeBeats: preEndingOffbeat, durationBeats: 0.333, midi: 39, velocity: 120, source: 'bass-anticipation' },
-      { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, source: 'bass' }
-    ],
-    currentCompingPlan: {
-      style: 'piano',
-      anticipatesNextStart: false,
-      events: [
-        { timeBeats: preEndingOffbeat, slotIndex: 7, slotKind: 'offbeat' },
-        { timeBeats: 3, slotIndex: 6, slotKind: 'beat' }
-      ]
-    },
-    nextCompingPlan: { style: 'piano', events: [] },
-    paddedChords: [
-      { semitones: 0 },
-      { semitones: 5 },
-      { semitones: 7 },
-      { semitones: 11 },
-      { semitones: 0 }
-    ],
-    nextPaddedChords: [{ semitones: 2 }],
-    nextKeyValue: 0,
-    nextRawChords: [{ semitones: 2 }],
-    nextBeatTime: 0,
-    isPlaying: true,
-    isPaused: false,
-    isIntro: false,
-    pendingDisplayTimeouts: new Set(),
-    lastPlayedChordIdx: -1
-  };
-  const scheduler = createPlaybackScheduler({
-    dom: {
-      majorMinor: { checked: false },
-      keyDisplay: { innerHTML: '', textContent: '' },
-      chordDisplay: { innerHTML: '' },
-      nextKeyDisplay: { innerHTML: '', textContent: '' },
-      nextChordDisplay: { innerHTML: '' }
-    },
-    state: schedulerState,
-    constants: { SCHEDULE_AHEAD: 1.5 },
-    helpers: {
-      applyDisplaySideLayout: () => {},
-      buildPreparedBassPlan: () => [],
-      buildLegacyVoicingPlan: () => [],
-      buildPreparedCompingPlans: () => {},
-      buildLoopRepVoicings: () => [],
-      buildVoicingPlanForSlots: () => [],
-      canLoopTrimProgression: () => false,
-      chordSymbolHtml: () => '',
-      compingEngine: {
-        scheduleWindow: ({ plan }) => { scheduledCompingPlan = plan; },
-        scheduleEnding: () => {}
-      },
-      createOneChordToken: () => ({}),
-      createVoicingSlot: () => ({}),
-      fitHarmonyDisplay: () => {},
-      getCurrentPatternString: () => 'I',
-      getPatternKeyOverridePitchClass: () => null,
-      getCompingStyle: () => 'piano',
-      getBeatsPerChord: () => 1,
-      getChordsPerBar: () => 4,
-      getPlaybackMeasurePlan: () => null,
-      getMeasureInfoForChordIndex: () => null,
-      getRemainingBeatsUntilNextProgression: () => 1,
-      getRepetitionsPerKey: () => 1,
-      getFinitePlayback: () => false,
-      getPlaybackEndingCue: () => ({
-        style: 'onbeat_long',
-        targetBeat: 4,
-        targetChordIndex: 4,
-        holdMs: 2000
-      }),
-      getSecondsPerBeat: () => 1,
-      getSwingRatio: () => 2,
-      hideNextCol: () => {},
-      ensureNearTermSamplePreload: () => {},
-      isWalkingBassEnabled: () => true,
-      isChordsEnabled: () => true,
-      isVoiceLeadingV2Enabled: () => false,
-      keyNameHtml: () => '',
-      nextKey: () => 0,
-      padProgression: (chords) => chords,
-      parseOneChordSpec: () => ({ active: false }),
-      parsePattern: () => [{ semitones: 0 }],
-      playClick: () => {},
-      playNote: (midi, time) => { scheduledBassNotes.push({ midi, time }); },
-      playRide: () => {},
-      renderAccidentalTextHtml: () => '',
-      scheduleDrumsForBeat: () => {},
-      shouldShowNextPreview: () => false,
-      showNextCol: () => {},
-      stopPlayback: () => {},
-      takeNextOneChordQuality: () => '',
-      trackProgressionOccurrence: () => {},
-      updateBeatDots: () => {},
-      getBassMidi: (_key, semitones) => 36 + semitones
-    }
-  });
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const bassEndingEvents = applyAnticipationEffect([
+      { timeBeats: 3, durationBeats: 1, midi: 45, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 4, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
+    ], undefined, 4, { endingCue: onbeatEndingCue });
+    assert.equal(
+      bassEndingEvents[1].timeBeats,
+      4,
+      'Walking-bass arranger keeps an onbeat ending arrival on the beat instead of anticipating it.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
 
-  scheduler.scheduleBeat();
-  assert.deepEqual(
-    scheduledBassNotes.map((event) => event.midi),
-    [40, 36],
-    'Practice playback suppresses the walking-bass anticipation before an onbeat ending while preserving the beat bass and ending bass.'
+  const pianoPlan = createPianoComping().buildPlan({
+    chords: [
+      { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'm7' },
+      { semitones: 5, bassSemitones: 5, qualityMajor: '7', qualityMinor: 'm7' },
+      { semitones: 7, bassSemitones: 7, qualityMajor: '7', qualityMinor: 'm7' },
+      { semitones: 11, bassSemitones: 11, qualityMajor: '7', qualityMinor: 'm7' },
+      { semitones: 0, bassSemitones: 0, qualityMajor: '6', qualityMinor: 'm6' }
+    ],
+    key: 0,
+    isMinor: false,
+    beatsPerChord: 1,
+    beatsPerBar: 4,
+    swingRatio: 2,
+    endingCue: onbeatEndingCue
+  });
+  assert.ok(pianoPlan.events.length > 0, 'Piano arranger still produces a playable plan around an onbeat ending.');
+  assert.equal(
+    pianoPlan.events.some((event) => Math.abs(event.timeBeats - preEndingOffbeat) < 0.001),
+    false,
+    'Piano arranger does not place a chord on the offbeat before an onbeat ending.'
   );
-  assert.deepEqual(
-    scheduledCompingPlan?.events?.map((event) => event.timeBeats),
-    [3],
-    'Practice playback suppresses the piano chord on the offbeat before an onbeat ending.'
-  );
+}
+{
+  const offbeatPosition = getSwingOffbeatPositionBeats(2);
+  const scheduledNotes = [];
+  const scheduledDrums = [];
+  const compingWindows = [];
+  const compingEndings = [];
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = (fn) => originalSetTimeout(fn, 0);
+  globalThis.clearTimeout = (timerId) => originalClearTimeout(timerId);
+  try {
+    const state = {
+      audioCtx: { currentTime: 0 },
+      pendingDisplayTimeouts: new Set(),
+      isPlaying: true,
+      isPaused: false,
+      isIntro: false,
+      currentBeat: 3,
+      currentChordIdx: 3,
+      currentKey: 0,
+      currentKeyRepetition: 1,
+      currentRawChords: [],
+      nextRawChords: [],
+      nextPaddedChords: [],
+      nextKeyValue: null,
+      nextOneChordQualityValue: '',
+      paddedChords: [
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'm7' },
+        { semitones: 2, bassSemitones: 2, qualityMajor: 'm7', qualityMinor: 'm7' },
+        { semitones: 7, bassSemitones: 7, qualityMajor: '7', qualityMinor: 'm7' },
+        { semitones: 5, bassSemitones: 5, qualityMajor: '7', qualityMinor: 'm7' },
+        { semitones: 0, bassSemitones: 0, qualityMajor: '6', qualityMinor: 'm6' }
+      ],
+      currentBassPlan: [
+        { timeBeats: 3, durationBeats: 1, midi: 41, velocity: 86 },
+        { timeBeats: 3 + offbeatPosition, durationBeats: 1, midi: 42, velocity: 86 }
+      ],
+      currentCompingPlan: {
+        events: [
+          { timeBeats: 3 },
+          { timeBeats: 3 + offbeatPosition }
+        ]
+      },
+      nextCompingPlan: { events: [] },
+      lastPlayedChordIdx: 2,
+      nextBeatTime: 0,
+      pendingBassTargetMidi: null,
+      walkingBassLoggedMeasures: new Set()
+    };
+    const scheduler = createPlaybackScheduler({
+      dom: {
+        majorMinor: { checked: false },
+        keyDisplay: { innerHTML: '', textContent: '' },
+        chordDisplay: { innerHTML: '' },
+        nextKeyDisplay: { innerHTML: '', textContent: '' },
+        nextChordDisplay: { innerHTML: '' }
+      },
+      state,
+      constants: { SCHEDULE_AHEAD: 0.1 },
+      helpers: {
+        applyDisplaySideLayout: () => {},
+        buildPreparedBassPlan: () => [],
+        buildLegacyVoicingPlan: () => [],
+        buildPreparedCompingPlans: () => {},
+        buildLoopRepVoicings: () => [],
+        buildVoicingPlanForSlots: () => [],
+        canLoopTrimProgression: () => false,
+        chordSymbolHtml: () => '',
+        compingEngine: {
+          scheduleWindow: (options) => { compingWindows.push(options); },
+          scheduleEnding: (options) => { compingEndings.push(options); }
+        },
+        createOneChordToken: () => ({}),
+        createVoicingSlot: () => ({}),
+        fitHarmonyDisplay: () => {},
+        getCurrentPatternString: () => '',
+        getPatternKeyOverridePitchClass: () => null,
+        getCompingStyle: () => 'piano',
+        getBeatsPerChord: () => 1,
+        getChordsPerBar: () => 4,
+        getPlaybackMeasurePlan: () => [],
+        getMeasureInfoForChordIndex: () => ({ beatCount: 4 }),
+        getRemainingBeatsUntilNextProgression: () => 1,
+        getRepetitionsPerKey: () => 1,
+        getFinitePlayback: () => false,
+        getPlaybackEndingCue: () => ({
+          style: 'offbeat_long',
+          targetBeat: 4,
+          targetChordIndex: 4,
+          holdMs: 10
+        }),
+        getSecondsPerBeat: () => 0.01,
+        getSwingRatio: () => 2,
+        hideNextCol: () => {},
+        ensureNearTermSamplePreload: () => {},
+        isWalkingBassEnabled: () => true,
+        isChordsEnabled: () => true,
+        isVoiceLeadingV2Enabled: () => false,
+        keyNameHtml: () => '',
+        nextKey: () => 0,
+        padProgression: (chords) => chords,
+        parseOneChordSpec: () => ({ active: false }),
+        parsePattern: () => [],
+        playClick: () => {},
+        playNote: (midi, time, duration, velocity) => {
+          scheduledNotes.push({ midi, time, duration, velocity });
+        },
+        playRide: () => {},
+        scheduleDrumsForBeat: (time, beat) => {
+          scheduledDrums.push({ time, beat });
+        },
+        shouldShowNextPreview: () => false,
+        showNextCol: () => {},
+        stopPlayback: () => {},
+        takeNextOneChordQuality: () => '',
+        trackProgressionOccurrence: () => {},
+        updateBeatDots: () => {},
+        getBassMidi: (_key, semitones) => 36 + semitones
+      }
+    });
+
+    scheduler.scheduleBeat();
+    assert.deepEqual(
+      scheduledDrums,
+      [{ time: 0, beat: 3 }],
+      'Offbeat endings still schedule the normal start of the final beat.'
+    );
+    assert.deepEqual(
+      scheduledNotes.map((event) => ({ midi: event.midi, time: Number(event.time.toFixed(6)) })),
+      [
+        { midi: 41, time: 0 },
+        { midi: 36, time: Number((offbeatPosition * 0.01).toFixed(6)) }
+      ],
+      'Offbeat endings keep the beat-start bass event and put only the ending chord on the following eighth.'
+    );
+    assert.equal(
+      Number(compingWindows[0]?.windowEndBeats.toFixed(6)),
+      Number((3 + offbeatPosition).toFixed(6)),
+      'Offbeat endings trim regular comping before the ending eighth.'
+    );
+    assert.equal(
+      compingEndings[0]?.chordIndex,
+      4,
+      'Offbeat endings still schedule the final comping chord on the ending cue.'
+    );
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
 }
 const playbackResourcesFacade = createPracticePlaybackResourcesAppFacade({
   audioFacade: {

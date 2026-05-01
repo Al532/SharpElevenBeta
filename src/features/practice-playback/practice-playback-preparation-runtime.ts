@@ -39,6 +39,7 @@ type PracticePlaybackPreparationRuntimeOptions = {
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
   getSwingRatio?: () => number;
+  getPlaybackEndingCue?: () => Record<string, unknown> | null;
   getCurrentBassPlan?: () => PracticePlaybackBassPlan;
   setCurrentBassPlan?: (value: PracticePlaybackBassPlan) => void;
   getNextPaddedChordsForBass?: () => PracticePlaybackResourceChord[];
@@ -68,6 +69,7 @@ type PracticePlaybackPreparationRuntimeOptions = {
  * @param {() => number} [options.getTempoBpm]
  * @param {() => boolean} [options.isWalkingBassEnabled]
  * @param {() => number} [options.getSwingRatio]
+ * @param {() => Record<string, unknown> | null} [options.getPlaybackEndingCue]
  * @param {() => PracticePlaybackBassPlan | null} [options.getCurrentBassPlan]
  * @param {(value: PracticePlaybackBassPlan) => void} [options.setCurrentBassPlan]
  * @param {() => PracticePlaybackResourceChord[]} [options.getNextPaddedChordsForBass]
@@ -95,6 +97,7 @@ export function createPracticePlaybackPreparationRuntime({
   getTempoBpm = () => 120,
   isWalkingBassEnabled = () => false,
   getSwingRatio = () => 0,
+  getPlaybackEndingCue = () => null,
   getCurrentBassPlan = () => [],
   setCurrentBassPlan = () => {},
   getNextPaddedChordsForBass = () => [],
@@ -152,11 +155,13 @@ export function createPracticePlaybackPreparationRuntime({
     const beatsPerChord = getBeatsPerChord();
     const beatsPerBar = getChordsPerBar();
     const isMinor = getIsMinorMode();
+    const endingCue = getPlaybackEndingCue();
     const { currentPlan, nextPlan } = compingEngine?.buildPreparedPlans({
       style: getCompingStyle(),
       previousKey,
       currentHasIncomingAnticipation,
       currentPreviousTailBeats,
+      endingCue,
       current: {
         chords: getPaddedChords(),
         key: getCurrentKey(),
@@ -201,7 +206,8 @@ export function createPracticePlaybackPreparationRuntime({
       nextChords,
       nextKey: nextKey ?? getCurrentKey(),
       nextIsMinor: getIsMinorMode(),
-      swingRatio: getSwingRatio()
+      swingRatio: getSwingRatio(),
+      endingCue: getPlaybackEndingCue()
     });
     setCurrentBassPlan(currentBassPlan);
     return currentBassPlan;

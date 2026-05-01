@@ -53,10 +53,10 @@ export type PlaybackAudioPlaybackLike = {
   initMixerNodes?: () => void;
   getMixerDestination?: (channel: string) => AudioNode | null;
   playClick?: (time: number, accent: boolean) => void;
-  playDrumSample?: (name: string, time: number, gainValue?: number, playbackRate?: number) => void;
+  playDrumSample?: (name: string, time: number, gainValue?: number, playbackRate?: number, options?: { endingStyle?: string; slotDuration?: number; secondsPerBeat?: number; tailFadeTimeConstant?: number; tailFadeStart?: number }) => void;
   playHiHat?: (time: number, accent?: boolean) => void;
   getNextRideSampleName?: () => string;
-  playRide?: (time: number, gainValue?: number, playbackRate?: number) => void;
+  playRide?: (time: number, gainValue?: number, playbackRate?: number, options?: { endingStyle?: string; slotDuration?: number; secondsPerBeat?: number; tailFadeTimeConstant?: number; tailFadeStart?: number }) => void;
   scheduleDrumsForBeat?: (
     time: number,
     beatIndex: number,
@@ -69,7 +69,7 @@ export type PlaybackSamplePlaybackLike = {
   getNearestLoadedBassSampleMidi?: (targetMidi: number) => number | null;
   getAdaptiveBassFadeDuration?: (maxDuration?: number) => number;
   scheduleBassGainRelease?: (gainNode: GainNode | null, fadeStart: number, fadeEnd: number) => void;
-  playNote?: (midi: number, time: number, maxDuration: number, velocity?: number) => void;
+  playNote?: (midi: number, time: number, maxDuration: number, velocity?: number, options?: { endingStyle?: string; slotDuration?: number; secondsPerBeat?: number; tailFadeTimeConstant?: number }) => void;
   scheduleSampleSegment?: (
     buffer: AudioBuffer,
     destination: AudioNode,

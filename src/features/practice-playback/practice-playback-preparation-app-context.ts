@@ -50,6 +50,7 @@ export function createPracticePlaybackPreparationAppContext({
     getTempoBpm: playbackSettings.getTempoBpm,
     isWalkingBassEnabled: playbackSettings.isWalkingBassEnabled,
     getSwingRatio: playbackSettings.getSwingRatio,
+    getPlaybackEndingCue: playbackSettings.getPlaybackEndingCue,
     getCurrentBassPlan: progressionState.getCurrentBassPlan,
     setCurrentBassPlan: progressionState.setCurrentBassPlan,
     getNextPaddedChordsForBass: progressionState.getNextPaddedChordsForBass,

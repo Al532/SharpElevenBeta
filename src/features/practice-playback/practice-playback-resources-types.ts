@@ -51,6 +51,7 @@ export type PracticePlaybackResourcesSettingsBindings = {
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
   getSwingRatio?: () => number;
+  getPlaybackEndingCue?: () => Record<string, unknown> | null;
 };
 
 export type PracticePlaybackPreparedPlans = {
@@ -64,6 +65,7 @@ export type PracticePlaybackResourcesCompingEngine = {
     previousKey: number;
     currentHasIncomingAnticipation: boolean;
     currentPreviousTailBeats: number | null;
+    endingCue?: Record<string, unknown> | null;
     current: {
       chords: PracticePlaybackResourceChord[];
       key: number;
@@ -96,6 +98,7 @@ export type PracticePlaybackResourcesWalkingBassGenerator = {
     nextKey: number;
     nextIsMinor: boolean;
     swingRatio: number;
+    endingCue?: Record<string, unknown> | null;
   }) => PracticePlaybackBassPlan;
 };
 
