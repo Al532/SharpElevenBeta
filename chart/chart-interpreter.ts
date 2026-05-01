@@ -124,7 +124,33 @@ function collectNavigationTargets(bars) {
  * @param {number} visitIndex
  * @returns {ChartPlaybackEntry}
  */
-function createEntry(bar, visitIndex) {
+function cloneFirstPlayableSlot(slots = []) {
+  const firstPlayableSlot = (slots || []).find(isPlayableChordSlot) || slots?.[0] || null;
+  return firstPlayableSlot ? [JSON.parse(JSON.stringify(firstPlayableSlot))] : [];
+}
+
+/**
+ * @param {ChartCellSlot[]} [cellSlots]
+ * @returns {ChartCellSlot[]}
+ */
+function cloneFirstPlayableCellSlot(cellSlots = []) {
+  const firstPlayableCellSlot = (cellSlots || []).find((cellSlot) => isPlayableChordSlot(cellSlot?.chord)) || cellSlots?.[0] || null;
+  return firstPlayableCellSlot ? [JSON.parse(JSON.stringify(firstPlayableCellSlot))] : [];
+}
+
+/**
+ * @param {RichChartBar} bar
+ * @param {number} visitIndex
+ * @param {{ trimToFirstPlayableChord?: boolean }} [options]
+ * @returns {ChartPlaybackEntry}
+ */
+function createEntry(bar, visitIndex, { trimToFirstPlayableChord = false } = {}) {
+  const playbackSlots = trimToFirstPlayableChord
+    ? cloneFirstPlayableSlot(bar.playback.slots)
+    : JSON.parse(JSON.stringify(bar.playback.slots));
+  const playbackCellSlots = trimToFirstPlayableChord
+    ? cloneFirstPlayableCellSlot(bar.playback.cellSlots || [])
+    : JSON.parse(JSON.stringify(bar.playback.cellSlots || []));
   return {
     sequenceIndex: visitIndex + 1,
     barId: bar.id,
@@ -133,8 +159,8 @@ function createEntry(bar, visitIndex) {
     sectionLabel: bar.sectionLabel,
     timeSignature: bar.timeSignature,
     displayTokens: JSON.parse(JSON.stringify(bar.notation.tokens)),
-    playbackSlots: JSON.parse(JSON.stringify(bar.playback.slots)),
-    playbackCellSlots: JSON.parse(JSON.stringify(bar.playback.cellSlots || [])),
+    playbackSlots,
+    playbackCellSlots,
     notationKind: bar.notation.kind,
     endings: [...bar.endings],
     flags: [...bar.flags],
@@ -147,7 +173,7 @@ function createEntry(bar, visitIndex) {
     annotationMisc: [...(bar.annotationMisc || [])],
     spacerCount: Number(bar.spacerCount || 0),
     chordSizes: [...(bar.chordSizes || [])],
-    overlaySlots: JSON.parse(JSON.stringify(bar.playback.overlaySlots || []))
+    overlaySlots: trimToFirstPlayableChord ? [] : JSON.parse(JSON.stringify(bar.playback.overlaySlots || []))
   };
 }
 
@@ -316,11 +342,14 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
         continue;
       }
 
-      entries.push(createEntry(bar, visitCounter));
+      const shouldStopAtFine = bar.flags.includes('fine') && (jumpState?.stopAtFine || options.stopAtFine);
+      entries.push(createEntry(bar, visitCounter, {
+        trimToFirstPlayableChord: shouldStopAtFine
+      }));
       visitCounter += 1;
       reportUnsupportedDirectives(bar);
 
-      if (jumpState?.stopAtFine && bar.flags.includes('fine')) break;
+      if (shouldStopAtFine) break;
 
       if (jumpState?.jumpToCoda && navigationTargets.codaJumpIndex === index) {
         if (navigationTargets.codaIndex === null) {
@@ -413,7 +442,6 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
         repeatContext = null;
       }
 
-      if (options.stopAtFine && bar.flags.includes('fine')) break;
       index += 1;
     }
   }

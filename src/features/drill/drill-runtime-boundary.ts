@@ -91,6 +91,7 @@ export function createEmbeddedPlaybackSettingsAdapterOptions(
     setDrumsMode: options.setDrumsMode,
     setWalkingBassEnabled: options.setWalkingBassEnabled,
     setRepetitionsPerKey: options.setRepetitionsPerKey,
+    setFinitePlayback: options.setFinitePlayback,
     setDisplayMode: options.setDisplayMode,
     setHarmonyDisplayMode: options.setHarmonyDisplayMode,
     setShowBeatIndicator: options.setShowBeatIndicator,
@@ -175,6 +176,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   getDrumsMode,
   isWalkingBassEnabled,
   getRepetitionsPerKey,
+  getFinitePlayback = () => false,
   isEmbeddedMode,
   getIsPlaying,
   getIsPaused,
@@ -194,7 +196,8 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   startPlayback,
   stopPlayback,
   togglePausePlayback,
-  applyMixerSettings
+  applyMixerSettings,
+  setFinitePlayback
 }: {
   dom: EmbeddedPracticeRuntimeAppDom;
   stopIfPlaying: () => void;
@@ -232,6 +235,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   getDrumsMode: () => string;
   isWalkingBassEnabled: () => boolean;
   getRepetitionsPerKey: () => number;
+  getFinitePlayback?: () => boolean;
   isEmbeddedMode: boolean;
   getIsPlaying: () => boolean;
   getIsPaused: () => boolean;
@@ -252,6 +256,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   stopPlayback: () => void;
   togglePausePlayback: () => void;
   applyMixerSettings: () => void;
+  setFinitePlayback?: (enabled: boolean) => void;
 }): EmbeddedPracticeRuntimeOptions {
   return createEmbeddedPracticeRuntimeOptions({
     patternAdapterOptions: {
@@ -313,6 +318,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
           dom.repetitionsPerKey.value = String(normalizeRepetitionsPerKey(value));
         }
       },
+      setFinitePlayback,
       setDisplayMode: (value) => {
         if (dom.displayMode) {
           dom.displayMode.value = normalizeDisplayMode(value);
@@ -362,6 +368,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
         drumsMode: getDrumsMode(),
         customMediumSwingBass: isWalkingBassEnabled(),
         repetitionsPerKey: getRepetitionsPerKey(),
+        finitePlayback: getFinitePlayback() === true,
         displayMode: normalizeDisplayMode(dom.displayMode?.value),
         harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
         showBeatIndicator: dom.showBeatIndicator?.checked !== false,

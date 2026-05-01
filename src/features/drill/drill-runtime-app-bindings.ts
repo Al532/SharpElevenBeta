@@ -43,6 +43,8 @@ type DrillEmbeddedPlaybackSettingsBindings = {
   getDrumsMode?: () => string;
   isWalkingBassEnabled?: () => boolean;
   getRepetitionsPerKey?: () => number;
+  getFinitePlayback?: () => boolean;
+  setFinitePlayback?: (enabled: boolean) => void;
   applyMixerSettings?: () => void;
 };
 
@@ -128,6 +130,8 @@ export function createPracticePlaybackSettingsBindings(
     getDrumsMode: bindings.getDrumsMode,
     isWalkingBassEnabled: bindings.isWalkingBassEnabled,
     getRepetitionsPerKey: bindings.getRepetitionsPerKey,
+    getFinitePlayback: bindings.getFinitePlayback,
+    setFinitePlayback: bindings.setFinitePlayback,
     applyMixerSettings: bindings.applyMixerSettings
   } as DrillEmbeddedPlaybackSettingsBindings;
 }

@@ -68,6 +68,7 @@ export function createEmbeddedPatternAdapter({
     drumsMode = null,
     customMediumSwingBass = null,
     repetitionsPerKey = 1,
+    finitePlayback = false,
     displayMode = null,
     harmonyDisplayMode = null,
     showBeatIndicator = null,
@@ -96,6 +97,7 @@ export function createEmbeddedPatternAdapter({
       drumsMode,
       customMediumSwingBass,
       repetitionsPerKey,
+      finitePlayback,
       displayMode,
       harmonyDisplayMode,
       showBeatIndicator,
@@ -134,6 +136,7 @@ export function createEmbeddedPlaybackSettingsAdapter({
   setDrumsMode,
   setWalkingBassEnabled,
   setRepetitionsPerKey,
+  setFinitePlayback,
   setDisplayMode,
   setHarmonyDisplayMode,
   setShowBeatIndicator,
@@ -152,6 +155,7 @@ export function createEmbeddedPlaybackSettingsAdapter({
   setDrumsMode?: (mode: string) => void;
   setWalkingBassEnabled?: (enabled: boolean) => void;
   setRepetitionsPerKey?: (count: number) => void;
+  setFinitePlayback?: (enabled: boolean) => void;
   setDisplayMode?: (mode: string) => void;
   setHarmonyDisplayMode?: (mode: string) => void;
   setShowBeatIndicator?: (visible: boolean) => void;
@@ -171,6 +175,7 @@ export function createEmbeddedPlaybackSettingsAdapter({
     drumsMode = null,
     customMediumSwingBass = null,
     repetitionsPerKey = null,
+    finitePlayback = null,
     displayMode = null,
     harmonyDisplayMode = null,
     showBeatIndicator = null,
@@ -186,6 +191,7 @@ export function createEmbeddedPlaybackSettingsAdapter({
     if (drumsMode !== null) setDrumsMode?.(drumsMode);
     if (customMediumSwingBass !== null) setWalkingBassEnabled?.(customMediumSwingBass);
     if (repetitionsPerKey !== null) setRepetitionsPerKey?.(repetitionsPerKey);
+    if (finitePlayback !== null) setFinitePlayback?.(finitePlayback === true);
     if (displayMode !== null) setDisplayMode?.(displayMode);
     if (harmonyDisplayMode !== null) setHarmonyDisplayMode?.(harmonyDisplayMode);
     if (showBeatIndicator !== null) setShowBeatIndicator?.(showBeatIndicator);

@@ -77,6 +77,7 @@ export function createChartScreenDomRefs(rootDocument: Document = document) {
     sendSelectionToPracticeButton: rootDocument.getElementById('send-selection-to-practice-button') as HTMLButtonElement | null,
     selectionMenu: rootDocument.getElementById('chart-selection-menu'),
     selectionLoopButton: rootDocument.getElementById('selection-loop-button') as HTMLButtonElement | null,
+    selectionPlayFromBarButton: rootDocument.getElementById('selection-play-from-bar-button') as HTMLButtonElement | null,
     selectionCreateDrillButton: rootDocument.getElementById('selection-create-drill-button') as HTMLButtonElement | null,
     mobileMenuToggle: rootDocument.getElementById('mobile-menu-toggle') as HTMLButtonElement | null,
     mobileBackdrop: rootDocument.getElementById('chart-mobile-backdrop'),

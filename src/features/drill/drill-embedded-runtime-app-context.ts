@@ -43,6 +43,8 @@ type DrillEmbeddedPlaybackSettingsBindings = {
   getDrumsMode?: () => string;
   isWalkingBassEnabled?: () => boolean;
   getRepetitionsPerKey?: () => number;
+  getFinitePlayback?: () => boolean;
+  setFinitePlayback?: (enabled: boolean) => void;
   applyMixerSettings?: () => void;
 };
 type DrillEmbeddedTransportActions = {
@@ -109,6 +111,8 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
     getDrumsMode: playbackSettings.getDrumsMode,
     isWalkingBassEnabled: playbackSettings.isWalkingBassEnabled,
     getRepetitionsPerKey: playbackSettings.getRepetitionsPerKey,
+    getFinitePlayback: playbackSettings.getFinitePlayback,
+    setFinitePlayback: playbackSettings.setFinitePlayback,
     isEmbeddedMode: playbackState.isEmbeddedMode,
     getIsPlaying: playbackState.getIsPlaying,
     getIsPaused: playbackState.getIsPaused,

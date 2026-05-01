@@ -1506,6 +1506,7 @@ let displayedCurrentBeat = 0; // beat committed to the display at audio time
 let displayedCurrentChordIdx = -1; // chord index committed to the display at audio time
 let displayedIsIntro = false; // intro state committed to the display at audio time
 let isIntro = true;      // true during count-in measure
+let finitePlayback = false;
 let currentKey = 0;
 let nextKeyValue = null;
 let currentKeyRepetition = 0;
@@ -2058,6 +2059,7 @@ const {
     isWalkingBassDebugEnabled,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
+    getFinitePlayback: () => finitePlayback,
     getSecondsPerBeat,
     hideNextCol,
     ensureNearTermSamplePreload,
@@ -2078,6 +2080,7 @@ const {
     showNextCol,
     takeNextOneChordQuality,
     trackProgressionOccurrence,
+    stopPlayback: () => stop(),
     updateBeatDots,
     clearBeatDots,
     clearScheduledDisplays,
@@ -2774,6 +2777,8 @@ const {
     getDrumsMode,
     isWalkingBassEnabled,
     getRepetitionsPerKey,
+    getFinitePlayback: () => finitePlayback,
+    setFinitePlayback: (value) => { finitePlayback = Boolean(value); },
     applyMixerSettings
   },
   embeddedPlaybackState: {

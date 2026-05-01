@@ -63,6 +63,8 @@ export type PracticePlaybackSettingsBindings = {
   getDrumsMode?: () => string;
   isWalkingBassEnabled?: () => boolean;
   getRepetitionsPerKey?: () => number;
+  getFinitePlayback?: () => boolean;
+  setFinitePlayback?: (enabled: boolean) => void;
   applyMixerSettings?: () => void;
 };
 

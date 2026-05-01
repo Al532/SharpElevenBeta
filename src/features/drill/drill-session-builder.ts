@@ -58,6 +58,7 @@ export function applyPracticeSessionToDrillUi({
     patternMode: 'both',
     tempo: session.tempo || 120,
     repetitionsPerKey: 1,
+    finitePlayback: session.origin?.mode === 'chart-document' || session.origin?.mode === 'chart-selection',
     displayMode: 'show-both',
     showBeatIndicator: true,
     hideCurrentHarmony: false

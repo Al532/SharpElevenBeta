@@ -52,6 +52,7 @@ export function createPracticePlaybackSessionAdapter({
         drumsMode: playbackSettings?.drumsMode ?? null,
         customMediumSwingBass: playbackSettings?.customMediumSwingBass ?? null,
         repetitionsPerKey: playbackSettings?.repetitionsPerKey ?? 1,
+        finitePlayback: sessionSpec?.origin?.mode === 'chart-document' || sessionSpec?.origin?.mode === 'chart-selection',
         displayMode: playbackSettings?.displayMode ?? null,
         harmonyDisplayMode: playbackSettings?.harmonyDisplayMode ?? null,
         showBeatIndicator: playbackSettings?.showBeatIndicator ?? null,

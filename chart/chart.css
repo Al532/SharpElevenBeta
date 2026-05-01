@@ -1055,7 +1055,10 @@ select {
 .chart-selection-menu-card {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
+  max-width: calc(100vw - 16px);
   padding: 6px;
   border-radius: 8px;
   background: var(--chart-ui-menu);
@@ -1975,9 +1978,9 @@ select {
   word-break: break-word;
 }
 
-/* --- Mobile responsive (chart grid scaling) ---------------------- */
+/* --- Framed chart scaling ---------------------------------------- */
 
-@media (max-width: 1200px) {
+@media screen {
   :root {
     --chart-mobile-section-offset: 0px;
     --chart-mobile-section-badge-height: 13px;
@@ -2342,7 +2345,7 @@ select {
 
 /* --- Chart playback overlay -------------------------------------- */
 
-@media (max-width: 1200px) {
+@media screen {
   .chart-app.overlay-open .chart-mobile-backdrop {
     opacity: 1;
     pointer-events: none;

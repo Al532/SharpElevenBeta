@@ -184,6 +184,7 @@ export function createPracticePlaybackRuntimeHost({
       isWalkingBassDebugEnabled: helpers.isWalkingBassDebugEnabled,
       getRemainingBeatsUntilNextProgression: helpers.getRemainingBeatsUntilNextProgression,
       getRepetitionsPerKey: helpers.getRepetitionsPerKey,
+      getFinitePlayback: helpers.getFinitePlayback,
       getSecondsPerBeat: helpers.getSecondsPerBeat,
       hideNextCol: helpers.hideNextCol,
       ensureNearTermSamplePreload: helpers.ensureNearTermSamplePreload,
@@ -204,6 +205,7 @@ export function createPracticePlaybackRuntimeHost({
       showNextCol: helpers.showNextCol,
       takeNextOneChordQuality: helpers.takeNextOneChordQuality,
       trackProgressionOccurrence: helpers.trackProgressionOccurrence,
+      stopPlayback: helpers.stopPlayback,
       updateBeatDots: helpers.updateBeatDots
     },
     transportHelperBindings: {

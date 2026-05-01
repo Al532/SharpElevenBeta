@@ -250,6 +250,7 @@ export interface PlaybackSettings {
   drumsMode?: DrumsMode | null;
   customMediumSwingBass?: boolean | null;
   repetitionsPerKey?: number | null;
+  finitePlayback?: boolean | null;
   displayMode?: DisplayMode | null;
   harmonyDisplayMode?: HarmonyDisplayMode | null;
   showBeatIndicator?: boolean | null;
@@ -366,6 +367,7 @@ export interface EmbeddedPatternPayload {
   tempo: number | null;
   transposition?: number | string | null;
   repetitionsPerKey: number;
+  finitePlayback?: boolean | null;
   displayMode?: DisplayMode | null;
   harmonyDisplayMode?: HarmonyDisplayMode | null;
   showBeatIndicator?: boolean | null;
@@ -583,6 +585,7 @@ export interface EmbeddedPlaybackSettingsAdapterOptions {
   setDrumsMode?: (mode: string) => void;
   setWalkingBassEnabled?: (enabled: boolean) => void;
   setRepetitionsPerKey?: (count: number) => void;
+  setFinitePlayback?: (enabled: boolean) => void;
   setDisplayMode?: (mode: string) => void;
   setHarmonyDisplayMode?: (mode: string) => void;
   setShowBeatIndicator?: (visible: boolean) => void;

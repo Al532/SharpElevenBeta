@@ -23,6 +23,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getMeasureInfoForChordIndex,
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
+    getFinitePlayback,
     getSecondsPerBeat,
     hideNextCol,
     ensureNearTermSamplePreload,
@@ -41,6 +42,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     scheduleDrumsForBeat,
     shouldShowNextPreview,
     showNextCol,
+    stopPlayback,
     takeNextOneChordQuality,
     trackProgressionOccurrence,
     updateBeatDots
@@ -381,6 +383,14 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           key_repetition_index: state.currentKeyRepetition,
           played_chord_count: state.currentRawChords.length || state.paddedChords.length || 0
         });
+        if (getFinitePlayback?.() === true) {
+          const stopTime = state.nextBeatTime + spb;
+          scheduleDisplay(stopTime, () => {
+            stopPlayback?.();
+          });
+          state.nextBeatTime = stopTime;
+          return;
+        }
         prepareNextProgression();
         ensureNearTermSamplePreload();
       }

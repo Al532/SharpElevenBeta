@@ -3664,6 +3664,36 @@ assert.deepEqual(
   'Playback stops at Fine after D.C. al Fine instead of jumping forever.'
 );
 
+{
+  const dcFineTwoChordPlan = createChartPlaybackPlanFromDocument(createChartDocument({
+    metadata: { title: 'DC Fine Two Chord Target', id: 'dc-fine-two-chord-target' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
+      {
+        ...makeSyntheticChartBar(2, { symbol: 'F7', flags: ['fine'] }),
+        notation: { kind: 'written', tokens: [{ kind: 'chord', symbol: 'F7' }, { kind: 'chord', symbol: 'Bb7' }] },
+        playback: {
+          slots: [{ kind: 'chord', symbol: 'F7' }, { kind: 'chord', symbol: 'Bb7' }],
+          cellSlots: [{ chord: { symbol: 'F7' } }, { chord: { symbol: 'Bb7' } }]
+        }
+      },
+      makeSyntheticChartBar(3, { symbol: 'G7', directives: [{ type: 'dc_al_fine' }] })
+    ]
+  }));
+  const finalEntry = dcFineTwoChordPlan.entries[dcFineTwoChordPlan.entries.length - 1];
+  assert.deepEqual(
+    finalEntry.playbackSlots.map((slot) => slot.symbol),
+    ['F7'],
+    'Playback trims a stopping Fine bar to the first playable chord.'
+  );
+  assert.deepEqual(
+    finalEntry.playbackCellSlots.map((slot) => slot.chord?.symbol),
+    ['F7'],
+    'Practice-session export receives only the first playable Fine-bar cell.'
+  );
+}
+
 assert.deepEqual(
   syntheticPlaybackBarIndices({
     metadata: { title: 'DC Coda', id: 'dc-coda' },

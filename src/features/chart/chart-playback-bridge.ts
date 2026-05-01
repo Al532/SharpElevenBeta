@@ -33,6 +33,7 @@ export function createChartPlaybackPayloadBuilder({
       drumsMode: playbackSettings?.drumsMode,
       customMediumSwingBass: playbackSettings?.customMediumSwingBass,
       repetitionsPerKey: 1,
+      finitePlayback: sessionSpec?.origin?.mode === 'chart-document' || sessionSpec?.origin?.mode === 'chart-selection',
       displayMode: playbackSettings?.displayMode || 'show-both',
       harmonyDisplayMode: playbackSettings?.harmonyDisplayMode ?? null,
       showBeatIndicator: playbackSettings?.showBeatIndicator !== false,

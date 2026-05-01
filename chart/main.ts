@@ -17,6 +17,7 @@ import { initializeSharpElevenTheme } from '../src/features/app/app-theme.js';
 import { enforceBetaAccess } from '../src/features/app/app-beta-access.js';
 import {
   createChartDocumentsFromIRealText,
+  createPracticeSessionFromChartSelection,
   parseNoteSymbol,
   normalizeChartChordDisplayLevel,
   normalizeChordEnrichmentMode,
@@ -247,7 +248,8 @@ type ExtendedChartScreenState = ChartScreenState & {
   },
   selectionLoopActive: boolean,
   selectionLoopPlaybackPending: boolean,
-  selectionLoopRestartPending: boolean
+  selectionLoopRestartPending: boolean,
+  playFromBarPracticeSession: PracticeSessionSpec | null
 };
 
 const state: ExtendedChartScreenState = {
@@ -277,7 +279,8 @@ const state: ExtendedChartScreenState = {
   },
   selectionLoopActive: false,
   selectionLoopPlaybackPending: false,
-  selectionLoopRestartPending: false
+  selectionLoopRestartPending: false,
+  playFromBarPracticeSession: null
 };
 
 let lastMobileOverlayTopHeight = -1;
@@ -748,6 +751,9 @@ function handleChartTransposeChange() {
 }
 
 function getSelectedPracticeSession(): PracticeSessionSpec | null {
+  if (state.playFromBarPracticeSession) {
+    return state.playFromBarPracticeSession;
+  }
   return getSelectedPracticeSessionFromState(state);
 }
 
@@ -765,6 +771,10 @@ function setSelectionLoopActive(active: boolean) {
     state.selectionLoopPlaybackPending = false;
     state.selectionLoopRestartPending = false;
   }
+}
+
+function clearPlayFromBarSession() {
+  state.playFromBarPracticeSession = null;
 }
 
 function updateMixerOutputs() {
@@ -1164,6 +1174,7 @@ function renderSelectionMenu() {
     if (state.selectionLoopActive) {
       setSelectionLoopActive(false);
     }
+    clearPlayFromBarSession();
     if (dom.selectionMenu) {
       dom.selectionMenu.hidden = true;
       dom.selectionMenu.setAttribute('aria-hidden', 'true');
@@ -1192,6 +1203,9 @@ function renderSelectionMenu() {
     dom.selectionLoopButton.disabled = !hasSession;
     dom.selectionLoopButton.textContent = state.selectionLoopActive ? 'Looping...' : 'Loop';
     dom.selectionLoopButton.classList.toggle('is-active', state.selectionLoopActive);
+  }
+  if (dom.selectionPlayFromBarButton) {
+    dom.selectionPlayFromBarButton.disabled = !hasSession;
   }
   if (dom.selectionCreateDrillButton) {
     dom.selectionCreateDrillButton.disabled = !hasSession;
@@ -1250,6 +1264,7 @@ async function stopPlayback({ resetPosition = true, cancelSelectionLoop = true }
   if (cancelSelectionLoop) {
     setSelectionLoopActive(false);
   }
+  clearPlayFromBarSession();
   stopPlaybackPolling({
     state
   });
@@ -1265,10 +1280,17 @@ async function stopPlayback({ resetPosition = true, cancelSelectionLoop = true }
   });
 }
 
-async function startPlayback({ cancelSelectionLoop = true }: { cancelSelectionLoop?: boolean } = {}) {
+async function startPlayback({
+  cancelSelectionLoop = true,
+  practiceSessionOverride = null
+}: {
+  cancelSelectionLoop?: boolean;
+  practiceSessionOverride?: PracticeSessionSpec | null;
+} = {}) {
   if (cancelSelectionLoop) {
     setSelectionLoopActive(false);
   }
+  state.playFromBarPracticeSession = practiceSessionOverride;
   const shouldMarkLoopPending = !cancelSelectionLoop && state.selectionLoopActive;
   if (shouldMarkLoopPending) {
     state.selectionLoopPlaybackPending = true;
@@ -1311,6 +1333,7 @@ async function syncPlaybackSettings() {
 
 function navigateToPracticeWithSelection() {
   setSelectionLoopActive(false);
+  clearPlayFromBarSession();
   getChartPlaybackController().navigateToPracticeWithSelection();
 }
 
@@ -1321,6 +1344,7 @@ function clearChartSelection() {
   }
   const shouldStopLoopPlayback = state.selectionLoopActive && (state.isPlaying || state.isPaused);
   setSelectionLoopActive(false);
+  clearPlayFromBarSession();
   state.selectionController.clear();
   renderSelectionState();
   if (shouldStopLoopPlayback) {
@@ -1333,6 +1357,7 @@ function clearChartSelection() {
 
 async function startSelectionLoop() {
   if (!hasActiveSelection() || !state.currentSelectionPracticeSession?.playback?.enginePatternString) return;
+  clearPlayFromBarSession();
   setSelectionLoopActive(true);
   state.selectionLoopPlaybackPending = true;
   if (dom.selectionMenu) {
@@ -1661,6 +1686,49 @@ function renderFixture() {
     void renderChartMetadataPopover();
     dom.chartMetadataPopover?.removeAttribute('hidden');
     syncChartPopoverButtonStates();
+  }
+}
+
+function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
+  const chartDocument = state.currentChartDocument;
+  const selectedBarIds = state.selectionController.getSelection().barIds;
+  if (!chartDocument || selectedBarIds.length === 0) return null;
+
+  const selectedBarIdSet = new Set(selectedBarIds);
+  const firstSelectedIndex = (chartDocument.bars || []).findIndex((bar) => selectedBarIdSet.has(bar.id));
+  if (firstSelectedIndex < 0) return null;
+
+  const barIds = (chartDocument.bars || []).slice(firstSelectedIndex).map((bar) => bar.id);
+  if (barIds.length === 0) return null;
+
+  return createPracticeSessionFromChartSelection(chartDocument, {
+    startBarId: barIds[0],
+    endBarId: barIds[barIds.length - 1],
+    barIds
+  }, {
+    tempo: getTempo(),
+    transposition: getChartTransposeSemitones()
+  });
+}
+
+async function playFromSelectedBar() {
+  const practiceSession = createPlayFromSelectedBarSession();
+  if (!practiceSession?.playback?.enginePatternString) return;
+  try {
+    if (state.isPlaying || state.isPaused || state.activePlaybackEntryIndex >= 0) {
+      await stopPlayback({
+        resetPosition: true
+      });
+    }
+    await startPlayback({
+      practiceSessionOverride: practiceSession
+    });
+    closeOverlay();
+  } catch (error) {
+    clearPlayFromBarSession();
+    if (dom.transportStatus) dom.transportStatus.textContent = `Playback error: ${getErrorMessage(error)}`;
+    state.isPlaying = false;
+    renderTransport();
   }
 }
 
@@ -2329,6 +2397,9 @@ async function loadFixtures() {
       })));
       dom.selectionLoopButton?.addEventListener('click', () => {
         void startSelectionLoop();
+      });
+      dom.selectionPlayFromBarButton?.addEventListener('click', () => {
+        void playFromSelectedBar();
       });
       dom.selectionCreateDrillButton?.addEventListener('click', navigateToPracticeWithSelection);
       window.addEventListener('resize', positionSelectionMenu);

@@ -26,8 +26,10 @@ import {
 } from '../chart/chart-entry-menu-positioning.js';
 import { createChartManagementDomRefs } from './chart-management-dom.js';
 import {
+  CHART_MANAGE_FILTER_KEYS,
   FILTER_SOURCE_USER_CHARTS,
   type ChartManageFilterKey,
+  type ChartManageFilterMode,
   type ChartManageFilterOption,
   type ChartManagementMode,
   type SetlistDragItem
@@ -99,6 +101,7 @@ const SETLIST_ITEM_TAP_DISTANCE_PX = 6;
 const LIBRARY_PREVIEW_ROW_HEIGHT_PX = 40;
 const LIBRARY_PREVIEW_BOTTOM_GAP_PX = 4;
 const CHART_MANAGEMENT_SESSION_CACHE_KEY = 'sharp-eleven-chart-management-session-cache-v1';
+const CHART_MANAGEMENT_LIBRARY_FILTERS_KEY = 'sharp-eleven-library-filters-v1';
 const collapsedSetlistIds = new Set<string>();
 const filterState = createChartManagementFilterState();
 let currentDocumentIndex: ChartManagementDocumentIndex = createChartManagementDocumentIndex([]);
@@ -125,6 +128,18 @@ type ChartManagementSessionCache = {
   source: string;
   documents: ChartManagementCachedDocument[];
   setlists: ChartSetlist[];
+  savedAt: number;
+};
+
+type ChartManagementPersistedFilter = {
+  mode: ChartManageFilterMode;
+  values: string[];
+};
+
+type ChartManagementPersistedLibraryFilters = {
+  version: 1;
+  query: string;
+  filters: Partial<Record<ChartManageFilterKey, ChartManagementPersistedFilter>>;
   savedAt: number;
 };
 
@@ -219,6 +234,66 @@ function writeChartManagementSessionCache(): void {
   }
 }
 
+function readPersistedLibraryFilters(): ChartManagementPersistedLibraryFilters | null {
+  try {
+    const rawFilters = window.localStorage.getItem(CHART_MANAGEMENT_LIBRARY_FILTERS_KEY);
+    if (!rawFilters) return null;
+    const parsed = JSON.parse(rawFilters) as Partial<ChartManagementPersistedLibraryFilters>;
+    if (parsed.version !== 1 || !parsed.filters || typeof parsed.filters !== 'object') return null;
+    return {
+      version: 1,
+      query: String(parsed.query || ''),
+      filters: parsed.filters,
+      savedAt: Number(parsed.savedAt || 0)
+    };
+  } catch {
+    return null;
+  }
+}
+
+function applyPersistedLibraryFilters(): void {
+  if (activeMode !== 'library') return;
+  const persistedFilters = readPersistedLibraryFilters();
+  if (!persistedFilters) return;
+  if (dom.manageChartSearchInput) {
+    dom.manageChartSearchInput.value = persistedFilters.query;
+  }
+  for (const key of CHART_MANAGE_FILTER_KEYS) {
+    const persistedFilter = persistedFilters.filters[key];
+    const active = filterState.activeFilters[key];
+    active.clear();
+    const values = Array.isArray(persistedFilter?.values)
+      ? persistedFilter.values.map((value) => String(value || '').trim()).filter(Boolean)
+      : [];
+    values.forEach((value) => active.add(value));
+    filterState.activeModes[key] = persistedFilter?.mode === 'custom' && active.size > 0
+      ? 'custom'
+      : 'all';
+  }
+}
+
+function persistLibraryFilters(): void {
+  if (activeMode !== 'library') return;
+  const filters: Partial<Record<ChartManageFilterKey, ChartManagementPersistedFilter>> = {};
+  for (const key of CHART_MANAGE_FILTER_KEYS) {
+    filters[key] = {
+      mode: filterState.activeModes[key],
+      values: Array.from(filterState.activeFilters[key]).filter(Boolean)
+    };
+  }
+  const state: ChartManagementPersistedLibraryFilters = {
+    version: 1,
+    query: dom.manageChartSearchInput?.value || '',
+    filters,
+    savedAt: Date.now()
+  };
+  try {
+    window.localStorage.setItem(CHART_MANAGEMENT_LIBRARY_FILTERS_KEY, JSON.stringify(state));
+  } catch {
+    // Losing filter preferences should never block library browsing.
+  }
+}
+
 function renderCachedManageStateIfAvailable(): void {
   const cache = readChartManagementSessionCache();
   if (!cache) return;
@@ -256,6 +331,7 @@ function selectFilterValue(key: ChartManageFilterKey, value: string, values: Cha
   selectChartManagementFilterValue({ filterState, key, value, values });
   libraryPreviewStartIndex = 0;
   renderFacets();
+  persistLibraryFilters();
   renderManageCharts();
 }
 
@@ -458,6 +534,7 @@ function renderFacets() {
     getPageClassName,
     onSelectFilterValue: selectFilterValue
   });
+  persistLibraryFilters();
 }
 
 function renderManageCharts() {
@@ -1614,6 +1691,7 @@ async function loadManageState() {
 function bindChartManagementEvents() {
   dom.manageChartSearchInput?.addEventListener('input', () => {
     libraryPreviewStartIndex = 0;
+    persistLibraryFilters();
     renderManageCharts();
   });
   window.addEventListener('resize', () => {
@@ -1661,6 +1739,7 @@ function bindChartManagementEvents() {
 export function initializeChartManagementPage(mode: ChartManagementMode) {
   activeMode = mode;
   initializeSharpElevenTheme();
+  applyPersistedLibraryFilters();
   chartEntryActions = createChartEntryActionsController({
     getState: () => ({ documents: currentDocuments, setlists: currentSetlists }),
     persistState: persistMetadataState,
