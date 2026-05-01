@@ -15,7 +15,8 @@ import {
   createPracticeSessionFromChartDocumentWithPlaybackPlan,
   createPracticeSessionFromChartSelection,
   createPracticeSessionFromSelectedChartDocument,
-  createSelectedChartDocument
+  createSelectedChartDocument,
+  transposeChordSymbol
 } from '../chart/node-index.mjs';
 import { decodePlaylistRaw } from '../chart/ireal-decoder.mjs';
 import { createEmbeddedPlaybackRuntime } from '../src/core/playback/embedded-playback-runtime.ts';
@@ -3595,6 +3596,19 @@ const satinSession = createPracticeSessionFromChartDocument(satinDoll, { playbac
 assert.equal(satinSession.schemaVersion, PRACTICE_SESSION_CONTRACT.schemaVersion, 'Practice sessions expose the stable schema version.');
 assert.equal(satinSession.origin.mode, 'chart-document', 'Chart document sessions preserve their origin mode.');
 assert.equal(satinSession.playback.patternString.includes('|'), true, 'Chart document sessions derive legacy playback strings.');
+const satinTransposedSession = createPracticeSessionFromChartDocument(satinDoll, { playbackPlan: satinPlan, transposition: 2 });
+const satinFirstBeatSlot = satinSession.playback.bars.flatMap(bar => bar.beatSlots).find(Boolean);
+const satinFirstTransposedBeatSlot = satinTransposedSession.playback.bars.flatMap(bar => bar.beatSlots).find(Boolean);
+assert.equal(
+  satinFirstTransposedBeatSlot,
+  transposeChordSymbol(satinFirstBeatSlot, 2),
+  'Chart document sessions transpose playback beat slots, not only the visible chart.'
+);
+assert.notEqual(
+  satinTransposedSession.playback.enginePatternString,
+  satinSession.playback.enginePatternString,
+  'Transposed chart sessions update the engine pattern used by playback.'
+);
 
 const satinSessionViaExplicitPlan = createPracticeSessionFromChartDocumentWithPlaybackPlan(satinDoll, satinPlan);
 assert.deepEqual(
@@ -3614,6 +3628,14 @@ const selectedSession = createPracticeSessionFromSelectedChartDocument(selectedD
     mode: 'chart-selection'
   }
 });
+const selectedTransposedSession = createPracticeSessionFromSelectedChartDocument(selectedDocument, {
+  transposition: 5
+});
+assert.equal(
+  selectedTransposedSession.playback.bars[0]?.beatSlots?.[0],
+  transposeChordSymbol(selectedSession.playback.bars[0]?.beatSlots?.[0], 5),
+  'Selected chart playback sessions transpose the selected loop audio source too.'
+);
 assert.equal(selectedSession.selection.startBarId, 'bar-1', 'Selected chart document sessions infer the first selected bar.');
 assert.equal(selectedSession.selection.endBarId, 'bar-2', 'Selected chart document sessions infer the last selected bar.');
 

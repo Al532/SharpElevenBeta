@@ -64,6 +64,8 @@ Reference files:
 
 - `13_key_menu.png`
 - `13_key_menu.xml`
+- `18_key_menu_major.jpg`
+- `19_key_menu_minor.jpg`
 
 Open from the bottom-right key label, e.g. `F` or `D-` depending on the song.
 
@@ -78,8 +80,18 @@ Observed layout:
   - `Eb`, `E`, `F`
   - `Gb`, `G`, `Ab`
   - `A`, `Bb`, `B`
+- Minor-key capture uses a separate enharmonic spelling:
+  - `A-`, `Bb-`, `B-`
+  - `C-`, `C#-`, `D-`
+  - `Eb-`, `E-`, `F-`
+  - `F#-`, `G-`, `G#-`
 - Active key uses pale blue filled rounded rectangle.
 - Inactive keys are outlined rounded rectangles.
+
+Sharp Eleven keeps these enharmonic choices but displays its own minor grid from C upward and uses `m` instead of `-`:
+
+- Major: `C`, `Db`, `D`, `Eb`, `E`, `F`, `Gb`, `G`, `Ab`, `A`, `Bb`, `B`
+- Minor: `Cm`, `C#m`, `Dm`, `Ebm`, `Em`, `Fm`, `F#m`, `Gm`, `Abm`, `Am`, `Bbm`, `Bm`
 
 ## Mixer
 
@@ -163,4 +175,3 @@ Font submenu:
 - Close `X` at top left.
 - Selected row uses pale blue highlight.
 - Options include `Classique`, `Écriture à la main`, `System numérique`, `Guitare`, `Piano à une main`, `Piano à deux mains`, `Ukulélé`.
-

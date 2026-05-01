@@ -93,7 +93,7 @@ Responsibility: chart domain module and standalone chart screen.
 
 Keep here:
 
-- Chart import/decoding, interpretation, harmony, contextual qualities, and practice-session export.
+- Chart import/decoding, interpretation, harmony, reharmonization, contextual qualities, and practice-session export.
 - The standalone chart screen entrypoint, chart sheet CSS, and chart fixtures.
 - Node-facing exports used by tests or tooling.
 - Pure domain logic that does not depend on app DOM.
@@ -226,7 +226,7 @@ Responsibility: shared music-domain helpers and configuration.
 
 Keep here:
 
-- Harmony context, chord symbol display, swing utilities, voicing configuration, and piano rhythm/voicing constants.
+- Reharmonization rules, harmony context, chord symbol display, swing utilities, voicing configuration, and piano rhythm/voicing constants.
 - Music calculations that are independent from chart or drill UI.
 
 Refactor signals:

@@ -68,6 +68,24 @@
                 <option value="7">F instrument</option>
               </select>
             </label>
+            <label class="chart-select-field chart-chord-display-field" title="Original shows the chords as initially entered. Light shows a clearer simplified grid. Rich shows the chords as rendered by playback after reharmonization.">
+              <span>Chord display</span>
+              <select id="harmony-display-mode" aria-describedby="chord-display-help">
+                <option value="original" selected>Original</option>
+                <option value="light">Light</option>
+                <option value="rich">Rich</option>
+              </select>
+            </label>
+            <p id="chord-display-help" class="chart-field-help">
+              Shows the chords as initially entered.
+            </p>
+            <label class="chart-select-field chart-chord-enrichment-field">
+              <span>Chord enrichment</span>
+              <select id="chord-enrichment-mode">
+                <option value="off">None</option>
+                <option value="mainstream-jazz" selected>Mainstream jazz</option>
+              </select>
+            </label>
             <div class="chart-settings-section chart-settings-section-tight">
               <h3>Export</h3>
               <button id="export-chart-pdf-button" type="button" class="chart-action-button chart-action-button-secondary">Export PDF</button>
@@ -98,10 +116,23 @@
               <option value="full_swing" selected>Full swing drum pattern</option>
             </select>
           </label>
-          <label class="chart-select-field chart-key-field">
-            <span>Key</span>
-            <select id="transpose-select" aria-label="Chart key"></select>
-          </label>
+          <div class="chart-bottom-popover-wrap chart-key-field">
+            <select id="transpose-select" aria-label="Chart key" hidden></select>
+            <button id="chart-key-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
+              <span id="chart-key-button-label">C</span>
+            </button>
+            <div id="key-popover" class="chart-bottom-popover chart-key-popover" hidden>
+              <div class="chart-bottom-popover-title-row">
+                <span class="chart-bottom-popover-title">Transposition</span>
+              </div>
+              <section id="major-key-section" class="chart-key-section" aria-label="Major keys">
+                <div id="major-key-grid" class="chart-key-grid"></div>
+              </section>
+              <section id="minor-key-section" class="chart-key-section" aria-label="Minor keys" hidden>
+                <div id="minor-key-grid" class="chart-key-grid"></div>
+              </section>
+            </div>
+          </div>
         </div>
         <div class="chart-transport-bottom-row">
           <div class="chart-transport-meta">

@@ -13,6 +13,7 @@ import {
   createPracticeSessionSpec
 } from '../../core/models/practice-session.js';
 import { createChartPlaybackPlanFromDocument } from '../../../chart/chart-interpreter.js';
+import { transposeChordSymbol, transposeKeySymbol } from '../../../chart/chart-harmony.js';
 import { createChartDocument } from '../../../chart/chart-types.js';
 
 function buildSelectionTitle(baseTitle: string, startIndex: number | null, endIndex: number | null): string {
@@ -79,6 +80,7 @@ export function createPracticeSessionFromChartPlaybackPlan({
   source,
   title,
   tempo,
+  transposition = 0,
   selection = null,
   origin = null
 }: {
@@ -87,16 +89,26 @@ export function createPracticeSessionFromChartPlaybackPlan({
   source: string;
   title: string;
   tempo?: number;
+  transposition?: number;
   selection?: PracticeSessionSelection | null;
   origin?: PracticeSessionOrigin | null;
 }): PracticeSessionSpec {
+  const transposeSemitones = Number.isFinite(Number(transposition)) ? Number(transposition) : 0;
   const bars = createPracticePlaybackBarsFromChartEntries(
     playbackPlan?.entries || [],
     chartDocument?.metadata?.primaryTimeSignature || playbackPlan?.timeSignature || ''
+  ).map((bar) => ({
+    ...bar,
+    symbols: (bar.symbols || []).map((symbol) => transposeChordSymbol(symbol, transposeSemitones)),
+    beatSlots: (bar.beatSlots || []).map((symbol) => transposeChordSymbol(symbol, transposeSemitones))
+  }));
+  const displayKey = transposeKeySymbol(
+    chartDocument?.metadata?.displayKey || chartDocument?.metadata?.sourceKey || '',
+    transposeSemitones
   );
   const display: PracticeSessionDisplay = {
     sourceKey: chartDocument?.metadata?.sourceKey || '',
-    displayKey: chartDocument?.metadata?.displayKey || chartDocument?.metadata?.sourceKey || '',
+    displayKey: displayKey || chartDocument?.metadata?.displayKey || chartDocument?.metadata?.sourceKey || '',
     composer: chartDocument?.metadata?.composer || '',
     style: chartDocument?.metadata?.styleReference || chartDocument?.metadata?.style || ''
   };
@@ -116,7 +128,7 @@ export function createPracticeSessionFromChartPlaybackPlan({
 export function createPracticeSessionFromChartDocumentWithPlaybackPlan(
   chartDocument: ChartDocument,
   playbackPlan: ChartPlaybackPlan,
-  options: { tempo?: number } = {}
+  options: { tempo?: number; transposition?: number } = {}
 ): PracticeSessionSpec {
   return createPracticeSessionFromChartPlaybackPlan({
     chartDocument,
@@ -124,6 +136,7 @@ export function createPracticeSessionFromChartDocumentWithPlaybackPlan(
     source: 'chart',
     title: chartDocument?.metadata?.title || 'Chart',
     tempo: options.tempo,
+    transposition: options.transposition,
     origin: {
       chartId: chartDocument?.metadata?.id || '',
       mode: 'chart-document'
@@ -133,7 +146,7 @@ export function createPracticeSessionFromChartDocumentWithPlaybackPlan(
 
 export function createPracticeSessionFromChartDocument(
   chartDocument: ChartDocument,
-  options: { playbackPlan?: ChartPlaybackPlan; tempo?: number } = {}
+  options: { playbackPlan?: ChartPlaybackPlan; tempo?: number; transposition?: number } = {}
 ): PracticeSessionSpec {
   const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(chartDocument) as ChartPlaybackPlan;
   return createPracticeSessionFromChartDocumentWithPlaybackPlan(chartDocument, playbackPlan, options);
@@ -145,6 +158,7 @@ export function createPracticeSessionFromSelectedChartDocument(
     playbackPlan?: ChartPlaybackPlan;
     title?: string;
     tempo?: number;
+    transposition?: number;
     selection?: ChartSelection | Record<string, never>;
     origin?: PracticeSessionOrigin;
   } = {}
@@ -158,6 +172,7 @@ export function createPracticeSessionFromSelectedChartDocument(
     source: 'chart-selection',
     title: options.title || buildSelectionTitle(selectedChartDocument?.metadata?.title || 'Chart', selection.startBarIndex, selection.endBarIndex),
     tempo: options.tempo,
+    transposition: options.transposition,
     selection,
     origin: options.origin || {
       chartId: selectedChartDocument?.metadata?.id || '',
@@ -170,7 +185,7 @@ export function createPracticeSessionFromSelectedChartDocument(
 export function createPracticeSessionFromChartSelection(
   chartDocument: ChartDocument,
   selection: ChartSelection,
-  options: { tempo?: number } = {}
+  options: { tempo?: number; transposition?: number } = {}
 ): PracticeSessionSpec {
   const selectedBarIds = Array.isArray(selection?.barIds) ? selection.barIds : [];
   const selectedDocument = createSelectedChartDocument(chartDocument, selectedBarIds);

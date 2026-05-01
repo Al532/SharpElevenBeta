@@ -9,12 +9,16 @@ import type {
 } from '../src/core/types/contracts';
 
 import { createChartPlaybackPlan } from './chart-types.js';
-import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
+import {
+  CHORD_ENRICHMENT_MODES,
+  reharmonizeChordSlotCollections
+} from './reharm.js';
 
 const MAX_PLAYBACK_STEPS = 1024;
 
 type CreateChartPlaybackPlanFromDocumentOptions = {
-  stopAtFine?: boolean
+  stopAtFine?: boolean,
+  chordEnrichmentMode?: string
 };
 
 /**
@@ -350,8 +354,11 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
     });
   }
 
-  const contextualizedPlaybackSlotsByEntry = contextualizeChordSlotCollections(
-    entries.map((entry) => entry?.playbackSlots || [])
+  const contextualizedPlaybackSlotsByEntry = reharmonizeChordSlotCollections(
+    entries.map((entry) => entry?.playbackSlots || []),
+    {
+      enrichmentMode: options.chordEnrichmentMode || CHORD_ENRICHMENT_MODES.mainstreamJazz
+    }
   );
   entries.forEach((entry, entryIndex) => {
     entry.playbackSlots = contextualizedPlaybackSlotsByEntry[entryIndex] || [];

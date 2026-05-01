@@ -28,3 +28,10 @@ export {
   PRACTICE_SESSION_SCHEMA_VERSION
 } from '../src/core/models/practice-session.js';
 export { parseNoteSymbol, transposeChordSymbol, transposeKeySymbol } from './chart-harmony.js';
+export {
+  CHART_CHORD_DISPLAY_LEVELS,
+  CHORD_ENRICHMENT_MODES,
+  normalizeChartChordDisplayLevel,
+  normalizeChordEnrichmentMode,
+  reharmonizeChordSlotCollections
+} from './reharm.js';

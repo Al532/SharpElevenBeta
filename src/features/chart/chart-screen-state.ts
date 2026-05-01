@@ -55,16 +55,19 @@ export function updateChartMixerOutputs({
 
 export function syncChartSelectionSession({
   state,
-  getTempo
+  getTempo,
+  getTransposition
 }: {
   state?: Pick<ChartScreenState, 'selectionController' | 'currentChartDocument' | 'currentSelectionPracticeSession'>;
   getTempo?: () => number;
+  getTransposition?: () => number;
 } = {}): void {
   if (!state) return;
   const selection = state.selectionController.getSelection();
   state.currentSelectionPracticeSession = selection.barIds.length > 0 && state.currentChartDocument
     ? createPracticeSessionFromChartSelection(state.currentChartDocument, selection, {
-        tempo: getTempo?.()
+        tempo: getTempo?.(),
+        transposition: getTransposition?.() || 0
       })
     : null;
 }
@@ -72,6 +75,7 @@ export function syncChartSelectionSession({
 export function renderChartSelectionUi({
   state,
   getTempo,
+  getTransposition,
   selectionSummaryElement,
   clearSelectionButton,
   sendSelectionToPracticeButton,
@@ -79,6 +83,7 @@ export function renderChartSelectionUi({
 }: {
   state?: Pick<ChartScreenState, 'selectionController' | 'currentChartDocument' | 'currentSelectionPracticeSession' | 'currentPracticeSession'>;
   getTempo?: () => number;
+  getTransposition?: () => number;
   selectionSummaryElement?: HTMLElement | null;
   clearSelectionButton?: HTMLButtonElement | null;
   sendSelectionToPracticeButton?: HTMLButtonElement | null;
@@ -87,7 +92,8 @@ export function renderChartSelectionUi({
   if (!state) return;
   syncChartSelectionSession({
     state,
-    getTempo
+    getTempo,
+    getTransposition
   });
   const selection = state.selectionController.getSelection();
   renderChartSelectionState({

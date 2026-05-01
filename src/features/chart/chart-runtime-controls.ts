@@ -4,6 +4,7 @@ type BindChartRuntimeControlsOptions = {
   transposeSelect?: HTMLSelectElement | null,
   sheetGrid?: HTMLElement | null,
   harmonyDisplayMode?: HTMLSelectElement | null,
+  chordEnrichmentMode?: HTMLSelectElement | null,
   useChordSymbolV2?: HTMLInputElement | null,
   useMajorTriangleSymbol?: HTMLInputElement | null,
   useHalfDiminishedSymbol?: HTMLInputElement | null,
@@ -26,6 +27,7 @@ type BindChartRuntimeControlsOptions = {
   onTransposeChange?: EventListener | null,
   onBarClick?: EventListener | null,
   onHarmonyDisplayModeChange?: EventListener | null,
+  onChordEnrichmentModeChange?: EventListener | null,
   onSymbolToggleChange?: EventListener | null,
   onTempoChange?: EventListener | null,
   onPlaybackSettingChange?: EventListener | null,
@@ -48,6 +50,7 @@ export function bindChartRuntimeControls({
   transposeSelect,
   sheetGrid,
   harmonyDisplayMode,
+  chordEnrichmentMode,
   useChordSymbolV2,
   useMajorTriangleSymbol,
   useHalfDiminishedSymbol,
@@ -70,6 +73,7 @@ export function bindChartRuntimeControls({
   onTransposeChange,
   onBarClick,
   onHarmonyDisplayModeChange,
+  onChordEnrichmentModeChange,
   onSymbolToggleChange,
   onTempoChange,
   onPlaybackSettingChange,
@@ -85,6 +89,7 @@ export function bindChartRuntimeControls({
   fixtureSelect?.addEventListener('change', onFixtureChange);
   transposeSelect?.addEventListener('change', onTransposeChange);
   harmonyDisplayMode?.addEventListener('change', onHarmonyDisplayModeChange);
+  chordEnrichmentMode?.addEventListener('change', onChordEnrichmentModeChange);
 
   [
     useChordSymbolV2,

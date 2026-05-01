@@ -18,6 +18,8 @@ import { enforceBetaAccess } from '../src/features/app/app-beta-access.js';
 import {
   createChartDocumentsFromIRealText,
   parseNoteSymbol,
+  normalizeChartChordDisplayLevel,
+  normalizeChordEnrichmentMode,
   transposeKeySymbol
 } from './index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
@@ -145,7 +147,7 @@ const PLAYBACK_STATE_POLL_INTERVAL_MS = 120;
 const IREAL_SOURCE_URL = 'default-library.dat';
 const IREAL_DEFAULT_PLAYLISTS_URL = 'https://www.irealpro.com/main-playlists/';
 const IREAL_FORUM_TRACKS_URL = 'https://forums.irealpro.com/#songs.3';
-const HARMONY_DISPLAY_MODE_DEFAULT = 'default';
+const HARMONY_DISPLAY_MODE_LIGHT = 'light';
 const HARMONY_DISPLAY_MODE_RICH = 'rich';
 const CHART_PLAYBACK_BRIDGE_MODE = 'direct';
 const DEFAULT_MASTER_VOLUME_PERCENT = 50;
@@ -154,6 +156,34 @@ const DEFAULT_COMPING_STYLE = 'piano';
 const DEFAULT_BAR_GROUP_SIZE = CHART_DISPLAY_CONFIG.layout.barsPerRow;
 const CHART_RENDER_PERF_LOG_PREFIX = '[SharpEleven chart perf]';
 const CHART_RENDER_PERF_STORAGE_KEY = 'sharp-eleven-chart-render-perf';
+const CHART_MAJOR_KEY_TILES = Object.freeze([
+  { label: 'C', semitone: 0 },
+  { label: 'Db', semitone: 1 },
+  { label: 'D', semitone: 2 },
+  { label: 'Eb', semitone: 3 },
+  { label: 'E', semitone: 4 },
+  { label: 'F', semitone: 5 },
+  { label: 'Gb', semitone: 6 },
+  { label: 'G', semitone: 7 },
+  { label: 'Ab', semitone: 8 },
+  { label: 'A', semitone: 9 },
+  { label: 'Bb', semitone: 10 },
+  { label: 'B', semitone: 11 }
+]);
+const CHART_MINOR_KEY_TILES = Object.freeze([
+  { label: 'Cm', semitone: 0 },
+  { label: 'C#m', semitone: 1 },
+  { label: 'Dm', semitone: 2 },
+  { label: 'Ebm', semitone: 3 },
+  { label: 'Em', semitone: 4 },
+  { label: 'Fm', semitone: 5 },
+  { label: 'F#m', semitone: 6 },
+  { label: 'Gm', semitone: 7 },
+  { label: 'Abm', semitone: 8 },
+  { label: 'Am', semitone: 9 },
+  { label: 'Bbm', semitone: 10 },
+  { label: 'Bm', semitone: 11 }
+]);
 
 const {
   DEFAULT_DISPLAY_QUALITY_ALIASES = {},
@@ -338,6 +368,7 @@ function setInstrumentTransposition(value: string | number, { render = false }: 
   if (dom.transposeSelect && Array.from(dom.transposeSelect.options).some((option) => option.value === normalized)) {
     dom.transposeSelect.value = normalized;
   }
+  syncTransposeTileSelection();
   persistInstrumentTransposition();
   if (render) {
     renderFixture();
@@ -352,6 +383,7 @@ function syncChartPopoverButtonStates() {
   dom.chartMetadataButton?.setAttribute('aria-expanded', dom.chartMetadataPopover && !dom.chartMetadataPopover.hidden ? 'true' : 'false');
   dom.instrumentSettingsButton?.setAttribute('aria-expanded', dom.instrumentSettingsPopover && !dom.instrumentSettingsPopover.hidden ? 'true' : 'false');
   dom.tempoButton?.setAttribute('aria-expanded', dom.tempoPopover && !dom.tempoPopover.hidden ? 'true' : 'false');
+  dom.keyButton?.setAttribute('aria-expanded', dom.keyPopover && !dom.keyPopover.hidden ? 'true' : 'false');
   dom.mixerButton?.setAttribute('aria-expanded', dom.mixerPopover && !dom.mixerPopover.hidden ? 'true' : 'false');
 }
 
@@ -399,6 +431,7 @@ function persistPlaybackSettings() {
   persistChartScreenPlaybackSettings({
     playbackSettings: getPlaybackSettings(),
     harmonyDisplayMode: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
+    chordEnrichmentMode: normalizeChordEnrichmentMode(dom.chordEnrichmentMode?.value),
     useChordSymbolV2: false,
     useMajorTriangleSymbol: dom.useMajorTriangleSymbol?.checked !== false,
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
@@ -428,6 +461,12 @@ function applyPersistedPlaybackSettings() {
     dom.harmonyDisplayMode.value = normalizeHarmonyDisplayMode(persisted.harmonyDisplayMode);
   }
 
+  if (dom.chordEnrichmentMode && persisted.chordEnrichmentMode) {
+    dom.chordEnrichmentMode.value = normalizeChordEnrichmentMode(persisted.chordEnrichmentMode);
+  }
+
+  syncChordDisplayHelp();
+
   if (dom.useMajorTriangleSymbol && persisted.useMajorTriangleSymbol !== undefined) {
     dom.useMajorTriangleSymbol.checked = Boolean(persisted.useMajorTriangleSymbol);
   }
@@ -455,12 +494,25 @@ function applyPersistedPlaybackSettings() {
 }
 
 function normalizeHarmonyDisplayMode(mode: string | undefined) {
-  return [
-    HARMONY_DISPLAY_MODE_DEFAULT,
-    HARMONY_DISPLAY_MODE_RICH
-  ].includes(String(mode))
-    ? String(mode)
-    : HARMONY_DISPLAY_MODE_DEFAULT;
+  const normalized = String(mode || '');
+  if (normalized === 'default') return HARMONY_DISPLAY_MODE_LIGHT;
+  return normalizeChartChordDisplayLevel(normalized);
+}
+
+function getChordDisplayHelpText(displayMode: string) {
+  const normalizedMode = normalizeHarmonyDisplayMode(displayMode);
+  if (normalizedMode === HARMONY_DISPLAY_MODE_LIGHT) {
+    return 'Shows a lighter version, making the grid visually clearer.';
+  }
+  if (normalizedMode === HARMONY_DISPLAY_MODE_RICH) {
+    return 'Shows the chords as rendered by playback after reharmonization.';
+  }
+  return 'Shows the chords as initially entered.';
+}
+
+function syncChordDisplayHelp() {
+  if (!dom.chordDisplayHelp) return;
+  dom.chordDisplayHelp.textContent = getChordDisplayHelpText(dom.harmonyDisplayMode?.value || '');
 }
 
 function getDisplayAliasQuality(quality: string, displayMode: string) {
@@ -468,7 +520,10 @@ function getDisplayAliasQuality(quality: string, displayMode: string) {
   if (displayMode === HARMONY_DISPLAY_MODE_RICH) {
     return RICH_DISPLAY_QUALITY_ALIASES[quality] || quality;
   }
-  return DEFAULT_DISPLAY_QUALITY_ALIASES[quality] || quality;
+  if (displayMode === HARMONY_DISPLAY_MODE_LIGHT) {
+    return DEFAULT_DISPLAY_QUALITY_ALIASES[quality] || quality;
+  }
+  return quality;
 }
 
 function getAvailableDocuments(): ChartDocument[] {
@@ -578,6 +633,85 @@ function getTransposeSourceKey(chartDocument: ChartDocument | null | undefined) 
   return parseNoteSymbol(tonic) ? sourceKey : 'C';
 }
 
+function getTransposeSourceInfo(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  const sourceKey = getTransposeSourceKey(chartDocument);
+  const match = sourceKey.match(/^([A-G](?:b|#)?)([-m]?)$/);
+  const tonic = match?.[1] || 'C';
+  const parsed = parseNoteSymbol(tonic);
+  return {
+    sourceKey,
+    sourceSemitone: parsed?.semitone ?? 0,
+    isMinor: match?.[2] === '-' || match?.[2] === 'm'
+  };
+}
+
+function normalizeTransposeOffset(value: number) {
+  return ((value % 12) + 12) % 12;
+}
+
+function getTransposeOffsetForTarget(targetSemitone: number, chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  const { sourceSemitone } = getTransposeSourceInfo(chartDocument);
+  return normalizeTransposeOffset(targetSemitone - sourceSemitone);
+}
+
+function getTransposeTargetSemitone(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  const { sourceSemitone } = getTransposeSourceInfo(chartDocument);
+  return normalizeTransposeOffset(sourceSemitone + getChartTransposeSemitones());
+}
+
+function getTransposeButtonLabel(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  const targetSemitone = getTransposeTargetSemitone(chartDocument);
+  const tiles = getTransposeSourceInfo(chartDocument).isMinor ? CHART_MINOR_KEY_TILES : CHART_MAJOR_KEY_TILES;
+  return tiles.find((tile) => tile.semitone === targetSemitone)?.label || 'C';
+}
+
+function syncTransposeTileSelection() {
+  const selectedOffset = getChartTransposeSemitones();
+  const buttonLabel = getTransposeButtonLabel();
+  const selectedMode = getTransposeSourceInfo().isMinor ? 'minor' : 'major';
+  if (dom.keyButtonLabel) dom.keyButtonLabel.textContent = buttonLabel;
+  if (dom.majorKeySection) dom.majorKeySection.hidden = selectedMode !== 'major';
+  if (dom.minorKeySection) dom.minorKeySection.hidden = selectedMode !== 'minor';
+
+  [dom.majorKeyGrid, dom.minorKeyGrid].forEach((grid) => {
+    grid?.querySelectorAll<HTMLButtonElement>('.chart-key-tile').forEach((tile) => {
+      const isSelected = tile.dataset.offset === String(selectedOffset) && tile.dataset.mode === selectedMode;
+      tile.classList.toggle('is-selected', isSelected);
+      tile.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+  });
+}
+
+function renderTransposeTileGrid(grid: HTMLElement | null, tiles: readonly { label: string, semitone: number }[], mode: 'major' | 'minor') {
+  if (!grid) return;
+  grid.innerHTML = '';
+  tiles.forEach((tile) => {
+    const button = document.createElement('button');
+    const offset = getTransposeOffsetForTarget(tile.semitone);
+    button.type = 'button';
+    button.className = 'chart-key-tile';
+    button.dataset.offset = String(offset);
+    button.dataset.mode = mode;
+    button.textContent = tile.label;
+    button.setAttribute('aria-pressed', 'false');
+    button.addEventListener('click', () => {
+      if (dom.transposeSelect) dom.transposeSelect.value = String(offset);
+      handleChartTransposeChange();
+      if (dom.keyPopover) dom.keyPopover.hidden = true;
+      dom.keyButton?.setAttribute('aria-expanded', 'false');
+      syncTransposeTileSelection();
+      syncMobileOverlayDrawerLayout();
+    });
+    grid.appendChild(button);
+  });
+}
+
+function renderTransposeTiles() {
+  renderTransposeTileGrid(dom.majorKeyGrid, CHART_MAJOR_KEY_TILES, 'major');
+  renderTransposeTileGrid(dom.minorKeyGrid, CHART_MINOR_KEY_TILES, 'minor');
+  syncTransposeTileSelection();
+}
+
 function populateTransposeOptions(chartDocument: ChartDocument | null | undefined) {
   if (!dom.transposeSelect || !chartDocument) return;
   const chartId = chartDocument.metadata?.id || '';
@@ -593,6 +727,7 @@ function populateTransposeOptions(chartDocument: ChartDocument | null | undefine
     dom.transposeSelect.appendChild(option);
   }
   setInstrumentTransposition(dom.instrumentTransposeSelect?.value || '0');
+  renderTransposeTiles();
 }
 
 function handleChartTransposeChange() {
@@ -601,6 +736,7 @@ function handleChartTransposeChange() {
     dom.instrumentTransposeSelect.value = value;
     persistInstrumentTransposition();
   }
+  syncTransposeTileSelection();
   renderFixture();
 }
 
@@ -665,6 +801,8 @@ function setTempo(value: number | string, { syncPlayback = false }: { syncPlayba
 function closeBottomPopovers() {
   if (dom.tempoPopover) dom.tempoPopover.hidden = true;
   if (dom.tempoButton) dom.tempoButton.setAttribute('aria-expanded', 'false');
+  if (dom.keyPopover) dom.keyPopover.hidden = true;
+  if (dom.keyButton) dom.keyButton.setAttribute('aria-expanded', 'false');
   if (dom.mixerPopover) dom.mixerPopover.hidden = true;
   if (dom.mixerButton) dom.mixerButton.setAttribute('aria-expanded', 'false');
   syncChartPopoverButtonStates();
@@ -698,6 +836,33 @@ function bindBottomControlPopovers() {
     event.stopPropagation();
   });
 
+  dom.keyButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (isMetadataPopoverActive()) {
+      event.preventDefault();
+      closeBottomPopovers();
+      return;
+    }
+    const willOpen = Boolean(dom.keyPopover?.hidden);
+    closeAllChartPopovers((createChartPopoverBindings({
+      popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
+    }) as { popovers: Array<HTMLElement | null> }).popovers);
+    dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
+    if (dom.tempoPopover) dom.tempoPopover.hidden = true;
+    dom.tempoButton?.setAttribute('aria-expanded', 'false');
+    if (dom.mixerPopover) dom.mixerPopover.hidden = true;
+    dom.mixerButton?.setAttribute('aria-expanded', 'false');
+    renderTransposeTiles();
+    if (dom.keyPopover) dom.keyPopover.hidden = !willOpen;
+    dom.keyButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    syncChartPopoverButtonStates();
+    syncMobileOverlayDrawerLayout();
+  });
+
+  dom.keyPopover?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
   dom.mixerButton?.addEventListener('click', (event) => {
     event.stopPropagation();
     if (isMetadataPopoverActive()) {
@@ -712,6 +877,8 @@ function bindBottomControlPopovers() {
     dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
     if (dom.tempoPopover) dom.tempoPopover.hidden = true;
     dom.tempoButton?.setAttribute('aria-expanded', 'false');
+    if (dom.keyPopover) dom.keyPopover.hidden = true;
+    dom.keyButton?.setAttribute('aria-expanded', 'false');
     if (dom.mixerPopover) dom.mixerPopover.hidden = !willOpen;
     syncChartPopoverButtonStates();
     syncMobileOverlayDrawerLayout();
@@ -888,6 +1055,7 @@ function renderSelectionState() {
   renderChartSelectionUi(createChartSelectionRenderBindings({
     state,
     getTempo,
+    getTransposition: getChartTransposeSemitones,
     selectionSummaryElement: dom.selectionSummary,
     clearSelectionButton: dom.clearSelectionButton,
     sendSelectionToPracticeButton: dom.sendSelectionToPracticeButton,
@@ -1350,13 +1518,15 @@ function renderFixture() {
     state,
     fixtureSelect: dom.fixtureSelect,
     transposeSelect: dom.transposeSelect,
+    chordDisplayLevel: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
     tempoInput: dom.tempoInput,
     getAvailableDocuments,
     resetTempo: isNewChartSelection,
     stopPlayback,
     createPracticeSessionOptions: (playbackPlan) => ({
       playbackPlan,
-      tempo: getTempo()
+      tempo: getTempo(),
+      transposition: getChartTransposeSemitones()
     }),
     persistChartId,
     selectionController: state.selectionController,
@@ -1632,7 +1802,7 @@ function closeAllPopovers() {
 }
 
 function closeOpenPopovers() {
-  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.mixerPopover];
+  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.keyPopover, dom.mixerPopover];
   const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
   if (!hasOpenPopover) return false;
   closeAllPopovers();
@@ -1706,7 +1876,7 @@ function bindMobileOverlayDrawerLayout() {
 }
 
 function handleSyntheticAndroidBack() {
-  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.mixerPopover];
+  const popovers = [dom.manageChartsPopover, dom.instrumentSettingsPopover, dom.chartMetadataPopover, dom.tempoPopover, dom.keyPopover, dom.mixerPopover];
   const hasOpenPopover = popovers.some((popover) => popover && !popover.hidden);
   if (hasOpenPopover) {
     closeAllPopovers();
@@ -1983,6 +2153,7 @@ async function loadFixtures() {
         transposeSelect: dom.transposeSelect,
         sheetGrid: dom.sheetGrid,
         harmonyDisplayMode: dom.harmonyDisplayMode,
+        chordEnrichmentMode: dom.chordEnrichmentMode,
         useChordSymbolV2: dom.useChordSymbolV2,
         useMajorTriangleSymbol: dom.useMajorTriangleSymbol,
         useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol,
@@ -2004,8 +2175,12 @@ async function loadFixtures() {
         onFixtureChange: renderFixture,
         onTransposeChange: handleChartTransposeChange,
         onHarmonyDisplayModeChange: () => {
+          syncChordDisplayHelp();
           persistPlaybackSettings();
           renderFixture();
+        },
+        onChordEnrichmentModeChange: () => {
+          persistPlaybackSettings();
         },
         onSymbolToggleChange: () => {
           persistPlaybackSettings();

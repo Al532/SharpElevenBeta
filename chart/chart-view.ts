@@ -5,7 +5,12 @@ import type {
 
 import { cloneChartDocument } from './chart-types.js';
 import { transposeChordSymbol, transposeKeySymbol } from './chart-harmony.js';
-import { contextualizeChordSlotCollections } from './chart-contextual-qualities.js';
+import {
+  CHART_CHORD_DISPLAY_LEVELS,
+  CHORD_ENRICHMENT_MODES,
+  normalizeChartChordDisplayLevel,
+  reharmonizeChordSlotCollections
+} from './reharm.js';
 
 /**
  * @param {any} token
@@ -78,6 +83,7 @@ function getNotationDisplayTokens(bar) {
  * @param {ChartDocument} chartDocument
  * @param {{
  *   displayTransposeSemitones?: number,
+ *   chordDisplayLevel?: string,
  *   selectedBarId?: string | null,
  *   pageSize?: number
  * }} [options]
@@ -85,19 +91,30 @@ function getNotationDisplayTokens(bar) {
  */
 export function createChartViewModel(chartDocument, {
   displayTransposeSemitones = 0,
+  chordDisplayLevel = CHART_CHORD_DISPLAY_LEVELS.original,
   selectedBarId = null,
   pageSize = 8
+}: {
+  displayTransposeSemitones?: number,
+  chordDisplayLevel?: string,
+  selectedBarId?: string | null,
+  pageSize?: number
 } = {}) {
   const sourceDocument = cloneChartDocument(chartDocument);
-  const contextualizedPlaybackSlotsByBar = contextualizeChordSlotCollections(
-    sourceDocument.bars.map((bar) => /** @type {any} */ (bar)?.playback?.slots || [])
-  );
+  const normalizedDisplayLevel = normalizeChartChordDisplayLevel(chordDisplayLevel);
+  const shouldDisplayReharmonizedChords = normalizedDisplayLevel !== CHART_CHORD_DISPLAY_LEVELS.original;
+  const contextualizedPlaybackSlotsByBar = shouldDisplayReharmonizedChords
+    ? reharmonizeChordSlotCollections(
+        sourceDocument.bars.map((bar) => /** @type {any} */ (bar)?.playback?.slots || []),
+        { enrichmentMode: CHORD_ENRICHMENT_MODES.mainstreamJazz }
+      )
+    : sourceDocument.bars.map((bar) => JSON.parse(JSON.stringify(/** @type {any} */ (bar)?.playback?.slots || [])));
   const viewBars = sourceDocument.bars.map((bar, index) => {
     const sourceBar = /** @type {any} */ (bar);
     return ({
       ...sourceBar,
       isSelected: sourceBar.id === selectedBarId,
-      displayTokens: (sourceBar.notation.kind === 'written'
+      displayTokens: (shouldDisplayReharmonizedChords && sourceBar.notation.kind === 'written'
         ? applyContextualizedPlaybackSlotsToNotationTokens(
             sourceBar.notation.tokens || [],
             contextualizedPlaybackSlotsByBar[index] || []
