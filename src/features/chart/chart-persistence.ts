@@ -12,6 +12,11 @@ import {
   mergeChartSourceRefs,
   normalizeChartLibraryDocument
 } from './chart-library.js';
+import {
+  appendIRealBehaviorTestCharts,
+  isIRealBehaviorTestChart,
+  removeIRealBehaviorTestCharts
+} from '../../../chart/ireal-behavior-test-fixtures.js';
 
 const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
 const CHART_LIBRARY_STORE_NAME = 'libraries';
@@ -28,6 +33,10 @@ type ChartLibraryPayload = {
   source: string;
   documents: ChartDocument[];
   lastImportSummary?: ChartImportSummary;
+};
+
+type LoadPersistedChartLibraryOptions = {
+  includeIRealBehaviorTestCharts?: boolean;
 };
 
 export type ChartImportSummary = {
@@ -165,6 +174,17 @@ async function normalizePersistedChartLibrary(
   };
 }
 
+function applyTemporaryChartFixtures(
+  library: ChartLibraryPayload | null,
+  { includeIRealBehaviorTestCharts = true }: LoadPersistedChartLibraryOptions = {}
+): ChartLibraryPayload | null {
+  if (!library || !includeIRealBehaviorTestCharts) return library;
+  return {
+    ...library,
+    documents: appendIRealBehaviorTestCharts(library.documents)
+  };
+}
+
 function normalizeChartImportSummary(value: unknown): ChartImportSummary | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const summary = value as Partial<ChartImportSummary>;
@@ -283,7 +303,7 @@ function normalizeHomeChartSummary(value: unknown): HomeChartSummary | null {
 }
 
 function createHomeChartSummary(library: ChartLibraryPayload | null): HomeChartSummary | null {
-  const documents = library?.documents || [];
+  const documents = removeIRealBehaviorTestCharts(library?.documents || []);
   if (documents.length === 0) return null;
 
   const documentsById = new Map(
@@ -356,6 +376,7 @@ function updateHomeChartSummaryRecentChart(chartDocument: ChartDocument | null |
 
 export function recordRecentChartDocument(chartDocument: ChartDocument | null | undefined): void {
   if (!chartDocument?.metadata?.id) return;
+  if (isIRealBehaviorTestChart(chartDocument)) return;
   persistChartId(String(chartDocument.metadata.id || ''), {
     chartDocument
   });
@@ -727,7 +748,9 @@ export function persistPlaybackSettings({
   }
 }
 
-export async function loadPersistedChartLibrary(): Promise<ChartLibraryPayload | null> {
+export async function loadPersistedChartLibrary(
+  options: LoadPersistedChartLibraryOptions = {}
+): Promise<ChartLibraryPayload | null> {
   try {
     const database = await openChartLibraryDatabase();
     if (database) {
@@ -735,7 +758,10 @@ export async function loadPersistedChartLibrary(): Promise<ChartLibraryPayload |
         const transaction = database.transaction(CHART_LIBRARY_STORE_NAME, 'readonly');
         const store = transaction.objectStore(CHART_LIBRARY_STORE_NAME);
         const persistedValue = await waitForRequest(store.get(IMPORTED_CHART_LIBRARY_KEY));
-        return normalizePersistedChartLibrary(persistedValue);
+        return applyTemporaryChartFixtures(
+          await normalizePersistedChartLibrary(persistedValue),
+          options
+        );
       } finally {
         database.close();
       }
@@ -745,7 +771,10 @@ export async function loadPersistedChartLibrary(): Promise<ChartLibraryPayload |
   }
 
   const chartUiSettings = loadChartUiSettings();
-  return normalizePersistedChartLibrary(chartUiSettings?.importedChartLibrary);
+  return applyTemporaryChartFixtures(
+    await normalizePersistedChartLibrary(chartUiSettings?.importedChartLibrary),
+    options
+  );
 }
 
 export async function persistChartLibrary({
@@ -759,7 +788,7 @@ export async function persistChartLibrary({
 }): Promise<ChartLibraryPayload | null> {
   const normalizedLibrary = await normalizePersistedChartLibrary({
     source,
-    documents
+    documents: removeIRealBehaviorTestCharts(documents)
   });
 
   if (!normalizedLibrary) {
@@ -779,7 +808,9 @@ export async function persistChartLibrary({
   };
   try {
     if (mergeWithExisting) {
-      const existingLibrary = await loadPersistedChartLibrary();
+      const existingLibrary = await loadPersistedChartLibrary({
+        includeIRealBehaviorTestCharts: false
+      });
       if (existingLibrary?.documents?.length) {
         mergedLibrary = mergePersistedChartLibrary(
           existingLibrary,
@@ -804,7 +835,7 @@ export async function persistChartLibrary({
         importedChartLibrarySource: mergedLibrary.source,
         homeChartSummary: createHomeChartSummary(mergedLibrary)
       });
-      return mergedLibrary;
+      return applyTemporaryChartFixtures(mergedLibrary);
     }
     try {
       const storeNames = database.objectStoreNames.contains(CHART_DOCUMENT_STORE_NAME)
@@ -840,7 +871,7 @@ export async function persistChartLibrary({
     });
   }
 
-  return mergedLibrary;
+  return applyTemporaryChartFixtures(mergedLibrary);
 }
 
 export async function loadPersistedSetlists(): Promise<ChartSetlist[]> {

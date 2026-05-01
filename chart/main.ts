@@ -124,7 +124,6 @@ import {
   measureChartTextScaleCompensation,
   syncChartCutoutPadding
 } from '../src/features/chart/chart-display-css.js';
-import { appendIRealBehaviorTestCharts } from './ireal-behavior-test-fixtures.js';
 import {
   getChartBackHref,
   getChartBackOrigin,
@@ -612,7 +611,6 @@ const {
   setImportStatus,
   getRequestedPlaylist,
   applySearchFilter,
-  augmentDocuments: appendIRealBehaviorTestCharts,
   getChartRenderPerfNow,
   logChartRenderPerf
 });

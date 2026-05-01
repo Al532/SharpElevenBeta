@@ -172,3 +172,13 @@ export function appendIRealBehaviorTestCharts(documents: ChartDocument[] = []): 
     ...testCharts
   ];
 }
+
+export function isIRealBehaviorTestChart(document: ChartDocument | null | undefined): boolean {
+  const documentId = String(document?.metadata?.id || '');
+  if (documentId.startsWith('ireal-behavior-')) return true;
+  return document?.source?.sourceRefs?.some((sourceRef) => sourceRef.name === IREAL_BEHAVIOR_TEST_SOURCE) === true;
+}
+
+export function removeIRealBehaviorTestCharts(documents: ChartDocument[] = []): ChartDocument[] {
+  return documents.filter((document) => !isIRealBehaviorTestChart(document));
+}

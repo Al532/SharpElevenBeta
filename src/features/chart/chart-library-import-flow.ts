@@ -25,7 +25,6 @@ type ChartLibraryImportFlowOptions = {
   setImportStatus: (message: string, isError?: boolean) => void;
   getRequestedPlaylist: () => string;
   applySearchFilter: () => void;
-  augmentDocuments?: (documents: ChartDocument[]) => ChartDocument[];
   getChartRenderPerfNow: () => number;
   logChartRenderPerf: (label: string, startedAt: number, details?: Record<string, unknown>) => void;
 };
@@ -39,7 +38,6 @@ export function createChartLibraryImportFlow({
   setImportStatus,
   getRequestedPlaylist,
   applySearchFilter,
-  augmentDocuments = (documents) => documents,
   getChartRenderPerfNow,
   logChartRenderPerf
 }: ChartLibraryImportFlowOptions) {
@@ -70,7 +68,6 @@ export function createChartLibraryImportFlow({
     statusMessage?: string,
     renderSelectedChart?: boolean
   }) {
-    documents = augmentDocuments(documents);
     state.fixtureLibrary = {
       source,
       documents
