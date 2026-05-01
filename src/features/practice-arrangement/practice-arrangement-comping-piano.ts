@@ -616,21 +616,6 @@ function resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, 
   return changed;
 }
 
-function isSlotPlayable(slotIndex, chosenSlots) {
-  return !chosenSlots.has(slotIndex - 1)
-    && !chosenSlots.has(slotIndex)
-    && !chosenSlots.has(slotIndex + 1);
-}
-
-function findCandidateSlotIndices(startSlot, endBeat, totalSlots, swingRatio = DEFAULT_SWING_RATIO) {
-  const candidates = [];
-  for (let slotIndex = Math.max(0, startSlot); slotIndex < totalSlots; slotIndex++) {
-    if (getSlotTimeBeats(slotIndex, swingRatio) >= endBeat) break;
-    candidates.push(slotIndex);
-  }
-  return candidates;
-}
-
 function buildPianoPlanEvent({
   slot,
   blocks,
@@ -668,6 +653,8 @@ function buildPianoPlanEvent({
     targetChordIdx,
     targetVoicingChordIdx: targetChordIdx,
     targetBlockIdx,
+    representedBlockIdx: targetBlockIdx,
+    representationOverrideReason: null,
     timeBeats,
     slotIndex: slot,
     slotKind: getSlotKind(slot),
@@ -736,6 +723,73 @@ function annotatePianoOneStepRuns(events) {
   }
 }
 
+function assignLooseBlockRepresentations(events, blocks, {
+  preRepresentedBlockIndices = new Set(),
+  debugInfo = null,
+} = {}) {
+  if (!Array.isArray(events) || !events.length || !Array.isArray(blocks) || !blocks.length) {
+    return events;
+  }
+
+  const eligibleEvents = events.filter(event =>
+    !event.targetsNextProgression
+    && !event.isAnticipation
+    && Number.isInteger(event.targetBlockIdx)
+    && blocks[event.targetBlockIdx]
+  );
+  const representedCounts = new Map();
+  for (const blockIdx of preRepresentedBlockIndices) {
+    representedCounts.set(blockIdx, (representedCounts.get(blockIdx) || 0) + 1);
+  }
+  for (const event of eligibleEvents) {
+    event.representedBlockIdx = event.targetBlockIdx;
+    representedCounts.set(event.targetBlockIdx, (representedCounts.get(event.targetBlockIdx) || 0) + 1);
+  }
+
+  const overrides = [];
+  for (const block of blocks) {
+    if (representedCounts.has(block.blockIdx)) continue;
+
+    let selectedEvent = null;
+    let selectedDistance = Infinity;
+    for (const event of eligibleEvents) {
+      const currentBlockIdx = Number.isInteger(event.representedBlockIdx)
+        ? event.representedBlockIdx
+        : event.targetBlockIdx;
+      if ((representedCounts.get(currentBlockIdx) || 0) <= 1) continue;
+
+      const distance = Math.abs((Number(event.timeBeats) || 0) - block.startBeat);
+      if (distance < selectedDistance) {
+        selectedDistance = distance;
+        selectedEvent = event;
+      }
+    }
+
+    if (!selectedEvent) continue;
+
+    const previousBlockIdx = Number.isInteger(selectedEvent.representedBlockIdx)
+      ? selectedEvent.representedBlockIdx
+      : selectedEvent.targetBlockIdx;
+    representedCounts.set(previousBlockIdx, Math.max(0, (representedCounts.get(previousBlockIdx) || 0) - 1));
+    selectedEvent.representedBlockIdx = block.blockIdx;
+    selectedEvent.representationOverrideReason = 'missing-block-nearest-duplicate';
+    representedCounts.set(block.blockIdx, 1);
+    overrides.push({
+      slotIndex: selectedEvent.slotIndex,
+      timeBeats: selectedEvent.timeBeats,
+      fromBlockIdx: previousBlockIdx,
+      toBlockIdx: block.blockIdx,
+      reason: selectedEvent.representationOverrideReason,
+    });
+  }
+
+  if (debugInfo && overrides.length) {
+    debugInfo.harmonyRepresentationOverrides = overrides;
+  }
+
+  return events;
+}
+
 function createPianoPlan({
   chords,
   key = null,
@@ -785,12 +839,12 @@ function createPianoPlan({
     Number.isInteger(reservedEndingSlotIndex)
     && candidateSlot === reservedEndingSlotIndex
   );
-  const representedBlocks = new Set(hasIncomingAnticipation ? [0] : []);
   const minimumStartSlot = getBoundaryBlockedSlotCount(totalSlots, previousTailBeats, hasIncomingAnticipation, swingRatio);
   const debugInfo = {
     jumpDecisions: [],
     slotSources: new Map(),
     endingResolution: null,
+    harmonyRepresentationOverrides: [],
   };
   let slotIndex = Math.max(
     minimumStartSlot,
@@ -871,76 +925,15 @@ function createPianoPlan({
     slotIndex = destinationSlot;
   }
 
-  const ensureBlockRepresentation = (block) => {
-    if (representedBlocks.has(block.blockIdx)) return;
-
-    const blockStartSlot = block.startBeat * 2;
-    const blockCandidateStartSlot = block.blockIdx === 0
-      ? Math.max(minimumStartSlot, blockStartSlot)
-      : blockStartSlot;
-    const allBlockCandidateSlots = findCandidateSlotIndices(blockCandidateStartSlot, block.usefulEndBeat, totalSlots, swingRatio)
-      .filter(candidateSlot => {
-        if (isBlockedSlot(candidateSlot) || isReservedEndingSlot(candidateSlot)) return false;
-        const timeBeats = getSlotTimeBeats(candidateSlot, swingRatio);
-        const candidateBlock = getBlockForTime(blocks, timeBeats);
-        return Boolean(candidateBlock && candidateBlock.blockIdx === block.blockIdx);
-      });
-    const candidateSlots = allBlockCandidateSlots
-      .filter(candidateSlot => {
-        return isSlotPlayable(candidateSlot, chosenSlots);
-      });
-
-    if (candidateSlots.length === 0 && allBlockCandidateSlots.length === 0) return;
-
-    const preferredSlot = candidateSlots.find(candidateSlot => candidateSlot >= (block.startBeat * 2))
-      ?? candidateSlots[candidateSlots.length - 1]
-      ?? allBlockCandidateSlots.find(candidateSlot => candidateSlot >= (block.startBeat * 2))
-      ?? allBlockCandidateSlots[allBlockCandidateSlots.length - 1];
-
-    if (block.blockIdx === 0 && !isSlotPlayable(preferredSlot, chosenSlots)) {
-      chosenSlots.delete(preferredSlot - 1);
-      chosenSlots.delete(preferredSlot);
-      chosenSlots.delete(preferredSlot + 1);
-    }
-
-    chosenSlots.add(preferredSlot);
-    debugInfo.slotSources.set(preferredSlot, {
-      stage: 'block-representation',
-      blockIdx: block.blockIdx,
-      blockStartBeat: block.startBeat,
-      blockUsefulEndBeat: block.usefulEndBeat,
-      candidateSlotsCount: candidateSlots.length,
-      allBlockCandidateSlotsCount: allBlockCandidateSlots.length,
-    });
-    if (isBlockedSlot(preferredSlot) || isReservedEndingSlot(preferredSlot)) {
-      chosenSlots.delete(preferredSlot);
-      return;
-    }
-    representedBlocks.add(block.blockIdx);
-  };
-
-  const events = buildSortedPianoPlanEvents(chosenSlots, eventOptions);
-
-  for (const event of events) {
-    if (event.targetsNextProgression) {
-      representedBlocks.add(0);
-      continue;
-    }
-    const targetBlock = blocks[event.targetBlockIdx];
-    if (targetBlock && event.timeBeats < targetBlock.usefulEndBeat) {
-      representedBlocks.add(targetBlock.blockIdx);
-    }
-  }
-
-  for (const block of blocks) {
-    ensureBlockRepresentation(block);
-  }
-
   resolveSlotsBeforeReservedEnding(chosenSlots, reservedEndingSlotIndex, activeMode, secondsPerBeat, debugInfo);
 
   const finalEvents = buildSortedPianoPlanEvents(chosenSlots, eventOptions);
   annotatePianoEventSpacing(finalEvents, blocks);
   annotatePianoOneStepRuns(finalEvents);
+  assignLooseBlockRepresentations(finalEvents, blocks, {
+    preRepresentedBlockIndices: new Set(hasIncomingAnticipation ? [0] : []),
+    debugInfo,
+  });
 
   logZeroWeightTwoSlotJumpDiagnostics(
     collectZeroWeightTwoSlotJumpDiagnostics({
@@ -972,15 +965,30 @@ function createPianoPlan({
   const playbackEvents = finalEvents
     .map((event) => {
       const sourceBlock = blocks[event.sourceBlockIdx] || null;
+      const representedBlockIdx = !event.targetsNextProgression
+        && !event.isAnticipation
+        && Number.isInteger(event.representedBlockIdx)
+        ? event.representedBlockIdx
+        : event.targetBlockIdx;
+      const representedBlock = blocks[representedBlockIdx] || null;
+      const hasRepresentationOverride = Boolean(
+        representedBlock
+        && representedBlock.blockIdx !== event.targetBlockIdx
+        && !event.targetsNextProgression
+        && !event.isAnticipation
+      );
       const chordProgressInBlock = sourceBlock
         ? Math.max(0, Math.min(
             sourceBlock.endChordIdx - sourceBlock.startChordIdx,
             Math.floor((event.timeBeats - sourceBlock.startBeat) / beatsPerChord)
           ))
         : 0;
-      const repeatedChordIdx = sourceBlock
+      const naturalRepeatedChordIdx = sourceBlock
         ? sourceBlock.startChordIdx + chordProgressInBlock
         : event.targetVoicingChordIdx;
+      const repeatedChordIdx = hasRepresentationOverride
+        ? representedBlock.startChordIdx
+        : naturalRepeatedChordIdx;
       const planChord = event.targetsNextProgression
         ? (nextFirstChord || null)
         : (event.isAnticipation
@@ -989,6 +997,7 @@ function createPianoPlan({
 
       return {
         ...event,
+        representedBlockIdx,
         repeatedChordIdx,
         planChord,
         planKey: event.targetsNextProgression ? nextKey : key,
