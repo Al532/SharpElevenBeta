@@ -36,10 +36,14 @@ export function createPracticePlaybackSessionAdapter({
   getCurrentKey,
   preloadNearTermSamples,
   validateCustomPattern,
+  queuePerformanceCue,
   startPlayback,
   stopPlayback,
   togglePausePlayback
 }: CreatePracticePlaybackSessionAdapterOptions = {}) {
+  console.info('[chart-cue] create practice playback session adapter', {
+    hasQueuePerformanceCue: typeof queuePerformanceCue === 'function'
+  });
   return {
     loadSession(sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) {
       return applyEmbeddedPattern({
@@ -66,7 +70,21 @@ export function createPracticePlaybackSessionAdapter({
         drumsVolume: playbackSettings?.drumsVolume ?? null
       });
     },
-    queuePerformanceCue(cue) {
+    queuePerformanceCue(cue, sessionSpec, playbackSettings) {
+      const cueSessionSpec = cue?.playbackSession && typeof cue.playbackSession === 'object'
+        ? cue.playbackSession
+        : sessionSpec;
+      console.info('[chart-cue] practice adapter received cue', {
+        cue,
+        hasCustomHandler: typeof queuePerformanceCue === 'function',
+        sessionId: cueSessionSpec?.id || null,
+        playbackBarCount: cueSessionSpec?.playback?.bars?.length || 0,
+        cuePoints: cueSessionSpec?.playback?.performanceMap?.cuePoints || []
+      });
+      if (typeof queuePerformanceCue === 'function') {
+        return queuePerformanceCue(cue, cueSessionSpec || null, playbackSettings || {});
+      }
+      console.info('[chart-cue] practice adapter has no custom handler; returning noop success');
       return {
         ok: true,
         state: getEmbeddedPlaybackState?.(),

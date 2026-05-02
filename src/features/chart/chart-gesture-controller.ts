@@ -32,6 +32,14 @@ function isInteractiveControlTarget(target: EventTarget | null): boolean {
   return Boolean(element.closest('button, a, input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="button"], [role="textbox"]'));
 }
 
+function isChartMenuSurfaceTarget(target: EventTarget | null): boolean {
+  const element = getTargetElement(target);
+  if (!(element instanceof Element)) return false;
+  return Boolean(element.closest(
+    '.chart-top-overlay, .chart-bottom-overlay, .chart-popover, .chart-bottom-popover, .chart-performance-menu, .chart-selection-menu'
+  ));
+}
+
 function getBarCellFromTarget(target: EventTarget | null): HTMLElement | null {
   const element = getTargetElement(target);
   if (!(element instanceof HTMLElement)) return null;
@@ -313,6 +321,7 @@ export function createChartGestureController({
           return;
         }
       }
+      if (isChartMenuSurfaceTarget(event.target)) return;
       if (isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target)) {
         if (closePopoversBeforeOverlay()) {
           suppressNextClick();
@@ -343,7 +352,7 @@ export function createChartGestureController({
     }, true);
 
     document.addEventListener('touchstart', (event) => {
-      const startedInOverlay = isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target);
+      const startedInOverlay = isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target) && !isChartMenuSurfaceTarget(event.target);
       gesture.touchStartedInChart = isChartTapTarget(event.target) || startedInOverlay;
       gesture.touchStartedInOverlay = startedInOverlay;
       if (!gesture.touchStartedInChart) return;
@@ -391,6 +400,11 @@ export function createChartGestureController({
       }
       if (gesture.touchMoved) return;
       if (isEditableTarget(event.target)) return;
+      if (isChartMenuSurfaceTarget(event.target)) {
+        gesture.touchStartedInChart = false;
+        gesture.touchStartedInOverlay = false;
+        return;
+      }
       if (gesture.touchStartedInOverlay) {
         if (closePopoversBeforeOverlay()) {
           suppressNextClick();

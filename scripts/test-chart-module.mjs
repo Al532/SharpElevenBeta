@@ -13,7 +13,9 @@ import {
   createDefaultChartPerformance,
   createChartViewModel,
   getChartSimplePerformanceLabel,
+  markExecutedChartPerformanceCuesConsumed,
   normalizeChartSimplePerformanceState,
+  restoreConsumedChartPerformanceCues,
   createPracticeSessionExportFromPlaybackPlan,
   createPracticeSessionFromChartDocument,
   createPracticeSessionFromChartDocumentWithPlaybackPlan,
@@ -4130,6 +4132,58 @@ assert.deepEqual(
     createDefaultChartPerformance(vampInRepeatDocument).chartId,
     'vamp-in-repeat',
     'Default chart performances stay linked to the active chart id.'
+  );
+
+  const cueSessionResult = markExecutedChartPerformanceCuesConsumed([
+    {
+      id: 'cue-before-target',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: 8
+    },
+    {
+      id: 'cue-at-target',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: 4
+    },
+    {
+      id: 'cue-idle',
+      type: 'exit_repeat',
+      boundary: 'next_repeat_boundary',
+      status: 'idle'
+    }
+  ], 4);
+
+  assert.equal(cueSessionResult.changed, true, 'Reached performance cues are consumed for the active playback session.');
+  assert.deepEqual(
+    cueSessionResult.cues.map((cue) => ({ id: cue.id, status: cue.status, consumedAtBarIndex: cue.consumedAtBarIndex || null })),
+    [
+      { id: 'cue-before-target', status: 'armed', consumedAtBarIndex: null },
+      { id: 'cue-at-target', status: 'consumed', consumedAtBarIndex: 4 },
+      { id: 'cue-idle', status: 'idle', consumedAtBarIndex: null }
+    ],
+    'Consuming an executed cue preserves the cue object instead of deleting it.'
+  );
+
+  const restoredCueSessionResult = restoreConsumedChartPerformanceCues(cueSessionResult.cues);
+  assert.equal(restoredCueSessionResult.changed, true, 'Stopping playback restores session-consumed performance cues.');
+  assert.deepEqual(
+    restoredCueSessionResult.cues.map((cue) => ({
+      id: cue.id,
+      status: cue.status,
+      targetBarIndex: cue.targetBarIndex ?? null,
+      armedAtBarIndex: cue.armedAtBarIndex ?? null,
+      consumedAtBarIndex: cue.consumedAtBarIndex ?? null
+    })),
+    [
+      { id: 'cue-before-target', status: 'armed', targetBarIndex: 8, armedAtBarIndex: null, consumedAtBarIndex: null },
+      { id: 'cue-at-target', status: 'idle', targetBarIndex: null, armedAtBarIndex: null, consumedAtBarIndex: null },
+      { id: 'cue-idle', status: 'idle', targetBarIndex: null, armedAtBarIndex: null, consumedAtBarIndex: null }
+    ],
+    'Restored consumed cues return to the available idle state without removing unconsumed cues.'
   );
 }
 

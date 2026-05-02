@@ -18,6 +18,7 @@ type DrillDirectPlaybackRuntime = Pick<
   | 'buildPreparedBassPlan'
   | 'getCurrentKey'
   | 'preloadNearTermSamples'
+  | 'queuePerformanceCue'
   | 'validateCustomPattern'
 >;
 
@@ -67,6 +68,7 @@ export function createDirectDrillRuntimeAppContextOptions({
     buildPreparedBassPlan: playbackRuntime.buildPreparedBassPlan,
     getCurrentKey: playbackRuntime.getCurrentKey,
     preloadNearTermSamples: playbackRuntime.preloadNearTermSamples,
+    queuePerformanceCue: playbackRuntime.queuePerformanceCue,
     validateCustomPattern: playbackRuntime.validateCustomPattern,
     startPlayback: transportActions.startPlayback
       ? async () => {

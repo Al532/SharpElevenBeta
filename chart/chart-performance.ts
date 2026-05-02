@@ -1,6 +1,7 @@
 import type {
   ChartDocument,
   ChartPerformance,
+  ChartPerformanceCue,
   ChartPerformanceMap,
   ChartPerformancePanelMode,
   ChartPerformanceRepeatMode,
@@ -70,10 +71,60 @@ export function createDefaultChartPerformance(
     active: options.active !== false,
     repeatMode: normalizeChartPerformanceRepeatMode(options.repeatMode || 'finite'),
     repeatCount: Number.isFinite(Number(options.repeatCount))
-      ? Math.max(1, Math.min(32, Math.round(Number(options.repeatCount))))
+      ? Math.max(1, Math.min(15, Math.round(Number(options.repeatCount))))
       : 1,
     cues: Array.isArray(options.cues) ? JSON.parse(JSON.stringify(options.cues)) : [],
     updatedAt: timestamp
+  };
+}
+
+export function markExecutedChartPerformanceCuesConsumed(
+  cues: ChartPerformanceCue[] = [],
+  currentBarIndex: number
+): { cues: ChartPerformanceCue[]; changed: boolean } {
+  const playbackBarIndex = Number(currentBarIndex);
+  if (!Number.isFinite(playbackBarIndex) || playbackBarIndex <= 0) {
+    return { cues, changed: false };
+  }
+
+  let changed = false;
+  const nextCues = cues.map((cue) => {
+    if (cue.status !== 'armed') return cue;
+    const targetBarIndex = Number(cue.targetBarIndex || 0);
+    if (!targetBarIndex || playbackBarIndex < targetBarIndex) return cue;
+    changed = true;
+    return {
+      ...cue,
+      status: 'consumed',
+      consumedAtBarIndex: playbackBarIndex
+    };
+  });
+
+  return {
+    cues: changed ? nextCues : cues,
+    changed
+  };
+}
+
+export function restoreConsumedChartPerformanceCues(
+  cues: ChartPerformanceCue[] = []
+): { cues: ChartPerformanceCue[]; changed: boolean } {
+  let changed = false;
+  const nextCues = cues.map((cue) => {
+    if (cue.status !== 'consumed') return cue;
+    changed = true;
+    return {
+      ...cue,
+      status: 'idle',
+      targetBarIndex: null,
+      armedAtBarIndex: null,
+      consumedAtBarIndex: null
+    };
+  });
+
+  return {
+    cues: changed ? nextCues : cues,
+    changed
   };
 }
 

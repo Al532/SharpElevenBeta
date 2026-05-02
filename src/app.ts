@@ -1523,6 +1523,161 @@ let loopVoicingTemplate = null; // saved voicing plan from first loop iteration
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
 let nextPreviewLeadValue = DEFAULT_NEXT_PREVIEW_LEAD_BARS;
 let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
+let pendingPerformanceCueJump: { triggerStart: number; codaStart: number } | null = null;
+
+function getPlaybackBarBeatCount(bar: any) {
+  const beatSlots = Array.isArray(bar?.beatSlots) ? bar.beatSlots : [];
+  const symbols = Array.isArray(bar?.symbols) ? bar.symbols : [];
+  return Math.max(1, beatSlots.length || symbols.length || 1);
+}
+
+function getPlaybackBarOffsets(bars: any[] = []) {
+  let offset = 0;
+  return bars.map((bar) => {
+    const start = offset;
+    const beatCount = getPlaybackBarBeatCount(bar);
+    offset += beatCount;
+    return {
+      bar,
+      start,
+      end: start + beatCount
+    };
+  });
+}
+
+function findPlaybackOffsetForBarIndex(
+  offsets: Array<{ bar: any; start: number; end: number }>,
+  barIndex: number,
+  minimumOffset = 0
+) {
+  return offsets.find((entry) => Number(entry.bar?.index) === barIndex && entry.start >= minimumOffset) || null;
+}
+
+function getCueCodaTargetBarIndex(cue: any, sessionSpec: any) {
+  const triggerBarIndex = Number(cue?.targetBarIndex);
+  const cuePoints = Array.isArray(sessionSpec?.playback?.performanceMap?.cuePoints)
+    ? sessionSpec.playback.performanceMap.cuePoints
+    : [];
+  const targetPoint = cuePoints
+    .map((point: any) => ({ ...point, barIndex: Number(point?.barIndex) }))
+    .filter((point: any) => point.type === 'coda' && Number.isFinite(point.barIndex) && point.barIndex > triggerBarIndex)
+    .sort((a: any, b: any) => a.barIndex - b.barIndex)[0]
+    || cuePoints
+      .map((point: any) => ({ ...point, barIndex: Number(point?.barIndex) }))
+      .filter((point: any) => point.type === 'coda' && Number.isFinite(point.barIndex))
+      .sort((a: any, b: any) => b.barIndex - a.barIndex)[0];
+  console.info('[chart-cue] resolved coda target', {
+    triggerBarIndex,
+    cuePoints,
+    targetPoint
+  });
+  return Number.isFinite(targetPoint?.barIndex) ? targetPoint.barIndex : null;
+}
+
+function queueChartPerformanceCue(cue: any, sessionSpec: any) {
+  console.info('[chart-cue] runtime queue handler entered', {
+    cue,
+    sessionId: sessionSpec?.id || null,
+    currentChordIdx,
+    displayedCurrentChordIdx,
+    isPlaying,
+    isIntro,
+    playbackBarCount: sessionSpec?.playback?.bars?.length || 0,
+    cuePoints: sessionSpec?.playback?.performanceMap?.cuePoints || []
+  });
+  if (cue?.type !== 'arm_coda') {
+    console.info('[chart-cue] runtime ignored non-coda cue', cue);
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
+  const triggerBarIndex = Number(cue?.targetBarIndex);
+  const codaBarIndex = getCueCodaTargetBarIndex(cue, sessionSpec);
+  const bars = Array.isArray(sessionSpec?.playback?.bars) ? sessionSpec.playback.bars : [];
+  if (!Number.isFinite(triggerBarIndex) || !Number.isFinite(codaBarIndex) || bars.length === 0) {
+    console.warn('[chart-cue] runtime could not queue coda cue', {
+      triggerBarIndex,
+      codaBarIndex,
+      barsLength: bars.length
+    });
+    return {
+      ok: false,
+      errorMessage: 'No coda target is available for this cue.',
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
+  const offsets = getPlaybackBarOffsets(bars);
+  const triggerEntry = findPlaybackOffsetForBarIndex(offsets, triggerBarIndex, Math.max(0, currentChordIdx));
+  const codaEntry = triggerEntry
+    ? findPlaybackOffsetForBarIndex(offsets, codaBarIndex, triggerEntry.start)
+    : null;
+  console.info('[chart-cue] runtime computed cue offsets', {
+    triggerBarIndex,
+    codaBarIndex,
+    currentChordIdx,
+    triggerEntry,
+    codaEntry,
+    offsetsPreview: offsets.map((entry) => ({
+      index: Number(entry.bar?.index),
+      id: entry.bar?.id,
+      start: entry.start,
+      end: entry.end
+    }))
+  });
+  if (!triggerEntry || !codaEntry) {
+    console.warn('[chart-cue] runtime could not find upcoming trigger/coda entries', {
+      triggerEntry,
+      codaEntry
+    });
+    return {
+      ok: false,
+      errorMessage: 'No upcoming coda cue point was found in the active playback session.',
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
+  pendingPerformanceCueJump = {
+    triggerStart: triggerEntry.start,
+    codaStart: codaEntry.start
+  };
+  console.info('[chart-cue] runtime armed coda jump', pendingPerformanceCueJump);
+
+  return {
+    ok: true,
+    state: getEmbeddedPlaybackState?.(),
+    cue
+  };
+}
+
+function resolveQueuedPerformanceCueJump(chordIndex: number) {
+  if (!pendingPerformanceCueJump) return null;
+  console.info('[chart-cue] scheduler checked pending coda jump', {
+    chordIndex,
+    pendingPerformanceCueJump
+  });
+  if (chordIndex >= pendingPerformanceCueJump.codaStart) {
+    console.info('[chart-cue] scheduler clearing stale coda jump because playback is already at/after coda', {
+      chordIndex,
+      pendingPerformanceCueJump
+    });
+    pendingPerformanceCueJump = null;
+    return null;
+  }
+  if (chordIndex < pendingPerformanceCueJump.triggerStart) return null;
+  const targetIndex = pendingPerformanceCueJump.codaStart;
+  pendingPerformanceCueJump = null;
+  console.info('[chart-cue] scheduler resolved coda jump', {
+    chordIndex,
+    targetIndex
+  });
+  return targetIndex;
+}
 
 const {
   getSecondsPerBeat: tempoGetSecondsPerBeat,
@@ -2063,6 +2218,7 @@ const {
     getRepetitionsPerKey,
     getFinitePlayback: () => finitePlayback,
     getPlaybackEndingCue: () => playbackEndingCue,
+    resolvePerformanceCueJump: resolveQueuedPerformanceCueJump,
     getSecondsPerBeat,
     getSwingRatio,
     hideNextCol,
@@ -2796,7 +2952,8 @@ const {
     noteFadeout: NOTE_FADEOUT,
     rebuildPreparedCompingPlans,
     buildPreparedBassPlan,
-    preloadNearTermSamples
+    preloadNearTermSamples,
+    queuePerformanceCue: queueChartPerformanceCue
   },
   embeddedTransportActions: {},
   directPlaybackRuntime: {
@@ -2809,6 +2966,7 @@ const {
       rebuildPreparedCompingPlans,
       buildPreparedBassPlan,
       preloadNearTermSamples,
+      queuePerformanceCue: queueChartPerformanceCue,
       validateCustomPattern: () => validateCustomPattern()
     }
   },

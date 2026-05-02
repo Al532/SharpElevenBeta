@@ -72,6 +72,9 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
   playbackRuntime?: Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
   transportActions?: DrillEmbeddedTransportActions;
 } = {}) {
+  console.info('[chart-cue] embedded runtime app context boundary', {
+    hasPlaybackRuntimeQueuePerformanceCue: typeof playbackRuntime.queuePerformanceCue === 'function'
+  });
   return createEmbeddedPracticeRuntimeAppOptions({
     dom,
     stopIfPlaying() {
@@ -132,6 +135,7 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
     buildPreparedBassPlan: playbackRuntime.buildPreparedBassPlan,
     getCurrentKey: playbackRuntime.getCurrentKey,
     preloadNearTermSamples: playbackRuntime.preloadNearTermSamples,
+    queuePerformanceCue: playbackRuntime.queuePerformanceCue,
     startPlayback: async () => {
       await transportActions.startPlayback?.();
     },

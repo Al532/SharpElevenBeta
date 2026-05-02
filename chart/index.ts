@@ -13,10 +13,12 @@ export {
   createChartPerformanceMap,
   createDefaultChartPerformance,
   getChartSimplePerformanceLabel,
+  markExecutedChartPerformanceCuesConsumed,
   normalizeChartPerformance,
   normalizeChartPerformancePanelMode,
   normalizeChartPerformanceRepeatMode,
-  normalizeChartSimplePerformanceState
+  normalizeChartSimplePerformanceState,
+  restoreConsumedChartPerformanceCues
 } from './chart-performance.js';
 export { createChartDocumentFromIReal, createChartDocumentsFromIRealText } from './chart-import-ireal.js';
 export { createChartPlaybackPlanFromDocument } from './chart-interpreter.js';

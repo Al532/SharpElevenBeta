@@ -205,6 +205,7 @@ export type ChartPerformancePanelMode = 'infinite' | 'once' | 'performance';
 export type ChartPerformanceCueType =
   | 'arm_coda'
   | 'exit_repeat'
+  | 'modulate'
   | 'half_time'
   | 'double_time'
   | string;
@@ -220,6 +221,7 @@ export interface ChartPerformanceCue {
   boundary: ChartPerformanceCueBoundary;
   status?: 'queued' | 'armed' | 'consumed' | string;
   createdAt?: string;
+  playbackSession?: PracticeSessionSpec | null;
   [key: string]: unknown;
 }
 
@@ -260,6 +262,18 @@ export interface ChartPerformanceMap {
   cuePoints: Array<Record<string, unknown>>;
   sectionBoundaries: Array<Record<string, unknown>>;
   navigation: ChartPlaybackNavigation;
+  [key: string]: unknown;
+}
+
+export interface ChartUserSettings {
+  schemaVersion: ChartSchemaVersion;
+  chartId: string;
+  tempo?: number | null;
+  transposition?: number | string | null;
+  playbackSettings?: PlaybackSettings | null;
+  chartSimplePerformance?: ChartSimplePerformanceState | null;
+  chartPerformance?: ChartPerformance | null;
+  updatedAt: string;
   [key: string]: unknown;
 }
 
@@ -546,6 +560,7 @@ export interface PracticePlaybackControllerOptions {
   getCurrentKey?: () => number;
   preloadNearTermSamples?: () => Promise<unknown>;
   validateCustomPattern?: () => boolean;
+  queuePerformanceCue?: (cue: ChartPerformanceCue, sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) => Promise<PlaybackOperationResult | undefined> | PlaybackOperationResult | undefined;
   startPlayback?: () => Promise<void>;
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;

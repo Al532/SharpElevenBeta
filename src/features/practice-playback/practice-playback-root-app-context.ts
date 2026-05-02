@@ -234,6 +234,7 @@ export function createPracticePlaybackRootAppContext({
       rebuildPreparedCompingPlans = () => {},
       buildPreparedBassPlan = () => {},
       preloadNearTermSamples = () => Promise.resolve(),
+      queuePerformanceCue,
       validateCustomPattern = () => true
     } = helpers;
 
@@ -246,6 +247,7 @@ export function createPracticePlaybackRootAppContext({
       buildPreparedBassPlan,
       getCurrentKey,
       preloadNearTermSamples,
+      queuePerformanceCue,
       validateCustomPattern
     };
   })();

@@ -1,7 +1,10 @@
-import type { ChartDocument, PlaybackSettings } from '../../core/types/contracts.js';
+import type { ChartDocument, ChartUserSettings, PlaybackSettings } from '../../core/types/contracts.js';
 import {
+  deletePersistedChartUserSettings,
+  loadChartUserSettings as loadPersistedChartUserSettings,
   loadPersistedChartId as loadPersistedChartIdFromStorage,
   loadPersistedPlaybackSettings as loadPersistedChartPlaybackSettings,
+  persistChartUserSettings as persistPersistedChartUserSettings,
   persistPlaybackSettings as persistChartPlaybackSettings,
   persistChartId as persistChartIdToStorage
 } from './chart-persistence.js';
@@ -158,4 +161,16 @@ export function persistInstrumentTransposition(value: string | number | null | u
   } catch {
     // Ignore storage failures so the chart remains usable in restricted contexts.
   }
+}
+
+export function loadChartUserSettings(chartId: string) {
+  return loadPersistedChartUserSettings(chartId);
+}
+
+export function persistChartUserSettings(chartId: string, patch: Partial<ChartUserSettings>) {
+  return persistPersistedChartUserSettings(chartId, patch);
+}
+
+export function resetChartUserSettings(chartId: string) {
+  return deletePersistedChartUserSettings([chartId]);
 }

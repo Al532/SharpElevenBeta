@@ -17,6 +17,7 @@ type DrillDirectPlaybackRuntime = {
   buildPreparedBassPlan?: DirectPlaybackControllerOptions['buildPreparedBassPlan'];
   getCurrentKey?: DirectPlaybackControllerOptions['getCurrentKey'];
   preloadNearTermSamples?: DirectPlaybackControllerOptions['preloadNearTermSamples'];
+  queuePerformanceCue?: DirectPlaybackControllerOptions['queuePerformanceCue'];
   validateCustomPattern?: DirectPlaybackControllerOptions['validateCustomPattern'];
 };
 

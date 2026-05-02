@@ -142,6 +142,9 @@ export function createPracticePlaybackSettingsBindings(
 export function createPracticePlaybackRuntimeBindings(
   bindings: Record<string, unknown> = {}
 ): Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown> {
+  console.info('[chart-cue] runtime bindings boundary', {
+    hasInputQueuePerformanceCue: typeof bindings.queuePerformanceCue === 'function'
+  });
   return {
     ensureWalkingBassGenerator: bindings.ensureWalkingBassGenerator,
     getAudioContext: bindings.getAudioContext,
@@ -150,7 +153,8 @@ export function createPracticePlaybackRuntimeBindings(
     rebuildPreparedCompingPlans: bindings.rebuildPreparedCompingPlans,
     buildPreparedBassPlan: bindings.buildPreparedBassPlan,
     getCurrentKey: bindings.getCurrentKey,
-    preloadNearTermSamples: bindings.preloadNearTermSamples
+    preloadNearTermSamples: bindings.preloadNearTermSamples,
+    queuePerformanceCue: bindings.queuePerformanceCue
   } as Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
 }
 

@@ -1,4 +1,4 @@
-import type { ChartDocument, ChartSetlist, PlaybackSettings } from '../../core/types/contracts';
+import type { ChartDocument, ChartSetlist, ChartUserSettings, PlaybackSettings } from '../../core/types/contracts';
 
 import {
   loadChartUiSettings,
@@ -17,6 +17,7 @@ const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
 const CHART_LIBRARY_STORE_NAME = 'libraries';
 const CHART_DOCUMENT_STORE_NAME = 'documents';
 const CHART_SETLIST_STORE_NAME = 'setlists';
+const CHART_USER_SETTINGS_STORE_NAME = 'chartUserSettings';
 const IMPORTED_CHART_LIBRARY_KEY = 'imported-chart-library';
 const CHART_SETLISTS_KEY = 'chart-setlists';
 const DEFAULT_MASTER_VOLUME_PERCENT = 50;
@@ -25,7 +26,8 @@ const EMPTY_PLAYLIST_NAME = 'playlist';
 const RECENT_CHART_STORAGE_LIMIT = 10;
 const TEMPORARY_CHART_TEST_SOURCE_NAMES = new Set([
   'iReal behavior tests',
-  'Playback ending tests'
+  'Playback ending tests',
+  'Performance cue demos'
 ]);
 
 type ChartLibraryPayload = {
@@ -134,7 +136,7 @@ function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
   if (!indexedDbFactory) return Promise.resolve(null);
 
   return new Promise((resolve, reject) => {
-    const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 4);
+    const request = indexedDbFactory.open(CHART_LIBRARY_DB_NAME, 5);
     request.onupgradeneeded = (event) => {
       const database = request.result;
       if (!database.objectStoreNames.contains(CHART_LIBRARY_STORE_NAME)) {
@@ -145,6 +147,9 @@ function openChartLibraryDatabase(): Promise<IDBDatabase | null> {
       }
       if (!database.objectStoreNames.contains(CHART_SETLIST_STORE_NAME)) {
         database.createObjectStore(CHART_SETLIST_STORE_NAME);
+      }
+      if (!database.objectStoreNames.contains(CHART_USER_SETTINGS_STORE_NAME)) {
+        database.createObjectStore(CHART_USER_SETTINGS_STORE_NAME, { keyPath: 'chartId' });
       }
       if (event.oldVersion < 4 && request.transaction) {
         queueLegacyChartUserTagCleanup(database, request.transaction);
@@ -201,6 +206,7 @@ function isTemporaryChartTestChart(document: ChartDocument | null | undefined): 
   const documentId = String(document?.metadata?.id || '');
   if (documentId.startsWith('ireal-behavior-')) return true;
   if (documentId.startsWith('playback-ending-')) return true;
+  if (documentId.startsWith('cue-demo-')) return true;
   return document?.source?.sourceRefs?.some((sourceRef) => (
     TEMPORARY_CHART_TEST_SOURCE_NAMES.has(String(sourceRef.name || ''))
   )) === true;
@@ -253,6 +259,51 @@ function normalizePersistedChartDocument(value: unknown): ChartDocument | null {
   const document = value as ChartDocument;
   if (!document.metadata?.id || !Array.isArray(document.bars) || document.bars.length === 0) return null;
   return stripLegacyChartUserTags(document);
+}
+
+function normalizeUserSettingsTempo(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(40, Math.min(320, Math.round(parsed)));
+}
+
+function normalizeUserSettingsTransposition(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return ((Math.round(parsed) % 12) + 12) % 12;
+}
+
+function sanitizeChartUserPlaybackSettings(settings: PlaybackSettings | null): PlaybackSettings | null {
+  if (!settings || typeof settings !== 'object') return null;
+  const sanitizedSettings = { ...(settings as PlaybackSettings & Record<string, unknown>) };
+  delete sanitizedSettings.chartPerformance;
+  delete sanitizedSettings.chartPerformances;
+  delete sanitizedSettings.chartSimplePerformance;
+  return sanitizedSettings;
+}
+
+function normalizeChartUserSettings(value: unknown, fallbackChartId = ''): ChartUserSettings | null {
+  if (!value || typeof value !== 'object') return null;
+  const settings = value as Partial<ChartUserSettings>;
+  const chartId = String(settings.chartId || fallbackChartId || '').trim();
+  if (!chartId) return null;
+
+  const tempo = normalizeUserSettingsTempo(settings.tempo);
+  const transposition = normalizeUserSettingsTransposition(settings.transposition);
+  const playbackSettings = settings.playbackSettings && typeof settings.playbackSettings === 'object'
+    ? sanitizeChartUserPlaybackSettings(settings.playbackSettings as PlaybackSettings)
+    : null;
+
+  return {
+    schemaVersion: '1.0.0',
+    chartId,
+    ...(tempo !== null ? { tempo } : {}),
+    ...(transposition !== null ? { transposition } : {}),
+    ...(playbackSettings ? { playbackSettings } : {}),
+    ...(settings.chartSimplePerformance ? { chartSimplePerformance: settings.chartSimplePerformance } : {}),
+    ...(settings.chartPerformance ? { chartPerformance: settings.chartPerformance } : {}),
+    updatedAt: String(settings.updatedAt || new Date().toISOString())
+  };
 }
 
 function normalizeSetlist(value: unknown): ChartSetlist | null {
@@ -664,6 +715,7 @@ export function removePersistedChartReferences(chartIds: string[] = []): void {
       }
     } : {})
   });
+  void deletePersistedChartUserSettings([...deletedIds]);
 }
 
 export function persistChartId(
@@ -764,9 +816,6 @@ export function persistPlaybackSettings({
       ...nextSettings,
       chartRepeatCount: playbackSettings.chartRepeatCount,
       chartRepeatInfinite: playbackSettings.chartRepeatInfinite === true,
-      chartSimplePerformance: playbackSettings.chartSimplePerformance || null,
-      chartPerformance: playbackSettings.chartPerformance || null,
-      chartPerformances: playbackSettings.chartPerformances || {},
       harmonyDisplayMode,
       chordEnrichmentMode,
       useChordSymbolV2,
@@ -782,9 +831,6 @@ export function persistPlaybackSettings({
       ...nextSettings,
       chartRepeatCount: playbackSettings.chartRepeatCount,
       chartRepeatInfinite: playbackSettings.chartRepeatInfinite === true,
-      chartSimplePerformance: playbackSettings.chartSimplePerformance || null,
-      chartPerformance: playbackSettings.chartPerformance || null,
-      chartPerformances: playbackSettings.chartPerformances || {},
       harmonyDisplayMode,
       chordEnrichmentMode,
       useChordSymbolV2,
@@ -795,6 +841,119 @@ export function persistPlaybackSettings({
   } catch {
     // Ignore storage failures so charts still work in restricted contexts.
   }
+}
+
+function loadFallbackChartUserSettings(chartId: string): ChartUserSettings | null {
+  const chartUiSettings = loadChartUiSettings();
+  const settingsById = chartUiSettings?.chartUserSettingsById;
+  if (!settingsById || typeof settingsById !== 'object') return null;
+  return normalizeChartUserSettings((settingsById as Record<string, unknown>)[chartId], chartId);
+}
+
+function saveFallbackChartUserSettings(settings: ChartUserSettings): void {
+  const chartUiSettings = loadChartUiSettings();
+  const settingsById = chartUiSettings?.chartUserSettingsById && typeof chartUiSettings.chartUserSettingsById === 'object'
+    ? chartUiSettings.chartUserSettingsById as Record<string, unknown>
+    : {};
+  saveChartUiSettings({
+    chartUserSettingsById: {
+      ...settingsById,
+      [settings.chartId]: settings
+    }
+  });
+}
+
+function deleteFallbackChartUserSettings(chartIds: string[]): void {
+  const chartUiSettings = loadChartUiSettings();
+  const settingsById = chartUiSettings?.chartUserSettingsById && typeof chartUiSettings.chartUserSettingsById === 'object'
+    ? { ...chartUiSettings.chartUserSettingsById as Record<string, unknown> }
+    : {};
+  chartIds.forEach((chartId) => {
+    delete settingsById[chartId];
+  });
+  saveChartUiSettings({ chartUserSettingsById: settingsById });
+}
+
+export async function loadChartUserSettings(chartId = ''): Promise<ChartUserSettings | null> {
+  const normalizedChartId = String(chartId || '').trim();
+  if (!normalizedChartId) return null;
+  try {
+    const database = await openChartLibraryDatabase();
+    if (database?.objectStoreNames.contains(CHART_USER_SETTINGS_STORE_NAME)) {
+      try {
+        const transaction = database.transaction(CHART_USER_SETTINGS_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(CHART_USER_SETTINGS_STORE_NAME);
+        const settings = await waitForRequest(store.get(normalizedChartId));
+        return normalizeChartUserSettings(settings, normalizedChartId);
+      } finally {
+        database.close();
+      }
+    }
+  } catch {
+    // Fall back to localStorage-backed app state below.
+  }
+  return loadFallbackChartUserSettings(normalizedChartId);
+}
+
+export async function persistChartUserSettings(
+  chartId = '',
+  patch: Partial<ChartUserSettings> = {}
+): Promise<ChartUserSettings | null> {
+  const normalizedChartId = String(chartId || '').trim();
+  if (!normalizedChartId) return null;
+  const previousSettings = await loadChartUserSettings(normalizedChartId);
+  const nextSettings = normalizeChartUserSettings({
+    ...(previousSettings || {}),
+    ...(patch || {}),
+    chartId: normalizedChartId,
+    updatedAt: new Date().toISOString()
+  }, normalizedChartId);
+  if (!nextSettings) return null;
+
+  try {
+    const database = await openChartLibraryDatabase();
+    if (database?.objectStoreNames.contains(CHART_USER_SETTINGS_STORE_NAME)) {
+      try {
+        const transaction = database.transaction(CHART_USER_SETTINGS_STORE_NAME, 'readwrite');
+        transaction.objectStore(CHART_USER_SETTINGS_STORE_NAME).put(nextSettings);
+        await waitForTransaction(transaction);
+      } finally {
+        database.close();
+      }
+      saveFallbackChartUserSettings(nextSettings);
+      return nextSettings;
+    }
+  } catch {
+    // Fall back to localStorage-backed app state below.
+  }
+
+  saveFallbackChartUserSettings(nextSettings);
+  return nextSettings;
+}
+
+export async function deletePersistedChartUserSettings(chartIds: string[] = []): Promise<void> {
+  const normalizedChartIds = chartIds.map((chartId) => String(chartId || '').trim()).filter(Boolean);
+  if (normalizedChartIds.length === 0) return;
+
+  try {
+    const database = await openChartLibraryDatabase();
+    if (database?.objectStoreNames.contains(CHART_USER_SETTINGS_STORE_NAME)) {
+      try {
+        const transaction = database.transaction(CHART_USER_SETTINGS_STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(CHART_USER_SETTINGS_STORE_NAME);
+        normalizedChartIds.forEach((chartId) => {
+          store.delete(chartId);
+        });
+        await waitForTransaction(transaction);
+      } finally {
+        database.close();
+      }
+    }
+  } catch {
+    // Keep the fallback cleanup below.
+  }
+
+  deleteFallbackChartUserSettings(normalizedChartIds);
 }
 
 export async function loadPersistedChartLibrary(

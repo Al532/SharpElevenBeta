@@ -80,6 +80,7 @@ export type PracticePlaybackRuntimeBindings = {
   getCurrentKey?: () => number;
   preloadNearTermSamples?: () => Promise<unknown>;
   validateCustomPattern?: () => boolean;
+  queuePerformanceCue?: (cue: unknown, sessionSpec?: unknown, playbackSettings?: PlaybackSettings) => PlaybackOperationResult | Promise<PlaybackOperationResult>;
 };
 
 export type PracticePlaybackStateBindings = {

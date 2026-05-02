@@ -4,6 +4,7 @@
   ChartPerformanceCue,
   ChartSimplePerformanceState,
   ChartSetlist,
+  ChartUserSettings,
   ChartPlaybackController,
   ChartPlaybackPlan,
   ChartScreenState,
@@ -23,13 +24,13 @@ import {
   createDefaultChartPerformance,
   createPracticeSessionFromChartPlaybackPlan,
   createPracticeSessionFromChartSelection,
-  getChartSimplePerformanceLabel,
+  markExecutedChartPerformanceCuesConsumed,
   normalizeChartPerformance,
-  normalizeChartPerformancePanelMode,
   parseNoteSymbol,
   normalizeChartChordDisplayLevel,
   normalizeChordEnrichmentMode,
   normalizeChartSimplePerformanceState,
+  restoreConsumedChartPerformanceCues,
   transposeKeySymbol
 } from './index.js';
 import defaultIRealSourceText from '../parsing-projects/ireal/sources/jazz-1460.txt?raw';
@@ -141,12 +142,15 @@ import {
   getRequestedChartId,
   getRequestedPlaylist,
   getRequestedSetlistId,
+  loadChartUserSettings,
   loadPersistedChartId,
   loadPersistedInstrumentTransposition,
   loadPersistedPlaybackSettings,
   persistChartId as persistChartScreenId,
+  persistChartUserSettings,
   persistInstrumentTransposition as persistChartInstrumentTransposition,
   persistPlaybackSettings as persistChartScreenPlaybackSettings,
+  resetChartUserSettings,
   replaceCurrentChartIdInUrl
 } from '../src/features/chart/chart-screen-persistence.js';
 import { renderChordSymbolHtml } from '../src/core/music/chord-symbol-display.js';
@@ -263,6 +267,7 @@ type ExtendedChartScreenState = ChartScreenState & {
   chartSimplePerformance: ChartSimplePerformanceState,
   chartPerformance: ChartPerformance | null,
   chartPerformances: Record<string, ChartPerformance>,
+  currentChartUserSettings: ChartUserSettings | null,
   playFromBarPracticeSession: PracticeSessionSpec | null
 };
 
@@ -297,6 +302,7 @@ const state: ExtendedChartScreenState = {
   chartSimplePerformance: { mode: 'infinite', repeatMode: 'infinite' },
   chartPerformance: null,
   chartPerformances: {},
+  currentChartUserSettings: null,
   playFromBarPracticeSession: null
 };
 
@@ -316,6 +322,8 @@ let lastOpticalLayoutFontsReady = false;
 let didOpenRequestedMetadataPanel = false;
 let chartMetadataPopoverRenderId = 0;
 let chartTransitionCleanupTimer = 0;
+let chartUserSettingsRenderToken = 0;
+let suppressChartUserSettingsPersistence = false;
 const CHART_ACTION_FEEDBACK_CLASS = 'is-chart-action-feedback';
 const CHART_ACTION_FEEDBACK_DURATION_MS = 520;
 const CHART_ACTION_POINTER_CLICK_SUPPRESS_MS = 700;
@@ -471,6 +479,7 @@ function persistPlaybackSettings() {
     useHalfDiminishedSymbol: dom.useHalfDiminishedSymbol?.checked !== false,
     useDiminishedSymbol: dom.useDiminishedSymbol?.checked !== false
   });
+  persistCurrentChartUserSettings();
 }
 
 function applyPersistedPlaybackSettings() {
@@ -527,24 +536,9 @@ function applyPersistedPlaybackSettings() {
   }
 
   if (persisted.chartSimplePerformance !== undefined) {
-    state.chartSimplePerformance = normalizeChartSimplePerformanceState(persisted.chartSimplePerformance);
+    state.chartSimplePerformance = { mode: 'infinite', repeatMode: 'infinite' };
   } else if (persisted.chartRepeatInfinite !== undefined) {
-    state.chartSimplePerformance = {
-      mode: persisted.chartRepeatInfinite === true ? 'infinite' : 'once',
-      repeatMode: persisted.chartRepeatInfinite === true ? 'infinite' : 'finite'
-    };
-  }
-  state.chartPerformance = normalizeChartPerformance(persisted.chartPerformance, null);
-  const persistedPerformanceMap = persisted.chartPerformances && typeof persisted.chartPerformances === 'object'
-    ? persisted.chartPerformances as Record<string, unknown>
-    : {};
-  state.chartPerformances = Object.fromEntries(
-    Object.entries(persistedPerformanceMap)
-      .map(([chartId, value]) => [chartId, normalizeChartPerformance(value, null)])
-      .filter((entry): entry is [string, ChartPerformance] => Boolean(entry[1]))
-  );
-  if (state.chartPerformance) {
-    state.chartPerformances[state.chartPerformance.chartId] = state.chartPerformance;
+    state.chartSimplePerformance = { mode: 'infinite', repeatMode: 'infinite' };
   }
   syncRepeatCountControls();
 }
@@ -667,14 +661,10 @@ const {
 
 function getPlaybackSettings(): PlaybackSettings {
   const chartRepeatInfinite = isChartRepeatInfinite();
-  const activePerformance = getActiveChartPerformance();
   return {
     transposition: getChartTransposeSemitones(),
     chartRepeatCount: getChartRepeatCount(),
     chartRepeatInfinite,
-    chartSimplePerformance: state.chartSimplePerformance,
-    chartPerformance: activePerformance,
-    chartPerformances: state.chartPerformances,
     finitePlayback: state.selectionLoopActive ? false : !chartRepeatInfinite,
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
@@ -684,6 +674,108 @@ function getPlaybackSettings(): PlaybackSettings {
     stringsVolume: Number(dom.stringsVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT),
     drumsVolume: Number(dom.drumsVolume?.value || DEFAULT_CHANNEL_VOLUME_PERCENT)
   };
+}
+
+function getCurrentChartId() {
+  return String(state.currentChartDocument?.metadata?.id || '').trim();
+}
+
+function buildCurrentChartUserSettingsPatch(): Partial<ChartUserSettings> {
+  return {
+    tempo: getTempo(),
+    transposition: getChartTransposeSemitones(),
+    playbackSettings: getPlaybackSettings(),
+    chartSimplePerformance: state.chartSimplePerformance,
+    chartPerformance: getCurrentChartPerformance()
+  };
+}
+
+function persistCurrentChartUserSettings(patch: Partial<ChartUserSettings> = {}) {
+  if (suppressChartUserSettingsPersistence) return;
+  const chartId = getCurrentChartId();
+  if (!chartId) return;
+  const nextPatch = {
+    ...buildCurrentChartUserSettingsPatch(),
+    ...(patch || {})
+  };
+  void persistChartUserSettings(chartId, nextPatch).then((settings) => {
+    if (settings && getCurrentChartId() === chartId) {
+      state.currentChartUserSettings = settings;
+    }
+  }).catch((error) => {
+    if (dom.transportStatus) {
+      dom.transportStatus.textContent = `Chart settings error: ${getErrorMessage(error)}`;
+    }
+  });
+}
+
+function applyChartUserPlaybackSettings(settings: ChartUserSettings | null) {
+  const playbackSettings = settings?.playbackSettings;
+  if (!playbackSettings || typeof playbackSettings !== 'object') return;
+
+  if (playbackSettings.compingStyle && dom.compingStyleSelect && Array.from(dom.compingStyleSelect.options).some((option) => option.value === playbackSettings.compingStyle)) {
+    dom.compingStyleSelect.value = String(playbackSettings.compingStyle);
+  }
+  if (playbackSettings.drumsMode && dom.drumsSelect && Array.from(dom.drumsSelect.options).some((option) => option.value === playbackSettings.drumsMode)) {
+    dom.drumsSelect.value = String(playbackSettings.drumsMode);
+  }
+  if (playbackSettings.customMediumSwingBass !== undefined && dom.walkingBassToggle) {
+    dom.walkingBassToggle.checked = Boolean(playbackSettings.customMediumSwingBass);
+  }
+  if (playbackSettings.masterVolume !== undefined && dom.masterVolume) {
+    dom.masterVolume.value = String(playbackSettings.masterVolume);
+  }
+  if (playbackSettings.bassVolume !== undefined && dom.bassVolume) {
+    dom.bassVolume.value = String(playbackSettings.bassVolume);
+  }
+  if (playbackSettings.stringsVolume !== undefined && dom.stringsVolume) {
+    dom.stringsVolume.value = String(playbackSettings.stringsVolume);
+  }
+  if (playbackSettings.drumsVolume !== undefined && dom.drumsVolume) {
+    dom.drumsVolume.value = String(playbackSettings.drumsVolume);
+  }
+  updateMixerOutputs();
+}
+
+function applyChartUserSettingsToControls(
+  chartDocument: ChartDocument,
+  settings: ChartUserSettings | null,
+  { resetTempo = false }: { resetTempo?: boolean } = {}
+) {
+  suppressChartUserSettingsPersistence = true;
+  try {
+    applyChartUserPlaybackSettings(settings);
+    if (settings?.chartSimplePerformance) {
+      state.chartSimplePerformance = normalizeChartSimplePerformanceState(settings.chartSimplePerformance);
+    } else {
+      state.chartSimplePerformance = { mode: 'infinite', repeatMode: 'infinite' };
+    }
+
+    const normalizedPerformance = normalizeChartPerformance(settings?.chartPerformance, chartDocument);
+    state.chartPerformance = normalizedPerformance;
+    if (normalizedPerformance) {
+      state.chartPerformances[chartDocument.metadata?.id || normalizedPerformance.chartId] = normalizedPerformance;
+    } else {
+      delete state.chartPerformances[chartDocument.metadata?.id || ''];
+    }
+
+    if (dom.transposeSelect && settings?.transposition !== undefined && settings.transposition !== null) {
+      const transposition = String(settings.transposition);
+      if (Array.from(dom.transposeSelect.options).some((option) => option.value === transposition)) {
+        dom.transposeSelect.value = transposition;
+      }
+    } else if (dom.transposeSelect && resetTempo) {
+      dom.transposeSelect.value = '0';
+    }
+    syncTransposeTileSelection();
+
+    if (resetTempo) {
+      syncTempoControls(settings?.tempo ?? chartDocument.metadata.tempo ?? DEFAULT_TEMPO);
+    }
+    syncRepeatCountControls();
+  } finally {
+    suppressChartUserSettingsPersistence = false;
+  }
 }
 
 function getChartTransposeSemitones() {
@@ -801,6 +893,7 @@ function handleChartTransposeChange() {
     persistInstrumentTransposition();
   }
   syncTransposeTileSelection();
+  persistCurrentChartUserSettings({ transposition: getChartTransposeSemitones() });
   renderFixture();
 }
 
@@ -861,6 +954,7 @@ function setTempo(value: number | string, { syncPlayback = false }: { syncPlayba
   const parsed = Number(value);
   const nextTempo = Number.isFinite(parsed) ? Math.max(40, Math.min(320, Math.round(parsed))) : DEFAULT_TEMPO;
   syncTempoControls(nextTempo);
+  persistCurrentChartUserSettings({ tempo: nextTempo });
   renderTransport();
   if (syncPlayback) {
     void syncPlaybackSettings().catch((error) => {
@@ -871,7 +965,7 @@ function setTempo(value: number | string, { syncPlayback = false }: { syncPlayba
 
 function normalizeChartRepeatCount(value: unknown, fallback = DEFAULT_CHART_REPEAT_COUNT) {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(1, Math.min(10, Math.round(parsed))) : fallback;
+  return Number.isFinite(parsed) ? Math.max(1, Math.min(15, Math.round(parsed))) : fallback;
 }
 
 function getCurrentChartPerformance() {
@@ -881,6 +975,18 @@ function getCurrentChartPerformance() {
     : state.chartPerformance;
   if (!currentPerformance) return null;
   if (activeChartId && currentPerformance.chartId !== activeChartId) return null;
+  return currentPerformance;
+}
+
+function ensureCurrentChartPerformance() {
+  const selectedDocument = state.currentChartDocument;
+  if (!selectedDocument) return null;
+  const currentPerformance = getCurrentChartPerformance() || createDefaultChartPerformance(selectedDocument, {
+    repeatMode: isChartRepeatInfinite() ? 'infinite' : 'finite',
+    repeatCount: getChartRepeatCount()
+  });
+  state.chartPerformance = currentPerformance;
+  state.chartPerformances[selectedDocument.metadata?.id || currentPerformance.chartId] = currentPerformance;
   return currentPerformance;
 }
 
@@ -915,17 +1021,26 @@ function normalizeModulateSemitones(value: unknown) {
   return Math.max(CHART_PERFORMANCE_MODULATE_MIN, Math.min(CHART_PERFORMANCE_MODULATE_MAX, Math.round(parsed)));
 }
 
-function updateCurrentChartPerformance(nextPerformance: ChartPerformance | null) {
+function updateCurrentChartPerformance(
+  nextPerformance: ChartPerformance | null,
+  { persist = true }: { persist?: boolean } = {}
+) {
   const selectedDocument = state.currentChartDocument;
   if (!selectedDocument || !nextPerformance) return;
   state.chartPerformance = nextPerformance;
   state.chartPerformances[selectedDocument.metadata?.id || nextPerformance.chartId] = nextPerformance;
-  if (getChartPerformancePanelMode() === 'performance') {
-    state.chartSimplePerformance = { mode: 'performance', repeatMode: nextPerformance.repeatMode };
-  }
+  state.chartSimplePerformance = {
+    mode: nextPerformance.repeatMode === 'finite' ? 'once' : 'infinite',
+    repeatMode: nextPerformance.repeatMode
+  };
   syncRepeatCountControls();
   renderPerformanceCueBar();
-  persistPlaybackSettings();
+  if (persist) {
+    persistCurrentChartUserSettings({
+      chartSimplePerformance: state.chartSimplePerformance,
+      chartPerformance: nextPerformance
+    });
+  }
 }
 
 function createPerformanceCue(type: string): ChartPerformanceCue {
@@ -945,7 +1060,8 @@ function createPerformanceCue(type: string): ChartPerformanceCue {
 function addPerformanceCue(type: string) {
   const selectedDocument = state.currentChartDocument;
   if (!selectedDocument) return;
-  const currentPerformance = getCurrentChartPerformance() || createDefaultChartPerformance(selectedDocument);
+  const currentPerformance = ensureCurrentChartPerformance();
+  if (!currentPerformance) return;
   const nextPerformance = createDefaultChartPerformance(selectedDocument, {
     ...currentPerformance,
     cues: [...(currentPerformance.cues || []), createPerformanceCue(type)],
@@ -1009,8 +1125,23 @@ function getUpdatedCueStatus(cue: ChartPerformanceCue) {
 
 async function queuePerformanceCue(cue: ChartPerformanceCue) {
   try {
-    await getChartPlaybackController().queuePerformanceCue(cue);
+    const cuePlaybackSession = state.currentPracticeSession || null;
+    const cuePayload = {
+      ...cue,
+      playbackSession: cuePlaybackSession
+    };
+    console.info('[chart-cue] queue from chart', {
+      cue: cuePayload,
+      activePlaybackEntryIndex: state.activePlaybackEntryIndex,
+      currentPlaybackBarIndex: getCurrentPlaybackBarIndex(),
+      hasCuePlaybackSession: Boolean(cuePlaybackSession),
+      cuePlaybackSessionId: cuePlaybackSession?.id || null,
+      cuePoints: state.currentPracticeSession?.playback?.performanceMap?.cuePoints || []
+    });
+    const result = await getChartPlaybackController().queuePerformanceCue(cuePayload);
+    console.info('[chart-cue] queue result from playback controller', result);
   } catch (error) {
+    console.error('[chart-cue] queue failed', error);
     if (dom.transportStatus) dom.transportStatus.textContent = `Cue error: ${getErrorMessage(error)}`;
   }
 }
@@ -1030,6 +1161,14 @@ function togglePerformanceCue(cueId: string) {
       targetBarIndex,
       armedAtBarIndex: status === 'armed' ? getCurrentPlaybackBarIndex() : null
     };
+    console.info('[chart-cue] toggle cue', {
+      cueId,
+      type: cue.type,
+      status,
+      targetBarIndex,
+      armedAtBarIndex: nextCue.armedAtBarIndex,
+      currentPlaybackBarIndex: getCurrentPlaybackBarIndex()
+    });
     if (status === 'armed') queuedCue = nextCue;
     return nextCue;
   });
@@ -1041,34 +1180,75 @@ function togglePerformanceCue(cueId: string) {
   if (queuedCue) void queuePerformanceCue(queuedCue);
 }
 
-function consumeExecutedPerformanceCues() {
+function deletePerformanceCue(cueId: string) {
   const selectedDocument = state.currentChartDocument;
   const currentPerformance = getCurrentChartPerformance();
-  if (!selectedDocument || !currentPerformance?.cues?.length) return;
-  const currentBarIndex = getCurrentPlaybackBarIndex();
-  if (!currentBarIndex) return;
-  const nextCues = currentPerformance.cues.filter((cue) => {
-    if (cue.status !== 'armed') return true;
-    const targetBarIndex = Number(cue.targetBarIndex || 0);
-    return !targetBarIndex || currentBarIndex < targetBarIndex;
-  });
-  if (nextCues.length === currentPerformance.cues.length) return;
+  if (!selectedDocument || !currentPerformance) return;
+  const targetCue = (currentPerformance.cues || []).find((cue) => cue.id === cueId);
+  if (!targetCue) return;
+  if (targetCue.status === 'armed' && !window.confirm(`Remove armed cue "${getChartPerformanceCueLabel(targetCue)}"?`)) {
+    return;
+  }
   updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
     ...currentPerformance,
-    cues: nextCues,
+    cues: (currentPerformance.cues || []).filter((cue) => cue.id !== cueId),
     updatedAt: new Date().toISOString()
   }));
 }
 
+function consumeExecutedPerformanceCues() {
+  const selectedDocument = state.currentChartDocument;
+  const currentPerformance = getCurrentChartPerformance();
+  if (!selectedDocument || !currentPerformance?.cues?.length) return;
+  const currentPlaybackBarIndex = getCurrentPlaybackBarIndex();
+  console.info('[chart-cue] consume check', {
+    currentPlaybackBarIndex,
+    activePlaybackEntryIndex: state.activePlaybackEntryIndex,
+    cues: currentPerformance.cues
+  });
+  const result = markExecutedChartPerformanceCuesConsumed(currentPerformance.cues, currentPlaybackBarIndex);
+  if (result.changed) {
+    console.info('[chart-cue] chart consumed cue(s)', {
+      currentPlaybackBarIndex,
+      before: currentPerformance.cues,
+      after: result.cues
+    });
+  }
+  if (!result.changed) return;
+  updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    cues: result.cues,
+    updatedAt: new Date().toISOString()
+  }), {
+    persist: false
+  });
+}
+
+function restoreSessionConsumedPerformanceCues({ persist = true }: { persist?: boolean } = {}) {
+  const selectedDocument = state.currentChartDocument;
+  const currentPerformance = getCurrentChartPerformance();
+  if (!selectedDocument || !currentPerformance?.cues?.length) return;
+  const result = restoreConsumedChartPerformanceCues(currentPerformance.cues);
+  if (!result.changed) return;
+  updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    cues: result.cues,
+    updatedAt: new Date().toISOString()
+  }), {
+    persist
+  });
+}
+
 function syncPerformanceCueBarPosition() {
   if (!dom.performanceCueBar) return;
+  const forceTop = Boolean(dom.performanceMenu && !dom.performanceMenu.hidden);
   const activeCell = state.activeBarId
     ? document.querySelector<HTMLElement>(`.chart-bar-cell[data-bar-id="${CSS.escape(state.activeBarId)}"]`)
     : null;
   const appRect = dom.chartApp?.getBoundingClientRect();
   const cellRect = activeCell?.getBoundingClientRect();
   const threshold = appRect ? appRect.top + appRect.height * 0.66 : window.innerHeight * 0.66;
-  const shouldMoveTop = Boolean(cellRect && cellRect.top + cellRect.height / 2 >= threshold);
+  const shouldMoveTop = forceTop || Boolean(cellRect && cellRect.top + cellRect.height / 2 >= threshold);
   dom.performanceCueBar.classList.toggle('chart-performance-cue-bar-top', shouldMoveTop);
   dom.performanceCueBar.classList.toggle('chart-performance-cue-bar-bottom', !shouldMoveTop);
 }
@@ -1076,24 +1256,20 @@ function syncPerformanceCueBarPosition() {
 function renderPerformanceCueBar() {
   const cueBar = dom.performanceCueBar;
   if (!cueBar) return;
-  const performance = getChartPerformancePanelMode() === 'performance' ? getCurrentChartPerformance() : null;
+  const performance = getCurrentChartPerformance();
   const cues = (performance?.cues || []).filter((cue) => cue.status !== 'consumed');
+  const isEditing = Boolean(dom.performanceMenu && !dom.performanceMenu.hidden);
   cueBar.hidden = cues.length === 0;
   cueBar.innerHTML = cues.map((cue) => {
     const isArmed = cue.status === 'armed';
     const label = getChartPerformanceCueLabel(cue);
-    return `<button type="button" class="chart-performance-cue-pill${isArmed ? ' is-armed' : ''}" data-chart-performance-cue-id="${cue.id}" aria-pressed="${isArmed ? 'true' : 'false'}">${label}</button>`;
+    return `<button type="button" class="chart-performance-cue-pill${isArmed ? ' is-armed' : ''}${isEditing ? ' is-editing' : ''}" data-chart-performance-cue-id="${cue.id}" aria-pressed="${isArmed ? 'true' : 'false'}"><span>${label}</span>${isEditing ? '<span class="chart-performance-cue-delete" data-chart-performance-cue-delete="true" aria-label="Delete cue">×</span>' : ''}</button>`;
   }).join('');
   syncPerformanceCueBarPosition();
 }
 
-function getChartPerformancePanelMode() {
-  return normalizeChartPerformancePanelMode(state.chartSimplePerformance.mode || state.chartSimplePerformance.repeatMode);
-}
-
 function getActiveChartPerformance() {
   const currentPerformance = getCurrentChartPerformance();
-  if (getChartPerformancePanelMode() !== 'performance') return null;
   if (!currentPerformance?.active) return null;
   return currentPerformance;
 }
@@ -1109,7 +1285,7 @@ function getChartRepeatCount() {
 function isChartRepeatInfinite() {
   const activePerformance = getActiveChartPerformance();
   if (activePerformance) return activePerformance.repeatMode === 'infinite';
-  return getChartPerformancePanelMode() !== 'once';
+  return true;
 }
 
 function getChartRepeatPlanCount() {
@@ -1124,43 +1300,43 @@ function syncRepeatCountControls(
   value: unknown = getChartRepeatCount(),
   { infinite = isChartRepeatInfinite() }: { infinite?: boolean } = {}
 ) {
-  const activePerformance = getActiveChartPerformance();
   const currentPerformance = getCurrentChartPerformance();
-  const panelMode = getChartPerformancePanelMode();
   const normalizedRepeatCount = normalizeChartRepeatCount(value);
-  const label = activePerformance
-    ? (activePerformance.repeatMode === 'infinite' ? CHART_REPEAT_INFINITE_LABEL : `${normalizedRepeatCount}x`)
-    : getChartSimplePerformanceLabel(state.chartSimplePerformance);
+  const label = infinite ? CHART_REPEAT_INFINITE_LABEL : `${normalizedRepeatCount}x`;
   if (dom.repeatCountInput) dom.repeatCountInput.value = String(normalizedRepeatCount);
+  if (dom.repeatCountSelect) dom.repeatCountSelect.value = String(normalizedRepeatCount);
+  if (dom.repeatCountRange) dom.repeatCountRange.value = String(normalizedRepeatCount);
   if (dom.repeatCountLabel) dom.repeatCountLabel.textContent = label;
   if (dom.repeatCountValue) dom.repeatCountValue.textContent = label;
   dom.repeatCountLabel?.classList.toggle('chart-repeat-infinity-symbol', label === CHART_REPEAT_INFINITE_LABEL);
   dom.repeatCountValue?.classList.toggle('chart-repeat-infinity-symbol', label === CHART_REPEAT_INFINITE_LABEL);
   if (dom.repeatInfiniteButton) {
-    dom.repeatInfiniteButton.setAttribute('aria-pressed', panelMode === 'infinite' ? 'true' : 'false');
-  }
-  if (dom.repeatOnceButton) {
-    dom.repeatOnceButton.setAttribute('aria-pressed', panelMode === 'once' ? 'true' : 'false');
-  }
-  if (dom.performanceModeButton) {
-    dom.performanceModeButton.setAttribute('aria-pressed', panelMode === 'performance' ? 'true' : 'false');
+    dom.repeatInfiniteButton.setAttribute('aria-pressed', infinite ? 'true' : 'false');
   }
   if (dom.repeatCountPopover) {
     dom.repeatCountPopover.classList.toggle('is-infinite', infinite);
-    dom.repeatCountPopover.classList.toggle('has-active-performance', panelMode === 'performance');
+    dom.repeatCountPopover.classList.toggle('has-active-performance', Boolean(currentPerformance));
   }
   if (dom.performanceActionButton) {
-    dom.performanceActionButton.textContent = currentPerformance ? 'Edit performance' : 'Edit performance';
-    dom.performanceActionButton.disabled = !currentPerformance || panelMode !== 'performance';
+    dom.performanceActionButton.textContent = 'Add cues';
+    dom.performanceActionButton.disabled = !state.currentChartDocument;
     dom.performanceActionButton.setAttribute('aria-expanded', dom.performanceMenu && !dom.performanceMenu.hidden ? 'true' : 'false');
   }
   renderPerformanceCueBar();
 }
 
 function setChartRepeatCount(value: unknown, { render = true }: { render?: boolean } = {}) {
-  state.chartSimplePerformance = { mode: 'once', repeatMode: 'finite' };
-  syncRepeatCountControls(value, { infinite: false });
-  persistPlaybackSettings();
+  const selectedDocument = state.currentChartDocument;
+  if (!selectedDocument) return;
+  const currentPerformance = ensureCurrentChartPerformance();
+  if (!currentPerformance) return;
+  const nextPerformance = createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    repeatMode: 'finite',
+    repeatCount: normalizeChartRepeatCount(value, currentPerformance.repeatCount || 1),
+    updatedAt: new Date().toISOString()
+  });
+  updateCurrentChartPerformance(nextPerformance);
   if (render) {
     renderFixture();
   } else {
@@ -1169,12 +1345,17 @@ function setChartRepeatCount(value: unknown, { render = true }: { render?: boole
 }
 
 function setChartRepeatInfinite(value: boolean, { render = true }: { render?: boolean } = {}) {
-  state.chartSimplePerformance = {
-    mode: value ? 'infinite' : 'once',
-    repeatMode: value ? 'infinite' : 'finite'
-  };
-  syncRepeatCountControls(undefined, { infinite: value });
-  persistPlaybackSettings();
+  const selectedDocument = state.currentChartDocument;
+  if (!selectedDocument) return;
+  const currentPerformance = ensureCurrentChartPerformance();
+  if (!currentPerformance) return;
+  const nextPerformance = createDefaultChartPerformance(selectedDocument, {
+    ...currentPerformance,
+    repeatMode: value ? 'infinite' : 'finite',
+    repeatCount: normalizeChartRepeatCount(currentPerformance.repeatCount || dom.repeatCountSelect?.value || 1),
+    updatedAt: new Date().toISOString()
+  });
+  updateCurrentChartPerformance(nextPerformance);
   if (render) {
     renderFixture();
   } else {
@@ -1189,11 +1370,20 @@ function closeBottomPopovers() {
   if (dom.repeatCountButton) dom.repeatCountButton.setAttribute('aria-expanded', 'false');
   if (dom.performanceMenu) dom.performanceMenu.hidden = true;
   if (dom.performanceActionButton) dom.performanceActionButton.setAttribute('aria-expanded', 'false');
+  syncPerformanceCueBarPosition();
+  renderPerformanceCueBar();
   if (dom.keyPopover) dom.keyPopover.hidden = true;
   if (dom.keyButton) dom.keyButton.setAttribute('aria-expanded', 'false');
   if (dom.mixerPopover) dom.mixerPopover.hidden = true;
   if (dom.mixerButton) dom.mixerButton.setAttribute('aria-expanded', 'false');
   syncChartPopoverButtonStates();
+}
+
+function closePerformanceMenu() {
+  if (dom.performanceMenu) dom.performanceMenu.hidden = true;
+  dom.performanceActionButton?.setAttribute('aria-expanded', 'false');
+  syncPerformanceCueBarPosition();
+  renderPerformanceCueBar();
 }
 
 function isMetadataPopoverActive() {
@@ -1216,6 +1406,13 @@ function bindBottomControlPopovers() {
       popovers: [dom.manageChartsPopover, dom.instrumentSettingsPopover]
     }) as { popovers: Array<HTMLElement | null> }).popovers);
     dom.instrumentSettingsButton?.setAttribute('aria-expanded', 'false');
+    if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
+    dom.repeatCountButton?.setAttribute('aria-expanded', 'false');
+    closePerformanceMenu();
+    if (dom.keyPopover) dom.keyPopover.hidden = true;
+    dom.keyButton?.setAttribute('aria-expanded', 'false');
+    if (dom.mixerPopover) dom.mixerPopover.hidden = true;
+    dom.mixerButton?.setAttribute('aria-expanded', 'false');
     if (dom.tempoPopover) dom.tempoPopover.hidden = !willOpen;
     syncChartPopoverButtonStates();
     syncMobileOverlayDrawerLayout();
@@ -1244,6 +1441,7 @@ function bindBottomControlPopovers() {
     if (dom.mixerPopover) dom.mixerPopover.hidden = true;
     dom.mixerButton?.setAttribute('aria-expanded', 'false');
     if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = !willOpen;
+    if (!willOpen) closePerformanceMenu();
     syncChartPopoverButtonStates();
     syncMobileOverlayDrawerLayout();
   });
@@ -1268,6 +1466,7 @@ function bindBottomControlPopovers() {
     dom.tempoButton?.setAttribute('aria-expanded', 'false');
     if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
     dom.repeatCountButton?.setAttribute('aria-expanded', 'false');
+    closePerformanceMenu();
     if (dom.mixerPopover) dom.mixerPopover.hidden = true;
     dom.mixerButton?.setAttribute('aria-expanded', 'false');
     renderTransposeTiles();
@@ -1297,6 +1496,7 @@ function bindBottomControlPopovers() {
     dom.tempoButton?.setAttribute('aria-expanded', 'false');
     if (dom.repeatCountPopover) dom.repeatCountPopover.hidden = true;
     dom.repeatCountButton?.setAttribute('aria-expanded', 'false');
+    closePerformanceMenu();
     if (dom.keyPopover) dom.keyPopover.hidden = true;
     dom.keyButton?.setAttribute('aria-expanded', 'false');
     if (dom.mixerPopover) dom.mixerPopover.hidden = !willOpen;
@@ -1321,37 +1521,35 @@ function bindBottomControlPopovers() {
   });
 
   dom.repeatInfiniteButton?.addEventListener('click', () => {
-    setChartRepeatInfinite(true);
+    setChartRepeatInfinite(!isChartRepeatInfinite());
   });
 
-  dom.repeatOnceButton?.addEventListener('click', () => {
-    setChartRepeatCount(1);
+  dom.repeatCountSelect?.addEventListener('change', () => {
+    setChartRepeatCount(dom.repeatCountSelect?.value || 1);
   });
 
-  dom.performanceModeButton?.addEventListener('click', () => {
-    const selectedDocument = state.currentChartDocument;
-    if (!selectedDocument) return;
-    let currentPerformance = getCurrentChartPerformance();
-    if (!currentPerformance) {
-      currentPerformance = createDefaultChartPerformance(selectedDocument);
-      state.chartPerformance = currentPerformance;
-      state.chartPerformances[selectedDocument.metadata?.id || currentPerformance.chartId] = currentPerformance;
-    }
-    state.chartSimplePerformance = { mode: 'performance', repeatMode: currentPerformance.repeatMode };
-    syncRepeatCountControls();
-    persistPlaybackSettings();
-    renderFixture();
+  dom.repeatCountRange?.addEventListener('input', () => {
+    setChartRepeatCount(dom.repeatCountRange?.value || 1);
+  });
+
+  dom.repeatCountDecrease?.addEventListener('click', () => {
+    setChartRepeatCount(getChartRepeatCount() - 1);
+  });
+
+  dom.repeatCountIncrease?.addEventListener('click', () => {
+    setChartRepeatCount(getChartRepeatCount() + 1);
   });
 
   dom.performanceActionButton?.addEventListener('click', (event) => {
     event.stopPropagation();
     const selectedDocument = state.currentChartDocument;
     if (!selectedDocument) return;
-    const currentPerformance = getCurrentChartPerformance();
-    if (!currentPerformance) return;
+    ensureCurrentChartPerformance();
     const willOpen = Boolean(dom.performanceMenu?.hidden);
     if (dom.performanceMenu) dom.performanceMenu.hidden = !willOpen;
     dom.performanceActionButton?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    renderPerformanceCueBar();
+    syncPerformanceCueBarPosition();
     syncMobileOverlayDrawerLayout();
   });
 
@@ -1361,9 +1559,9 @@ function bindBottomControlPopovers() {
     const cueButton = target?.closest<HTMLButtonElement>('[data-chart-performance-cue-type]');
     if (!cueButton) return;
     addPerformanceCue(cueButton.dataset.chartPerformanceCueType || '');
-    if (dom.performanceMenu) dom.performanceMenu.hidden = true;
-    dom.performanceActionButton?.setAttribute('aria-expanded', 'false');
     syncRepeatCountControls();
+    renderPerformanceCueBar();
+    syncPerformanceCueBarPosition();
     syncMobileOverlayDrawerLayout();
   });
 
@@ -1371,12 +1569,18 @@ function bindBottomControlPopovers() {
     const target = event.target instanceof HTMLElement ? event.target : null;
     const cueButton = target?.closest<HTMLButtonElement>('[data-chart-performance-cue-id]');
     if (!cueButton) return;
+    if (target?.closest('[data-chart-performance-cue-delete="true"]')) {
+      deletePerformanceCue(cueButton.dataset.chartPerformanceCueId || '');
+      return;
+    }
     togglePerformanceCue(cueButton.dataset.chartPerformanceCueId || '');
   });
 
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.chart-bottom-overlay')) return;
     if (target?.closest('.chart-bottom-popover-wrap')) return;
+    if (dom.repeatCountPopover && !dom.repeatCountPopover.hidden) return;
     closeBottomPopovers();
   });
 
@@ -1657,10 +1861,14 @@ async function stopPlayback({ resetPosition = true, cancelSelectionLoop = true }
   applyChartPlaybackState({ isPlaying: false, isPaused: false }, {
     allowSelectionLoopRestart: false
   });
-  const nextState = await getChartPlaybackController().stopPlayback({ resetPosition });
-  applyChartPlaybackState(nextState, {
-    allowSelectionLoopRestart: false
-  });
+  try {
+    const nextState = await getChartPlaybackController().stopPlayback({ resetPosition });
+    applyChartPlaybackState(nextState, {
+      allowSelectionLoopRestart: false
+    });
+  } finally {
+    restoreSessionConsumedPerformanceCues();
+  }
 }
 
 async function startPlayback({
@@ -2030,31 +2238,37 @@ function applySearchFilter() {
   }
 }
 
-function renderFixture() {
+async function renderFixture() {
   const availableDocuments = getAvailableDocuments();
   const selectedId = dom.fixtureSelect?.value || availableDocuments[0]?.metadata?.id || '';
   const isNewChartSelection = state.currentChartDocument?.metadata?.id !== selectedId;
   const selectedDocument = availableDocuments.find((document) => document.metadata.id === selectedId);
   populateTransposeOptions(selectedDocument);
+  const renderToken = ++chartUserSettingsRenderToken;
+  const chartUserSettings = selectedDocument
+    ? await loadChartUserSettings(selectedDocument.metadata?.id || '')
+    : null;
+  if (renderToken !== chartUserSettingsRenderToken) return;
+  state.currentChartUserSettings = chartUserSettings;
   if (isNewChartSelection) {
-    const normalizedPerformance = normalizeChartPerformance(
-      selectedDocument ? state.chartPerformances[selectedDocument.metadata?.id || ''] : null,
-      selectedDocument
-    );
+    if (selectedDocument) {
+      applyChartUserSettingsToControls(selectedDocument, chartUserSettings, { resetTempo: true });
+    }
+  } else if (selectedDocument && chartUserSettings?.chartPerformance) {
+    const normalizedPerformance = normalizeChartPerformance(chartUserSettings.chartPerformance, selectedDocument);
     state.chartPerformance = normalizedPerformance;
-    if (selectedDocument && normalizedPerformance) {
+    if (normalizedPerformance) {
       state.chartPerformances[selectedDocument.metadata?.id || ''] = normalizedPerformance;
     }
-    syncRepeatCountControls();
   }
-  renderSelectedFixture(createChartFixtureRenderBindings({
+  await renderSelectedFixture(createChartFixtureRenderBindings({
     state,
     fixtureSelect: dom.fixtureSelect,
     transposeSelect: dom.transposeSelect,
     chordDisplayLevel: normalizeHarmonyDisplayMode(dom.harmonyDisplayMode?.value),
     tempoInput: dom.tempoInput,
     getAvailableDocuments,
-    resetTempo: isNewChartSelection,
+    resetTempo: false,
     stopPlayback,
     createPlaybackPlanOptions: () => ({
       repeatCount: getChartRepeatPlanCount()
@@ -2560,6 +2774,37 @@ function exportCurrentChartPdf() {
   }, 0);
 }
 
+async function resetCurrentChartToDefaults() {
+  const chartDocument = state.currentChartDocument;
+  const chartId = String(chartDocument?.metadata?.id || '').trim();
+  if (!chartDocument || !chartId) return;
+  const hasPerformanceCues = Boolean(getCurrentChartPerformance()?.cues?.length);
+  if (hasPerformanceCues && !window.confirm('Reset this chart to defaults? Performance cues for this chart will be removed.')) {
+    return;
+  }
+
+  await resetChartUserSettings(chartId);
+  state.currentChartUserSettings = null;
+  delete state.chartPerformances[chartId];
+  suppressChartUserSettingsPersistence = true;
+  try {
+    state.chartSimplePerformance = { mode: 'infinite', repeatMode: 'infinite' };
+    state.chartPerformance = null;
+    if (dom.transposeSelect) dom.transposeSelect.value = '0';
+    syncTransposeTileSelection();
+    syncTempoControls(chartDocument.metadata.tempo || DEFAULT_TEMPO);
+    syncRepeatCountControls();
+    renderTransport();
+  } finally {
+    suppressChartUserSettingsPersistence = false;
+  }
+  if (dom.transportStatus) {
+    dom.transportStatus.textContent = 'Chart defaults restored';
+  }
+  await renderFixture();
+  void syncPlaybackSettings();
+}
+
 function getRequestedLibrarySubset(documents: ChartDocument[] = []): { documents: ChartDocument[]; source: string } | null {
   const requestedOrigin = String(new URLSearchParams(window.location.search).get('from') || '').trim().toLowerCase();
   if (requestedOrigin !== 'library') return null;
@@ -2888,6 +3133,11 @@ async function loadFixtures() {
         void playFromSelectedBar();
       });
       dom.selectionCreateDrillButton?.addEventListener('click', navigateToPracticeWithSelection);
+      dom.resetChartSettingsButton?.addEventListener('click', () => {
+        void resetCurrentChartToDefaults().catch((error) => {
+          if (dom.transportStatus) dom.transportStatus.textContent = `Chart reset error: ${getErrorMessage(error)}`;
+        });
+      });
       window.addEventListener('resize', positionSelectionMenu);
       window.visualViewport?.addEventListener('resize', positionSelectionMenu);
       window.visualViewport?.addEventListener('scroll', positionSelectionMenu);

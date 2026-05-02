@@ -30,6 +30,7 @@ export function createPracticePlaybackSchedulerHelpers(helpers: PracticePlayback
     getRepetitionsPerKey: helpers.getRepetitionsPerKey,
     getFinitePlayback: helpers.getFinitePlayback,
     getPlaybackEndingCue: helpers.getPlaybackEndingCue,
+    resolvePerformanceCueJump: helpers.resolvePerformanceCueJump,
     getSecondsPerBeat: helpers.getSecondsPerBeat,
     getSwingRatio: helpers.getSwingRatio,
     hideNextCol: helpers.hideNextCol,

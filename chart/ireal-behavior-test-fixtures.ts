@@ -4,12 +4,15 @@ import { createChartDocument } from './chart-types.js';
 
 export const IREAL_BEHAVIOR_TEST_SOURCE = 'iReal behavior tests';
 export const PLAYBACK_ENDING_TEST_SOURCE = 'Playback ending tests';
+export const PERFORMANCE_CUE_DEMO_SOURCE = 'Performance cue demos';
 
 type TestBarOptions = {
   symbol: string;
   flags?: string[];
   directives?: Array<Record<string, unknown>>;
   endings?: Array<number | string>;
+  comments?: string[];
+  textAnnotations?: Array<Record<string, unknown>>;
   sectionLabel?: string;
 };
 
@@ -34,6 +37,8 @@ function makeTestBar(index: number, {
   flags = [],
   directives = [],
   endings = [],
+  comments = [],
+  textAnnotations = [],
   sectionLabel = 'A'
 }: TestBarOptions) {
   const chordSlot = createTestChordSlot(symbol);
@@ -46,8 +51,8 @@ function makeTestBar(index: number, {
     endings,
     flags,
     directives,
-    comments: [],
-    textAnnotations: [],
+    comments,
+    textAnnotations,
     notation: {
       kind: 'written',
       tokens: [{ ...chordSlot }]
@@ -247,10 +252,133 @@ export function createPlaybackEndingTestCharts(): ChartDocument[] {
   ];
 }
 
+export function createPerformanceCueDemoCharts(): ChartDocument[] {
+  return [
+    makeTestChart({
+      id: 'cue-demo-coda-on-cue',
+      title: 'Cue Demo - Coda On Cue',
+      sourceName: PERFORMANCE_CUE_DEMO_SOURCE,
+      tempo: 132,
+      repeats: 4,
+      bars: [
+        makeTestBar(1, {
+          symbol: 'Cmaj7',
+          sectionLabel: 'Head',
+          comments: ['Add Cue > Coda, arm it before bar 7']
+        }),
+        makeTestBar(2, { symbol: 'A7', sectionLabel: 'Head' }),
+        makeTestBar(3, { symbol: 'Dm7', sectionLabel: 'Head' }),
+        makeTestBar(4, { symbol: 'G7', sectionLabel: 'Head' }),
+        makeTestBar(5, { symbol: 'Em7', sectionLabel: 'Turn' }),
+        makeTestBar(6, { symbol: 'A7', sectionLabel: 'Turn' }),
+        makeTestBar(7, {
+          symbol: 'Dm7',
+          flags: ['coda'],
+          directives: [{ type: 'dc_on_cue' }],
+          sectionLabel: 'Turn'
+        }),
+        makeTestBar(8, { symbol: 'G7', sectionLabel: 'Turn' }),
+        makeTestBar(9, { symbol: 'C6', flags: ['coda'], sectionLabel: 'Coda' }),
+        makeTestBar(10, { symbol: 'Ebdim7', sectionLabel: 'Coda' }),
+        makeTestBar(11, { symbol: 'Dm7', sectionLabel: 'Coda' }),
+        makeTestBar(12, { symbol: 'G7sus', sectionLabel: 'Coda' })
+      ]
+    }),
+    makeTestChart({
+      id: 'cue-demo-exit-repeat-vamp',
+      title: 'Cue Demo - Exit Repeat Vamp',
+      sourceName: PERFORMANCE_CUE_DEMO_SOURCE,
+      tempo: 104,
+      repeats: 8,
+      bars: [
+        makeTestBar(1, {
+          symbol: 'Fmaj7',
+          flags: ['repeat_start_barline'],
+          directives: [{ type: 'open_vamp' }],
+          sectionLabel: 'Vamp',
+          comments: ['Add Cue > Exit repeat, then arm it inside the vamp']
+        }),
+        makeTestBar(2, { symbol: 'Gm7', sectionLabel: 'Vamp' }),
+        makeTestBar(3, { symbol: 'Am7', sectionLabel: 'Vamp' }),
+        makeTestBar(4, {
+          symbol: 'D7',
+          flags: ['repeat_end_barline'],
+          directives: [{ type: 'vamp_instruction', text: 'Vamp until cue' }],
+          sectionLabel: 'Vamp'
+        }),
+        makeTestBar(5, { symbol: 'Gm7', sectionLabel: 'Bridge' }),
+        makeTestBar(6, { symbol: 'C7', sectionLabel: 'Bridge' }),
+        makeTestBar(7, { symbol: 'F6', sectionLabel: 'Bridge' }),
+        makeTestBar(8, { symbol: 'C7', sectionLabel: 'Bridge' })
+      ]
+    }),
+    makeTestChart({
+      id: 'cue-demo-section-modulation',
+      title: 'Cue Demo - Section Modulation',
+      sourceName: PERFORMANCE_CUE_DEMO_SOURCE,
+      tempo: 148,
+      repeats: 3,
+      bars: [
+        makeTestBar(1, {
+          symbol: 'Bbmaj7',
+          sectionLabel: 'A',
+          comments: ['Set semitones, Add Modulation, arm before B']
+        }),
+        makeTestBar(2, { symbol: 'G7', sectionLabel: 'A' }),
+        makeTestBar(3, { symbol: 'Cm7', sectionLabel: 'A' }),
+        makeTestBar(4, { symbol: 'F7', sectionLabel: 'A' }),
+        makeTestBar(5, { symbol: 'Dbmaj7', sectionLabel: 'B' }),
+        makeTestBar(6, { symbol: 'Bb7', sectionLabel: 'B' }),
+        makeTestBar(7, { symbol: 'Ebm7', sectionLabel: 'B' }),
+        makeTestBar(8, { symbol: 'Ab7', sectionLabel: 'B' }),
+        makeTestBar(9, { symbol: 'Dmaj7', sectionLabel: 'C' }),
+        makeTestBar(10, { symbol: 'B7', sectionLabel: 'C' }),
+        makeTestBar(11, { symbol: 'Em7', sectionLabel: 'C' }),
+        makeTestBar(12, { symbol: 'A7', sectionLabel: 'C' })
+      ]
+    }),
+    makeTestChart({
+      id: 'cue-demo-full-stack',
+      title: 'Cue Demo - Full Stack',
+      sourceName: PERFORMANCE_CUE_DEMO_SOURCE,
+      tempo: 118,
+      repeats: 5,
+      bars: [
+        makeTestBar(1, {
+          symbol: 'Ebmaj7',
+          sectionLabel: 'Intro',
+          comments: ['Try modulate at B, exit repeat at vamp, coda at tag']
+        }),
+        makeTestBar(2, { symbol: 'Ab7', sectionLabel: 'Intro' }),
+        makeTestBar(3, { symbol: 'Gm7', flags: ['repeat_start_barline'], sectionLabel: 'A' }),
+        makeTestBar(4, { symbol: 'C7', sectionLabel: 'A' }),
+        makeTestBar(5, { symbol: 'Fm7', sectionLabel: 'A' }),
+        makeTestBar(6, { symbol: 'Bb7', flags: ['repeat_end_barline'], sectionLabel: 'A' }),
+        makeTestBar(7, { symbol: 'Emaj7', sectionLabel: 'B' }),
+        makeTestBar(8, { symbol: 'C#7', sectionLabel: 'B' }),
+        makeTestBar(9, {
+          symbol: 'F#m7',
+          flags: ['coda'],
+          directives: [{ type: 'dc_on_cue' }],
+          sectionLabel: 'B'
+        }),
+        makeTestBar(10, { symbol: 'B7', sectionLabel: 'B' }),
+        makeTestBar(11, {
+          symbol: 'Eb6',
+          flags: ['coda'],
+          sectionLabel: 'Coda'
+        }),
+        makeTestBar(12, { symbol: 'Bb7', sectionLabel: 'Coda' })
+      ]
+    })
+  ];
+}
+
 export function appendIRealBehaviorTestCharts(documents: ChartDocument[] = []): ChartDocument[] {
   const testCharts = [
     ...createIRealBehaviorTestCharts(),
-    ...createPlaybackEndingTestCharts()
+    ...createPlaybackEndingTestCharts(),
+    ...createPerformanceCueDemoCharts()
   ];
   const testChartIds = new Set(testCharts.map((document) => document.metadata.id));
   return [
@@ -263,9 +391,11 @@ export function isIRealBehaviorTestChart(document: ChartDocument | null | undefi
   const documentId = String(document?.metadata?.id || '');
   if (documentId.startsWith('ireal-behavior-')) return true;
   if (documentId.startsWith('playback-ending-')) return true;
+  if (documentId.startsWith('cue-demo-')) return true;
   return document?.source?.sourceRefs?.some((sourceRef) => (
     sourceRef.name === IREAL_BEHAVIOR_TEST_SOURCE
     || sourceRef.name === PLAYBACK_ENDING_TEST_SOURCE
+    || sourceRef.name === PERFORMANCE_CUE_DEMO_SOURCE
   )) === true;
 }
 

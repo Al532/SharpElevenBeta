@@ -377,9 +377,11 @@ select {
 }
 
 .chart-repeat-popover-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 34px;
   width: 100%;
 }
 
@@ -456,6 +458,43 @@ select {
   width: 100%;
 }
 
+.chart-performance-infinite-button {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 34px;
+  border: 1px solid var(--chart-ui-accent-border-soft);
+  border-radius: 999px;
+  background: var(--chart-ui-field-on-accent);
+  color: var(--chart-ui-accent);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.chart-performance-infinite-button[aria-pressed="true"] {
+  border-color: var(--chart-ui-accent);
+  background: var(--chart-ui-accent);
+  color: var(--chart-ui-bottom-overlay);
+}
+
+.chart-performance-infinite-button.chart-repeat-infinity-symbol {
+  font-size: 0;
+}
+
+.chart-performance-infinite-button.chart-repeat-infinity-symbol::before {
+  width: 26px;
+  height: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
 .chart-performance-toggle {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -485,8 +524,9 @@ select {
 }
 
 .chart-performance-action-button {
-  width: 100%;
+  width: auto;
   min-height: 38px;
+  padding: 0 16px;
   border-color: var(--chart-ui-accent);
   background: var(--chart-ui-accent);
   color: var(--chart-ui-bottom-overlay);
@@ -504,6 +544,8 @@ select {
 
 .chart-performance-menu-wrap {
   position: relative;
+  display: flex;
+  justify-content: center;
   width: 100%;
 }
 
@@ -518,7 +560,7 @@ select {
   padding: 10px;
   border: 1px solid var(--chart-ui-accent-border-soft);
   border-radius: 8px;
-  background: var(--chart-ui-menu);
+  background: var(--chart-ui-overlay-solid);
   color: var(--chart-ui-accent);
   box-shadow: 0 12px 28px var(--chart-ui-shadow-popover);
 }
@@ -589,6 +631,9 @@ select {
 }
 
 .chart-performance-cue-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 30px;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--chart-sheet-pill) 28%, transparent 72%);
@@ -604,19 +649,26 @@ select {
   cursor: pointer;
 }
 
+.chart-performance-cue-pill.is-editing {
+  padding-right: 5px;
+}
+
+.chart-performance-cue-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent 88%);
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .chart-performance-cue-pill.is-armed {
   border-color: var(--chart-ui-accent);
   background: var(--chart-ui-accent);
   color: var(--chart-ui-text-inverse);
-}
-
-.chart-repeat-popover.is-infinite .chart-repeat-stepper {
-  opacity: 0.45;
-}
-
-.chart-repeat-popover.is-infinite .chart-repeat-stepper input[type="range"],
-.chart-repeat-popover.is-infinite .chart-stepper-button {
-  cursor: not-allowed;
 }
 
 .chart-key-popover {

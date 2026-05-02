@@ -53,6 +53,13 @@ export function createChartDirectPlaybackControllerOptions({
       }
       return createUnavailableDirectPlaybackResult();
     },
+    async queuePerformanceCue(cue, sessionSpec = null, playbackSettings = {}) {
+      const directHostOptions = await directPlaybackHost.ensureDirectHostOptions();
+      if (typeof directHostOptions?.queuePerformanceCue === 'function') {
+        return directHostOptions.queuePerformanceCue(cue, sessionSpec, playbackSettings);
+      }
+      return createUnavailableDirectPlaybackResult();
+    },
     getDirectPlaybackState() {
       const directHostOptions = directPlaybackHost.getDirectHostOptions();
       if (typeof directHostOptions?.getDirectPlaybackState === 'function') {

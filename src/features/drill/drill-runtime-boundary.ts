@@ -9,6 +9,9 @@ import type {
 export function createPracticePlaybackControllerOptions(
   options: PracticePlaybackControllerOptions = {}
 ): PracticePlaybackControllerOptions {
+  console.info('[chart-cue] playback controller options boundary', {
+    hasQueuePerformanceCue: typeof options.queuePerformanceCue === 'function'
+  });
   return {
     ensureWalkingBassGenerator: options.ensureWalkingBassGenerator,
     isPlaying: options.isPlaying,
@@ -20,6 +23,7 @@ export function createPracticePlaybackControllerOptions(
     getCurrentKey: options.getCurrentKey,
     preloadNearTermSamples: options.preloadNearTermSamples,
     validateCustomPattern: options.validateCustomPattern,
+    queuePerformanceCue: options.queuePerformanceCue,
     startPlayback: options.startPlayback,
     stopPlayback: options.stopPlayback,
     togglePausePlayback: options.togglePausePlayback
@@ -195,6 +199,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   buildPreparedBassPlan,
   getCurrentKey,
   preloadNearTermSamples,
+  queuePerformanceCue,
   startPlayback,
   stopPlayback,
   togglePausePlayback,
@@ -255,6 +260,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   buildPreparedBassPlan: () => void;
   getCurrentKey: () => number;
   preloadNearTermSamples: () => Promise<unknown>;
+  queuePerformanceCue?: PracticePlaybackControllerOptions['queuePerformanceCue'];
   startPlayback: () => Promise<void>;
   stopPlayback: () => void;
   togglePausePlayback: () => void;
@@ -409,6 +415,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
       getCurrentKey,
       preloadNearTermSamples,
       validateCustomPattern,
+      queuePerformanceCue,
       startPlayback,
       stopPlayback,
       togglePausePlayback

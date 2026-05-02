@@ -90,6 +90,10 @@
               <h3>Export</h3>
               <button id="export-chart-pdf-button" type="button" class="chart-action-button chart-action-button-secondary">Export PDF</button>
             </div>
+            <div class="chart-settings-section chart-settings-section-tight">
+              <h3>Chart defaults</h3>
+              <button id="reset-chart-settings-button" type="button" class="chart-action-button chart-action-button-secondary">Reset this chart to defaults</button>
+            </div>
           </div>
         </div>
       </div>
@@ -108,23 +112,25 @@
             </div>
           </div>
           <div class="chart-bottom-popover-wrap chart-repeat-field">
-            <input id="chart-repeat-count-input" type="number" min="1" max="10" step="1" value="1" hidden>
+            <input id="chart-repeat-count-input" type="number" min="1" max="15" step="1" value="1" hidden>
             <button id="chart-repeat-count-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
               <span id="chart-repeat-count-label">∞</span>
             </button>
             <div id="chart-repeat-count-popover" class="chart-bottom-popover chart-repeat-popover" hidden>
               <div class="chart-repeat-popover-header">
                 <span class="chart-bottom-popover-title">Performance</span>
+                <button id="chart-repeat-infinite-button" type="button" class="chart-performance-infinite-button chart-repeat-infinity-symbol" aria-pressed="true" aria-label="Infinite repeats">∞</button>
               </div>
+              <strong id="chart-repeat-count-value">∞</strong>
               <div class="chart-performance-simple-row">
-                <div class="chart-performance-toggle" role="group" aria-label="Playback mode">
-                  <button id="chart-repeat-infinite-button" type="button" class="chart-performance-toggle-button" aria-pressed="true">∞</button>
-                  <button id="chart-repeat-once-button" type="button" class="chart-performance-toggle-button" aria-pressed="false">1x</button>
-                  <button id="chart-performance-mode-button" type="button" class="chart-performance-toggle-button" aria-pressed="false">Performance</button>
+                <div class="chart-repeat-stepper" role="group" aria-label="Repeat count">
+                  <button id="chart-repeat-count-decrease" type="button" class="chart-stepper-button" aria-label="Decrease repeats">−</button>
+                  <input id="chart-repeat-count-range" type="range" min="1" max="15" step="1" value="1" aria-label="Repeat count">
+                  <button id="chart-repeat-count-increase" type="button" class="chart-stepper-button" aria-label="Increase repeats">+</button>
                 </div>
               </div>
               <div class="chart-performance-menu-wrap">
-                <button id="chart-performance-action-button" type="button" class="chart-performance-action-button" aria-haspopup="menu" aria-expanded="false" disabled>Edit performance</button>
+                <button id="chart-performance-action-button" type="button" class="chart-performance-action-button" aria-haspopup="menu" aria-expanded="false">Add cues</button>
                 <div id="chart-performance-menu" class="chart-performance-menu" hidden>
                   <span class="chart-performance-menu-title">Add cue</span>
                   <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="arm_coda">Coda</button>

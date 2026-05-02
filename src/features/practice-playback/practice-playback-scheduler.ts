@@ -34,6 +34,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getRepetitionsPerKey,
     getFinitePlayback,
     getPlaybackEndingCue,
+    resolvePerformanceCueJump,
     getSecondsPerBeat,
     getSwingRatio,
     hideNextCol,
@@ -383,6 +384,21 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       }
 
       const explicitMeasurePlan = hasExplicitMeasurePlan();
+      const performanceCueJumpIndex = typeof resolvePerformanceCueJump === 'function'
+        ? resolvePerformanceCueJump(state.currentChordIdx)
+        : null;
+      if (Number.isFinite(performanceCueJumpIndex)) {
+        console.info('[chart-cue] scheduler applying coda jump', {
+          fromChordIdx: state.currentChordIdx,
+          toChordIdx: Math.max(0, Math.round(Number(performanceCueJumpIndex))),
+          currentBeat: state.currentBeat
+        });
+        state.currentChordIdx = Math.max(0, Math.round(Number(performanceCueJumpIndex)));
+        state.currentBeat = 0;
+        state.displayedCurrentChordIdx = state.currentChordIdx;
+        state.displayedCurrentBeat = 0;
+        state.lastPlayedChordIdx = state.currentChordIdx - 1;
+      }
       const measureInfo = getMeasureInfo(state.currentChordIdx);
       const beatsPerMeasure = Math.max(1, Number(measureInfo?.beatCount || 4));
       const chord = state.paddedChords[state.currentChordIdx];
