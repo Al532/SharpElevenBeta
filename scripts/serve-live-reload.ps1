@@ -1,4 +1,8 @@
 param(
+    [ValidateSet('menu', 'web-local', 'web-network', 'usb', 'wifi', 'emulator')]
+    [string]$Target = 'menu',
+    [string]$Serial,
+    [switch]$ListTargets,
     [switch]$DryRun
 )
 
@@ -15,6 +19,7 @@ $emulatorPath = Join-Path $androidHome 'emulator\emulator.exe'
 $capCliPath = Join-Path $repoRoot 'mobile\node_modules\.bin\cap.cmd'
 $runtimeDir = Join-Path $repoRoot '.codex-runtime\android-live'
 $wifiTargetCachePath = Join-Path $runtimeDir 'adb-wifi-target.txt'
+$logDir = Join-Path $repoRoot '.codex-live-reload-logs'
 
 function Write-Step {
     param([string]$Message)
@@ -266,7 +271,6 @@ function Start-BackgroundPowerShell {
 
     $escapedRoot = $repoRoot.Replace("'", "''")
     $escapedTitle = $Title.Replace("'", "''")
-    $escapedCommand = $Command.Replace("'", "''")
     $psCommand = @(
         "`$host.UI.RawUI.WindowTitle = '$escapedTitle'",
         "Set-Location '$escapedRoot'",
@@ -274,7 +278,7 @@ function Start-BackgroundPowerShell {
         "`$env:ANDROID_HOME = '$androidHome'",
         "`$env:ANDROID_SDK_ROOT = '$androidHome'",
         "`$env:Path = '$javaHome\bin;$androidHome\platform-tools;' + `$env:Path",
-        $escapedCommand
+        $Command
     ) -join [Environment]::NewLine
 
     if ($DryRun) {
@@ -284,6 +288,33 @@ function Start-BackgroundPowerShell {
 
     return Start-Process powershell -ArgumentList @(
         '-NoExit',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command', $psCommand
+    ) -PassThru
+}
+
+function Start-HiddenPowerShell {
+    param(
+        [string]$Command
+    )
+
+    $escapedRoot = $repoRoot.Replace("'", "''")
+    $psCommand = @(
+        "Set-Location '$escapedRoot'",
+        "`$env:JAVA_HOME = '$javaHome'",
+        "`$env:ANDROID_HOME = '$androidHome'",
+        "`$env:ANDROID_SDK_ROOT = '$androidHome'",
+        "`$env:Path = '$javaHome\bin;$androidHome\platform-tools;' + `$env:Path",
+        $Command
+    ) -join [Environment]::NewLine
+
+    if ($DryRun) {
+        Write-Host "[dry-run] powershell -WindowStyle Hidden -Command $Command"
+        return $null
+    }
+
+    return Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+        '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
         '-Command', $psCommand
     ) -PassThru
@@ -317,6 +348,41 @@ function Open-LocalBrowser {
     }
 
     Start-Process $devServerUrl | Out-Null
+}
+
+function Start-AndroidLaunchWatchdog {
+    param(
+        [string]$TargetSerial,
+        [string]$LogPath
+    )
+
+    $watchdogLogPath = [System.IO.Path]::ChangeExtension($LogPath, '.watchdog.log')
+    $command = @(
+        "`$deadline = (Get-Date).AddSeconds(120)",
+        "`$ready = `$false",
+        "while ((Get-Date) -lt `$deadline) {",
+        "    if (Test-Path '$LogPath') {",
+        "        `$text = Get-Content '$LogPath' -Raw -ErrorAction SilentlyContinue",
+        "        if (`$text -match 'App running with live reload') { `$ready = `$true; break }",
+        "        if (`$text -match 'Capacitor a echoue|FAILURE: Build failed|Error:') { break }",
+        "    }",
+        "    Start-Sleep -Seconds 1",
+        "}",
+        "if (`$ready) {",
+        "    `$pidText = & '$adbPath' -s '$TargetSerial' shell pidof '$appId' 2>`$null",
+        "    if (-not `$pidText) {",
+        "        Add-Content -Path '$watchdogLogPath' -Value `"`$(Get-Date -Format o) App absente apres deploy, lancement ADB explicite.`"",
+        "        & '$adbPath' -s '$TargetSerial' shell monkey -p '$appId' -c android.intent.category.LAUNCHER 1 >> '$watchdogLogPath' 2>&1",
+        "    } else {",
+        "        Add-Content -Path '$watchdogLogPath' -Value `"`$(Get-Date -Format o) App deja lancee: `$pidText`"",
+        "    }",
+        "} else {",
+        "    Add-Content -Path '$watchdogLogPath' -Value `"`$(Get-Date -Format o) Capacitor pas pret avant timeout ou erreur.`"",
+        "}"
+    ) -join [Environment]::NewLine
+
+    Start-HiddenPowerShell -Command $command | Out-Null
+    Write-Host "Watchdog lancement Android: $watchdogLogPath"
 }
 
 function Get-AvailableAvd {
@@ -450,7 +516,8 @@ function Invoke-CapRun {
     param(
         [string]$HostName,
         [string]$TargetSerial,
-        [switch]$ForwardPorts
+        [switch]$ForwardPorts,
+        [switch]$Detached
     )
 
     $args = @(
@@ -475,6 +542,27 @@ function Invoke-CapRun {
 
     if (-not (Test-Path $capCliPath)) {
         throw "CLI Capacitor introuvable: $capCliPath"
+    }
+
+    if ($Detached) {
+        $mobileDir = Join-Path $repoRoot 'mobile'
+        $title = "SharpEleven Android $TargetSerial"
+        $safeSerial = $TargetSerial -replace '[^A-Za-z0-9_.-]', '_'
+        $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        $logPath = Join-Path $logDir "cap-$safeSerial-$timestamp.log"
+        $argList = "@('$($args -join "','")')"
+        $command = @(
+            "New-Item -ItemType Directory -Path '$logDir' -Force | Out-Null",
+            "Set-Location '$mobileDir'",
+            "Write-Host 'Log Capacitor: $logPath'",
+            "& '$capCliPath' $argList 2>&1 | Tee-Object -FilePath '$logPath'",
+            "if (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host 'Capacitor a echoue. Voir le log ci-dessus.' -ForegroundColor Red; exit `$LASTEXITCODE }"
+        ) -join '; '
+        Start-BackgroundPowerShell -Title $title -Command $command | Out-Null
+        Start-AndroidLaunchWatchdog -TargetSerial $TargetSerial -LogPath $logPath
+        Write-Host "Session live-reload ouverte dans une nouvelle fenetre: $title"
+        Write-Host "Log Capacitor: $logPath"
+        return
     }
 
     Push-Location (Join-Path $repoRoot 'mobile')
@@ -570,6 +658,8 @@ function Select-LaunchOption {
     for ($index = 0; $index -lt $Options.Count; $index++) {
         Write-Host ("[{0}] {1}" -f ($index + 1), $Options[$index].Label)
     }
+    Write-Host "[R] Actualiser la liste"
+    Write-Host "[Q] Quitter"
 
     if ($DryRun) {
         Write-Host "[dry-run] selection automatique: 1"
@@ -577,7 +667,24 @@ function Select-LaunchOption {
     }
 
     while ($true) {
-        $choice = Read-Host "Choisis une cible (1-$($Options.Count))"
+        $choice = Read-Host "Choisis une cible (1-$($Options.Count), R, Q)"
+        if ($choice -match '^(?i:q)$') {
+            return [pscustomobject]@{
+                Key = 'quit'
+                Label = 'Quitter'
+                Action = 'menu-quit'
+                Target = $null
+            }
+        }
+        if ($choice -match '^(?i:r)$') {
+            return [pscustomobject]@{
+                Key = 'refresh'
+                Label = 'Actualiser'
+                Action = 'menu-refresh'
+                Target = $null
+            }
+        }
+
         $selectedIndex = 0
         if ([int]::TryParse($choice, [ref]$selectedIndex) -and $selectedIndex -ge 1 -and $selectedIndex -le $Options.Count) {
             return $Options[$selectedIndex - 1]
@@ -587,13 +694,83 @@ function Select-LaunchOption {
     }
 }
 
+function Show-LaunchOptions {
+    param([object[]]$Options)
+
+    Write-Step "Cibles disponibles"
+
+    for ($index = 0; $index -lt $Options.Count; $index++) {
+        $option = $Options[$index]
+        $serialText = ''
+        if ($option.Target -and $option.Target.Serial) {
+            $serialText = " serial=$($option.Target.Serial)"
+        }
+
+        Write-Host ("[{0}] {1} ({2}{3})" -f ($index + 1), $option.Label, $option.Action, $serialText)
+    }
+}
+
+function Select-ForcedLaunchOption {
+    param(
+        [object[]]$Options,
+        [string]$TargetName,
+        [string]$Serial
+    )
+
+    if ($TargetName -eq 'menu' -and -not $Serial) {
+        return $null
+    }
+
+    $actionByTarget = @{
+        'menu' = @('android-usb', 'android-wifi', 'android-emulator')
+        'web-local' = @('web-local')
+        'web-network' = @('web-network')
+        'usb' = @('android-usb')
+        'wifi' = @('android-wifi')
+        'emulator' = @('android-emulator', 'android-start-emulator')
+    }
+
+    $matchingActions = $actionByTarget[$TargetName]
+    $matches = $Options | Where-Object { $matchingActions -contains $_.Action }
+
+    if ($Serial) {
+        $matches = $matches | Where-Object { $_.Target -and $_.Target.Serial -eq $Serial }
+    }
+
+    $selected = $matches | Select-Object -First 1
+
+    if ($selected) {
+        Write-Step "Cible forcee"
+        Write-Host "Cible demandee: $TargetName"
+        if ($Serial) {
+            Write-Host "Serial demande: $Serial"
+        }
+        Write-Host "Option retenue: $($selected.Label)"
+        return $selected
+    }
+
+    $available = ($Options | ForEach-Object { $_.Label }) -join ', '
+    if ($Serial) {
+        throw "Cible '$TargetName' avec serial '$Serial' indisponible. Options disponibles: $available"
+    }
+
+    throw "Cible '$TargetName' indisponible. Options disponibles: $available"
+}
+
 function Invoke-LaunchOption {
     param(
         [object]$SelectedOption,
-        [string]$WifiHost
+        [string]$WifiHost,
+        [switch]$DetachedAndroid
     )
 
     switch ($SelectedOption.Action) {
+        'menu-refresh' {
+            return
+        }
+        'menu-quit' {
+            return
+        }
         'web-local' {
             Open-LocalBrowser
             return
@@ -612,7 +789,7 @@ function Invoke-LaunchOption {
         'android-usb' {
             Write-Step "Lancement de l'app Android sur telephone cable"
             Write-Host "Appareil USB detecte: $($SelectedOption.Target.Serial)"
-            Invoke-CapRun -HostName 'localhost' -TargetSerial $SelectedOption.Target.Serial -ForwardPorts
+            Invoke-CapRun -HostName 'localhost' -TargetSerial $SelectedOption.Target.Serial -ForwardPorts -Detached:$DetachedAndroid
             return
         }
         'android-wifi' {
@@ -623,13 +800,13 @@ function Invoke-LaunchOption {
             Write-Step "Lancement de l'app Android sur appareil Wi-Fi ADB"
             Write-Host "Appareil Wi-Fi detecte: $($SelectedOption.Target.Serial)"
             Save-WifiTarget -Serial $SelectedOption.Target.Serial
-            Invoke-CapRun -HostName $WifiHost -TargetSerial $SelectedOption.Target.Serial
+            Invoke-CapRun -HostName $WifiHost -TargetSerial $SelectedOption.Target.Serial -Detached:$DetachedAndroid
             return
         }
         'android-emulator' {
             Write-Step "Lancement de l'app Android sur emulateur"
             Write-Host "Cible emulateur: $($SelectedOption.Target.Serial)"
-            Invoke-CapRun -HostName 'localhost' -TargetSerial $SelectedOption.Target.Serial -ForwardPorts
+            Invoke-CapRun -HostName 'localhost' -TargetSerial $SelectedOption.Target.Serial -ForwardPorts -Detached:$DetachedAndroid
             return
         }
         'android-start-emulator' {
@@ -640,7 +817,7 @@ function Invoke-LaunchOption {
 
             Write-Step "Lancement de l'app Android sur emulateur"
             Write-Host "Cible emulateur: $($emulatorTarget.Serial)"
-            Invoke-CapRun -HostName 'localhost' -TargetSerial $emulatorTarget.Serial -ForwardPorts
+            Invoke-CapRun -HostName 'localhost' -TargetSerial $emulatorTarget.Serial -ForwardPorts -Detached:$DetachedAndroid
             return
         }
         default {
@@ -656,20 +833,51 @@ try {
         throw 'npm est introuvable dans cette session.'
     }
 
-    Start-DevServer
-
-    $wifiIp = Get-PreferredIPv4Address
-    if (-not $wifiIp) {
-        Write-Host "Aucune IP IPv4 reseau detectee."
+    if (-not $ListTargets) {
+        Start-DevServer
     }
 
-    $launchOptions = Get-LaunchOptions -WifiHost $wifiIp
-    if (-not $launchOptions.Count) {
-        throw "Aucune cible de lancement disponible."
-    }
+    while ($true) {
+        $wifiIp = Get-PreferredIPv4Address
+        if (-not $wifiIp) {
+            Write-Host "Aucune IP IPv4 reseau detectee."
+        }
 
-    $selectedOption = Select-LaunchOption -Options $launchOptions -WifiHost $wifiIp
-    Invoke-LaunchOption -SelectedOption $selectedOption -WifiHost $wifiIp
+        $launchOptions = Get-LaunchOptions -WifiHost $wifiIp
+        if (-not $launchOptions.Count) {
+            throw "Aucune cible de lancement disponible."
+        }
+
+        if ($ListTargets) {
+            Show-LaunchOptions -Options $launchOptions
+            return
+        }
+
+        $selectedOption = Select-ForcedLaunchOption -Options $launchOptions -TargetName $Target -Serial $Serial
+        $isInteractiveMenu = -not $selectedOption
+        if (-not $selectedOption) {
+            $selectedOption = Select-LaunchOption -Options $launchOptions -WifiHost $wifiIp
+        }
+
+        if ($selectedOption.Action -eq 'menu-quit') {
+            Write-Host ""
+            Write-Host "Menu ferme. Les sessions deja lancees restent ouvertes dans leurs fenetres." -ForegroundColor Green
+            return
+        }
+
+        if ($selectedOption.Action -eq 'menu-refresh') {
+            continue
+        }
+
+        Invoke-LaunchOption -SelectedOption $selectedOption -WifiHost $wifiIp -DetachedAndroid:$isInteractiveMenu
+
+        if (-not $isInteractiveMenu -or $DryRun) {
+            break
+        }
+
+        Write-Host ""
+        Write-Host "Tu peux choisir une autre cible, actualiser la liste, ou quitter le menu." -ForegroundColor Green
+    }
 
     Write-Host ""
     Write-Host "Live-reload pret. Laisse cette fenetre ouverte pendant le developpement." -ForegroundColor Green

@@ -26,6 +26,19 @@ npm run mobile:run:android:live
 
 The Android app then points at `http://localhost:5173` through `adb reverse`, so JS/TS/CSS changes should show up immediately on the connected device.
 
+The repository helper can also launch a specific target without going through the interactive menu:
+
+```powershell
+.\serve.bat
+.\serve.bat -ListTargets
+.\serve.bat emulator
+.\serve.bat usb -Serial <adb-serial>
+.\serve.bat wifi -Serial <ip:port>
+.\serve.bat -Serial <adb-serial>
+```
+
+In the interactive `serve.bat` menu, choosing an Android target opens its live-reload session in a dedicated PowerShell window and then returns to the menu. Use `R` to refresh the device list and `Q` to close only the menu. Starting live-reload on another listed device reuses the same Vite server and does not stop an already running emulator or phone session.
+
 ## First-session notes
 
 - Keep USB debugging enabled on the phone.
