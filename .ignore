@@ -1,0 +1,40 @@
+# Ripgrep / agent exploration noise
+node_modules/
+mobile/node_modules/
+dist/
+build/
+mobile/www/
+mobile/android/.gradle/
+mobile/android/app/build/
+
+# Local Codex/browser diagnostics
+.codex-*/
+tmp/
+parsing-projects/
+screenshots/
+
+# Generated compatibility copies; edit/search the public/ source instead.
+style.css
+chord-symbol.css
+default-progressions.txt
+favicon.svg
+piano-sample-calibrator.html
+piano-sample-calibrator.js
+progression-suffixes.txt
+
+# Large binary/reference assets that rarely help text search.
+assets/
+assets/MP3/
+assets/ride/
+logo/
+SVG generator/
+SVG generator/fonts/
+SVG generator/atlases/
+Public/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# Accidental scratch files.
+-

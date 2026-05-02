@@ -1,8 +1,10 @@
 node_modules/
 dist/
+build/
 mobile/node_modules/
 mobile/www/
 mobile/android/.gradle/
+mobile/android/app/build/
 mobile/android/local.properties
 mobile/ios/App/Pods/
 mobile/ios/App/App/public/
@@ -23,11 +25,18 @@ pnpm-debug.log*
 Thumbs.db
 __pycache__/
 
+# Local scratch accidentally produced by shell/browser experiments.
+-
+
 .vscode/
 .idea/
 
+.codex-*/
 .codex-chrome-profile*/
 .codex-temp/
+.codex-live-reload-logs/
+.codex-diagnostics/
+.codex-runtime/
 
 parsing-projects/
 tmp/

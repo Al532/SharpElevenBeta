@@ -1,9 +1,0 @@
-[fatal] Error: kill ENOSYS
-    at process.kill (node:internal/process/per_thread:277:13)
-    at C:\Users\Alcibiade\Documents\GitHub\SharpElevenApp\mobile\node_modules\@ionic\utils-process\dist\index.js:136:17
-    at async process.<anonymous> (C:\Users\Alcibiade\Documents\GitHub\SharpElevenApp\mobile\node_modules\@ionic\utils-process\dist\index.js:117:13) {
-  errno: -4054,
-  code: 'ENOSYS',
-  syscall: 'kill'
-}
-^C

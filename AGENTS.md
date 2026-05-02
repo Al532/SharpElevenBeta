@@ -14,59 +14,22 @@
 - When asked to undo recent work, undo only the changes you can specifically attribute to your own last action, not unrelated current workspace changes.
 - If the current files contain mixed work from the user or another agent, preserve the useful intent in the current state and repair only the incoherent or broken parts.
 
+## Context Hygiene
+
+- Keep repo exploration targeted. Do not run broad searches such as `rg -S .` unless narrow searches fail.
+- Prefer searching the active source areas first: `src/`, `chart/`, `public/`, `scripts/`, `config/`, `mobile/` when relevant, and specific docs when needed.
+- Respect `.ignore` for normal `rg` / `rg --files` exploration. Use `--no-ignore` only when the task clearly needs generated output, dependencies, diagnostics, binary assets, or reference archives.
+- Avoid dumping large command outputs into the thread. Prefer `Select-Object -First`, targeted `rg -n`, `git ls-files <path>`, file summaries, or exact file reads.
+- Treat generated compatibility copies as secondary. When a `public/` source exists, inspect and edit the `public/` file first.
+
 ## Permanent Repository Rules
 
 ### Builds
 
 - Do not run a build unless the user explicitly asks for it.
-- Interpret build requests with these exact defaults:
-  - `fais un build` = run the local web app build for this repository
-  - `fais un build Android` = run the Android build workflow
-- If the user explicitly asks `builde` or requests a build, run the requested build target and increment the application version.
-- When incrementing the application version, update `package.json` and keep `package-lock.json` aligned if needed.
-- After a requested build, commit the current repository locally without pushing it online.
-- When a build is requested for the local app, use the application version number in the local repository commit message.
-- For a local web build request, use `npm run build`.
-
-#### Android Build Procedure
-
-- For an Android build request, increment the app version first in both root and `mobile/` package manifests, and keep both lockfiles aligned.
-- Also align the Android native version in `mobile/android/app/build.gradle`:
-  - `versionName` must match the app version
-  - `versionCode` should track the numeric release iteration
-- Keep Android identifiers aligned when needed:
-  - `mobile/capacitor.config.json`
-  - `mobile/android/app/src/main/res/values/strings.xml`
-- Build and sync in this order from the repository root:
-  1. `npm run build:mobile`
-  2. `npm run mobile:sync`
-- `npm run build:mobile` now has to produce the full mobile web shell, not only the drill entrypoint:
-  - main app bundle in `mobile/www`
-  - runtime sample assets under `mobile/www/assets`
-  - chart bundle under `mobile/www/chart`
-- Then build the native Android app from `mobile/android` with Gradle.
-- On this machine, Android Studio is installed and the working Java and SDK locations are:
-  - `JAVA_HOME=C:\Program Files\Android\Android Studio\jbr`
-  - `ANDROID_HOME=C:\Users\Alcibiade\AppData\Local\Android\Sdk`
-  - `ANDROID_SDK_ROOT=C:\Users\Alcibiade\AppData\Local\Android\Sdk`
-- If `JAVA_HOME` or `ANDROID_HOME` is missing, prefer setting them for the current shell session before running Gradle rather than editing project files.
-- Working local command for this machine:
-  - PowerShell:
-    `$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'; $env:ANDROID_HOME='C:\Users\Alcibiade\AppData\Local\Android\Sdk'; $env:ANDROID_SDK_ROOT='C:\Users\Alcibiade\AppData\Local\Android\Sdk'; $env:Path=\"$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path\"; .\gradlew.bat assembleDebug`
-- The debug APK output path is:
-  - `mobile/android/app/build/outputs/apk/debug/app-debug.apk`
-- After a successful Android build, also try to push/install the debug APK onto a connected Android phone with ADB.
-- On this machine, prefer the local SDK ADB binary:
-  - `C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe`
-- Device detection command:
-  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' devices -l`
-- Install command:
-  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' install -r 'C:\Users\Alcibiade\Documents\GitHub\SharpElevenApp\mobile\android\app\build\outputs\apk\debug\app-debug.apk'`
-- Post-install verification commands:
-  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell pm list packages io.github.al532.sharpelevenapp`
-  - `& 'C:\Users\Alcibiade\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell dumpsys package io.github.al532.sharpelevenapp | Select-String 'versionName|versionCode'`
-- If no device is listed, report that clearly and stop at the built APK without blocking the local build/commit workflow.
-- After the requested Android build completes, commit the repository locally with the application version as the commit message.
+- `fais un build` means the local web app build. `fais un build Android` means the Android build workflow.
+- If the user requests a build, first read `docs/codex-build-workflows.md`, then follow the relevant workflow exactly.
+- Build requests require incrementing the application version and committing locally after success. Do not push unless explicitly asked.
 
 ### Synced Static Assets
 
@@ -102,41 +65,13 @@ Synced static assets:
 
 ### Android Live-Reload Workflow
 
-- Prefer Android live-reload for iterative mobile development when the user wants to verify changes quickly on a connected Android device without running a full mobile build.
-- Treat Android live-reload as the default mobile iteration loop for web-layer changes:
-  1. `npm run dev:android:web`
-  2. `npm run dev:typecheck`
-  3. `npm run mobile:run:android:live`
-- Use this loop for:
-  - UI changes
-  - TS/JS logic changes
-  - CSS/layout changes
-  - most state, parsing, and rendering work
-- In this workflow, keep the Android app connected to the Vite dev server through `adb reverse` on port `5173`, so changes appear immediately on the device without rebuilding the bundled web shell.
-- Do not switch to a full Android build just for ordinary web iteration.
-- Fall back to `npm run mobile:sync`, `npm run build:mobile`, or a full Android build only when changes affect:
-  - Capacitor plugin configuration
-  - Android native code or Android resources
-  - manifest or Gradle settings
-  - anything that depends on bundled static output instead of the dev server
-- Keep release behavior unchanged: any HTTP cleartext allowance for live-reload must remain limited to debug Android builds only.
-- If the user asks to "launch Android live-reload", "start the Android iteration loop", or equivalent, execute the workflow autonomously and report any device or connectivity blocker clearly.
+- If the user asks to launch Android live-reload or the Android iteration loop, read `docs/codex-build-workflows.md` and execute the Android live-reload workflow.
 
 ### Structural Consolidation
 
 - Only do this when the user explicitly asks for consolidation, clarification, cleanup, or structural refactoring.
 - Do not start this pass on your own initiative.
-- Start by identifying the actual structural problem: an oversized entrypoint, a family of pass-through micro-modules, unclear ownership, duplicated vocabulary, or a misplaced domain responsibility.
-- Extract from large files by responsibility, not by line count. Keep entrypoints focused on wiring config, DOM, state, and feature modules together.
-- Consolidate thin files only when their boundary is mechanical, pass-through, or vocabulary-only; preserve small files that encode a real runtime boundary, platform boundary, shared contract, or testable domain responsibility.
-- Treat `*-assembly`, `*-bindings`, and `*-context` families as likely consolidation candidates when they do not carry independent responsibility.
-- Clarify contracts, module boundaries, responsibilities, data flow, naming, and vocabulary as part of the refactor.
-- Preserve behavior, avoid decorative refactors, keep useful separations, and adapt the scope to the area actually concerned.
-- Reserve specific terms for the modules or concepts they truly belong to, and use broader vocabulary for shared or cross-module elements.
-- Update imports, references, tests, and relevant documentation so the result is coherent end-to-end.
-- Keep `docs/module-catalog.md` aligned when a refactor changes module ownership, moves files across module boundaries, or renames a responsibility.
-- Verify structural refactors with `npm run typecheck`, plus `npm run test:chart` after chart or shared playback changes, or `npm run test:drill-wrappers` after drill, app wiring, or config changes.
-- At the end, briefly summarize the main structural decisions, important renamings, and any remaining debatable points.
+- When triggered, read `docs/codex-structural-consolidation.md` and follow it.
 
 ## Web Debug Workflow
 
