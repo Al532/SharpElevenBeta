@@ -25,6 +25,11 @@ const mirroredFiles = [
   'theme.js'
 ];
 
+const mirroredBinaryFiles = [
+  'logo/classic-paper.png',
+  'logo/dark-mode.png'
+];
+
 const staticAssetPaths = [
   '13_heavy_hi-hat_chick.mp3',
   'MP3',
@@ -56,6 +61,13 @@ async function syncPublicFilesTo(targetDir) {
 
     await writeFile(destinationPath, await renderStaticFile(relativePath), 'utf8');
   }
+
+  for (const relativePath of mirroredBinaryFiles) {
+    const destinationPath = path.join(targetDir, relativePath);
+    await mkdir(path.dirname(destinationPath), { recursive: true });
+
+    await cp(getPublicPath(relativePath), destinationPath, { force: true });
+  }
 }
 
 async function syncStaticAssetsTo(targetDir) {
@@ -77,13 +89,19 @@ if (scriptMode === 'root' || scriptMode === 'all') {
 }
 
 if (scriptMode === 'build') {
-  await syncStaticAssetsTo(path.join(projectRoot, 'build'));
+  const buildDir = path.join(projectRoot, 'build');
+  await syncPublicFilesTo(buildDir);
+  await syncStaticAssetsTo(buildDir);
 }
 
 if (scriptMode === 'mobile') {
-  await syncStaticAssetsTo(path.join(projectRoot, 'mobile/www'));
+  const mobileBuildDir = path.join(projectRoot, 'mobile/www');
+  await syncPublicFilesTo(mobileBuildDir);
+  await syncStaticAssetsTo(mobileBuildDir);
 }
 
 if (scriptMode === 'demo') {
-  await syncStaticAssetsTo(path.join(projectRoot, 'dist'));
+  const demoBuildDir = path.join(projectRoot, 'dist');
+  await syncPublicFilesTo(demoBuildDir);
+  await syncStaticAssetsTo(demoBuildDir);
 }

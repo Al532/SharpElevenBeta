@@ -23,18 +23,25 @@ export function createChartPlaybackPayloadBuilder({
   playbackSettings: PlaybackSettings
 ) => EmbeddedPatternPayload {
   return function buildChartPlaybackPayload(sessionSpec, playbackSettings) {
+    const runtimeRepeatCount = Number(sessionSpec?.playback?.runtimeRepeatCount);
+    const playbackStartChordIndex = Number(sessionSpec?.playback?.playbackStartChordIndex);
     return {
       patternName: sessionSpec?.title || getCurrentChartTitle?.() || 'Chart Dev',
       patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
       endingCue: sessionSpec?.playback?.endingCue || null,
       performanceMap: sessionSpec?.playback?.performanceMap || null,
+      playbackStartChordIndex: Number.isFinite(playbackStartChordIndex)
+        ? Math.max(0, Math.round(playbackStartChordIndex))
+        : null,
       patternMode: 'both',
       tempo: sessionSpec?.tempo || getTempo?.() || 120,
       transposition: playbackSettings?.transposition ?? null,
       compingStyle: playbackSettings?.compingStyle,
       drumsMode: playbackSettings?.drumsMode,
       customMediumSwingBass: playbackSettings?.customMediumSwingBass,
-      repetitionsPerKey: 1,
+      repetitionsPerKey: Number.isFinite(runtimeRepeatCount)
+        ? Math.max(1, Math.round(runtimeRepeatCount))
+        : playbackSettings?.repetitionsPerKey ?? 1,
       finitePlayback: playbackSettings?.finitePlayback
         ?? (sessionSpec?.origin?.mode === 'chart-document' || sessionSpec?.origin?.mode === 'chart-selection'),
       displayMode: playbackSettings?.displayMode || 'show-both',

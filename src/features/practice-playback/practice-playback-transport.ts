@@ -13,6 +13,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     ensureNearTermSamplePreload,
     ensureSessionStarted,
     fitHarmonyDisplay,
+    getPlaybackStartChordIndex,
     getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps,
     hideNextCol,
@@ -45,6 +46,10 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
 
   function isGenerationActive(generation) {
     return generation === transportGeneration && state.isPlaying && !state.isPaused;
+  }
+
+  function getPaddedChords() {
+    return Array.isArray(state.paddedChords) ? state.paddedChords : [];
   }
 
   function fadeGainToSilence(gainNode, startTime, fadeDuration) {
@@ -129,6 +134,16 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.loopVoicingTemplate = null;
     state.nearTermSamplePreloadPromise = null;
     prepareNextProgression();
+    const paddedChords = getPaddedChords();
+    const startChordIndex = Math.max(
+      0,
+      Math.min(
+        Math.max(0, paddedChords.length - 1),
+        Math.round(Number(getPlaybackStartChordIndex?.() || 0))
+      )
+    );
+    state.currentChordIdx = startChordIndex;
+    state.lastPlayedChordIdx = startChordIndex - 1;
     applyDisplaySideLayout();
     dom.keyDisplay.textContent = '';
     dom.chordDisplay.textContent = '';

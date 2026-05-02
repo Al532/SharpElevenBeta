@@ -317,6 +317,8 @@ export interface PracticeSessionPlayback {
   enginePatternString: string;
   endingCue?: PlaybackEndingCue | null;
   performanceMap?: ChartPerformanceMap | null;
+  playbackStartChordIndex?: number | null;
+  runtimeRepeatCount?: number | null;
 }
 
 export interface PracticeSessionSpec {
@@ -465,6 +467,7 @@ export interface EmbeddedPatternPayload {
   patternString: string;
   endingCue?: PlaybackEndingCue | null;
   performanceMap?: ChartPerformanceMap | null;
+  playbackStartChordIndex?: number | null;
   patternMode: 'both' | 'major' | 'minor' | string;
   tempo: number | null;
   transposition?: number | string | null;
@@ -666,6 +669,7 @@ export interface EmbeddedPatternAdapterOptions {
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
   setPlaybackEndingCue?: (endingCue: PlaybackEndingCue | null) => void;
   setPlaybackPerformanceMap?: (performanceMap: ChartPerformanceMap | null) => void;
+  setPlaybackStartChordIndex?: (chordIndex: number) => void;
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;

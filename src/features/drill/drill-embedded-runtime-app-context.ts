@@ -14,6 +14,7 @@ type DrillEmbeddedPatternUiBindings = {
   setLastPatternSelectValue?: () => void;
   setPlaybackEndingCue?: PracticePlaybackPatternUiBindings['setPlaybackEndingCue'];
   setPlaybackPerformanceMap?: PracticePlaybackPatternUiBindings['setPlaybackPerformanceMap'];
+  setPlaybackStartChordIndex?: PracticePlaybackPatternUiBindings['setPlaybackStartChordIndex'];
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -90,6 +91,7 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
     setLastPatternSelectValue: patternUi.setLastPatternSelectValue,
     setPlaybackEndingCue: patternUi.setPlaybackEndingCue,
     setPlaybackPerformanceMap: patternUi.setPlaybackPerformanceMap,
+    setPlaybackStartChordIndex: patternUi.setPlaybackStartChordIndex,
     syncCustomPatternUI: patternUi.syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern: patternUi.normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability: patternUi.applyPatternModeAvailability,

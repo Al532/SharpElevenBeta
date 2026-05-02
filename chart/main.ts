@@ -667,6 +667,7 @@ function getPlaybackSettings(): PlaybackSettings {
     transposition: getChartTransposeSemitones(),
     chartRepeatCount: getChartRepeatCount(),
     chartRepeatInfinite,
+    repetitionsPerKey: 1,
     finitePlayback: state.selectionLoopActive ? false : !chartRepeatInfinite,
     compingStyle: dom.compingStyleSelect?.value,
     drumsMode: dom.drumsSelect?.value,
@@ -1315,9 +1316,16 @@ function syncRepeatCountControls(
   const currentPerformance = getCurrentChartPerformance();
   const normalizedRepeatCount = normalizeChartRepeatCount(value);
   const label = infinite ? CHART_REPEAT_INFINITE_LABEL : `${normalizedRepeatCount}x`;
-  if (dom.repeatCountInput) dom.repeatCountInput.value = String(normalizedRepeatCount);
-  if (dom.repeatCountSelect) dom.repeatCountSelect.value = String(normalizedRepeatCount);
-  if (dom.repeatCountRange) dom.repeatCountRange.value = String(normalizedRepeatCount);
+  if (!infinite) {
+    if (dom.repeatCountInput) dom.repeatCountInput.value = String(normalizedRepeatCount);
+    if (dom.repeatCountSelect) dom.repeatCountSelect.value = String(normalizedRepeatCount);
+    if (dom.repeatCountRange) dom.repeatCountRange.value = String(normalizedRepeatCount);
+  }
+  if (dom.repeatCountInput) dom.repeatCountInput.disabled = infinite;
+  if (dom.repeatCountSelect) dom.repeatCountSelect.disabled = infinite;
+  if (dom.repeatCountRange) dom.repeatCountRange.disabled = infinite;
+  if (dom.repeatCountDecrease) dom.repeatCountDecrease.disabled = infinite;
+  if (dom.repeatCountIncrease) dom.repeatCountIncrease.disabled = infinite;
   if (dom.repeatCountLabel) dom.repeatCountLabel.textContent = label;
   if (dom.repeatCountValue) dom.repeatCountValue.textContent = label;
   dom.repeatCountLabel?.classList.toggle('chart-repeat-infinity-symbol', label === CHART_REPEAT_INFINITE_LABEL);
@@ -1330,7 +1338,7 @@ function syncRepeatCountControls(
     dom.repeatCountPopover.classList.toggle('has-active-performance', Boolean(currentPerformance));
   }
   if (dom.performanceActionButton) {
-    dom.performanceActionButton.textContent = 'Add cues';
+    dom.performanceActionButton.textContent = "Add 'on-cue' triggers";
     dom.performanceActionButton.disabled = !state.currentChartDocument;
     dom.performanceActionButton.setAttribute('aria-expanded', dom.performanceMenu && !dom.performanceMenu.hidden ? 'true' : 'false');
   }
@@ -1369,7 +1377,7 @@ function setChartRepeatInfinite(value: boolean, { render = true }: { render?: bo
   });
   updateCurrentChartPerformance(nextPerformance);
   if (render) {
-    renderFixture();
+    renderTransport();
   } else {
     renderTransport();
   }
@@ -1899,6 +1907,9 @@ async function startPlayback({
     state.selectionLoopPlaybackPending = true;
   }
   try {
+    if (!practiceSessionOverride) {
+      rebuildCurrentPlaybackSessionForPerformanceCues();
+    }
     const nextState = await getChartPlaybackController().startPlayback();
     applyChartPlaybackState('isPlaying' in nextState
       ? nextState
@@ -2331,34 +2342,30 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
   if (!chartDocument || selectedBarIds.length === 0) return null;
 
   const startBarId = selectedBarIds[0];
-  const startEntryIndex = (state.currentPlaybackPlan?.entries || []).findIndex((entry) => entry.barId === startBarId);
-  if (!state.currentPlaybackPlan || startEntryIndex < 0) return null;
-
-  const entries = state.currentPlaybackPlan.entries
-    .slice(startEntryIndex)
-    .map((entry, index) => ({
-      ...JSON.parse(JSON.stringify(entry)),
-      sequenceIndex: index + 1
-    }));
-  if (entries.length === 0) return null;
+  const playbackPlan = createChartPlaybackPlanFromDocument(
+    chartDocument,
+    {
+      ...createCurrentPlaybackPlanOptions(chartDocument),
+      repeatCount: 1
+    }
+  ) as ChartPlaybackPlan;
+  const startEntryIndex = (playbackPlan.entries || []).findIndex((entry) => entry.barId === startBarId);
+  if (startEntryIndex < 0) return null;
 
   const startBar = chartDocument.bars?.find((bar) => bar.id === startBarId) || null;
-  const lastEntry = entries[entries.length - 1];
+  const lastEntry = playbackPlan.entries[playbackPlan.entries.length - 1];
   const session = createPracticeSessionFromChartPlaybackPlan({
     chartDocument,
-    playbackPlan: {
-      ...state.currentPlaybackPlan,
-      entries
-    },
+    playbackPlan,
     source: 'chart-play-from-bar',
-    title: `${chartDocument.metadata?.title || 'Chart'} - from bar ${startBar?.index ?? entries[0]?.barIndex ?? ''}`.trim(),
+    title: `${chartDocument.metadata?.title || 'Chart'} - from bar ${startBar?.index ?? playbackPlan.entries[startEntryIndex]?.barIndex ?? ''}`.trim(),
     tempo: getTempo(),
     transposition: getChartTransposeSemitones(),
     selection: {
       startBarId,
       endBarId: lastEntry?.barId || startBarId,
-      barIds: entries.map((entry) => entry.barId),
-      startBarIndex: startBar?.index ?? entries[0]?.barIndex ?? null,
+      barIds: playbackPlan.entries.slice(startEntryIndex).map((entry) => entry.barId),
+      startBarIndex: startBar?.index ?? playbackPlan.entries[startEntryIndex]?.barIndex ?? null,
       endBarIndex: lastEntry?.barIndex ?? null
     },
     origin: {
@@ -2368,9 +2375,23 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
     }
   });
 
+  const startPlaybackBarIndex = session.playback.bars.findIndex((bar) => bar.id === startBarId);
+  const playbackStartChordIndex = session.playback.bars
+    .slice(0, Math.max(0, startPlaybackBarIndex))
+    .reduce((total, bar) => total + Math.max(1, bar.beatSlots?.length || bar.symbols?.length || 1), 0);
+
   return {
     ...session,
-    id: `${session.id || chartDocument.metadata?.id || 'chart'}-from-bar-${startBar?.index ?? startEntryIndex + 1}`
+    id: `${session.id || chartDocument.metadata?.id || 'chart'}-from-bar-${startBar?.index ?? startEntryIndex + 1}`,
+    playback: {
+      ...session.playback,
+      playbackStartChordIndex,
+      runtimeRepeatCount: isChartRepeatInfinite() ? 1 : getChartRepeatCount()
+    },
+    origin: {
+      ...(session.origin || {}),
+      mode: 'chart-play-from-bar'
+    }
   };
 }
 

@@ -13,6 +13,7 @@ import {
   CHORD_ENRICHMENT_MODES,
   reharmonizeChordSlotCollections
 } from './reharm.js';
+import { parseNoteSymbol, splitChordSymbol } from './chart-harmony.js';
 import {
   DEFAULT_PLAYBACK_ENDING_CONFIG,
   resolvePlaybackEndingStyle
@@ -304,7 +305,8 @@ function createEndingCue(entry, {
   kind,
   style,
   source,
-  holdMs
+  holdMs,
+  beatIndex = findFirstPlayableCellBeatIndex(entry?.playbackCellSlots || [])
 }) {
   return {
     kind,
@@ -313,8 +315,63 @@ function createEndingCue(entry, {
     holdMs,
     barId: entry?.barId || '',
     barIndex: Number(entry?.barIndex || 0),
-    beatIndex: findFirstPlayableCellBeatIndex(entry?.playbackCellSlots || [])
+    beatIndex
   };
+}
+
+function getChartTonicSemitone(chartDocument) {
+  const sourceKey = String(
+    chartDocument?.metadata?.sourceKey
+    || chartDocument?.metadata?.displayKey
+    || ''
+  ).trim();
+  const tonic = sourceKey.match(/^([A-G](?:b|#)?)/)?.[1] || '';
+  const parsedTonic = parseNoteSymbol(tonic);
+  if (!parsedTonic) return null;
+
+  const sourceTranspose = Number(chartDocument?.metadata?.sourceTranspose || 0);
+  return Number.isFinite(sourceTranspose)
+    ? (parsedTonic.semitone + sourceTranspose + 1200) % 12
+    : parsedTonic.semitone;
+}
+
+function getChordRootSemitone(slot) {
+  const explicitRoot = String(slot?.root || '').trim();
+  const parsedExplicitRoot = parseNoteSymbol(explicitRoot);
+  if (parsedExplicitRoot) return parsedExplicitRoot.semitone;
+
+  const split = splitChordSymbol(String(slot?.symbol || '').trim());
+  const parsedSymbolRoot = parseNoteSymbol(split?.root || '');
+  return parsedSymbolRoot?.semitone ?? null;
+}
+
+function findLastTonicEndingTarget(entries, chartDocument) {
+  const tonicSemitone = getChartTonicSemitone(chartDocument);
+  if (!Number.isInteger(tonicSemitone)) return null;
+
+  let target = null;
+  const candidateEntries = entries || [];
+  const startEntryIndex = Math.max(0, candidateEntries.length - 4);
+  for (let entryIndex = startEntryIndex; entryIndex < candidateEntries.length; entryIndex += 1) {
+    const entry = candidateEntries[entryIndex];
+    const cellSlots = Array.isArray(entry?.playbackCellSlots) ? entry.playbackCellSlots : [];
+    for (const [beatIndex, cellSlot] of cellSlots.entries()) {
+      const chord = cellSlot?.chord || null;
+      if (!isPlayableChordSlot(chord)) continue;
+      if (getChordRootSemitone(chord) !== tonicSemitone) continue;
+      target = { entryIndex, beatIndex };
+    }
+
+    if (cellSlots.length > 0) continue;
+    const playbackSlots = Array.isArray(entry?.playbackSlots) ? entry.playbackSlots : [];
+    for (const [slotIndex, slot] of playbackSlots.entries()) {
+      if (!isPlayableChordSlot(slot)) continue;
+      if (getChordRootSemitone(slot) !== tonicSemitone) continue;
+      target = { entryIndex, beatIndex: slotIndex };
+    }
+  }
+
+  return target;
 }
 
 function applyPlaybackEndingCue(entries, chartDocument, options) {
@@ -322,7 +379,15 @@ function applyPlaybackEndingCue(entries, chartDocument, options) {
 
   const tempo = Number(chartDocument?.metadata?.tempo || 120);
   const fermataIndex = entries.findIndex((entry) => (entry?.flags || []).includes('fermata'));
-  const targetIndex = fermataIndex >= 0 ? fermataIndex : entries.length - 1;
+  const fineIndex = entries.findIndex((entry) => (entry?.flags || []).includes('fine'));
+  const defaultTargetIndex = entries.length - 1;
+  const hasExplicitEndingTarget = fermataIndex >= 0 || fineIndex >= 0;
+  const naturalEndingTarget = hasExplicitEndingTarget ? null : findLastTonicEndingTarget(entries, chartDocument);
+  const targetIndex = fermataIndex >= 0
+    ? fermataIndex
+    : fineIndex >= 0
+      ? fineIndex
+    : naturalEndingTarget?.entryIndex ?? defaultTargetIndex;
   const targetEntry = entries[targetIndex];
   if (!targetEntry) return entries;
 
@@ -343,7 +408,10 @@ function applyPlaybackEndingCue(entries, chartDocument, options) {
     source: isFermata
       ? 'fermata'
       : ((targetEntry.flags || []).includes('fine') ? 'fine' : 'natural_end'),
-    holdMs
+    holdMs,
+    beatIndex: isFermata
+      ? findFirstPlayableCellBeatIndex(targetEntry?.playbackCellSlots || [])
+      : naturalEndingTarget?.beatIndex ?? findFirstPlayableCellBeatIndex(targetEntry?.playbackCellSlots || [])
   });
 
   if (isFermata && targetIndex < entries.length - 1) {

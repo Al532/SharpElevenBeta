@@ -432,6 +432,14 @@ select {
   width: 100%;
 }
 
+.chart-repeat-popover.is-infinite .chart-repeat-stepper {
+  opacity: 0.48;
+}
+
+.chart-repeat-popover input[type="range"]:disabled {
+  cursor: default;
+}
+
 .chart-repeat-stepper {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 40px;
@@ -454,13 +462,17 @@ select {
   cursor: pointer;
 }
 
+.chart-stepper-button:disabled {
+  cursor: default;
+}
+
 .chart-performance-simple-row {
   width: 100%;
 }
 
 .chart-performance-infinite-button {
   position: absolute;
-  top: 50%;
+  top: calc(50% + 8px);
   right: 0;
   display: inline-grid;
   place-items: center;
@@ -489,10 +501,14 @@ select {
 }
 
 .chart-performance-infinite-button.chart-repeat-infinity-symbol::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 26px;
   height: 16px;
   min-width: 0;
   min-height: 0;
+  transform: translate(-50%, -50%);
 }
 
 .chart-performance-toggle {

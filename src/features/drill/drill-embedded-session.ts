@@ -16,6 +16,7 @@ export function createEmbeddedPatternAdapter({
   applyEmbeddedPlaybackSettings,
   setPlaybackEndingCue,
   setPlaybackPerformanceMap,
+  setPlaybackStartChordIndex,
   syncCustomPatternUI,
   normalizeChordsPerBarForCurrentPattern,
   applyPatternModeAvailability,
@@ -45,6 +46,7 @@ export function createEmbeddedPatternAdapter({
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
   setPlaybackEndingCue?: (endingCue: EmbeddedPatternPayload['endingCue'] | null) => void;
   setPlaybackPerformanceMap?: (performanceMap: EmbeddedPatternPayload['performanceMap'] | null) => void;
+  setPlaybackStartChordIndex?: (chordIndex: number) => void;
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -67,6 +69,7 @@ export function createEmbeddedPatternAdapter({
     patternString = '',
     endingCue = null,
     performanceMap = null,
+    playbackStartChordIndex = null,
     patternMode = 'both',
     tempo = null,
     transposition = null,
@@ -94,6 +97,9 @@ export function createEmbeddedPatternAdapter({
     setCustomPatternValue?.(normalizedPattern);
     setPlaybackEndingCue?.(endingCue || null);
     setPlaybackPerformanceMap?.(performanceMap || null);
+    setPlaybackStartChordIndex?.(Number.isFinite(Number(playbackStartChordIndex))
+      ? Math.max(0, Math.round(Number(playbackStartChordIndex)))
+      : 0);
     setEditorPatternMode?.(normalizePatternMode?.(patternMode || 'both') || patternMode || 'both');
     syncPatternSelectionFromInput?.();
     setLastPatternSelectValue?.();

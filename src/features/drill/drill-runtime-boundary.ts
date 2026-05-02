@@ -155,6 +155,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   setLastPatternSelectValue,
   setPlaybackEndingCue,
   setPlaybackPerformanceMap,
+  setPlaybackStartChordIndex,
   syncCustomPatternUI,
   normalizeChordsPerBarForCurrentPattern,
   applyPatternModeAvailability,
@@ -217,6 +218,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   setLastPatternSelectValue: () => void;
   setPlaybackEndingCue?: EmbeddedPatternAdapterOptions['setPlaybackEndingCue'];
   setPlaybackPerformanceMap?: EmbeddedPatternAdapterOptions['setPlaybackPerformanceMap'];
+  setPlaybackStartChordIndex?: EmbeddedPatternAdapterOptions['setPlaybackStartChordIndex'];
   syncCustomPatternUI: () => void;
   normalizeChordsPerBarForCurrentPattern: () => void;
   applyPatternModeAvailability: () => void;
@@ -280,6 +282,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
       setLastPatternSelectValue,
       setPlaybackEndingCue,
       setPlaybackPerformanceMap,
+      setPlaybackStartChordIndex,
       syncCustomPatternUI,
       normalizeChordsPerBarForCurrentPattern,
       applyPatternModeAvailability,

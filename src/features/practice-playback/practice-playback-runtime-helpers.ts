@@ -68,6 +68,7 @@ export function createPracticePlaybackTransportHelpers(helpers: PracticePlayback
     ensureNearTermSamplePreload: helpers.ensureNearTermSamplePreload,
     ensureSessionStarted: helpers.ensureSessionStarted,
     fitHarmonyDisplay: helpers.fitHarmonyDisplay,
+    getPlaybackStartChordIndex: helpers.getPlaybackStartChordIndex,
     getPlaybackAnalyticsProps: helpers.getPlaybackAnalyticsProps,
     getProgressionAnalyticsProps: helpers.getProgressionAnalyticsProps,
     hideNextCol: helpers.hideNextCol,

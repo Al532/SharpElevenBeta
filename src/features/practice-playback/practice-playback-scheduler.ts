@@ -94,14 +94,14 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
   function getEndingStopDelaySeconds(style) {
     return isLongPlaybackEndingStyle(style)
-      ? 0
+      ? DEFAULT_PLAYBACK_ENDING_CONFIG.shortTailStopDelaySeconds
+        + DEFAULT_PLAYBACK_ENDING_CONFIG.longTailExtraStopDelaySeconds
       : DEFAULT_PLAYBACK_ENDING_CONFIG.shortTailStopDelaySeconds;
   }
 
   function getEndingTailFadeTimeConstantSeconds(style) {
-    return isLongPlaybackEndingStyle(style)
-      ? null
-      : DEFAULT_PLAYBACK_ENDING_CONFIG.shortTailFadeTimeConstantSeconds;
+    void style;
+    return DEFAULT_PLAYBACK_ENDING_CONFIG.shortTailFadeTimeConstantSeconds;
   }
 
   function isAtOrBeforeBeat(value, beat) {
@@ -121,6 +121,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     if (!cue || !chord) return false;
     const isLong = isLongPlaybackEndingStyle(cue.style);
     const durationSeconds = isLong ? cue.holdSeconds : null;
+    const tailFadeTimeConstant = getEndingTailFadeTimeConstantSeconds(cue.style);
+    const tailFadeStart = endingTime + (durationSeconds || 0);
 
     if (typeof playRide === 'function') {
       playRide(
@@ -134,7 +136,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
           endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
           endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures,
-          tailFadeTimeConstant: getEndingTailFadeTimeConstantSeconds(cue.style)
+          tailFadeTimeConstant,
+          tailFadeStart
         }
       );
     }
@@ -147,7 +150,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
       endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
       endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures,
-      tailFadeTimeConstant: getEndingTailFadeTimeConstantSeconds(cue.style)
+      tailFadeTimeConstant
     });
 
     compingEngine.scheduleEnding?.({
@@ -182,6 +185,12 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       fitHarmonyDisplay();
       updateBeatDots(0, false);
     });
+
+    if (isLong) {
+      scheduleDisplay(tailFadeStart, () => {
+        compingEngine.stopActiveComping?.(tailFadeStart, tailFadeTimeConstant);
+      });
+    }
 
     const stopTime = endingTime + (durationSeconds || 0) + getEndingStopDelaySeconds(cue.style);
     scheduledEndingStopTime = stopTime;
@@ -224,7 +233,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
     if (state.nextKeyValue !== null) {
       state.currentKey = state.nextKeyValue;
-      state.currentKeyRepetition = forcedKey === null && state.currentKey === previousKey
+      const shouldCountSameKeyRepetition = state.currentKey === previousKey
+        && (forcedKey === null || getFinitePlayback?.() === true);
+      state.currentKeyRepetition = shouldCountSameKeyRepetition
         ? state.currentKeyRepetition + 1
         : 1;
     } else {
@@ -448,43 +459,41 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           state.lastPlayedChordIdx = state.currentChordIdx;
         }
       } else if (isChordBeat) {
-        if (isNoChord(chord)) {
-          state.lastPlayedChordIdx = state.currentChordIdx;
-          continue;
-        }
-        const prevChord = state.lastPlayedChordIdx >= 0 ? state.paddedChords[state.lastPlayedChordIdx] : null;
-        const sameChord = prevChord && !isNoChord(prevChord) && prevChord.semitones === chord.semitones
-          && (prevChord.bassSemitones ?? prevChord.semitones) === (chord.bassSemitones ?? chord.semitones)
-          && prevChord.qualityMajor === chord.qualityMajor
-          && prevChord.qualityMinor === chord.qualityMinor;
+        if (!isNoChord(chord)) {
+          const prevChord = state.lastPlayedChordIdx >= 0 ? state.paddedChords[state.lastPlayedChordIdx] : null;
+          const sameChord = prevChord && !isNoChord(prevChord) && prevChord.semitones === chord.semitones
+            && (prevChord.bassSemitones ?? prevChord.semitones) === (chord.bassSemitones ?? chord.semitones)
+            && prevChord.qualityMajor === chord.qualityMajor
+            && prevChord.qualityMinor === chord.qualityMinor;
 
-        if (!sameChord) {
-          let sustainSlots = 1;
-          for (let i = state.currentChordIdx + 1; i < state.paddedChords.length; i++) {
-            const nextChord = state.paddedChords[i];
-            if (
-              !isNoChord(nextChord)
-              && nextChord.semitones === chord.semitones
-              && (nextChord.bassSemitones ?? nextChord.semitones) === (chord.bassSemitones ?? chord.semitones)
-              && nextChord.qualityMajor === chord.qualityMajor
-              && nextChord.qualityMinor === chord.qualityMinor
-            ) {
-              sustainSlots++;
-            } else {
-              break;
+          if (!sameChord) {
+            let sustainSlots = 1;
+            for (let i = state.currentChordIdx + 1; i < state.paddedChords.length; i++) {
+              const nextChord = state.paddedChords[i];
+              if (
+                !isNoChord(nextChord)
+                && nextChord.semitones === chord.semitones
+                && (nextChord.bassSemitones ?? nextChord.semitones) === (chord.bassSemitones ?? chord.semitones)
+                && nextChord.qualityMajor === chord.qualityMajor
+                && nextChord.qualityMinor === chord.qualityMinor
+              ) {
+                sustainSlots++;
+              } else {
+                break;
+              }
             }
-          }
-          const sustainDuration = sustainSlots * beatsPerChord * spb;
+            const sustainDuration = sustainSlots * beatsPerChord * spb;
 
-          const midi = helpers.getBassMidi(state.currentKey, chord.bassSemitones ?? chord.semitones);
-          playNote(midi, state.nextBeatTime, sustainDuration, 127, {
-            endingCue,
-            timeBeats: windowStartBeats,
-            beatsPerBar: beatsPerMeasure,
-            endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
-            endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
-            endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures
-          });
+            const midi = helpers.getBassMidi(state.currentKey, chord.bassSemitones ?? chord.semitones);
+            playNote(midi, state.nextBeatTime, sustainDuration, 127, {
+              endingCue,
+              timeBeats: windowStartBeats,
+              beatsPerBar: beatsPerMeasure,
+              endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
+              endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
+              endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures
+            });
+          }
         }
         state.lastPlayedChordIdx = state.currentChordIdx;
       }

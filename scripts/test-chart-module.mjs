@@ -3948,7 +3948,7 @@ function syntheticPlaybackPlan(chartDocument, options = {}) {
 
 function makeSyntheticEndingChart({ tempo = 120, fermataBarIndex = null } = {}) {
   return {
-    metadata: { title: 'Ending Cue', id: `ending-cue-${tempo}`, tempo },
+    metadata: { title: 'Ending Cue', id: `ending-cue-${tempo}`, tempo, sourceKey: 'Bb' },
     sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3'] }],
     bars: [
       makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
@@ -4009,6 +4009,89 @@ assert.equal(resolvePlaybackEndingStyle({ tempo: 210, style: 'onbeat_long' }), '
 }
 
 {
+  const tonicEndingChart = createChartDocument({
+    metadata: { title: 'Tonic Ending Window', id: 'tonic-ending-window', tempo: 120, sourceKey: 'F' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3', 'bar-4', 'bar-5'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Fmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'Gm7' }),
+      makeSyntheticChartBar(3, { symbol: 'C7' }),
+      makeSyntheticChartBar(4, { symbol: 'F6' }),
+      makeSyntheticChartBar(5, { symbol: 'C7' })
+    ]
+  });
+  const tonicEndingPlan = syntheticPlaybackPlan(tonicEndingChart);
+  assert.equal(
+    tonicEndingPlan.entries.find((entry) => entry.endingCue)?.barIndex,
+    4,
+    'Natural endings default to the last tonic chord within the final four measures.'
+  );
+  assert.equal(
+    tonicEndingPlan.entries[tonicEndingPlan.entries.length - 1]?.endingCue,
+    undefined,
+    'Natural endings do not force the final measure when a later tonic exists in the final four measures.'
+  );
+
+  const transposedTonicSession = createPracticeSessionFromChartDocument(
+    tonicEndingChart,
+    { playbackPlan: tonicEndingPlan, transposition: 2 }
+  );
+  assert.equal(
+    transposedTonicSession.playback.endingCue?.targetSymbol,
+    'G6',
+    'Natural tonic endings resolve their final symbol after chart session transposition.'
+  );
+
+  const oldTonicOnlyPlan = syntheticPlaybackPlan({
+    metadata: { title: 'Old Tonic Only', id: 'old-tonic-only', tempo: 120, sourceKey: 'F' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3', 'bar-4', 'bar-5'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Fmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'Gm7' }),
+      makeSyntheticChartBar(3, { symbol: 'C7' }),
+      makeSyntheticChartBar(4, { symbol: 'Bb7' }),
+      makeSyntheticChartBar(5, { symbol: 'C7' })
+    ]
+  });
+  assert.equal(
+    oldTonicOnlyPlan.entries.find((entry) => entry.endingCue)?.barIndex,
+    5,
+    'Natural endings ignore tonic chords before the final four-measure window.'
+  );
+}
+
+{
+  const playFromBodyPlan = syntheticPlaybackPlan({
+    metadata: { title: 'Play From Timeline', id: 'play-from-timeline', tempo: 120, sourceKey: 'C' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Dm7' }),
+      makeSyntheticChartBar(2, { symbol: 'G7' }),
+      makeSyntheticChartBar(3, { symbol: 'Cmaj7' })
+    ]
+  }, { repeatCount: 1 });
+  const startEntryIndex = playFromBodyPlan.entries.findIndex((entry) => entry.barId === 'bar-2');
+  const playbackStartChordIndex = playFromBodyPlan.entries
+    .slice(0, startEntryIndex)
+    .reduce((total, entry) => total + Math.max(1, entry.playbackCellSlots?.length || entry.playbackSlots?.length || 1), 0);
+  assert.deepEqual(
+    playFromBodyPlan.entries.map((entry) => entry.barIndex),
+    [1, 2, 3],
+    'Play from this bar keeps the full interpreted grid as the loop body.'
+  );
+  assert.equal(
+    playbackStartChordIndex,
+    1,
+    'Play from this bar enters the first grid at the selected measure offset.'
+  );
+  assert.equal(
+    playFromBodyPlan.entries.find((entry) => entry.endingCue)?.barIndex,
+    3,
+    'Play from this bar keeps the ending cue in the grid body so finite runtime repetitions can trigger it on the final pass.'
+  );
+}
+
+{
   const endingFixtureCharts = createPlaybackEndingTestCharts();
   assert.equal(endingFixtureCharts.length, 4, 'Playback ending fixtures provide a compact test source.');
   assert.deepEqual(
@@ -4034,7 +4117,8 @@ assert.equal(resolvePlaybackEndingStyle({ tempo: 210, style: 'onbeat_long' }), '
   const endingStylesByFixtureId = new Map(
     endingFixtureCharts.map((document) => {
       const plan = createChartPlaybackPlanFromDocument(document);
-      const finalEntry = plan.entries[plan.entries.length - 1];
+      const finalEntry = plan.entries.find((entry) => entry.endingCue)
+        || plan.entries[plan.entries.length - 1];
       return [document.metadata.id, {
         barIndex: finalEntry?.barIndex,
         kind: finalEntry?.endingCue?.kind,
@@ -5445,6 +5529,332 @@ assert.equal(schedulerState.pendingDisplayTimeouts, schedulerPendingDisplayTimeo
     scheduledNotes.every((note) => note.options?.endingStyle === undefined),
     'Natural ending cues are ignored before the final requested repetition.'
   );
+  loopSchedulerState.currentChordIdx = loopSchedulerState.paddedChords.length - 1;
+  loopSchedulerState.audioCtx.currentTime = loopSchedulerState.nextBeatTime + 1;
+  loopScheduler.scheduleBeat();
+  assert.equal(loopSchedulerStopCalls, 1, 'Finite playback stops when the requested repeated grids are exhausted.');
+}
+{
+  const oneRepeatEndingChords = [
+    { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7' },
+    { semitones: 5, bassSemitones: 5, qualityMajor: '7', qualityMinor: '7' }
+  ];
+  const oneRepeatEndingNotes = [];
+  let oneRepeatEndingStopCalls = 0;
+  const oneRepeatEndingState = {
+    audioCtx: { currentTime: 0 },
+    currentBassPlan: [],
+    currentBeat: 0,
+    currentChordIdx: 0,
+    currentCompingPlan: { events: [] },
+    currentKey: 0,
+    currentKeyRepetition: 0,
+    currentOneChordQualityValue: '',
+    currentRawChords: [],
+    currentVoicingPlan: [],
+    displayedCurrentBeat: 0,
+    displayedCurrentChordIdx: 0,
+    displayedIsIntro: false,
+    isIntro: false,
+    isPaused: false,
+    isPlaying: true,
+    lastPlayedChordIdx: -1,
+    loopVoicingTemplate: null,
+    nextBeatTime: 0,
+    nextCompingPlan: { events: [] },
+    nextKeyValue: null,
+    nextOneChordQualityValue: '',
+    nextPaddedChords: [],
+    nextRawChords: [],
+    nextVoicingPlan: [],
+    paddedChords: [],
+    pendingBassTargetMidi: null,
+    pendingDisplayTimeouts: new Set(),
+    walkingBassLoggedMeasures: new Set()
+  };
+  const oneRepeatEndingScheduler = createPlaybackScheduler({
+    dom: {
+      majorMinor: { checked: false },
+      keyDisplay: { innerHTML: '', textContent: '' },
+      chordDisplay: { innerHTML: '' },
+      nextKeyDisplay: { innerHTML: '', textContent: '' },
+      nextChordDisplay: { innerHTML: '' }
+    },
+    state: oneRepeatEndingState,
+    constants: { SCHEDULE_AHEAD: 0.25 },
+    helpers: {
+      applyDisplaySideLayout: () => {},
+      buildPreparedBassPlan: () => [],
+      buildLegacyVoicingPlan: (chords) => chords.map((chord) => ({ chord })),
+      buildPreparedCompingPlans: () => {},
+      buildVoicingPlanForSlots: (slots) => slots,
+      chordSymbolHtml: () => '',
+      compingEngine: { scheduleWindow: () => {}, scheduleEnding: () => {} },
+      createOneChordToken: () => ({}),
+      createVoicingSlot: (chord) => ({ chord }),
+      fitHarmonyDisplay: () => {},
+      getCurrentPatternString: () => 'Cmaj7 | F7',
+      getPatternKeyOverridePitchClass: () => null,
+      getCompingStyle: () => 'piano',
+      getBeatsPerChord: () => 1,
+      getChordsPerBar: () => 1,
+      getPlaybackMeasurePlan: () => [],
+      getMeasureInfoForChordIndex: () => ({ beatCount: 1 }),
+      getRemainingBeatsUntilNextProgression: () => 1,
+      getRepetitionsPerKey: () => 1,
+      getFinitePlayback: () => true,
+      getPlaybackEndingCue: () => ({
+        style: 'onbeat_long',
+        targetBeat: 0,
+        targetChordIndex: 0
+      }),
+      getSecondsPerBeat: () => 1,
+      getSwingRatio: () => 2,
+      getBassMidi: (_key, semitones) => 36 + semitones,
+      hideNextCol: () => {},
+      ensureNearTermSamplePreload: () => {},
+      isWalkingBassEnabled: () => false,
+      isChordsEnabled: () => false,
+      isVoiceLeadingV2Enabled: () => false,
+      keyNameHtml: () => '',
+      nextKey: () => 0,
+      padProgression: (chords) => chords,
+      parseOneChordSpec: () => ({ active: false }),
+      parsePattern: () => oneRepeatEndingChords,
+      playClick: () => {},
+      playNote: (midi, time, duration, velocity, options) => {
+        oneRepeatEndingNotes.push({ midi, time, duration, velocity, options });
+      },
+      playRide: () => {},
+      scheduleDrumsForBeat: () => {},
+      shouldShowNextPreview: () => false,
+      showNextCol: () => {},
+      stopPlayback: () => { oneRepeatEndingStopCalls += 1; },
+      takeNextOneChordQuality: () => '',
+      trackProgressionOccurrence: () => {},
+      updateBeatDots: () => {}
+    }
+  });
+  oneRepeatEndingScheduler.prepareNextProgression();
+  oneRepeatEndingState.currentChordIdx = 0;
+  oneRepeatEndingState.nextBeatTime = 0;
+  oneRepeatEndingState.audioCtx.currentTime = 0;
+  oneRepeatEndingScheduler.scheduleBeat();
+  assert.equal(oneRepeatEndingState.currentKeyRepetition, 1, 'One-repeat ending test starts on the first finite repetition.');
+  assert.equal(oneRepeatEndingStopCalls, 0, 'One-repeat ending scheduling leaves the timed stop to the ending tail.');
+  assert.ok(
+    oneRepeatEndingNotes.some((note) => note.options?.endingStyle === 'onbeat_long'),
+    'One-repeat ending cues schedule the ending immediately.'
+  );
+}
+{
+  const forcedKeyChords = [
+    { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7' },
+    { semitones: 5, bassSemitones: 5, qualityMajor: '7', qualityMinor: '7' }
+  ];
+  let forcedKeyStopCalls = 0;
+  const forcedKeyState = {
+    audioCtx: { currentTime: 0 },
+    currentBassPlan: [],
+    currentBeat: 0,
+    currentChordIdx: 0,
+    currentCompingPlan: { events: [] },
+    currentKey: 0,
+    currentKeyRepetition: 0,
+    currentOneChordQualityValue: '',
+    currentRawChords: [],
+    currentVoicingPlan: [],
+    displayedCurrentBeat: 0,
+    displayedCurrentChordIdx: 0,
+    displayedIsIntro: false,
+    isIntro: false,
+    isPaused: false,
+    isPlaying: true,
+    lastPlayedChordIdx: -1,
+    loopVoicingTemplate: null,
+    nextBeatTime: 0,
+    nextCompingPlan: { events: [] },
+    nextKeyValue: null,
+    nextOneChordQualityValue: '',
+    nextPaddedChords: [],
+    nextRawChords: [],
+    nextVoicingPlan: [],
+    paddedChords: [],
+    pendingBassTargetMidi: null,
+    pendingDisplayTimeouts: new Set(),
+    walkingBassLoggedMeasures: new Set()
+  };
+  const forcedKeyScheduler = createPlaybackScheduler({
+    dom: {
+      majorMinor: { checked: false },
+      keyDisplay: { innerHTML: '', textContent: '' },
+      chordDisplay: { innerHTML: '' },
+      nextKeyDisplay: { innerHTML: '', textContent: '' },
+      nextChordDisplay: { innerHTML: '' }
+    },
+    state: forcedKeyState,
+    constants: { SCHEDULE_AHEAD: 0.25 },
+    helpers: {
+      applyDisplaySideLayout: () => {},
+      buildPreparedBassPlan: () => [],
+      buildLegacyVoicingPlan: (chords) => chords.map((chord) => ({ chord })),
+      buildPreparedCompingPlans: () => {},
+      buildVoicingPlanForSlots: (slots) => slots,
+      chordSymbolHtml: () => '',
+      compingEngine: { scheduleWindow: () => {}, scheduleEnding: () => {} },
+      createOneChordToken: () => ({}),
+      createVoicingSlot: (chord) => ({ chord }),
+      fitHarmonyDisplay: () => {},
+      getCurrentPatternString: () => 'Cmaj7 | F7',
+      getPatternKeyOverridePitchClass: () => 0,
+      getCompingStyle: () => 'piano',
+      getBeatsPerChord: () => 1,
+      getChordsPerBar: () => 1,
+      getPlaybackMeasurePlan: () => [],
+      getMeasureInfoForChordIndex: () => ({ beatCount: 1 }),
+      getRemainingBeatsUntilNextProgression: () => 1,
+      getRepetitionsPerKey: () => 2,
+      getFinitePlayback: () => true,
+      getPlaybackEndingCue: () => null,
+      getSecondsPerBeat: () => 1,
+      getSwingRatio: () => 2,
+      getBassMidi: (_key, semitones) => 36 + semitones,
+      hideNextCol: () => {},
+      ensureNearTermSamplePreload: () => {},
+      isWalkingBassEnabled: () => false,
+      isChordsEnabled: () => false,
+      isVoiceLeadingV2Enabled: () => false,
+      keyNameHtml: () => '',
+      nextKey: () => 0,
+      padProgression: (chords) => chords,
+      parseOneChordSpec: () => ({ active: false }),
+      parsePattern: () => forcedKeyChords,
+      playClick: () => {},
+      playNote: () => {},
+      playRide: () => {},
+      scheduleDrumsForBeat: () => {},
+      shouldShowNextPreview: () => false,
+      showNextCol: () => {},
+      stopPlayback: () => { forcedKeyStopCalls += 1; },
+      takeNextOneChordQuality: () => '',
+      trackProgressionOccurrence: () => {},
+      updateBeatDots: () => {}
+    }
+  });
+  forcedKeyScheduler.prepareNextProgression();
+  forcedKeyState.currentChordIdx = forcedKeyState.paddedChords.length - 1;
+  forcedKeyScheduler.scheduleBeat();
+  assert.equal(forcedKeyState.currentKeyRepetition, 2, 'Finite fixed-key chart playback counts the second grid.');
+  assert.equal(forcedKeyStopCalls, 0, 'Finite fixed-key chart playback does not stop after the first grid.');
+  forcedKeyState.currentChordIdx = forcedKeyState.paddedChords.length - 1;
+  forcedKeyState.audioCtx.currentTime = forcedKeyState.nextBeatTime + 1;
+  forcedKeyScheduler.scheduleBeat();
+  assert.equal(forcedKeyStopCalls, 1, 'Finite fixed-key chart playback stops after the requested grid count.');
+}
+{
+  const noChordSchedulerState = {
+    audioCtx: { currentTime: 0 },
+    currentBassPlan: [],
+    currentBeat: 0,
+    currentChordIdx: 0,
+    currentCompingPlan: { events: [] },
+    currentKey: 0,
+    currentKeyRepetition: 0,
+    currentOneChordQualityValue: '',
+    currentRawChords: [],
+    currentVoicingPlan: [],
+    displayedCurrentBeat: 0,
+    displayedCurrentChordIdx: 0,
+    displayedIsIntro: false,
+    isIntro: false,
+    isPaused: false,
+    isPlaying: true,
+    lastPlayedChordIdx: -1,
+    loopVoicingTemplate: null,
+    nextBeatTime: 0,
+    nextCompingPlan: { events: [] },
+    nextKeyValue: null,
+    nextOneChordQualityValue: '',
+    nextPaddedChords: [],
+    nextRawChords: [],
+    nextVoicingPlan: [],
+    paddedChords: [],
+    pendingBassTargetMidi: null,
+    pendingDisplayTimeouts: new Set(),
+    walkingBassLoggedMeasures: new Set()
+  };
+  const noChordScheduler = createPlaybackScheduler({
+    dom: {
+      majorMinor: { checked: false },
+      keyDisplay: { innerHTML: '', textContent: '' },
+      chordDisplay: { innerHTML: '' },
+      nextKeyDisplay: { innerHTML: '', textContent: '' },
+      nextChordDisplay: { innerHTML: '' }
+    },
+    state: noChordSchedulerState,
+    constants: { SCHEDULE_AHEAD: 0.25 },
+    helpers: {
+      applyDisplaySideLayout: () => {},
+      buildPreparedBassPlan: () => [],
+      buildLegacyVoicingPlan: (chords) => chords.map((chord) => ({ chord })),
+      buildPreparedCompingPlans: () => {},
+      buildVoicingPlanForSlots: (slots) => slots,
+      chordSymbolHtml: () => '',
+      compingEngine: { scheduleWindow: () => {}, scheduleEnding: () => {} },
+      createOneChordToken: () => ({}),
+      createVoicingSlot: (chord) => ({ chord }),
+      fitHarmonyDisplay: () => {},
+      getCurrentPatternString: () => 'NC | Cmaj7',
+      getPatternKeyOverridePitchClass: () => 0,
+      getCompingStyle: () => 'piano',
+      getBeatsPerChord: () => 1,
+      getChordsPerBar: () => 1,
+      getPlaybackMeasurePlan: () => [],
+      getMeasureInfoForChordIndex: () => ({ beatCount: 1 }),
+      getRemainingBeatsUntilNextProgression: () => 1,
+      getRepetitionsPerKey: () => 1,
+      getFinitePlayback: () => false,
+      getPlaybackEndingCue: () => null,
+      getSecondsPerBeat: () => 1,
+      getSwingRatio: () => 2,
+      getBassMidi: (_key, semitones) => 36 + semitones,
+      hideNextCol: () => {},
+      ensureNearTermSamplePreload: () => {},
+      isWalkingBassEnabled: () => false,
+      isChordsEnabled: () => false,
+      isVoiceLeadingV2Enabled: () => false,
+      keyNameHtml: () => '',
+      nextKey: () => 0,
+      padProgression: (chords) => chords,
+      parseOneChordSpec: () => ({ active: false }),
+      parsePattern: () => [
+        { noChord: true, inputType: 'no-chord' },
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7' }
+      ],
+      playClick: () => {},
+      playNote: () => {},
+      playRide: () => {},
+      scheduleDrumsForBeat: () => {},
+      shouldShowNextPreview: () => false,
+      showNextCol: () => {},
+      stopPlayback: () => {},
+      takeNextOneChordQuality: () => '',
+      trackProgressionOccurrence: () => {},
+      updateBeatDots: () => {}
+    }
+  });
+  noChordScheduler.prepareNextProgression();
+  noChordScheduler.scheduleBeat();
+  assert.equal(
+    noChordSchedulerState.currentChordIdx,
+    1,
+    'No-chord playback slots advance the scheduler instead of trapping the playback loop.'
+  );
+  assert.equal(
+    noChordSchedulerState.nextBeatTime,
+    1,
+    'No-chord playback slots still advance scheduled audio time.'
+  );
 }
 let transportActiveNoteGain = null;
 let transportAudioContext = null;
@@ -6224,6 +6634,106 @@ assert.deepEqual(
   satinSession.playback.endingCue,
   'Chart playback payload builder forwards the session ending cue to embedded playback.'
 );
+assert.equal(
+  chartPlaybackPayloadBuilder(satinSession, { chartRepeatCount: 2, finitePlayback: true }).repetitionsPerKey,
+  1,
+  'Chart playback payload builder keeps chart form repeats in the interpreted session, not the runtime repetition setting.'
+);
+{
+  const playFromPayload = chartPlaybackPayloadBuilder({
+    ...satinSession,
+    playback: {
+      ...satinSession.playback,
+      playbackStartChordIndex: 12,
+      runtimeRepeatCount: 3
+    },
+    origin: {
+      ...(satinSession.origin || {}),
+      mode: 'chart-play-from-bar'
+    }
+  }, { chartRepeatCount: 3, finitePlayback: true });
+  assert.equal(
+    playFromPayload.playbackStartChordIndex,
+    12,
+    'Chart playback payload builder forwards the start chord offset for play-from-bar sessions.'
+  );
+  assert.equal(
+    playFromPayload.repetitionsPerKey,
+    3,
+    'Chart playback payload builder lets play-from-bar sessions repeat the full grid body at runtime.'
+  );
+}
+{
+  const directSessionPayloads = [];
+  const directSessionAdapter = createPracticePlaybackSessionAdapter({
+    applyEmbeddedPattern(payload) {
+      directSessionPayloads.push(payload);
+      return { ok: true, state: {} };
+    },
+    applyEmbeddedPlaybackSettings: () => ({}),
+    getEmbeddedPlaybackState: () => ({})
+  });
+  directSessionAdapter.loadSession?.({
+    ...satinSession,
+    playback: {
+      ...satinSession.playback,
+      playbackStartChordIndex: 12,
+      runtimeRepeatCount: 3
+    },
+    origin: {
+      ...(satinSession.origin || {}),
+      mode: 'chart-play-from-bar'
+    }
+  }, { repetitionsPerKey: 1, finitePlayback: true });
+  assert.equal(
+    directSessionPayloads[0]?.playbackStartChordIndex,
+    12,
+    'Direct chart playback sessions forward the play-from-bar start chord offset.'
+  );
+  assert.equal(
+    directSessionPayloads[0]?.repetitionsPerKey,
+    3,
+    'Direct chart playback sessions forward the play-from-bar runtime repeat count.'
+  );
+}
+{
+  const directHostPayloads = [];
+  const directHostResult = applyPracticeSessionToEmbeddedPattern({
+    session: {
+      ...satinSession,
+      playback: {
+        ...satinSession.playback,
+        playbackStartChordIndex: 12,
+        runtimeRepeatCount: 3
+      },
+      origin: {
+        ...(satinSession.origin || {}),
+        mode: 'chart-play-from-bar'
+      }
+    },
+    applyEmbeddedPattern(payload) {
+      directHostPayloads.push(payload);
+      return { ok: true, state: {} };
+    },
+    applyEmbeddedPlaybackSettings: () => ({})
+  });
+  assert.equal(directHostResult.ok, true, 'Direct playback host accepts play-from-bar sessions.');
+  assert.equal(
+    directHostPayloads[0]?.playbackStartChordIndex,
+    12,
+    'Direct playback host forwards the play-from-bar start chord offset.'
+  );
+  assert.equal(
+    directHostPayloads[0]?.repetitionsPerKey,
+    3,
+    'Direct playback host forwards the play-from-bar runtime repeat count.'
+  );
+  assert.equal(
+    directHostPayloads[0]?.finitePlayback,
+    true,
+    'Direct playback host treats play-from-bar sessions as finite playback.'
+  );
+}
 {
   const applyPracticeSessionPayloads = [];
   const applyPracticeSessionResult = applyPracticeSessionToEmbeddedPattern({

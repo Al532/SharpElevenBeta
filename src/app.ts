@@ -1515,6 +1515,7 @@ let displayedCurrentChordIdx = -1; // chord index committed to the display at au
 let displayedIsIntro = false; // intro state committed to the display at audio time
 let isIntro = true;      // true during count-in measure
 let finitePlayback = false;
+let playbackStartChordIndex = 0;
 let currentKey = 0;
 let nextKeyValue = null;
 let currentKeyRepetition = 0;
@@ -1532,6 +1533,11 @@ let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
 let pendingPerformanceCueJump: { type: 'coda' | 'repeat_exit'; triggerStart: number; targetStart: number } | null = null;
 let activePerformanceMap: Record<string, unknown> | null = null;
 let codaGateSatisfied = false;
+
+function setPlaybackStartChordIndex(chordIndex: unknown) {
+  const normalized = Math.max(0, Math.round(Number(chordIndex) || 0));
+  playbackStartChordIndex = normalized;
+}
 
 function setPlaybackPerformanceMap(performanceMap: Record<string, unknown> | null) {
   activePerformanceMap = performanceMap && typeof performanceMap === 'object' ? performanceMap : null;
@@ -2164,6 +2170,7 @@ const {
     getRepetitionsPerKey,
     getFinitePlayback: () => finitePlayback,
     getPlaybackEndingCue: () => playbackEndingCue,
+    getPlaybackStartChordIndex: () => playbackStartChordIndex,
     resolvePerformanceCueJump: resolveQueuedPerformanceCueJump,
     resolvePerformanceCueStop,
     getSecondsPerBeat,
@@ -2867,6 +2874,7 @@ const {
       fitHarmonyDisplay,
       setPlaybackEndingCue: (value) => { playbackEndingCue = value || null; },
       setPlaybackPerformanceMap,
+      setPlaybackStartChordIndex,
       validateCustomPattern: () => validateCustomPattern(),
       getCurrentPatternString,
       getCurrentPatternMode

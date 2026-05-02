@@ -10,6 +10,7 @@ export const DEFAULT_PLAYBACK_ENDING_CONFIG = Object.freeze({
   longHoldMs: 4000,
   shortTailStopDelaySeconds: 1,
   shortTailFadeTimeConstantSeconds: 0.24,
+  longTailExtraStopDelaySeconds: 0.5,
   shortAccentMultiplier: 1.8,
   shortFinalAccentMultiplier: 1.8,
   shortCrescendoLeadMeasures: 2

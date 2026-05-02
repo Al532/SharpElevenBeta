@@ -43,18 +43,25 @@ export function createPracticePlaybackSessionAdapter({
 }: CreatePracticePlaybackSessionAdapterOptions = {}) {
   return {
     loadSession(sessionSpec: PracticeSessionSpec | null, playbackSettings: PlaybackSettings) {
+      const runtimeRepeatCount = Number(sessionSpec?.playback?.runtimeRepeatCount);
+      const playbackStartChordIndex = Number(sessionSpec?.playback?.playbackStartChordIndex);
       return applyEmbeddedPattern({
         patternName: sessionSpec?.title || 'Imported session',
         patternString: sessionSpec?.playback?.enginePatternString || sessionSpec?.playback?.patternString || '',
         endingCue: sessionSpec?.playback?.endingCue || null,
         performanceMap: sessionSpec?.playback?.performanceMap || null,
+        playbackStartChordIndex: Number.isFinite(playbackStartChordIndex)
+          ? Math.max(0, Math.round(playbackStartChordIndex))
+          : null,
         patternMode: 'both',
         tempo: sessionSpec?.tempo || playbackSettings?.tempo || null,
         transposition: playbackSettings?.transposition ?? null,
         compingStyle: playbackSettings?.compingStyle ?? null,
         drumsMode: playbackSettings?.drumsMode ?? null,
         customMediumSwingBass: playbackSettings?.customMediumSwingBass ?? null,
-        repetitionsPerKey: playbackSettings?.repetitionsPerKey ?? 1,
+        repetitionsPerKey: Number.isFinite(runtimeRepeatCount)
+          ? Math.max(1, Math.round(runtimeRepeatCount))
+          : playbackSettings?.repetitionsPerKey ?? 1,
         finitePlayback: playbackSettings?.finitePlayback
           ?? (sessionSpec?.origin?.mode === 'chart-document' || sessionSpec?.origin?.mode === 'chart-selection'),
         displayMode: playbackSettings?.displayMode ?? null,
