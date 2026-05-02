@@ -654,8 +654,15 @@ function getConjunctMotion(interval, allowOctaveEquivalent = true) {
   return { direction, size: normalizedAbsInterval };
 }
 
+function getRecentMidiHistory(previousMidi, events) {
+  const eventNotes = events.map((event) => event.midi);
+  return eventNotes.length && eventNotes[eventNotes.length - 1] === previousMidi
+    ? eventNotes
+    : [...eventNotes, previousMidi];
+}
+
 function directionalPenalty(candidate, previousMidi, events) {
-  const recentNotes = [...events.map((event) => event.midi), previousMidi].slice(-4);
+  const recentNotes = getRecentMidiHistory(previousMidi, events).slice(-4);
   if (recentNotes.length < 2) return 0;
 
   const candidateInterval = candidate.midi - previousMidi;
@@ -685,7 +692,7 @@ function directionalPenalty(candidate, previousMidi, events) {
 }
 
 function recentConjunctRunIntervals(previousMidi, events, allowOctaveEquivalent = true) {
-  const notes = [...events.map((event) => event.midi), previousMidi].slice(-4);
+  const notes = getRecentMidiHistory(previousMidi, events).slice(-4);
   if (notes.length < 2) return { direction: 0, intervalCount: 0 };
 
   let direction = 0;
@@ -776,7 +783,7 @@ function nextBassConvergenceBonus(candidate, previousMidi, nextSpan, beatsRemain
   let bestBonus = 0;
 
   nextBassCandidates.forEach((nextBass) => {
-    if (candidate.pitchClass === nextBass.pitchClass && beatsRemainingInSpan > 1) return;
+    if (candidate.pitchClass === nextBass.pitchClass) return;
     const previousDistance = Math.abs(nextBass.midi - previousMidi);
     const candidateDistance = Math.abs(nextBass.midi - candidate.midi);
     const improvement = previousDistance - candidateDistance;
@@ -884,10 +891,7 @@ function getRank2DirectionalLimit(previousMidi, currentSpan) {
 }
 
 function respectsThreeNoteWindowRange(candidate, previousMidi, events) {
-  const eventNotes = events.map((event) => event.midi);
-  const recentNotes = eventNotes.length && eventNotes[eventNotes.length - 1] === previousMidi
-    ? eventNotes
-    : [...eventNotes, previousMidi];
+  const recentNotes = getRecentMidiHistory(previousMidi, events);
   if (recentNotes.length < 2) return true;
 
   const lastTwoNotes = recentNotes.slice(-2);
@@ -898,10 +902,7 @@ function respectsThreeNoteWindowRange(candidate, previousMidi, events) {
 }
 
 function recentPlayedMidiPenalty(candidateMidi, previousMidi, events, maxLookbackBeats = 4) {
-  const eventNotes = events.map((event) => event.midi);
-  const recentNotes = eventNotes.length && eventNotes[eventNotes.length - 1] === previousMidi
-    ? eventNotes
-    : [...eventNotes, previousMidi];
+  const recentNotes = getRecentMidiHistory(previousMidi, events);
   const lookbackNotes = recentNotes.slice(-maxLookbackBeats);
 
   return lookbackNotes.reduce((penalty, midi, index) => {

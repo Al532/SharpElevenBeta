@@ -154,6 +154,38 @@ export function markExecutedChartPerformanceCuesConsumed(
   };
 }
 
+export function prepareArmedChartPerformanceCuesForPlayback(
+  cues: ChartPerformanceCue[] = [],
+  resolveTargetBarIndex: (cue: ChartPerformanceCue) => number | null | undefined
+): { cues: ChartPerformanceCue[]; changed: boolean; armedCues: ChartPerformanceCue[] } {
+  let changed = false;
+  const armedCues: ChartPerformanceCue[] = [];
+  const nextCues = cues.map((cue) => {
+    if (cue.status !== 'armed' || cue.type !== 'arm_coda') return cue;
+    const targetBarIndex = resolveTargetBarIndex(cue);
+    const normalizedTargetBarIndex = Number.isFinite(Number(targetBarIndex))
+      ? Number(targetBarIndex)
+      : null;
+    const nextCue = {
+      ...cue,
+      targetBarIndex: normalizedTargetBarIndex,
+      armedAtBarIndex: Number.isFinite(Number(cue.armedAtBarIndex)) ? cue.armedAtBarIndex : null
+    };
+    armedCues.push(nextCue);
+    if (cue.targetBarIndex !== nextCue.targetBarIndex || cue.armedAtBarIndex !== nextCue.armedAtBarIndex) {
+      changed = true;
+      return nextCue;
+    }
+    return cue;
+  });
+
+  return {
+    cues: changed ? nextCues : cues,
+    changed,
+    armedCues
+  };
+}
+
 export function restoreConsumedChartPerformanceCues(
   cues: ChartPerformanceCue[] = []
 ): { cues: ChartPerformanceCue[]; changed: boolean } {

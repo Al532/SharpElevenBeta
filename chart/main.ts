@@ -31,6 +31,7 @@ import {
   markExecutedChartPerformanceCuesConsumed,
   normalizeChartPerformance,
   parseNoteSymbol,
+  prepareArmedChartPerformanceCuesForPlayback,
   normalizeChartChordDisplayLevel,
   normalizeChordEnrichmentMode,
   normalizeChartSimplePerformanceState,
@@ -1264,6 +1265,26 @@ function togglePerformanceCue(cueId: string) {
   if (queuedCue) void queuePerformanceCue(queuedCue);
 }
 
+function prepareArmedPerformanceCuesForPlayback() {
+  const selectedDocument = state.currentChartDocument;
+  const currentPerformance = getCurrentChartPerformance();
+  if (!selectedDocument || !currentPerformance?.cues?.length) return [];
+  const result = prepareArmedChartPerformanceCuesForPlayback(
+    currentPerformance.cues,
+    (cue) => resolvePerformanceCueTargetBarIndex(cue, 0)
+  );
+  if (result.changed) {
+    updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
+      ...currentPerformance,
+      cues: result.cues,
+      updatedAt: new Date().toISOString()
+    }), {
+      persist: false
+    });
+  }
+  return result.armedCues;
+}
+
 function deletePerformanceCue(cueId: string) {
   const selectedDocument = state.currentChartDocument;
   const currentPerformance = getCurrentChartPerformance();
@@ -2020,6 +2041,12 @@ function applyChartPlaybackState(nextState: { isPlaying?: boolean; isPaused?: bo
   if (allowSelectionLoopRestart) {
     maybeRestartSelectionLoop(previousState, nextState);
   }
+  if (previousState.isPlaying && !state.isPlaying && !state.isPaused) {
+    stopPlaybackPolling({
+      state
+    });
+    restoreSessionConsumedPerformanceCues();
+  }
   renderSelectionState();
 }
 
@@ -2071,7 +2098,9 @@ async function startPlayback({
     if (!practiceSessionOverride) {
       rebuildCurrentPlaybackSessionForPerformanceCues();
     }
+    const armedCues = practiceSessionOverride ? [] : prepareArmedPerformanceCuesForPlayback();
     const nextState = await getChartPlaybackController().startPlayback();
+    await Promise.all(armedCues.map((cue) => queuePerformanceCue(cue)));
     applyChartPlaybackState('isPlaying' in nextState
       ? nextState
       : { isPlaying: false, isPaused: false }, {
@@ -2099,6 +2128,21 @@ async function syncPlaybackSettings() {
     if (!state.isPlaying && dom.transportStatus) {
       dom.transportStatus.textContent = 'Ready';
     }
+  } catch (error) {
+    if (dom.transportStatus) {
+      dom.transportStatus.textContent = `Playback settings error: ${getErrorMessage(error)}`;
+    }
+  }
+}
+
+async function handleCompingStyleChange() {
+  try {
+    if (state.isPlaying || state.isPaused) {
+      await stopPlayback({
+        resetPosition: true
+      });
+    }
+    await syncPlaybackSettings();
   } catch (error) {
     if (dom.transportStatus) {
       dom.transportStatus.textContent = `Playback settings error: ${getErrorMessage(error)}`;
@@ -3323,6 +3367,9 @@ async function loadFixtures() {
           renderFixture();
         },
         onTempoChange: renderTransport,
+        onCompingStyleChange: () => {
+          void handleCompingStyleChange();
+        },
         onPlaybackSettingChange: syncPlaybackSettings,
         onMixerInput: () => {
           updateMixerOutputs();

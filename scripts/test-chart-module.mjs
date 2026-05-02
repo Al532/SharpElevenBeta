@@ -15,6 +15,7 @@ import {
   getChartSimplePerformanceLabel,
   markExecutedChartPerformanceCuesConsumed,
   normalizeChartSimplePerformanceState,
+  prepareArmedChartPerformanceCuesForPlayback,
   resolveChartPerformanceRepeatState,
   restoreConsumedChartPerformanceCues,
   createPracticeSessionExportFromPlaybackPlan,
@@ -119,6 +120,7 @@ import {
   startPlaybackPolling,
   stopPlaybackPolling
 } from '../src/features/chart/chart-playback-runtime.ts';
+import { bindChartRuntimeControls } from '../src/features/chart/chart-runtime-controls.ts';
 import { createAppShellBindings } from '../src/features/app/app-shell-bindings.ts';
 import { importDefaultFixtureLibrary as importChartDefaultFixtureLibrary } from '../src/features/chart/chart-import-controls.ts';
 import {
@@ -4770,6 +4772,37 @@ assert.deepEqual(
     ],
     'Restored consumed cues return to the available idle state without removing unconsumed cues.'
   );
+
+  const preparedArmedCueSessionResult = prepareArmedChartPerformanceCuesForPlayback([
+    {
+      id: 'last-chorus-prearmed',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: null,
+      armedAtBarIndex: undefined
+    },
+    {
+      id: 'exit-repeat-prearmed',
+      type: 'exit_repeat',
+      boundary: 'next_repeat_boundary',
+      status: 'armed',
+      targetBarIndex: 4
+    }
+  ], () => 8);
+  assert.equal(preparedArmedCueSessionResult.changed, true, 'Pre-armed last chorus cues are prepared when playback starts.');
+  assert.deepEqual(
+    preparedArmedCueSessionResult.armedCues.map((cue) => ({
+      id: cue.id,
+      status: cue.status,
+      targetBarIndex: cue.targetBarIndex,
+      armedAtBarIndex: cue.armedAtBarIndex ?? null
+    })),
+    [
+      { id: 'last-chorus-prearmed', status: 'armed', targetBarIndex: 8, armedAtBarIndex: null }
+    ],
+    'Playback startup only requeues the prepared last chorus cue.'
+  );
 }
 
 assert.deepEqual(
@@ -7367,6 +7400,27 @@ assert.equal(
   true,
   'Chart runtime-controls bindings preserve grouped chart event handlers for the shared controls seam.'
 );
+{
+  const listeners = {};
+  const compingStyleSelect = {
+    addEventListener(type, listener) {
+      listeners[type] = listener;
+    }
+  };
+  const runtimeControlCalls = [];
+  bindChartRuntimeControls({
+    compingStyleSelect,
+    onCompingStyleChange: () => runtimeControlCalls.push('comping'),
+    onPlaybackSettingChange: () => runtimeControlCalls.push('settings'),
+    onBeforeUnload: () => {}
+  });
+  listeners.change();
+  assert.deepEqual(
+    runtimeControlCalls,
+    ['comping'],
+    'Chart runtime controls route comping-style changes through their dedicated stop-before-sync handler.'
+  );
+}
 assert.equal(
   createChartRuntimeControlsAppBindings({
     chartSearchInput: { id: 'chart-search-input' }
@@ -7632,6 +7686,65 @@ const f9BassLine = walkingBassGenerator.buildLine({
   isMinor: false
 });
 assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sustained F9 bar.');
+{
+  const originalRandom = Math.random;
+  Math.random = () => 0.75;
+  try {
+    const extendedApproachLine = walkingBassGenerator.buildLine({
+      chords: [
+        { semitones: 2, bassSemitones: 2, qualityMajor: '7', qualityMinor: '7', roman: 'II' },
+        { semitones: 2, bassSemitones: 2, qualityMajor: '7', qualityMinor: '7', roman: 'II' },
+        { semitones: 2, bassSemitones: 2, qualityMajor: '7', qualityMinor: '7', roman: 'II' },
+        { semitones: 2, bassSemitones: 2, qualityMajor: '7', qualityMinor: '7', roman: 'II' },
+        { semitones: 7, bassSemitones: 7, qualityMajor: '6', qualityMinor: '6', roman: 'V' }
+      ],
+      key: 0,
+      beatsPerChord: 1,
+      beatsPerBar: 4,
+      tempoBpm: 999,
+      isMinor: false
+    });
+    assert.deepEqual(
+      extendedApproachLine.map((event) => event.midi),
+      [38, 40, 41, 42, 43],
+      'Walking bass can generate an extended chromatic approach into a dominant guide tone.'
+    );
+    assert.equal(
+      extendedApproachLine[2]?.rank,
+      'approach',
+      'Walking bass marks the chromatic approach note before its forced guide-tone resolution.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+}
+{
+  const originalRandom = Math.random;
+  Math.random = () => 0.1;
+  try {
+    const slashBassArrivalLine = walkingBassGenerator.buildLine({
+      chords: [
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7', roman: 'I' },
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7', roman: 'I' },
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7', roman: 'I' },
+        { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7', roman: 'I' },
+        { semitones: 7, bassSemitones: 11, qualityMajor: '6', qualityMinor: '6', roman: 'V' }
+      ],
+      key: 0,
+      beatsPerChord: 1,
+      beatsPerBar: 4,
+      tempoBpm: 999,
+      isMinor: false
+    });
+    assert.notEqual(
+      slashBassArrivalLine[3]?.midi % 12,
+      slashBassArrivalLine[4]?.midi % 12,
+      'Walking bass does not reward playing the next slash bass pitch class immediately before arrival.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+}
 assert.equal(
   isAnticipationEligibleBeatPair({ timeBeats: 0 }, { timeBeats: 1 }, 4),
   true,

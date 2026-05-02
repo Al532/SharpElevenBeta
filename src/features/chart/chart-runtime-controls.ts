@@ -32,6 +32,7 @@ type BindChartRuntimeControlsOptions = {
   onSymbolToggleChange?: EventListener | null,
   onTempoChange?: EventListener | null,
   onRepeatCountChange?: EventListener | null,
+  onCompingStyleChange?: EventListener | null,
   onPlaybackSettingChange?: EventListener | null,
   onMixerInput?: EventListener | null,
   onPlayClick?: EventListener | null,
@@ -80,6 +81,7 @@ export function bindChartRuntimeControls({
   onSymbolToggleChange,
   onTempoChange,
   onRepeatCountChange,
+  onCompingStyleChange,
   onPlaybackSettingChange,
   onMixerInput,
   onPlayClick,
@@ -106,7 +108,7 @@ export function bindChartRuntimeControls({
 
   tempoInput?.addEventListener('change', onTempoChange);
   repeatCountInput?.addEventListener('change', onRepeatCountChange);
-  compingStyleSelect?.addEventListener('change', onPlaybackSettingChange);
+  compingStyleSelect?.addEventListener('change', onCompingStyleChange || onPlaybackSettingChange);
   drumsSelect?.addEventListener('change', onPlaybackSettingChange);
   walkingBassToggle?.addEventListener('change', onPlaybackSettingChange);
 
@@ -120,5 +122,7 @@ export function bindChartRuntimeControls({
   sendSelectionToPracticeButton?.addEventListener('click', onSendSelectionToPractice);
   exportChartPdfButton?.addEventListener('click', onExportChartPdf);
 
-  window.addEventListener('beforeunload', onBeforeUnload);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', onBeforeUnload);
+  }
 }

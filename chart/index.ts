@@ -18,6 +18,7 @@ export {
   normalizeChartPerformancePanelMode,
   normalizeChartPerformanceRepeatMode,
   normalizeChartSimplePerformanceState,
+  prepareArmedChartPerformanceCuesForPlayback,
   resolveChartPerformanceRepeatState,
   restoreConsumedChartPerformanceCues
 } from './chart-performance.js';

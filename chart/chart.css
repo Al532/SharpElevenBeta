@@ -2711,9 +2711,9 @@ select {
     gap: 0;
     margin: 0;
     padding:
-      4px
+      12px
       max(22px, calc(env(safe-area-inset-right) + 16px))
-      max(12px, calc(env(safe-area-inset-bottom) + 6px))
+      max(18px, calc(env(safe-area-inset-bottom) + 12px))
       max(22px, calc(env(safe-area-inset-left) + 16px));
     border: 0;
     border-radius: 0;
