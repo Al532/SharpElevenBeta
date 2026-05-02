@@ -3012,6 +3012,122 @@ assert.equal(
     globalThis.clearTimeout = originalClearTimeout;
   }
 }
+{
+  const measureInfoLookups = [];
+  const displayCalls = [];
+  const state = {
+    audioCtx: { currentTime: 0 },
+    pendingDisplayTimeouts: new Set(),
+    isPlaying: true,
+    isPaused: false,
+    isIntro: true,
+    currentBeat: 0,
+    currentChordIdx: 2,
+    currentKey: 0,
+    currentKeyRepetition: 1,
+    currentRawChords: [],
+    nextRawChords: [],
+    nextPaddedChords: [],
+    nextKeyValue: null,
+    nextOneChordQualityValue: '',
+    paddedChords: [
+      { symbol: 'Cmaj7' },
+      { symbol: 'Dm7' },
+      { symbol: 'G7' },
+      { symbol: 'C6' }
+    ],
+    currentBassPlan: [],
+    currentCompingPlan: null,
+    nextCompingPlan: null,
+    lastPlayedChordIdx: 1,
+    nextBeatTime: 0,
+    pendingBassTargetMidi: null,
+    walkingBassLoggedMeasures: new Set()
+  };
+  const dom = {
+    majorMinor: { checked: false },
+    keyDisplay: { innerHTML: '', textContent: '' },
+    chordDisplay: { innerHTML: '' },
+    nextKeyDisplay: { innerHTML: '', textContent: '' },
+    nextChordDisplay: { innerHTML: '' }
+  };
+  const scheduler = createPlaybackScheduler({
+    dom,
+    state,
+    constants: { SCHEDULE_AHEAD: 0.1 },
+    helpers: {
+      applyDisplaySideLayout: () => {},
+      buildPreparedBassPlan: () => [],
+      buildLegacyVoicingPlan: () => [],
+      buildPreparedCompingPlans: () => {},
+      buildLoopRepVoicings: () => [],
+      buildVoicingPlanForSlots: () => [],
+      canLoopTrimProgression: () => false,
+      chordSymbolHtml: (_key, chord, _previous, following) => {
+        displayCalls.push({ chord: chord?.symbol || '', following: following?.symbol || '' });
+        return chord?.symbol || '';
+      },
+      compingEngine: {},
+      createOneChordToken: () => ({}),
+      createVoicingSlot: () => ({}),
+      fitHarmonyDisplay: () => {},
+      getCurrentPatternString: () => '',
+      getPatternKeyOverridePitchClass: () => null,
+      getCompingStyle: () => 'off',
+      getBeatsPerChord: () => 1,
+      getChordsPerBar: () => 4,
+      getPlaybackMeasurePlan: () => [],
+      getMeasureInfoForChordIndex: (chordIndex) => {
+        measureInfoLookups.push(chordIndex);
+        return { beatCount: chordIndex === 2 ? 3 : 4 };
+      },
+      getRemainingBeatsUntilNextProgression: () => 1,
+      getRepetitionsPerKey: () => 2,
+      getFinitePlayback: () => true,
+      getPlaybackEndingCue: () => null,
+      getSecondsPerBeat: () => 1,
+      getSwingRatio: () => 2,
+      hideNextCol: () => {},
+      ensureNearTermSamplePreload: () => {},
+      isWalkingBassEnabled: () => false,
+      isChordsEnabled: () => true,
+      isVoiceLeadingV2Enabled: () => false,
+      keyNameHtml: () => '',
+      nextKey: () => 0,
+      padProgression: (chords) => chords,
+      parseOneChordSpec: () => ({ active: false }),
+      parsePattern: () => [],
+      playClick: () => {},
+      playNote: () => {},
+      playRide: () => {},
+      scheduleDrumsForBeat: () => {},
+      shouldShowNextPreview: () => false,
+      showNextCol: () => {},
+      stopPlayback: () => {},
+      takeNextOneChordQuality: () => '',
+      trackProgressionOccurrence: () => {},
+      updateBeatDots: () => {},
+      getBassMidi: (_key, semitones) => 36 + semitones
+    }
+  });
+
+  scheduler.scheduleBeat();
+  assert.equal(
+    dom.nextChordDisplay.innerHTML,
+    'G7',
+    'The intro count-in previews the play-from-bar start chord instead of the top of the chart.'
+  );
+  assert.deepEqual(
+    displayCalls,
+    [{ chord: 'G7', following: 'C6' }],
+    'The intro count-in resolves following harmony from the selected start offset.'
+  );
+  assert.equal(
+    measureInfoLookups.includes(2),
+    true,
+    'The intro count-in uses the selected start measure for its beat count.'
+  );
+}
 const playbackResourcesFacade = createPracticePlaybackResourcesAppFacade({
   audioFacade: {
     preloadStartupSamples: () => 'startup',

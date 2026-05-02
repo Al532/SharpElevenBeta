@@ -2342,6 +2342,8 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
   if (!chartDocument || selectedBarIds.length === 0) return null;
 
   const startBarId = selectedBarIds[0];
+  const chartRepeatInfinite = isChartRepeatInfinite();
+  const runtimeRepeatCount = chartRepeatInfinite ? 1 : getChartRepeatCount();
   const playbackPlan = createChartPlaybackPlanFromDocument(
     chartDocument,
     {
@@ -2352,11 +2354,35 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
   const startEntryIndex = (playbackPlan.entries || []).findIndex((entry) => entry.barId === startBarId);
   if (startEntryIndex < 0) return null;
 
+  const effectivePlaybackPlan = chartRepeatInfinite
+    ? playbackPlan
+    : {
+        ...playbackPlan,
+        entries: Array.from({ length: runtimeRepeatCount }).flatMap((_, repeatIndex) => {
+          const sourceEntries = repeatIndex === 0
+            ? playbackPlan.entries.slice(startEntryIndex)
+            : playbackPlan.entries;
+          const isFinalRepeat = repeatIndex === runtimeRepeatCount - 1;
+          return sourceEntries.map((entry, entryIndex) => {
+            const nextEntry = JSON.parse(JSON.stringify(entry));
+            nextEntry.sequenceIndex = entryIndex + 1;
+            if (!isFinalRepeat) {
+              delete nextEntry.endingCue;
+            }
+            return nextEntry;
+          });
+        }).map((entry, entryIndex) => ({
+          ...entry,
+          sequenceIndex: entryIndex + 1
+        }))
+      } as ChartPlaybackPlan;
+
   const startBar = chartDocument.bars?.find((bar) => bar.id === startBarId) || null;
-  const lastEntry = playbackPlan.entries[playbackPlan.entries.length - 1];
+  const effectiveEntries = effectivePlaybackPlan.entries || [];
+  const lastEntry = effectiveEntries[effectiveEntries.length - 1];
   const session = createPracticeSessionFromChartPlaybackPlan({
     chartDocument,
-    playbackPlan,
+    playbackPlan: effectivePlaybackPlan,
     source: 'chart-play-from-bar',
     title: `${chartDocument.metadata?.title || 'Chart'} - from bar ${startBar?.index ?? playbackPlan.entries[startEntryIndex]?.barIndex ?? ''}`.trim(),
     tempo: getTempo(),
@@ -2364,7 +2390,7 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
     selection: {
       startBarId,
       endBarId: lastEntry?.barId || startBarId,
-      barIds: playbackPlan.entries.slice(startEntryIndex).map((entry) => entry.barId),
+      barIds: effectiveEntries.map((entry) => entry.barId),
       startBarIndex: startBar?.index ?? playbackPlan.entries[startEntryIndex]?.barIndex ?? null,
       endBarIndex: lastEntry?.barIndex ?? null
     },
@@ -2386,7 +2412,7 @@ function createPlayFromSelectedBarSession(): PracticeSessionSpec | null {
     playback: {
       ...session.playback,
       playbackStartChordIndex,
-      runtimeRepeatCount: isChartRepeatInfinite() ? 1 : getChartRepeatCount()
+      runtimeRepeatCount: 1
     },
     origin: {
       ...(session.origin || {}),

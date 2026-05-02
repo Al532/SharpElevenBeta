@@ -333,7 +333,12 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         const introB = state.currentBeat;
         const introKey = state.currentKey;
         const introNextKey = state.nextKeyValue;
-        const introFirstChord = state.paddedChords[0];
+        const introChordIndex = Math.max(0, Math.min(
+          Math.max(0, state.paddedChords.length - 1),
+          Math.round(Number(state.currentChordIdx) || 0)
+        ));
+        const introFirstChord = state.paddedChords[introChordIndex];
+        const introFollowingChord = state.paddedChords[introChordIndex + 1] || null;
         scheduleDisplay(state.nextBeatTime, () => {
           state.displayedIsIntro = true;
           state.displayedCurrentBeat = introB;
@@ -344,14 +349,14 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           showNextCol();
           dom.nextKeyDisplay.innerHTML = keyNameHtml(introKey);
           dom.nextChordDisplay.innerHTML = introFirstChord
-            ? chordSymbolHtml(introKey, introFirstChord, null, state.paddedChords[1] || null)
+            ? chordSymbolHtml(introKey, introFirstChord, null, introFollowingChord)
             : '';
           fitHarmonyDisplay();
           updateBeatDots(introB, true);
         });
 
         state.currentBeat++;
-        if (state.currentBeat >= getMeasureBeatCount(0)) {
+        if (state.currentBeat >= getMeasureBeatCount(state.currentChordIdx)) {
           state.currentBeat = 0;
           state.isIntro = false;
         }
