@@ -13,6 +13,7 @@ type DrillEmbeddedPatternUiBindings = {
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
   setPlaybackEndingCue?: PracticePlaybackPatternUiBindings['setPlaybackEndingCue'];
+  setPlaybackPerformanceMap?: PracticePlaybackPatternUiBindings['setPlaybackPerformanceMap'];
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -72,9 +73,6 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
   playbackRuntime?: Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
   transportActions?: DrillEmbeddedTransportActions;
 } = {}) {
-  console.info('[chart-cue] embedded runtime app context boundary', {
-    hasPlaybackRuntimeQueuePerformanceCue: typeof playbackRuntime.queuePerformanceCue === 'function'
-  });
   return createEmbeddedPracticeRuntimeAppOptions({
     dom,
     stopIfPlaying() {
@@ -91,6 +89,7 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
     syncPatternSelectionFromInput: patternUi.syncPatternSelectionFromInput,
     setLastPatternSelectValue: patternUi.setLastPatternSelectValue,
     setPlaybackEndingCue: patternUi.setPlaybackEndingCue,
+    setPlaybackPerformanceMap: patternUi.setPlaybackPerformanceMap,
     syncCustomPatternUI: patternUi.syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern: patternUi.normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability: patternUi.applyPatternModeAvailability,

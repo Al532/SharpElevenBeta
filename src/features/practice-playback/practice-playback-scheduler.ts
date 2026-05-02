@@ -14,9 +14,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     buildPreparedBassPlan,
     buildLegacyVoicingPlan,
     buildPreparedCompingPlans,
-    buildLoopRepVoicings,
     buildVoicingPlanForSlots,
-    canLoopTrimProgression,
     chordSymbol,
     chordSymbolHtml,
     compingEngine,
@@ -35,6 +33,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getFinitePlayback,
     getPlaybackEndingCue,
     resolvePerformanceCueJump,
+    resolvePerformanceCueStop,
     getSecondsPerBeat,
     getSwingRatio,
     hideNextCol,
@@ -61,9 +60,15 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     updateBeatDots
   } = helpers;
 
+  function hasCompletedFinitePlaybackRepetitions() {
+    const repetitions = Math.max(1, Number(getRepetitionsPerKey()) || 1);
+    return getFinitePlayback?.() === true && state.currentKeyRepetition >= repetitions;
+  }
+
   function normalizeEndingCue() {
     const cue = typeof getPlaybackEndingCue === 'function' ? getPlaybackEndingCue() : null;
     if (!cue || typeof cue !== 'object') return null;
+    if (!hasCompletedFinitePlaybackRepetitions()) return null;
     const targetBeat = Number(cue.targetBeat ?? cue.targetChordIndex);
     if (!Number.isFinite(targetBeat)) return null;
     const style = String(cue.style || '');
@@ -240,12 +245,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
     const chordsPerBar = getChordsPerBar();
     const reps = getRepetitionsPerKey();
-    const loopTrim = !oneChordSpec.active && reps > 1 && canLoopTrimProgression(state.currentRawChords, chordsPerBar);
-    const isLastRep = state.currentKeyRepetition >= reps;
-    state.paddedChords = padProgression(
-      loopTrim && !isLastRep ? state.currentRawChords.slice(0, -1) : state.currentRawChords,
-      chordsPerBar
-    );
+    state.paddedChords = padProgression(state.currentRawChords, chordsPerBar);
 
     const shouldRepeatCurrentKey = forcedKey === null && !oneChordSpec.active && state.currentKeyRepetition < reps;
     state.nextKeyValue = forcedKey ?? (shouldRepeatCurrentKey ? state.currentKey : nextKey(state.currentKey));
@@ -256,55 +256,20 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
       state.nextOneChordQualityValue = '';
       state.nextRawChords = state.currentRawChords;
     }
-    const nextLoopTrim = !oneChordSpec.active && reps > 1 && canLoopTrimProgression(state.nextRawChords, chordsPerBar);
-    const nextRepetition = shouldRepeatCurrentKey ? state.currentKeyRepetition + 1 : 1;
-    const nextIsLastRep = nextRepetition >= reps;
-    state.nextPaddedChords = padProgression(
-      nextLoopTrim && !nextIsLastRep ? state.nextRawChords.slice(0, -1) : state.nextRawChords,
-      chordsPerBar
-    );
+    state.nextPaddedChords = padProgression(state.nextRawChords, chordsPerBar);
 
     const isMinor = oneChordSpec.active ? false : dom.majorMinor.checked;
 
-    if (loopTrim) {
-      if (state.currentKeyRepetition === 1 || !Array.isArray(state.loopVoicingTemplate) || state.loopVoicingTemplate.length === 0) {
-        const rawSlots = state.currentRawChords.map(chord => createVoicingSlot(chord, state.currentKey, isMinor, 'current'));
-        if (isVoiceLeadingV2Enabled()) {
-          state.loopVoicingTemplate = buildVoicingPlanForSlots(rawSlots);
-        } else {
-          state.loopVoicingTemplate = buildLegacyVoicingPlan(state.currentRawChords, state.currentKey, isMinor);
-        }
-      }
-      state.currentVoicingPlan = buildLoopRepVoicings(
-        state.loopVoicingTemplate,
-        state.paddedChords.length,
-        state.currentKeyRepetition === 1
-      );
-      if (shouldRepeatCurrentKey) {
-        state.nextVoicingPlan = buildLoopRepVoicings(state.loopVoicingTemplate, state.nextPaddedChords.length, false);
-      } else {
-        if (isVoiceLeadingV2Enabled()) {
-          const fixedSlots = state.currentVoicingPlan.map(v => ({ candidateSet: [v], segment: 'current' }));
-          const nextSlots = state.nextPaddedChords.map(chord => createVoicingSlot(chord, state.nextKeyValue, isMinor, 'next'));
-          const transitionPlan = buildVoicingPlanForSlots([...fixedSlots, ...nextSlots]);
-          state.nextVoicingPlan = transitionPlan.slice(fixedSlots.length);
-        } else {
-          state.nextVoicingPlan = buildLegacyVoicingPlan(state.nextPaddedChords, state.nextKeyValue, isMinor);
-        }
-        state.loopVoicingTemplate = null;
-      }
+    state.loopVoicingTemplate = null;
+    if (isVoiceLeadingV2Enabled()) {
+      const currentSlots = state.paddedChords.map(chord => createVoicingSlot(chord, state.currentKey, isMinor, 'current'));
+      const nextSlots = state.nextPaddedChords.map(chord => createVoicingSlot(chord, state.nextKeyValue, isMinor, 'next'));
+      const combinedPlan = buildVoicingPlanForSlots([...currentSlots, ...nextSlots]);
+      state.currentVoicingPlan = combinedPlan.slice(0, currentSlots.length);
+      state.nextVoicingPlan = combinedPlan.slice(currentSlots.length);
     } else {
-      state.loopVoicingTemplate = null;
-      if (isVoiceLeadingV2Enabled()) {
-        const currentSlots = state.paddedChords.map(chord => createVoicingSlot(chord, state.currentKey, isMinor, 'current'));
-        const nextSlots = state.nextPaddedChords.map(chord => createVoicingSlot(chord, state.nextKeyValue, isMinor, 'next'));
-        const combinedPlan = buildVoicingPlanForSlots([...currentSlots, ...nextSlots]);
-        state.currentVoicingPlan = combinedPlan.slice(0, currentSlots.length);
-        state.nextVoicingPlan = combinedPlan.slice(currentSlots.length);
-      } else {
-        state.currentVoicingPlan = buildLegacyVoicingPlan(state.paddedChords, state.currentKey, isMinor);
-        state.nextVoicingPlan = buildLegacyVoicingPlan(state.nextPaddedChords, state.nextKeyValue, isMinor);
-      }
+      state.currentVoicingPlan = buildLegacyVoicingPlan(state.paddedChords, state.currentKey, isMinor);
+      state.nextVoicingPlan = buildLegacyVoicingPlan(state.nextPaddedChords, state.nextKeyValue, isMinor);
     }
 
     state.currentChordIdx = 0;
@@ -388,16 +353,17 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         ? resolvePerformanceCueJump(state.currentChordIdx)
         : null;
       if (Number.isFinite(performanceCueJumpIndex)) {
-        console.info('[chart-cue] scheduler applying coda jump', {
-          fromChordIdx: state.currentChordIdx,
-          toChordIdx: Math.max(0, Math.round(Number(performanceCueJumpIndex))),
-          currentBeat: state.currentBeat
-        });
         state.currentChordIdx = Math.max(0, Math.round(Number(performanceCueJumpIndex)));
         state.currentBeat = 0;
         state.displayedCurrentChordIdx = state.currentChordIdx;
         state.displayedCurrentBeat = 0;
         state.lastPlayedChordIdx = state.currentChordIdx - 1;
+      }
+      if (typeof resolvePerformanceCueStop === 'function' && resolvePerformanceCueStop(state.currentChordIdx)) {
+        scheduleDisplay(state.nextBeatTime, () => {
+          stopPlayback?.();
+        });
+        return;
       }
       const measureInfo = getMeasureInfo(state.currentChordIdx);
       const beatsPerMeasure = Math.max(1, Number(measureInfo?.beatCount || 4));
@@ -622,7 +588,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           key_repetition_index: state.currentKeyRepetition,
           played_chord_count: state.currentRawChords.length || state.paddedChords.length || 0
         });
-        if (getFinitePlayback?.() === true) {
+        if (hasCompletedFinitePlaybackRepetitions()) {
           const stopTime = state.nextBeatTime + spb;
           scheduleDisplay(stopTime, () => {
             stopPlayback?.();

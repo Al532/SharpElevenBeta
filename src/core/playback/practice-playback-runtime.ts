@@ -35,9 +35,6 @@ export function createPracticePlaybackRuntime({
   stopPlayback,
   togglePausePlayback
 }: PracticePlaybackRuntimeOptions = {}): PlaybackRuntime {
-  console.info('[chart-cue] create practice playback runtime', {
-    hasQueuePerformanceCue: typeof queuePerformanceCue === 'function'
-  });
   return createPlaybackRuntime({
     adapter: createPracticePlaybackSessionAdapter({
       applyEmbeddedPattern,

@@ -22,6 +22,8 @@ import { enforceBetaAccess } from '../src/features/app/app-beta-access.js';
 import {
   createChartDocumentsFromIRealText,
   createDefaultChartPerformance,
+  createChartPlaybackPlanFromDocument,
+  createPracticeSessionFromChartDocument,
   createPracticeSessionFromChartPlaybackPlan,
   createPracticeSessionFromChartSelection,
   markExecutedChartPerformanceCuesConsumed,
@@ -978,6 +980,44 @@ function getCurrentChartPerformance() {
   return currentPerformance;
 }
 
+function getChartPerformanceForDocument(chartDocument: ChartDocument | null | undefined) {
+  const chartId = String(chartDocument?.metadata?.id || '');
+  if (!chartId) return null;
+  const storedPerformance = state.chartPerformances[chartId];
+  if (storedPerformance?.chartId === chartId) return storedPerformance;
+  if (state.chartPerformance?.chartId === chartId) return state.chartPerformance;
+  return normalizeChartPerformance(state.currentChartUserSettings?.chartPerformance, chartDocument || null);
+}
+
+function hasCodaPerformanceCue(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  const performance = getChartPerformanceForDocument(chartDocument);
+  return (performance?.cues || []).some((cue) => cue.type === CHART_PERFORMANCE_CUE_TYPES.armCoda);
+}
+
+function createCurrentPlaybackPlanOptions(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
+  return {
+    repeatCount: getChartRepeatPlanCount(),
+    deferCodaJumpsUntilCue: hasCodaPerformanceCue(chartDocument)
+  };
+}
+
+function rebuildCurrentPlaybackSessionForPerformanceCues() {
+  const chartDocument = state.currentChartDocument;
+  if (!chartDocument || state.isPlaying || state.isPaused) return;
+  const playbackPlan = createChartPlaybackPlanFromDocument(
+    chartDocument,
+    createCurrentPlaybackPlanOptions(chartDocument)
+  ) as ChartPlaybackPlan;
+  state.currentPlaybackPlan = playbackPlan;
+  state.currentPracticeSession = createPracticeSessionFromChartDocument(chartDocument, {
+    playbackPlan,
+    tempo: getTempo(),
+    transposition: getChartTransposeSemitones()
+  });
+  renderDiagnostics(playbackPlan);
+  renderTransport();
+}
+
 function ensureCurrentChartPerformance() {
   const selectedDocument = state.currentChartDocument;
   if (!selectedDocument) return null;
@@ -1035,6 +1075,7 @@ function updateCurrentChartPerformance(
   };
   syncRepeatCountControls();
   renderPerformanceCueBar();
+  rebuildCurrentPlaybackSessionForPerformanceCues();
   if (persist) {
     persistCurrentChartUserSettings({
       chartSimplePerformance: state.chartSimplePerformance,
@@ -1130,16 +1171,7 @@ async function queuePerformanceCue(cue: ChartPerformanceCue) {
       ...cue,
       playbackSession: cuePlaybackSession
     };
-    console.info('[chart-cue] queue from chart', {
-      cue: cuePayload,
-      activePlaybackEntryIndex: state.activePlaybackEntryIndex,
-      currentPlaybackBarIndex: getCurrentPlaybackBarIndex(),
-      hasCuePlaybackSession: Boolean(cuePlaybackSession),
-      cuePlaybackSessionId: cuePlaybackSession?.id || null,
-      cuePoints: state.currentPracticeSession?.playback?.performanceMap?.cuePoints || []
-    });
-    const result = await getChartPlaybackController().queuePerformanceCue(cuePayload);
-    console.info('[chart-cue] queue result from playback controller', result);
+    await getChartPlaybackController().queuePerformanceCue(cuePayload);
   } catch (error) {
     console.error('[chart-cue] queue failed', error);
     if (dom.transportStatus) dom.transportStatus.textContent = `Cue error: ${getErrorMessage(error)}`;
@@ -1161,14 +1193,6 @@ function togglePerformanceCue(cueId: string) {
       targetBarIndex,
       armedAtBarIndex: status === 'armed' ? getCurrentPlaybackBarIndex() : null
     };
-    console.info('[chart-cue] toggle cue', {
-      cueId,
-      type: cue.type,
-      status,
-      targetBarIndex,
-      armedAtBarIndex: nextCue.armedAtBarIndex,
-      currentPlaybackBarIndex: getCurrentPlaybackBarIndex()
-    });
     if (status === 'armed') queuedCue = nextCue;
     return nextCue;
   });
@@ -1201,19 +1225,7 @@ function consumeExecutedPerformanceCues() {
   const currentPerformance = getCurrentChartPerformance();
   if (!selectedDocument || !currentPerformance?.cues?.length) return;
   const currentPlaybackBarIndex = getCurrentPlaybackBarIndex();
-  console.info('[chart-cue] consume check', {
-    currentPlaybackBarIndex,
-    activePlaybackEntryIndex: state.activePlaybackEntryIndex,
-    cues: currentPerformance.cues
-  });
   const result = markExecutedChartPerformanceCuesConsumed(currentPerformance.cues, currentPlaybackBarIndex);
-  if (result.changed) {
-    console.info('[chart-cue] chart consumed cue(s)', {
-      currentPlaybackBarIndex,
-      before: currentPerformance.cues,
-      after: result.cues
-    });
-  }
   if (!result.changed) return;
   updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
     ...currentPerformance,
@@ -2270,9 +2282,7 @@ async function renderFixture() {
     getAvailableDocuments,
     resetTempo: false,
     stopPlayback,
-    createPlaybackPlanOptions: () => ({
-      repeatCount: getChartRepeatPlanCount()
-    }),
+    createPlaybackPlanOptions: (chartDocument) => createCurrentPlaybackPlanOptions(chartDocument),
     createPracticeSessionOptions: (playbackPlan) => ({
       playbackPlan,
       tempo: getTempo(),

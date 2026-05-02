@@ -18,6 +18,12 @@ import { renderAccidentalTextHtml, renderChordSymbolHtml } from './core/music/ch
 import pianoRhythmConfig from './core/music/piano-rhythm-config.js';
 import voicingConfig from './core/music/voicing-config.js';
 import {
+  findPlaybackOffsetForBarIndex,
+  getPlaybackBarOffsets,
+  resolveCodaCueJump,
+  resolveRepeatExitCueJump
+} from './core/playback/performance-cue-jumps.js';
+import {
   TRAINER_APP_CONFIG,
   TRAINER_AUDIO_CONFIG,
   TRAINER_MODE_CONFIG,
@@ -1523,70 +1529,47 @@ let loopVoicingTemplate = null; // saved voicing plan from first loop iteration
 let lastPlayedChordIdx = -1; // track last chord to avoid re-triggering sustained chords
 let nextPreviewLeadValue = DEFAULT_NEXT_PREVIEW_LEAD_BARS;
 let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
-let pendingPerformanceCueJump: { triggerStart: number; codaStart: number } | null = null;
+let pendingPerformanceCueJump: { type: 'coda' | 'repeat_exit'; triggerStart: number; targetStart: number } | null = null;
+let activePerformanceMap: Record<string, unknown> | null = null;
+let codaGateSatisfied = false;
 
-function getPlaybackBarBeatCount(bar: any) {
-  const beatSlots = Array.isArray(bar?.beatSlots) ? bar.beatSlots : [];
-  const symbols = Array.isArray(bar?.symbols) ? bar.symbols : [];
-  return Math.max(1, beatSlots.length || symbols.length || 1);
+function setPlaybackPerformanceMap(performanceMap: Record<string, unknown> | null) {
+  activePerformanceMap = performanceMap && typeof performanceMap === 'object' ? performanceMap : null;
+  codaGateSatisfied = false;
+  pendingPerformanceCueJump = null;
 }
 
-function getPlaybackBarOffsets(bars: any[] = []) {
-  let offset = 0;
-  return bars.map((bar) => {
-    const start = offset;
-    const beatCount = getPlaybackBarBeatCount(bar);
-    offset += beatCount;
-    return {
-      bar,
-      start,
-      end: start + beatCount
-    };
-  });
-}
-
-function findPlaybackOffsetForBarIndex(
-  offsets: Array<{ bar: any; start: number; end: number }>,
-  barIndex: number,
-  minimumOffset = 0
-) {
-  return offsets.find((entry) => Number(entry.bar?.index) === barIndex && entry.start >= minimumOffset) || null;
-}
-
-function getCueCodaTargetBarIndex(cue: any, sessionSpec: any) {
-  const triggerBarIndex = Number(cue?.targetBarIndex);
-  const cuePoints = Array.isArray(sessionSpec?.playback?.performanceMap?.cuePoints)
-    ? sessionSpec.playback.performanceMap.cuePoints
-    : [];
-  const targetPoint = cuePoints
-    .map((point: any) => ({ ...point, barIndex: Number(point?.barIndex) }))
-    .filter((point: any) => point.type === 'coda' && Number.isFinite(point.barIndex) && point.barIndex > triggerBarIndex)
-    .sort((a: any, b: any) => a.barIndex - b.barIndex)[0]
-    || cuePoints
-      .map((point: any) => ({ ...point, barIndex: Number(point?.barIndex) }))
-      .filter((point: any) => point.type === 'coda' && Number.isFinite(point.barIndex))
-      .sort((a: any, b: any) => b.barIndex - a.barIndex)[0];
-  console.info('[chart-cue] resolved coda target', {
-    triggerBarIndex,
-    cuePoints,
-    targetPoint
-  });
-  return Number.isFinite(targetPoint?.barIndex) ? targetPoint.barIndex : null;
+function resolvePerformanceCueStop(chordIndex: number) {
+  const codaGate = activePerformanceMap?.codaGate && typeof activePerformanceMap.codaGate === 'object'
+    ? activePerformanceMap.codaGate as Record<string, unknown>
+    : null;
+  if (codaGate?.enabled !== true || codaGateSatisfied) return false;
+  const stopChordIndex = Number(codaGate.stopChordIndex);
+  return Number.isFinite(stopChordIndex) && chordIndex >= stopChordIndex;
 }
 
 function queueChartPerformanceCue(cue: any, sessionSpec: any) {
-  console.info('[chart-cue] runtime queue handler entered', {
-    cue,
-    sessionId: sessionSpec?.id || null,
-    currentChordIdx,
-    displayedCurrentChordIdx,
-    isPlaying,
-    isIntro,
-    playbackBarCount: sessionSpec?.playback?.bars?.length || 0,
-    cuePoints: sessionSpec?.playback?.performanceMap?.cuePoints || []
-  });
-  if (cue?.type !== 'arm_coda') {
-    console.info('[chart-cue] runtime ignored non-coda cue', cue);
+  if (cue?.type === 'exit_repeat') {
+    const repeatExitJump = resolveRepeatExitCueJump(cue, sessionSpec, currentChordIdx);
+    if (!repeatExitJump) {
+      console.warn('[chart-cue] runtime could not queue repeat exit cue', {
+        cue,
+        currentChordIdx,
+        playbackBarCount: sessionSpec?.playback?.bars?.length || 0,
+        repeatRegions: sessionSpec?.playback?.performanceMap?.repeatRegions || []
+      });
+      return {
+        ok: false,
+        errorMessage: 'No upcoming repeat exit was found in the active playback session.',
+        state: getEmbeddedPlaybackState?.(),
+        cue
+      };
+    }
+    pendingPerformanceCueJump = {
+      type: 'repeat_exit',
+      triggerStart: repeatExitJump.triggerStart,
+      targetStart: repeatExitJump.targetStart
+    };
     return {
       ok: true,
       state: getEmbeddedPlaybackState?.(),
@@ -1594,14 +1577,22 @@ function queueChartPerformanceCue(cue: any, sessionSpec: any) {
     };
   }
 
-  const triggerBarIndex = Number(cue?.targetBarIndex);
-  const codaBarIndex = getCueCodaTargetBarIndex(cue, sessionSpec);
-  const bars = Array.isArray(sessionSpec?.playback?.bars) ? sessionSpec.playback.bars : [];
-  if (!Number.isFinite(triggerBarIndex) || !Number.isFinite(codaBarIndex) || bars.length === 0) {
+  if (cue?.type !== 'arm_coda') {
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
+  const codaJump = resolveCodaCueJump(cue, sessionSpec, currentChordIdx);
+  if (!codaJump) {
     console.warn('[chart-cue] runtime could not queue coda cue', {
-      triggerBarIndex,
-      codaBarIndex,
-      barsLength: bars.length
+      cue,
+      currentChordIdx,
+      playbackBarCount: sessionSpec?.playback?.bars?.length || 0,
+      codaGate: sessionSpec?.playback?.performanceMap?.codaGate || null,
+      cuePoints: sessionSpec?.playback?.performanceMap?.cuePoints || []
     });
     return {
       ok: false,
@@ -1611,43 +1602,11 @@ function queueChartPerformanceCue(cue: any, sessionSpec: any) {
     };
   }
 
-  const offsets = getPlaybackBarOffsets(bars);
-  const triggerEntry = findPlaybackOffsetForBarIndex(offsets, triggerBarIndex, Math.max(0, currentChordIdx));
-  const codaEntry = triggerEntry
-    ? findPlaybackOffsetForBarIndex(offsets, codaBarIndex, triggerEntry.start)
-    : null;
-  console.info('[chart-cue] runtime computed cue offsets', {
-    triggerBarIndex,
-    codaBarIndex,
-    currentChordIdx,
-    triggerEntry,
-    codaEntry,
-    offsetsPreview: offsets.map((entry) => ({
-      index: Number(entry.bar?.index),
-      id: entry.bar?.id,
-      start: entry.start,
-      end: entry.end
-    }))
-  });
-  if (!triggerEntry || !codaEntry) {
-    console.warn('[chart-cue] runtime could not find upcoming trigger/coda entries', {
-      triggerEntry,
-      codaEntry
-    });
-    return {
-      ok: false,
-      errorMessage: 'No upcoming coda cue point was found in the active playback session.',
-      state: getEmbeddedPlaybackState?.(),
-      cue
-    };
-  }
-
   pendingPerformanceCueJump = {
-    triggerStart: triggerEntry.start,
-    codaStart: codaEntry.start
+    type: 'coda',
+    triggerStart: codaJump.triggerStart,
+    targetStart: codaJump.targetStart
   };
-  console.info('[chart-cue] runtime armed coda jump', pendingPerformanceCueJump);
-
   return {
     ok: true,
     state: getEmbeddedPlaybackState?.(),
@@ -1657,25 +1616,12 @@ function queueChartPerformanceCue(cue: any, sessionSpec: any) {
 
 function resolveQueuedPerformanceCueJump(chordIndex: number) {
   if (!pendingPerformanceCueJump) return null;
-  console.info('[chart-cue] scheduler checked pending coda jump', {
-    chordIndex,
-    pendingPerformanceCueJump
-  });
-  if (chordIndex >= pendingPerformanceCueJump.codaStart) {
-    console.info('[chart-cue] scheduler clearing stale coda jump because playback is already at/after coda', {
-      chordIndex,
-      pendingPerformanceCueJump
-    });
-    pendingPerformanceCueJump = null;
-    return null;
-  }
   if (chordIndex < pendingPerformanceCueJump.triggerStart) return null;
-  const targetIndex = pendingPerformanceCueJump.codaStart;
+  const targetIndex = pendingPerformanceCueJump.targetStart;
+  if (pendingPerformanceCueJump.type === 'coda') {
+    codaGateSatisfied = true;
+  }
   pendingPerformanceCueJump = null;
-  console.info('[chart-cue] scheduler resolved coda jump', {
-    chordIndex,
-    targetIndex
-  });
   return targetIndex;
 }
 
@@ -2219,6 +2165,7 @@ const {
     getFinitePlayback: () => finitePlayback,
     getPlaybackEndingCue: () => playbackEndingCue,
     resolvePerformanceCueJump: resolveQueuedPerformanceCueJump,
+    resolvePerformanceCueStop,
     getSecondsPerBeat,
     getSwingRatio,
     hideNextCol,
@@ -2919,6 +2866,7 @@ const {
       refreshDisplayedHarmony,
       fitHarmonyDisplay,
       setPlaybackEndingCue: (value) => { playbackEndingCue = value || null; },
+      setPlaybackPerformanceMap,
       validateCustomPattern: () => validateCustomPattern(),
       getCurrentPatternString,
       getCurrentPatternMode

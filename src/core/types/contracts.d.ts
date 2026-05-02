@@ -665,6 +665,7 @@ export interface EmbeddedPatternAdapterOptions {
   setLastPatternSelectValue?: () => void;
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
   setPlaybackEndingCue?: (endingCue: PlaybackEndingCue | null) => void;
+  setPlaybackPerformanceMap?: (performanceMap: ChartPerformanceMap | null) => void;
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;

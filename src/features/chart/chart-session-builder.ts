@@ -18,6 +18,60 @@ import { createChartPerformanceMap } from '../../../chart/chart-performance.js';
 import { transposeChordSymbol, transposeKeySymbol } from '../../../chart/chart-harmony.js';
 import { createChartDocument } from '../../../chart/chart-types.js';
 
+function getPlaybackBarBeatCount(bar: { beatSlots?: unknown[]; symbols?: unknown[] } | null | undefined): number {
+  return Math.max(1, bar?.beatSlots?.length || bar?.symbols?.length || 1);
+}
+
+function getPlaybackChordIndexForEntry(
+  bars: Array<{ beatSlots?: unknown[]; symbols?: unknown[] }>,
+  entryIndex: number
+): number {
+  const safeEntryIndex = Math.max(0, Math.min(bars.length, Math.round(Number(entryIndex) || 0)));
+  return bars.slice(0, safeEntryIndex).reduce((total, bar) => total + getPlaybackBarBeatCount(bar), 0);
+}
+
+function applyCodaGateToPerformanceMap(
+  performanceMap: Record<string, unknown>,
+  playbackPlan: ChartPlaybackPlan,
+  bars: Array<{ index?: number; beatSlots?: unknown[]; symbols?: unknown[] }>
+) {
+  const codaGate = playbackPlan?.navigation?.codaGate as Record<string, unknown> | null | undefined;
+  if (!codaGate || typeof codaGate !== 'object') return performanceMap;
+
+  const stopEntryIndex = Number(codaGate.stopEntryIndex);
+  const triggerEntryIndex = Number.isFinite(Number(codaGate.triggerEntryIndex))
+    ? Number(codaGate.triggerEntryIndex)
+    : stopEntryIndex;
+  if (!Number.isInteger(stopEntryIndex) || stopEntryIndex < 0 || stopEntryIndex > bars.length) {
+    return performanceMap;
+  }
+
+  const safeTriggerEntryIndex = Number.isInteger(triggerEntryIndex)
+    ? Math.max(0, Math.min(bars.length, triggerEntryIndex))
+    : stopEntryIndex;
+  const triggerBar = bars[safeTriggerEntryIndex] || bars[stopEntryIndex] || null;
+  const stopChordIndex = getPlaybackChordIndexForEntry(bars, stopEntryIndex);
+  const triggerChordIndex = getPlaybackChordIndexForEntry(bars, safeTriggerEntryIndex);
+  const triggerEndChordIndex = safeTriggerEntryIndex < stopEntryIndex
+    ? triggerChordIndex + getPlaybackBarBeatCount(triggerBar)
+    : stopChordIndex;
+
+  return {
+    ...performanceMap,
+    codaGate: {
+      enabled: true,
+      stopEntryIndex,
+      triggerEntryIndex: safeTriggerEntryIndex,
+      stopChordIndex,
+      triggerChordIndex,
+      triggerEndChordIndex,
+      targetChordIndex: stopChordIndex,
+      triggerBarIndex: Number(triggerBar?.index ?? codaGate.targetBarIndex ?? 0) || null,
+      targetBarIndex: Number(codaGate.targetBarIndex ?? bars[stopEntryIndex]?.index ?? 0) || null
+    }
+  };
+}
+
 function buildSelectionTitle(baseTitle: string, startIndex: number | null, endIndex: number | null): string {
   if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) {
     return baseTitle || 'Chart selection';
@@ -115,6 +169,11 @@ export function createPracticeSessionFromChartPlaybackPlan({
     composer: chartDocument?.metadata?.composer || '',
     style: chartDocument?.metadata?.styleReference || chartDocument?.metadata?.style || ''
   };
+  const performanceMap = applyCodaGateToPerformanceMap(
+    createChartPerformanceMap(chartDocument, playbackPlan?.navigation || {}) as Record<string, unknown>,
+    playbackPlan,
+    bars
+  ) as PracticeSessionSpec['playback']['performanceMap'];
   return createPracticeSessionSpec({
     id: `${chartDocument?.metadata?.id || 'chart'}-${source}`,
     source,
@@ -124,7 +183,7 @@ export function createPracticeSessionFromChartPlaybackPlan({
     playback: {
       bars,
       endingCue,
-      performanceMap: createChartPerformanceMap(chartDocument, playbackPlan?.navigation || {})
+      performanceMap
     },
     display,
     selection,

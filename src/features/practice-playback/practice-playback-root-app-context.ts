@@ -49,6 +49,7 @@ type PracticePlaybackLegacyHostBindings = {
     setEditorPatternMode?: (value: string) => void;
     syncPatternSelectionFromInput?: () => void;
     setPlaybackEndingCue?: PracticePlaybackHostBindings['setPlaybackEndingCue'];
+    setPlaybackPerformanceMap?: PracticePlaybackHostBindings['setPlaybackPerformanceMap'];
     startPlayback?: () => Promise<void> | void;
     stopPlayback?: () => void;
     togglePausePlayback?: () => void;
@@ -137,6 +138,7 @@ export function createPracticePlaybackRootAppContext({
       setEditorPatternMode = () => {},
       syncPatternSelectionFromInput = () => {},
       setPlaybackEndingCue = () => {},
+      setPlaybackPerformanceMap = () => {},
       startPlayback = () => {},
       stopPlayback = () => {},
       togglePausePlayback = () => {}
@@ -149,6 +151,7 @@ export function createPracticePlaybackRootAppContext({
       setEditorPatternMode,
       syncPatternSelectionFromInput,
       setPlaybackEndingCue,
+      setPlaybackPerformanceMap,
       getLastPatternSelectValue,
       setLastPatternSelectValue,
       getIsPlaying,
@@ -186,6 +189,7 @@ export function createPracticePlaybackRootAppContext({
       refreshDisplayedHarmony = () => {},
       fitHarmonyDisplay = () => {},
       setPlaybackEndingCue = () => {},
+      setPlaybackPerformanceMap = () => {},
       validateCustomPattern = () => true,
       getCurrentPatternString = () => '',
       getCurrentPatternMode = () => ''
@@ -195,6 +199,7 @@ export function createPracticePlaybackRootAppContext({
       clearProgressionEditingState,
       closeProgressionManager,
       setPlaybackEndingCue,
+      setPlaybackPerformanceMap,
       syncCustomPatternUI,
       normalizeChordsPerBarForCurrentPattern,
       applyPatternModeAvailability,

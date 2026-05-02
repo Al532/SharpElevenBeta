@@ -13,6 +13,7 @@ type DrillEmbeddedPatternUiBindings = {
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
   setPlaybackEndingCue?: PracticePlaybackPatternUiBindings['setPlaybackEndingCue'];
+  setPlaybackPerformanceMap?: PracticePlaybackPatternUiBindings['setPlaybackPerformanceMap'];
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -93,6 +94,7 @@ export function createPracticePatternUiBindings(
     syncPatternSelectionFromInput: bindings.syncPatternSelectionFromInput,
     setLastPatternSelectValue: bindings.setLastPatternSelectValue,
     setPlaybackEndingCue: bindings.setPlaybackEndingCue,
+    setPlaybackPerformanceMap: bindings.setPlaybackPerformanceMap,
     syncCustomPatternUI: bindings.syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern: bindings.normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability: bindings.applyPatternModeAvailability,
@@ -142,9 +144,6 @@ export function createPracticePlaybackSettingsBindings(
 export function createPracticePlaybackRuntimeBindings(
   bindings: Record<string, unknown> = {}
 ): Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown> {
-  console.info('[chart-cue] runtime bindings boundary', {
-    hasInputQueuePerformanceCue: typeof bindings.queuePerformanceCue === 'function'
-  });
   return {
     ensureWalkingBassGenerator: bindings.ensureWalkingBassGenerator,
     getAudioContext: bindings.getAudioContext,

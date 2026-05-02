@@ -9,9 +9,6 @@ import type {
 export function createPracticePlaybackControllerOptions(
   options: PracticePlaybackControllerOptions = {}
 ): PracticePlaybackControllerOptions {
-  console.info('[chart-cue] playback controller options boundary', {
-    hasQueuePerformanceCue: typeof options.queuePerformanceCue === 'function'
-  });
   return {
     ensureWalkingBassGenerator: options.ensureWalkingBassGenerator,
     isPlaying: options.isPlaying,
@@ -67,6 +64,7 @@ export function createEmbeddedPatternAdapterOptions(
     setLastPatternSelectValue: options.setLastPatternSelectValue,
     applyEmbeddedPlaybackSettings: options.applyEmbeddedPlaybackSettings,
     setPlaybackEndingCue: options.setPlaybackEndingCue,
+    setPlaybackPerformanceMap: options.setPlaybackPerformanceMap,
     syncCustomPatternUI: options.syncCustomPatternUI,
     normalizeChordsPerBarForCurrentPattern: options.normalizeChordsPerBarForCurrentPattern,
     applyPatternModeAvailability: options.applyPatternModeAvailability,
@@ -156,6 +154,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   syncPatternSelectionFromInput,
   setLastPatternSelectValue,
   setPlaybackEndingCue,
+  setPlaybackPerformanceMap,
   syncCustomPatternUI,
   normalizeChordsPerBarForCurrentPattern,
   applyPatternModeAvailability,
@@ -217,6 +216,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
   syncPatternSelectionFromInput: () => void;
   setLastPatternSelectValue: () => void;
   setPlaybackEndingCue?: EmbeddedPatternAdapterOptions['setPlaybackEndingCue'];
+  setPlaybackPerformanceMap?: EmbeddedPatternAdapterOptions['setPlaybackPerformanceMap'];
   syncCustomPatternUI: () => void;
   normalizeChordsPerBarForCurrentPattern: () => void;
   applyPatternModeAvailability: () => void;
@@ -279,6 +279,7 @@ export function createEmbeddedPracticeRuntimeAppOptions({
       syncPatternSelectionFromInput,
       setLastPatternSelectValue,
       setPlaybackEndingCue,
+      setPlaybackPerformanceMap,
       syncCustomPatternUI,
       normalizeChordsPerBarForCurrentPattern,
       applyPatternModeAvailability,

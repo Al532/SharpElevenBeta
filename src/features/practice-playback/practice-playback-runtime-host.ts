@@ -187,6 +187,7 @@ export function createPracticePlaybackRuntimeHost({
       getFinitePlayback: helpers.getFinitePlayback,
       getPlaybackEndingCue: helpers.getPlaybackEndingCue,
       resolvePerformanceCueJump: helpers.resolvePerformanceCueJump,
+      resolvePerformanceCueStop: helpers.resolvePerformanceCueStop,
       getSecondsPerBeat: helpers.getSecondsPerBeat,
       getSwingRatio: helpers.getSwingRatio,
       hideNextCol: helpers.hideNextCol,

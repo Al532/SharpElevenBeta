@@ -15,6 +15,7 @@ type DrillEmbeddedPatternUiBindings = {
   syncPatternSelectionFromInput?: () => void;
   setLastPatternSelectValue?: () => void;
   setPlaybackEndingCue?: PracticePlaybackPatternUiBindings['setPlaybackEndingCue'];
+  setPlaybackPerformanceMap?: PracticePlaybackPatternUiBindings['setPlaybackPerformanceMap'];
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;

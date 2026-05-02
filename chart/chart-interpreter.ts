@@ -43,6 +43,7 @@ type CreateChartPlaybackPlanFromDocumentOptions = {
   stopAtFine?: boolean,
   chordEnrichmentMode?: string,
   repeatCount?: number,
+  deferCodaJumpsUntilCue?: boolean,
   endingStyleThresholds?: {
     onbeatLongMaxBpm?: number | null,
     shortMinBpm?: number | null
@@ -369,6 +370,22 @@ function getRepeatHintWithinRange(bars, startIndex, endIndex) {
   return highestHint || null;
 }
 
+function hasVampDirectiveWithinRange(bars, startIndex, endIndex) {
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    if ((bars[index]?.directives || []).some((directive) => (
+      directive?.type === 'open_vamp' || directive?.type === 'vamp_instruction'
+    ))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getOpenVampRepeatCountWithinRange(chartDocument, bars, startIndex, endIndex) {
+  if (!hasVampDirectiveWithinRange(bars, startIndex, endIndex)) return null;
+  return normalizeRepeatCount(chartDocument?.metadata?.sourceRepeats, 8);
+}
+
 function hasAlCodaDirective(bars) {
   return bars.some((bar) => (bar.directives || []).some(
     (directive) => directive?.type === 'dc_al_coda' || directive?.type === 'ds_al_coda'
@@ -391,7 +408,8 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
   const endingMap = buildEndingMap(bars);
   const navigationTargets = collectNavigationTargets(bars);
   const requestedRepeatCount = normalizeRepeatCount(options.repeatCount, 1);
-  const codaIsPartOfForm = hasAlCodaDirective(bars);
+  const shouldDeferCodaJumpsUntilCue = options.deferCodaJumpsUntilCue === true && navigationTargets.codaIndex !== null;
+  const codaIsPartOfForm = hasAlCodaDirective(bars) && !shouldDeferCodaJumpsUntilCue;
   const codaOutroStartIndex = codaIsPartOfForm ? null : findCodaOutroStartIndex(bars, navigationTargets);
   /** @type {ChartPlaybackDiagnostic[]} */
   const diagnostics = [];
@@ -403,6 +421,8 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
   /** @type {ChartPlaybackEntry[]} */
   const entries = [];
   let visitCounter = 0;
+  let codaGateStopEntryIndex = null;
+  let codaGateTriggerEntryIndex = null;
 
   function reportUnsupportedDirectives(bar) {
     for (const directive of bar.directives || []) {
@@ -518,6 +538,11 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
       if (shouldStopAtFine) break;
 
       if (jumpState?.jumpToCoda && navigationTargets.codaJumpIndex === index) {
+        if (shouldDeferCodaJumpsUntilCue) {
+          codaGateTriggerEntryIndex = entries.length - 1;
+          codaGateStopEntryIndex = entries.length;
+          return { stoppedAtDeferredCoda: true };
+        }
         if (navigationTargets.codaIndex === null) {
           pushMissingTargetDiagnostic('missing_coda_target', `No coda target found for ${jumpState.type}.`);
         } else {
@@ -553,6 +578,7 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
           pass: jumpState?.forcedEnding || 1,
           maxPass: jumpState?.forcedEnding
             || getRepeatHintWithinRange(bars, index, endIndex)
+            || getOpenVampRepeatCountWithinRange(chartDocument, bars, index, endIndex)
             || Math.max(2, findHighestEndingWithinRange(endingMap, index, endIndex))
         };
       }
@@ -568,12 +594,37 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
 
       index += 1;
     }
+
+    return { stoppedAtDeferredCoda: false };
   }
 
   for (let pass = 1; pass <= requestedRepeatCount && visitCounter < MAX_PLAYBACK_STEPS; pass += 1) {
-    runFormPass({
-      includeCodaOutro: codaIsPartOfForm || pass === requestedRepeatCount
+    const passResult = runFormPass({
+      includeCodaOutro: !shouldDeferCodaJumpsUntilCue && (codaIsPartOfForm || pass === requestedRepeatCount)
     });
+    if (passResult?.stoppedAtDeferredCoda) break;
+  }
+
+  if (
+    shouldDeferCodaJumpsUntilCue
+    && codaOutroStartIndex !== null
+    && codaGateStopEntryIndex === null
+  ) {
+    codaGateStopEntryIndex = entries.length;
+    codaGateTriggerEntryIndex = entries.length;
+  }
+
+  if (
+    shouldDeferCodaJumpsUntilCue
+    && codaOutroStartIndex !== null
+    && codaGateStopEntryIndex !== null
+  ) {
+    for (let index = codaOutroStartIndex; index < bars.length && visitCounter < MAX_PLAYBACK_STEPS; index += 1) {
+      const bar = bars[index];
+      entries.push(createEntry(bar, visitCounter));
+      visitCounter += 1;
+      reportUnsupportedDirectives(bar);
+    }
   }
 
   if (visitCounter >= MAX_PLAYBACK_STEPS) {
@@ -608,7 +659,15 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
     diagnostics,
     navigation: {
       segnoIndex: navigationTargets.segnoIndex,
-      codaIndex: navigationTargets.codaIndex
+      codaIndex: navigationTargets.codaIndex,
+      ...(codaGateStopEntryIndex !== null ? {
+        codaGate: {
+          enabled: true,
+          stopEntryIndex: codaGateStopEntryIndex,
+          triggerEntryIndex: codaGateTriggerEntryIndex ?? codaGateStopEntryIndex,
+          targetBarIndex: bars[navigationTargets.codaIndex]?.index ?? null
+        }
+      } : {})
     }
   });
 }

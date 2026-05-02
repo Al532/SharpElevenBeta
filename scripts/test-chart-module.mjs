@@ -49,6 +49,7 @@ import { resolvePlaybackEndingStyle } from '../src/core/playback/playback-ending
 import { createEmbeddedPlaybackSessionAdapter } from '../src/core/playback/embedded-playback-session-adapter.ts';
 import { createDirectPlaybackSessionAdapter } from '../src/core/playback/direct-playback-session-adapter.ts';
 import { createPracticePlaybackSessionAdapter } from '../src/core/playback/practice-playback-session-adapter.ts';
+import { resolveCodaCueJump, resolveRepeatExitCueJump } from '../src/core/playback/performance-cue-jumps.ts';
 import { createPlaybackBridgeProvider } from '../src/core/playback/playback-bridge-provider.ts';
 import { createPlaybackAssembly } from '../src/core/playback/playback-assembly.ts';
 import { createPlaybackAssemblyProvider } from '../src/core/playback/playback-assembly-provider.ts';
@@ -2945,7 +2946,7 @@ assert.equal(
         getMeasureInfoForChordIndex: () => ({ beatCount: 4 }),
         getRemainingBeatsUntilNextProgression: () => 1,
         getRepetitionsPerKey: () => 1,
-        getFinitePlayback: () => false,
+        getFinitePlayback: () => true,
         getPlaybackEndingCue: () => ({
           style: 'offbeat_long',
           targetBeat: 4,
@@ -4134,6 +4135,48 @@ assert.deepEqual(
     'Default chart performances stay linked to the active chart id.'
   );
 
+  const exitRepeatVampFixture = appendIRealBehaviorTestCharts([])
+    .find((document) => document.metadata.id === 'cue-demo-exit-repeat-vamp');
+  const exitRepeatVampPlan = createChartPlaybackPlanFromDocument(exitRepeatVampFixture, { repeatCount: 1 });
+  assert.deepEqual(
+    exitRepeatVampPlan.entries.map((entry) => entry.barIndex),
+    [
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      1, 2, 3, 4,
+      5, 6, 7, 8
+    ],
+    'Open vamp fixtures use the source repeat count so the exit-repeat page is testable.'
+  );
+  const exitRepeatVampSession = createPracticeSessionFromChartDocument(exitRepeatVampFixture, {
+    playbackPlan: exitRepeatVampPlan
+  });
+  assert.deepEqual(
+    resolveRepeatExitCueJump(
+      {
+        id: 'exit-repeat',
+        type: 'exit_repeat',
+        boundary: 'next_repeat_boundary',
+        status: 'armed',
+        targetBarIndex: 4
+      },
+      exitRepeatVampSession,
+      1
+    ),
+    {
+      triggerStart: 16,
+      targetStart: 128,
+      triggerBarIndex: 4,
+      targetBarIndex: 5
+    },
+    'Exit repeat cues jump from the next vamp boundary to the first bar outside the repeat.'
+  );
+
   const cueSessionResult = markExecutedChartPerformanceCuesConsumed([
     {
       id: 'cue-before-target',
@@ -4278,6 +4321,63 @@ assert.deepEqual(
   [1, 2, 3, 1, 2, 4, 5],
   'Playback waits until the coda jump marker after D.C. al Coda before jumping to the coda target.'
 );
+
+{
+  const gatedDcCodaDocument = createChartDocument({
+    metadata: { title: 'Cue Gated DC Coda', id: 'cue-gated-dc-coda' },
+    sections: [{ id: 'A-1', barIds: ['bar-1', 'bar-2', 'bar-3', 'bar-4', 'bar-5'] }],
+    bars: [
+      makeSyntheticChartBar(1, { symbol: 'Cmaj7' }),
+      makeSyntheticChartBar(2, { symbol: 'Dm7', flags: ['coda'] }),
+      makeSyntheticChartBar(3, { symbol: 'G7', directives: [{ type: 'dc_al_coda' }] }),
+      makeSyntheticChartBar(4, { symbol: 'Em7', flags: ['coda'] }),
+      makeSyntheticChartBar(5, { symbol: 'A7' })
+    ]
+  });
+  const gatedDcCodaPlan = createChartPlaybackPlanFromDocument(gatedDcCodaDocument, {
+    deferCodaJumpsUntilCue: true
+  });
+  const gatedDcCodaSession = createPracticeSessionFromChartDocument(gatedDcCodaDocument, {
+    playbackPlan: gatedDcCodaPlan
+  });
+
+  assert.deepEqual(
+    gatedDcCodaPlan.entries.map((entry) => entry.barIndex),
+    [1, 2, 3, 1, 2, 4, 5],
+    'Cue-gated D.C. al Coda keeps the coda target available in the playback session.'
+  );
+  assert.deepEqual(
+    gatedDcCodaSession.playback.performanceMap.codaGate,
+    {
+      enabled: true,
+      stopEntryIndex: 5,
+      triggerEntryIndex: 4,
+      stopChordIndex: 20,
+      triggerChordIndex: 16,
+      triggerEndChordIndex: 20,
+      targetChordIndex: 20,
+      triggerBarIndex: 2,
+      targetBarIndex: 4
+    },
+    'Cue-gated D.C. al Coda marks the normal coda jump as a runtime gate before the coda target.'
+  );
+  assert.deepEqual(
+    resolveCodaCueJump({
+      id: 'coda-cue',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: 2
+    }, gatedDcCodaSession, 0),
+    {
+      triggerStart: 20,
+      targetStart: 20,
+      triggerBarIndex: 2,
+      targetBarIndex: 4
+    },
+    'Coda cues satisfy the normal gated coda jump at the second coda marker occurrence.'
+  );
+}
 
 const satinSession = createPracticeSessionFromChartDocument(satinDoll, { playbackPlan: satinPlan });
 assert.equal(satinSession.schemaVersion, PRACTICE_SESSION_CONTRACT.schemaVersion, 'Practice sessions expose the stable schema version.');
@@ -5230,6 +5330,122 @@ schedulerState.currentBassPlan = [1, 2];
 assert.equal(schedulerCurrentBeat, 2, 'Practice playback scheduler state proxy forwards beat mutations.');
 assert.deepEqual(schedulerState.currentBassPlan, [1, 2], 'Practice playback scheduler state proxy exposes current bass plan.');
 assert.equal(schedulerState.pendingDisplayTimeouts, schedulerPendingDisplayTimeouts, 'Practice playback scheduler state proxy exposes pending display timeouts.');
+{
+  const loopChord = (symbol, semitones) => ({ symbol, semitones, qualityMajor: 'maj7', qualityMinor: 'm7' });
+  const loopChords = [
+    loopChord('Cmaj7', 0),
+    loopChord('Dm7', 2),
+    loopChord('G7', 7),
+    loopChord('Am7', 9),
+    loopChord('Cmaj7', 0)
+  ];
+  const scheduledNotes = [];
+  let loopSchedulerStopCalls = 0;
+  const loopSchedulerState = {
+    audioCtx: { currentTime: 0 },
+    currentBassPlan: [],
+    currentBeat: 0,
+    currentChordIdx: 0,
+    currentCompingPlan: { events: [] },
+    currentKey: 0,
+    currentKeyRepetition: 0,
+    currentOneChordQualityValue: '',
+    currentRawChords: [],
+    currentVoicingPlan: [],
+    displayedCurrentBeat: 0,
+    displayedCurrentChordIdx: 0,
+    displayedIsIntro: false,
+    isIntro: false,
+    isPaused: false,
+    isPlaying: true,
+    lastPlayedChordIdx: -1,
+    loopVoicingTemplate: null,
+    nextBeatTime: 0,
+    nextCompingPlan: { events: [] },
+    nextKeyValue: null,
+    nextOneChordQualityValue: '',
+    nextPaddedChords: [],
+    nextRawChords: [],
+    nextVoicingPlan: [],
+    paddedChords: [],
+    pendingBassTargetMidi: null,
+    pendingDisplayTimeouts: new Set(),
+    walkingBassLoggedMeasures: new Set()
+  };
+  const loopScheduler = createPlaybackScheduler({
+    dom: {
+      majorMinor: { checked: false },
+      keyDisplay: { innerHTML: '', textContent: '' },
+      chordDisplay: { innerHTML: '' },
+      nextKeyDisplay: { innerHTML: '', textContent: '' },
+      nextChordDisplay: { innerHTML: '' }
+    },
+    state: loopSchedulerState,
+    constants: { SCHEDULE_AHEAD: 0.25 },
+    helpers: {
+      applyDisplaySideLayout: () => {},
+      buildPreparedBassPlan: () => [],
+      buildLegacyVoicingPlan: (chords) => chords.map((chord) => ({ chord })),
+      buildPreparedCompingPlans: () => {},
+      buildVoicingPlanForSlots: (slots) => slots,
+      chordSymbolHtml: () => '',
+      compingEngine: { scheduleWindow: () => {}, scheduleEnding: () => {} },
+      createOneChordToken: () => ({}),
+      createVoicingSlot: (chord) => ({ chord }),
+      fitHarmonyDisplay: () => {},
+      getCurrentPatternString: () => 'Cmaj7 | Dm7 | G7 | Am7 | Cmaj7',
+      getPatternKeyOverridePitchClass: () => null,
+      getCompingStyle: () => 'piano',
+      getBeatsPerChord: () => 1,
+      getChordsPerBar: () => 1,
+      getPlaybackMeasurePlan: () => [],
+      getMeasureInfoForChordIndex: () => ({ beatCount: 1 }),
+      getRemainingBeatsUntilNextProgression: () => 1,
+      getRepetitionsPerKey: () => 2,
+      getFinitePlayback: () => true,
+      getPlaybackEndingCue: () => ({ style: 'short', targetBeat: 0, targetChordIndex: 0 }),
+      getSecondsPerBeat: () => 1,
+      getSwingRatio: () => 2,
+      getBassMidi: (_key, semitones) => 36 + semitones,
+      hideNextCol: () => {},
+      ensureNearTermSamplePreload: () => {},
+      isWalkingBassEnabled: () => false,
+      isChordsEnabled: () => false,
+      isVoiceLeadingV2Enabled: () => false,
+      keyNameHtml: () => '',
+      nextKey: () => 0,
+      padProgression: (chords) => chords,
+      parseOneChordSpec: () => ({ active: false }),
+      parsePattern: () => loopChords,
+      playClick: () => {},
+      playNote: (midi, time, duration, velocity, options) => {
+        scheduledNotes.push({ midi, time, duration, velocity, options });
+      },
+      playRide: () => {},
+      scheduleDrumsForBeat: () => {},
+      shouldShowNextPreview: () => false,
+      showNextCol: () => {},
+      stopPlayback: () => { loopSchedulerStopCalls += 1; },
+      takeNextOneChordQuality: () => '',
+      trackProgressionOccurrence: () => {},
+      updateBeatDots: () => {}
+    }
+  });
+  loopScheduler.prepareNextProgression();
+  assert.equal(
+    loopSchedulerState.paddedChords.length,
+    loopChords.length,
+    'Finite repeated playback keeps the natural final measure in intermediate repetitions.'
+  );
+  loopSchedulerState.currentChordIdx = loopSchedulerState.paddedChords.length - 1;
+  loopScheduler.scheduleBeat();
+  assert.equal(loopSchedulerStopCalls, 0, 'Finite playback loops until the requested repetitions are exhausted.');
+  assert.equal(loopSchedulerState.currentKeyRepetition, 2, 'Finite playback advances to the next repetition after the natural final measure.');
+  assert.ok(
+    scheduledNotes.every((note) => note.options?.endingStyle === undefined),
+    'Natural ending cues are ignored before the final requested repetition.'
+  );
+}
 let transportActiveNoteGain = null;
 let transportAudioContext = null;
 let transportCurrentBeat = 0;

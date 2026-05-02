@@ -112,12 +112,7 @@ export function initializeEmbeddedPracticeRuntime({
   });
 
   const getEmbeddedPlaybackState = createEmbeddedPlaybackStateGetter(playbackStateOptions);
-  const queuePerformanceCue = (cue) => {
-    console.info('[chart-cue] published embedded queue hook', {
-      hasPlaybackControllerOptionsQueue: typeof playbackControllerOptions?.queuePerformanceCue === 'function'
-    });
-    return resolvedPlaybackAssemblyProvider.getAssembly().playbackController.queuePerformanceCue(cue);
-  };
+  const queuePerformanceCue = (cue) => resolvedPlaybackAssemblyProvider.getAssembly().playbackController.queuePerformanceCue(cue);
 
   const resolvedPlaybackAssemblyProvider =
     playbackAssemblyProvider

@@ -15,6 +15,7 @@ export function createEmbeddedPatternAdapter({
   setLastPatternSelectValue,
   applyEmbeddedPlaybackSettings,
   setPlaybackEndingCue,
+  setPlaybackPerformanceMap,
   syncCustomPatternUI,
   normalizeChordsPerBarForCurrentPattern,
   applyPatternModeAvailability,
@@ -43,6 +44,7 @@ export function createEmbeddedPatternAdapter({
   setLastPatternSelectValue?: () => void;
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
   setPlaybackEndingCue?: (endingCue: EmbeddedPatternPayload['endingCue'] | null) => void;
+  setPlaybackPerformanceMap?: (performanceMap: EmbeddedPatternPayload['performanceMap'] | null) => void;
   syncCustomPatternUI?: () => void;
   normalizeChordsPerBarForCurrentPattern?: () => void;
   applyPatternModeAvailability?: () => void;
@@ -91,6 +93,7 @@ export function createEmbeddedPatternAdapter({
     setPatternName?.(normalizePresetName?.(patternName) || patternName);
     setCustomPatternValue?.(normalizedPattern);
     setPlaybackEndingCue?.(endingCue || null);
+    setPlaybackPerformanceMap?.(performanceMap || null);
     setEditorPatternMode?.(normalizePatternMode?.(patternMode || 'both') || patternMode || 'both');
     syncPatternSelectionFromInput?.();
     setLastPatternSelectValue?.();

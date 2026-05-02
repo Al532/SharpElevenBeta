@@ -274,7 +274,7 @@ export function createPerformanceCueDemoCharts(): ChartDocument[] {
         makeTestBar(7, {
           symbol: 'Dm7',
           flags: ['coda'],
-          directives: [{ type: 'dc_on_cue' }],
+          directives: [{ type: 'dc_al_coda' }],
           sectionLabel: 'Turn'
         }),
         makeTestBar(8, { symbol: 'G7', sectionLabel: 'Turn' }),
@@ -359,7 +359,7 @@ export function createPerformanceCueDemoCharts(): ChartDocument[] {
         makeTestBar(9, {
           symbol: 'F#m7',
           flags: ['coda'],
-          directives: [{ type: 'dc_on_cue' }],
+          directives: [{ type: 'dc_al_coda' }],
           sectionLabel: 'B'
         }),
         makeTestBar(10, { symbol: 'B7', sectionLabel: 'B' }),
