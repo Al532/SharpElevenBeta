@@ -19,6 +19,7 @@ type PlaybackAudioPlaybackRuntimeOptions = {
   applyMixerSettings?: () => void;
   sampleBuffers?: Record<string, Record<string, AudioBuffer | undefined>>;
   trackScheduledSource?: (source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown;
+  touchSampleBuffer?: (category: string, key: string | number) => void;
   metronomeGainMultiplier?: number;
   drumsGainMultiplier?: number;
   drumModeOff?: string;
@@ -64,6 +65,7 @@ const ENDING_TAIL_FADE_SETTLE_MULTIPLIER = 3.5;
  * @param {() => void} [options.applyMixerSettings]
  * @param {Record<string, Record<string, AudioBuffer | undefined>>} [options.sampleBuffers]
  * @param {(source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown} [options.trackScheduledSource]
+ * @param {(category: string, key: string | number) => void} [options.touchSampleBuffer]
  * @param {number} [options.metronomeGainMultiplier]
  * @param {number} [options.drumsGainMultiplier]
  * @param {string} [options.drumModeOff]
@@ -85,6 +87,7 @@ export function createPlaybackAudioPlaybackRuntime({
   applyMixerSettings = () => {},
   sampleBuffers = /** @type {any} */ ({}),
   trackScheduledSource = () => null,
+  touchSampleBuffer = () => {},
   metronomeGainMultiplier = 1,
   drumsGainMultiplier = 1,
   drumModeOff = 'off',
@@ -254,6 +257,7 @@ export function createPlaybackAudioPlaybackRuntime({
     const destination = getMixerDestination('drums');
     const buffer = sampleBuffers?.drums?.[name];
     if (!audioCtx || !destination || !buffer) return;
+    touchSampleBuffer('drums', name);
 
     const src = audioCtx.createBufferSource();
     src.buffer = buffer;

@@ -16,6 +16,7 @@ $javaHome = 'C:\Program Files\Android\Android Studio\jbr'
 $androidHome = 'C:\Users\Alcibiade\AppData\Local\Android\Sdk'
 $adbPath = Join-Path $androidHome 'platform-tools\adb.exe'
 $emulatorPath = Join-Path $androidHome 'emulator\emulator.exe'
+$preferredEmulatorAvd = 'Pixel_8'
 $capCliPath = Join-Path $repoRoot 'mobile\node_modules\.bin\cap.cmd'
 $runtimeDir = Join-Path $repoRoot '.codex-runtime\android-live'
 $wifiTargetCachePath = Join-Path $runtimeDir 'adb-wifi-target.txt'
@@ -394,6 +395,17 @@ function Get-AvailableAvd {
     return ,@($avds | Where-Object { $_ -and $_.Trim() })
 }
 
+function Select-PreferredAvd {
+    param([object[]]$Avds)
+
+    $preferredAvd = $Avds | Where-Object { $_ -eq $preferredEmulatorAvd } | Select-Object -First 1
+    if ($preferredAvd) {
+        return $preferredAvd
+    }
+
+    return $Avds[0]
+}
+
 function Wait-ForAndroidTarget {
     param(
         [string]$PreferredKind,
@@ -494,7 +506,7 @@ function Start-AndroidEmulatorIfPossible {
         return $null
     }
 
-    $selectedAvd = $avds[0]
+    $selectedAvd = Select-PreferredAvd -Avds $avds
     Write-Step "Demarrage de l'emulateur Android $selectedAvd"
 
     $emulatorArgs = @('-avd', $selectedAvd, '-no-snapshot-load')
@@ -628,7 +640,7 @@ function Get-LaunchOptions {
 
     $avds = Get-AvailableAvd
     if ($avds.Count -gt 0 -and -not ($targets | Where-Object { $_.Kind -eq 'emulator' })) {
-        $selectedAvd = $avds[0]
+        $selectedAvd = Select-PreferredAvd -Avds $avds
         $options.Add([pscustomobject]@{
             Key = "start-emulator:$selectedAvd"
             Label = "Demarrer l'emulateur Android ($selectedAvd)"

@@ -213,6 +213,7 @@ import {
   swingPercentToRatio
 } from '../src/core/music/swing-utils.ts';
 import { createPlaybackSamplePreloadRuntime } from '../src/features/playback-audio/playback-sample-preload-runtime.ts';
+import { resolvePlaybackSamplePolicy } from '../src/features/playback-audio/playback-sample-policy.ts';
 import { createPlaybackScheduledAudioRuntime } from '../src/features/playback-audio/playback-scheduled-audio-runtime.ts';
 import { createPlaybackScheduledAudioAppContext } from '../src/features/playback-audio/playback-scheduled-audio-app-context.ts';
 import { createPracticePlaybackEngineAppContext } from '../src/features/practice-playback/practice-playback-engine-app-context.ts';
@@ -1760,6 +1761,10 @@ assert.equal(
   4,
   'Playback audio runtime stores decoded sample buffers by category and midi.'
 );
+assert.ok(
+  capturedMixerCalls.includes('fetch:assets/OGG/Bass/40.ogg?v=test-version'),
+  'Playback audio runtime loads bass samples from the OGG bass folder.'
+);
 const audioRuntimeAppContext = createPlaybackAudioRuntimeAppContext({
   audioState: {
     getAudioContext: () => audioRuntimeContext
@@ -2146,7 +2151,13 @@ const samplePreloadRuntime = createPlaybackSamplePreloadRuntime({
   drumRideSampleUrls: ['assets/ride-a.mp3', 'assets/ride-b.mp3', 'assets/ride-c.mp3'],
   drumModeHihats24: 'hihats_2_4',
   drumModeFullSwing: 'full_swing',
-  safePreloadMeasures: 2
+  safePreloadMeasures: 2,
+  celloSampleRange: { low: 48, high: 50 },
+  violinSampleRange: { low: 60, high: 62 },
+  pianoSampleRange: { low: 72, high: 74 },
+  compingStyleStrings: 'strings',
+  compingStylePiano: 'piano',
+  compingStyleOff: 'off'
 });
 await samplePreloadRuntime.preloadStartupSamples();
 assert.ok(
@@ -2154,8 +2165,28 @@ assert.ok(
   'Playback sample preload runtime eagerly loads the hi-hat sample when swing drums are enabled.'
 );
 assert.ok(
-  samplePreloadEvents.includes('piano:72,74'),
-  'Playback sample preload runtime preloads current progression piano notes for startup.'
+  samplePreloadEvents.includes('file:drums:ride_2:assets/ride-c.mp3'),
+  'Playback sample preload runtime loads every configured ride sample for the rhythm section.'
+);
+assert.deepEqual(
+  samplePreloadEvents.filter((event) => event.startsWith('sample:bass:Bass:')),
+  ['sample:bass:Bass:36', 'sample:bass:Bass:37'],
+  'Playback sample preload runtime loads the complete bass range for startup.'
+);
+assert.deepEqual(
+  samplePreloadEvents.filter((event) => event.startsWith('sample:cello:Cellos:')),
+  ['sample:cello:Cellos:48', 'sample:cello:Cellos:49', 'sample:cello:Cellos:50'],
+  'Playback sample preload runtime loads the complete selected strings cello range for startup.'
+);
+assert.deepEqual(
+  samplePreloadEvents.filter((event) => event.startsWith('sample:violin:Violins:')),
+  ['sample:violin:Violins:60', 'sample:violin:Violins:61', 'sample:violin:Violins:62'],
+  'Playback sample preload runtime loads the complete selected strings violin range for startup.'
+);
+assert.equal(
+  samplePreloadEvents.some((event) => event.startsWith('piano:')),
+  false,
+  'Playback sample preload runtime does not load piano when strings comping is selected.'
 );
 const nearTermPreloadA = samplePreloadRuntime.ensureNearTermSamplePreload();
 const nearTermPreloadB = samplePreloadRuntime.ensureNearTermSamplePreload();
@@ -2165,10 +2196,14 @@ assert.strictEqual(
   'Playback sample preload runtime memoizes the near-term preload promise while it is in flight.'
 );
 await nearTermPreloadA;
-await samplePreloadRuntime.getBackgroundSamplePreloadPromise();
+assert.equal(
+  samplePreloadRuntime.getBackgroundSamplePreloadPromise(),
+  null,
+  'Playback sample preload runtime no longer schedules broader background preload once near-term preloading completes.'
+);
 assert.ok(
   samplePreloadEvents.includes('sample:bass:Bass:37'),
-  'Playback sample preload runtime schedules the broader background preload once near-term preloading completes.'
+  'Playback sample preload runtime keeps the complete rhythm section loaded for follow-up preloads.'
 );
 const pageWarmupA = samplePreloadRuntime.ensurePageSampleWarmup();
 const pageWarmupB = samplePreloadRuntime.ensurePageSampleWarmup();
@@ -2521,6 +2556,12 @@ assert.equal(
   0.075,
   'Playback sample playback runtime updates the active bass-note fadeout state.'
 );
+samplePlaybackRuntime.playNote(36, 3.75, 0.25, 100);
+assert.ok(
+  samplePlaybackEvents.includes('gain:target:0.0001:3.75:0.012')
+    && samplePlaybackEvents.includes('gain:set:0:3.86'),
+  'Playback sample playback runtime overlaps repeated bass notes by fading the active note after the retrigger.'
+);
 const pianoVoice = samplePlaybackRuntime.playSample('piano', 60, 5, 0.8, 0.4, { layer: 'mf', legato: true });
 assert.equal(
   pianoVoice?.category,
@@ -2866,8 +2907,162 @@ assert.equal(
     Math.random = originalRandom;
   }
 }
+
+assert.equal(
+  resolvePlaybackSamplePolicy({ isNativePlatform: () => true }).target,
+  'android',
+  'Playback sample policy resolves the strict Android target for Capacitor native runtime.'
+);
+assert.equal(
+  resolvePlaybackSamplePolicy({ isNativePlatform: () => false }).decodedCacheMaxBytes,
+  256 * 1024 * 1024,
+  'Playback sample policy keeps a larger decoded PCM cache on web.'
+);
+
 {
-  const offbeatPosition = getSwingOffbeatPositionBeats(2);
+  const sampleBuffers = { drums: {} };
+  const sampleFileBuffers = new Map();
+  const fetchCalls = [];
+  const runtime = createPlaybackAudioRuntime({
+    sampleBuffers,
+    sampleLoadPromises: { drums: new Map() },
+    sampleFileBuffers,
+    sampleFileFetchPromises: new Map(),
+    samplePolicy: resolvePlaybackSamplePolicy({ isNativePlatform: () => true }),
+    getAudioContext: () => ({
+      decodeAudioData: async () => ({ length: 10, numberOfChannels: 1 })
+    }),
+    fetchImpl: async (url) => {
+      fetchCalls.push(url);
+      return {
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(8)
+      };
+    }
+  });
+
+  await runtime.loadFileSample('drums', 'hihat', 'assets/hihat.mp3');
+  assert.equal(fetchCalls.length, 1, 'Compressed sample loading still fetches once when no decoded buffer exists.');
+  assert.equal(sampleFileBuffers.size, 0, 'Compressed sample buffers are not retained in RAM after decode under the runtime policy.');
+  assert.equal(runtime.getSampleCacheStats().sampleFileFetchPromiseCount, 0, 'Compressed fetch promises are only kept while requests are in flight.');
+}
+
+{
+  const sampleBuffers = { drums: {} };
+  let decodedIndex = 0;
+  const runtime = createPlaybackAudioRuntime({
+    sampleBuffers,
+    sampleLoadPromises: { drums: new Map() },
+    sampleFileFetchPromises: new Map(),
+    samplePolicy: {
+      ...resolvePlaybackSamplePolicy({ isNativePlatform: () => true }),
+      decodedCacheMaxBytes: 120
+    },
+    getAudioContext: () => ({
+      decodeAudioData: async () => {
+        decodedIndex += 1;
+        return { id: `buffer-${decodedIndex}`, length: 25, numberOfChannels: 2 };
+      }
+    }),
+    fetchImpl: async () => ({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(8)
+    })
+  });
+
+  await runtime.loadFileSample('drums', 'old', 'assets/old.mp3');
+  await runtime.loadFileSample('drums', 'new', 'assets/new.mp3');
+  assert.equal(sampleBuffers.drums.old, undefined, 'Decoded PCM LRU evicts the older buffer when the hard cap is exceeded.');
+  assert.equal(Boolean(sampleBuffers.drums.new), true, 'Decoded PCM LRU keeps the most recently loaded pending buffer.');
+  assert.equal(runtime.getSampleCacheStats().decodedBufferCount, 1, 'Decoded PCM cache stats count unique retained AudioBuffers.');
+}
+
+{
+  let nearTermLoads = 0;
+  const preload = createPlaybackSamplePreloadRuntime({
+    getBassPreloadRange: () => ({ low: 35, high: 36 }),
+    getCompingStyle: () => 'piano',
+    getChordsPerBar: () => 1,
+    getBeatsPerChord: () => 4,
+    getCurrentProgression: () => ({
+      key: 0,
+      chords: [{ semitones: 0 }],
+      voicingPlan: [{}],
+      bassPlan: [{ timeBeats: 0, midi: 36 }]
+    }),
+    getNextProgression: () => ({ key: 0, chords: [], voicingPlan: [], bassPlan: [] }),
+    getBassMidi: () => 36,
+    collectCompingSampleNotes: (_style, _voicing, noteSets) => {
+      noteSets.pianoNotes.add(60);
+    },
+    loadSample: async () => {
+      nearTermLoads += 1;
+    },
+    loadPianoSampleList: async (midiValues) => {
+      nearTermLoads += [...midiValues].length;
+    },
+    pianoSampleRange: { low: 60, high: 62 },
+    compingStylePiano: 'piano',
+    samplePolicy: resolvePlaybackSamplePolicy({ isNativePlatform: () => true })
+  });
+
+  await preload.ensureNearTermSamplePreload();
+  assert.equal(nearTermLoads, 5, 'Near-term sample preload now keeps the complete rhythm section plus active comping instrument loaded.');
+  assert.equal(preload.getBackgroundSamplePreloadPromise(), null, 'Near-term sample preload no longer schedules background full preload.');
+}
+
+{
+  const loadedFiles = [];
+  const loadedSamples = [];
+  const loadedPiano = [];
+  const preload = createPlaybackSamplePreloadRuntime({
+    getBassPreloadRange: () => ({ low: 36, high: 37 }),
+    getCompingStyle: () => 'piano',
+    getChordsPerBar: () => 1,
+    getBeatsPerChord: () => 4,
+    getDrumsMode: () => 'full_swing',
+    getCurrentProgression: () => ({
+      key: 0,
+      chords: [{ semitones: 0 }],
+      voicingPlan: [{}],
+      bassPlan: [{ timeBeats: 0, midi: 36 }]
+    }),
+    getNextProgression: () => ({ key: 0, chords: [], voicingPlan: [], bassPlan: [] }),
+    getBassMidi: () => 36,
+    collectCompingSampleNotes: (_style, _voicing, noteSets) => {
+      noteSets.celloNotes.add(48);
+      noteSets.violinNotes.add(67);
+      noteSets.pianoNotes.add(60);
+    },
+    loadSample: async (category, _folder, midi) => {
+      loadedSamples.push(`${category}:${midi}`);
+    },
+    loadPianoSampleList: async (midiValues) => {
+      loadedPiano.push(...midiValues);
+    },
+    loadFileSample: async (_category, key, baseUrl) => {
+      loadedFiles.push(`${key}:${baseUrl}`);
+    },
+    drumHihatSampleUrl: 'assets/hihat.mp3',
+    drumRideSampleUrls: ['assets/ride-1.mp3', 'assets/ride-2.mp3', 'assets/ride-3.mp3'],
+    drumModeFullSwing: 'full_swing',
+    pianoSampleRange: { low: 60, high: 62 },
+    compingStylePiano: 'piano',
+    samplePolicy: resolvePlaybackSamplePolicy({ isNativePlatform: () => true })
+  });
+
+  await preload.preloadStartupSamples();
+  assert.deepEqual(
+    loadedFiles,
+    ['hihat:assets/hihat.mp3', 'ride_0:assets/ride-1.mp3', 'ride_1:assets/ride-2.mp3', 'ride_2:assets/ride-3.mp3'],
+    'Startup preload loads the hihat and every configured ride sample.'
+  );
+  assert.deepEqual(loadedSamples.sort(), ['bass:36', 'bass:37'], 'Startup preload loads the complete bass range.');
+  assert.deepEqual(loadedPiano, [60, 61, 62], 'Startup preload loads the complete active piano range.');
+}
+{
+  const configuredSwingRatio = 3;
+  const offbeatPosition = getSwingOffbeatPositionBeats(configuredSwingRatio);
   const scheduledNotes = [];
   const scheduledDrums = [];
   const compingWindows = [];
@@ -2958,7 +3153,7 @@ assert.equal(
           holdMs: 10
         }),
         getSecondsPerBeat: () => 0.01,
-        getSwingRatio: () => 2,
+        getSwingRatio: () => configuredSwingRatio,
         hideNextCol: () => {},
         ensureNearTermSamplePreload: () => {},
         isWalkingBassEnabled: () => true,
@@ -7466,6 +7661,63 @@ assert.equal(
   const originalRandom = Math.random;
   Math.random = () => 0;
   try {
+    const configuredSwingRatio = 3;
+    const repeatedNoteSwingLine = walkingBassGenerator.buildLine({
+      chords: [
+        { semitones: 0, bassSemitones: 0, qualityMajor: '7', qualityMinor: 'm7' },
+        { semitones: 7, bassSemitones: 7, qualityMajor: '7', qualityMinor: 'm7' }
+      ],
+      key: 0,
+      beatsPerChord: 1,
+      beatsPerBar: 4,
+      tempoBpm: 120,
+      isMinor: false,
+      swingRatio: configuredSwingRatio
+    });
+    assert.equal(
+      Number(repeatedNoteSwingLine[0]?.durationBeats.toFixed(6)),
+      Number(getSwingOffbeatPositionBeats(configuredSwingRatio).toFixed(6)),
+      'Walking-bass repeated-note ornament shortens the source note to the configured swing long eighth.'
+    );
+    assert.equal(
+      Number(repeatedNoteSwingLine[1]?.timeBeats.toFixed(6)),
+      Number(getSwingOffbeatPositionBeats(configuredSwingRatio).toFixed(6)),
+      'Walking-bass repeated-note ornament lands on the configured swing eighth.'
+    );
+
+    const configuredSwingAnticipationStep = 1 - getSwingOffbeatPositionBeats(configuredSwingRatio);
+    const configuredSwingAnticipation = applyAnticipationEffect([
+      { timeBeats: 0, durationBeats: 1, midi: 48, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 1, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 2, durationBeats: 1, midi: 42, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
+    ], configuredSwingRatio, 4);
+    assert.equal(
+      Number(configuredSwingAnticipation[0].durationBeats.toFixed(6)),
+      Number(getSwingOffbeatPositionBeats(configuredSwingRatio).toFixed(6)),
+      'Walking-bass anticipation shortens the source note to the configured swing long eighth.'
+    );
+    assert.equal(
+      Number(configuredSwingAnticipation[1].timeBeats.toFixed(6)),
+      Number((1 - configuredSwingAnticipationStep).toFixed(6)),
+      'Walking-bass anticipation places the ornament on the configured swing eighth.'
+    );
+
+    const configuredSwingFirstBeatAnticipation = applyFirstBeatAnticipationEffect([
+      { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 4, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
+      { timeBeats: 5, durationBeats: 1, midi: 42, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }
+    ], configuredSwingRatio, 4);
+    assert.equal(
+      Number(configuredSwingFirstBeatAnticipation[0].durationBeats.toFixed(6)),
+      Number(getSwingOffbeatPositionBeats(configuredSwingRatio).toFixed(6)),
+      'Walking-bass first-beat anticipation shortens the source note to the configured swing long eighth.'
+    );
+    assert.equal(
+      Number(configuredSwingFirstBeatAnticipation[1].timeBeats.toFixed(6)),
+      Number((4 - configuredSwingAnticipationStep).toFixed(6)),
+      'Walking-bass first-beat anticipation places the ornament on the configured swing eighth.'
+    );
+
     const firstBeatViaGeneralAnticipation = applyAnticipationEffect([
       { timeBeats: 3, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null },
       { timeBeats: 4, durationBeats: 1, midi: 40, velocity: 100, rank: 'rank1', source: 'bass', targetMidi: null }

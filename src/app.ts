@@ -47,6 +47,7 @@ import {
   saveSharedPlaybackSettings
 } from './core/storage/app-state-storage.js';
 import { createPlaybackAudioRuntimeRootAppAssembly } from './features/playback-audio/playback-audio-runtime-root-app-assembly.js';
+import { resolvePlaybackSamplePolicy } from './features/playback-audio/playback-sample-policy.js';
 import { createPracticeArrangementCompingEngineRootAppAssembly } from './features/practice-arrangement/practice-arrangement-comping-engine-root-app-assembly.js';
 import { createDrillDefaultProgressionsRootAppAssembly } from './features/drill/drill-default-progressions-root-app-assembly.js';
 import { loadPracticePatternHelp } from './features/practice-patterns/practice-pattern-help.js';
@@ -118,7 +119,8 @@ declare global {
         }
       }
     },
-    webkitAudioContext?: typeof AudioContext
+    webkitAudioContext?: typeof AudioContext,
+    __sharpElevenAudioSampleCacheStats?: () => Record<string, number | string>
   }
 }
 
@@ -883,6 +885,16 @@ const sampleLoadPromises = {
   drums: new Map()
 };
 const sampleFileFetchPromises = new Map();
+function getProtectedSampleCategories() {
+  const categories = ['bass', 'drums'];
+  const compingStyle = getCompingStyle?.();
+  if (compingStyle === COMPING_STYLE_PIANO) {
+    categories.push('piano');
+  } else if (compingStyle === COMPING_STYLE_STRINGS) {
+    categories.push('cello', 'violin');
+  }
+  return categories;
+}
 const DRUM_MODE_OFF = DRUM_MODES.off;
 const DRUM_MODE_METRONOME_24 = DRUM_MODES.metronome24;
 const DRUM_MODE_HIHATS_24 = DRUM_MODES.hihats24;
@@ -895,6 +907,7 @@ const MIXER_CHANNEL_CALIBRATION = AUDIO_MIXER_CONFIG.mixerChannelCalibration;
 const SAFE_PRELOAD_MEASURES = AUDIO_MIXER_CONFIG.safePreloadMeasures;
 const DRUM_HIHAT_SAMPLE_URL = SAMPLE_LIBRARY_CONFIG.drumHiHatSampleUrl;
 const DRUM_RIDE_SAMPLE_URLS = SAMPLE_LIBRARY_CONFIG.drumRideSampleUrls;
+const PLAYBACK_SAMPLE_POLICY = resolvePlaybackSamplePolicy(window.Capacitor);
 let applyPlaybackAudioMixerSettingsDelegate = null;
 const {
   playbackSettingsRuntime: PracticePlaybackSettingsRuntime
@@ -995,11 +1008,13 @@ const playbackAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
       sampleBuffers,
       sampleLoadPromises,
       sampleFileBuffers,
-      sampleFileFetchPromises
+      sampleFileFetchPromises,
+      getProtectedSampleCategories
     },
     constants: {
       appVersion: APP_VERSION
-    }
+    },
+    samplePolicy: PLAYBACK_SAMPLE_POLICY
   },
   samplePreload: {
     playbackSettings: {
@@ -1026,6 +1041,7 @@ const playbackAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
       loadSample: (category, folder, midi) => loadPlaybackAudioSample(category, folder, midi),
       loadPianoSampleList: (midiValues) => loadPlaybackPianoSampleList(midiValues),
       loadFileSample: (category, key, baseUrl) => loadPlaybackFileSample(category, key, baseUrl),
+      purgeSampleCategory: (category) => playbackAudioRuntimeAssembly.audioStack.audioRuntime.purgeSampleCategory(category),
       fetchArrayBufferFromUrl: (baseUrl) => fetchPlaybackSampleArrayBuffer(baseUrl)
     },
     constants: {
@@ -1033,8 +1049,15 @@ const playbackAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
       drumRideSampleUrls: DRUM_RIDE_SAMPLE_URLS,
       drumModeHihats24: DRUM_MODE_HIHATS_24,
       drumModeFullSwing: DRUM_MODE_FULL_SWING,
-      safePreloadMeasures: SAFE_PRELOAD_MEASURES
-    }
+      safePreloadMeasures: SAFE_PRELOAD_MEASURES,
+      pianoSampleRange: { low: PIANO_SAMPLE_LOW, high: PIANO_SAMPLE_HIGH },
+      celloSampleRange: { low: CELLO_LOW, high: CELLO_HIGH },
+      violinSampleRange: { low: VIOLIN_LOW, high: VIOLIN_HIGH },
+      compingStyleOff: COMPING_STYLE_OFF,
+      compingStyleStrings: COMPING_STYLE_STRINGS,
+      compingStylePiano: COMPING_STYLE_PIANO
+    },
+    samplePolicy: PLAYBACK_SAMPLE_POLICY
   },
   scheduledAudio: {
     audioState: {
@@ -1060,7 +1083,8 @@ const playbackAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
     audioHelpers: {
       createAudioContext: () => new (window.AudioContext || window.webkitAudioContext)(),
       applyMixerSettings,
-      trackScheduledSource: (source, gainNodes) => playbackAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes)
+      trackScheduledSource: (source, gainNodes) => playbackAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
+      touchSampleBuffer: (category, key) => playbackAudioRuntimeAssembly.audioStack.audioRuntime.touchSampleBuffer(category, key)
     },
     playbackSettings: {
       getDrumsMode,
@@ -1085,6 +1109,8 @@ const playbackAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
       getMixerDestination: (channel) => playbackAudioRuntimeAssembly.audioStack.audioPlayback.getMixerDestination(channel),
       trackScheduledSource: (source, gainNodes) => playbackAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
       loadSample: (category, folder, midi) => loadPlaybackAudioSample(category, folder, midi),
+      loadPianoSample: (layer, midi) => loadPlaybackPianoSample(layer, midi),
+      touchSampleBuffer: (category, key) => playbackAudioRuntimeAssembly.audioStack.audioRuntime.touchSampleBuffer(category, key),
       getPianoFadeProfile
     },
     playbackState: {
@@ -1116,6 +1142,9 @@ const {
   audioFacade: playbackAudioFacade,
   audioSurface: playbackAudioSurface
 } = playbackAudioRuntimeAssembly;
+if (localStorage.getItem('sharpElevenAudioCacheDebug') === '1') {
+  window.__sharpElevenAudioSampleCacheStats = () => playbackAudioStack.audioRuntime.getSampleCacheStats?.() ?? {};
+}
 const {
   applyPlaybackAudioMixerSettings,
   loadPlaybackAudioSample,
@@ -1129,6 +1158,7 @@ const {
   preloadAllPlaybackSamples,
   preloadPlaybackStartupSamples,
   preloadPlaybackNearTermSamples,
+  preparePlaybackCompingStyleSamples,
   ensurePlaybackNearTermSamplePreload,
   ensurePlaybackPageSampleWarmup,
   ensurePlaybackBackgroundSamplePreload,
@@ -1167,6 +1197,7 @@ const initAudio = initPlaybackAudioPlayback;
 const initMixerNodes = initPlaybackMixerNodes;
 const getMixerDestination = getPlaybackMixerDestination;
 const preloadSamples = preloadAllPlaybackSamples;
+const prepareCompingStyleSamples = preparePlaybackCompingStyleSamples;
 const loadSample = loadPlaybackAudioSample;
 const loadPianoSample = loadPlaybackPianoSample;
 const loadPianoSampleList = loadPlaybackPianoSampleList;
@@ -2819,6 +2850,7 @@ const drillUiEventBindings = createDrillUiEventBindingsDrillRootAppAssembly({
     stopActiveChordVoices,
     rebuildPreparedCompingPlans,
     preloadNearTermSamples: () => preloadNearTermSamples(),
+    prepareCompingStyleSamples: () => prepareCompingStyleSamples(),
     getCompingStyle,
     isWalkingBassEnabled,
     ensureWalkingBassGenerator,

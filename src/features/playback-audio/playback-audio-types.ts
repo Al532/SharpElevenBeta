@@ -8,6 +8,15 @@ export type PlaybackMixerNodes = {
 export type PlaybackSampleBuffers = Record<string, Record<string | number, AudioBuffer | null | undefined>>;
 export type PlaybackSampleLoadPromises = Record<string, Map<string | number, Promise<any>>>;
 
+export type PlaybackSamplePolicy = {
+  target: 'android' | 'web';
+  compressedCache: 'none';
+  backgroundPreload: 'off';
+  nearTermMeasures: number;
+  decodedCacheMaxBytes: number;
+  startupRideCount: number;
+};
+
 export type PlaybackAudioRuntimeLike = {
   applyMixerSettings?: (options: {
     dom?: Record<string, unknown>;
@@ -22,12 +31,16 @@ export type PlaybackAudioRuntimeLike = {
   loadFileSample?: (category: string, key: string, baseUrl: string) => Promise<any>;
   fetchArrayBufferFromUrl?: (baseUrl: string) => Promise<ArrayBuffer | undefined>;
   loadBufferFromUrl?: (baseUrl: string) => Promise<AudioBuffer>;
+  touchSampleBuffer?: (category: string, key: string | number) => void;
+  purgeSampleCategory?: (category: string) => void;
+  getSampleCacheStats?: () => Record<string, number | string>;
 };
 
 export type PlaybackSamplePreloadLike = {
   preloadSamples?: () => Promise<any>;
   preloadStartupSamples?: () => Promise<any>;
   preloadNearTermSamples?: () => Promise<any>;
+  prepareCompingStyleSamples?: () => Promise<any>;
   ensureNearTermSamplePreload?: () => Promise<any> | null;
   ensurePageSampleWarmup?: () => Promise<any> | null;
   ensureBackgroundSamplePreload?: () => Promise<any> | null;
@@ -117,6 +130,7 @@ export type PlaybackAudioHelpersContext = {
   createAudioContext?: () => AudioContext;
   applyMixerSettings?: () => void;
   trackScheduledSource?: (source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown;
+  touchSampleBuffer?: (category: string, key: string | number) => void;
 };
 
 export type PracticePlaybackSettingsContext = {
@@ -141,4 +155,5 @@ export type PlaybackAudioCacheContext = {
   sampleLoadPromises?: PlaybackSampleLoadPromises;
   sampleFileBuffers?: Map<string, ArrayBuffer>;
   sampleFileFetchPromises?: Map<string, Promise<ArrayBuffer>>;
+  getProtectedSampleCategories?: () => Iterable<string>;
 };

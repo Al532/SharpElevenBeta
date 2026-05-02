@@ -39,6 +39,7 @@ export function createPlaybackAudioPlaybackAppContext({
     applyMixerSettings: audioHelpers.applyMixerSettings,
     sampleBuffers: audioState.sampleBuffers,
     trackScheduledSource: audioHelpers.trackScheduledSource,
+    touchSampleBuffer: audioHelpers.touchSampleBuffer,
     metronomeGainMultiplier: constants.metronomeGainMultiplier,
     drumsGainMultiplier: constants.drumsGainMultiplier,
     drumModeOff: constants.drumModeOff,

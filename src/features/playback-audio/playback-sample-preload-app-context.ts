@@ -1,5 +1,6 @@
 
 import { createPlaybackSamplePreloadRuntime } from './playback-sample-preload-runtime.js';
+import type { PlaybackSamplePolicy } from './playback-audio-types.js';
 
 type PlaybackSamplePreloadRuntimeOptions = Parameters<typeof createPlaybackSamplePreloadRuntime>[0];
 type SamplePreloadPlaybackSettings = Pick<NonNullable<PlaybackSamplePreloadRuntimeOptions>, 'getBassPreloadRange' | 'getBassMidi' | 'getBeatsPerChord' | 'getChordsPerBar' | 'getCompingStyle' | 'getDrumsMode'>;
@@ -13,14 +14,15 @@ type SamplePreloadProgressionState = {
   getNextVoicingPlan?: () => unknown[];
   getNextBassPlan?: () => unknown[];
 };
-type SamplePreloadLoading = Pick<NonNullable<PlaybackSamplePreloadRuntimeOptions>, 'collectCompingSampleNotes' | 'loadSample' | 'loadPianoSampleList' | 'loadFileSample' | 'fetchArrayBufferFromUrl'>;
-type SamplePreloadConstants = Pick<NonNullable<PlaybackSamplePreloadRuntimeOptions>, 'drumHihatSampleUrl' | 'drumRideSampleUrls' | 'drumModeHihats24' | 'drumModeFullSwing' | 'safePreloadMeasures'>;
+type SamplePreloadLoading = Pick<NonNullable<PlaybackSamplePreloadRuntimeOptions>, 'collectCompingSampleNotes' | 'loadSample' | 'loadPianoSampleList' | 'loadFileSample' | 'purgeSampleCategory' | 'fetchArrayBufferFromUrl'>;
+type SamplePreloadConstants = Pick<NonNullable<PlaybackSamplePreloadRuntimeOptions>, 'drumHihatSampleUrl' | 'drumRideSampleUrls' | 'drumModeHihats24' | 'drumModeFullSwing' | 'safePreloadMeasures' | 'pianoSampleRange' | 'celloSampleRange' | 'violinSampleRange' | 'compingStyleOff' | 'compingStyleStrings' | 'compingStylePiano'>;
 
 type PlaybackSamplePreloadAppContextOptions = {
   playbackSettings?: SamplePreloadPlaybackSettings;
   progressionState?: SamplePreloadProgressionState;
   sampleLoading?: SamplePreloadLoading;
   constants?: SamplePreloadConstants;
+  samplePolicy?: PlaybackSamplePolicy;
 };
 
 /**
@@ -37,7 +39,8 @@ export function createPlaybackSamplePreloadAppContext({
   playbackSettings = {},
   progressionState = {},
   sampleLoading = {},
-  constants = {}
+  constants = {},
+  samplePolicy
 }: PlaybackSamplePreloadAppContextOptions = {}) {
   const options: PlaybackSamplePreloadRuntimeOptions = {
     getBassPreloadRange: playbackSettings.getBassPreloadRange,
@@ -62,12 +65,20 @@ export function createPlaybackSamplePreloadAppContext({
     loadSample: sampleLoading.loadSample,
     loadPianoSampleList: sampleLoading.loadPianoSampleList,
     loadFileSample: sampleLoading.loadFileSample,
+    purgeSampleCategory: sampleLoading.purgeSampleCategory,
     fetchArrayBufferFromUrl: sampleLoading.fetchArrayBufferFromUrl,
     drumHihatSampleUrl: constants.drumHihatSampleUrl,
     drumRideSampleUrls: constants.drumRideSampleUrls,
     drumModeHihats24: constants.drumModeHihats24,
     drumModeFullSwing: constants.drumModeFullSwing,
-    safePreloadMeasures: constants.safePreloadMeasures
+    safePreloadMeasures: constants.safePreloadMeasures,
+    pianoSampleRange: constants.pianoSampleRange,
+    celloSampleRange: constants.celloSampleRange,
+    violinSampleRange: constants.violinSampleRange,
+    compingStyleOff: constants.compingStyleOff,
+    compingStyleStrings: constants.compingStyleStrings,
+    compingStylePiano: constants.compingStylePiano,
+    samplePolicy
   };
   return createPlaybackSamplePreloadRuntime(options);
 }

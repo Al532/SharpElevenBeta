@@ -60,6 +60,7 @@ export type DrillUiSettingsControls = {
   rebuildPreparedCompingPlans?: (currentKey: number) => void;
   getCurrentKey?: () => number;
   preloadNearTermSamples?: () => Promise<unknown>;
+  prepareCompingStyleSamples?: () => Promise<unknown>;
   getCompingStyle?: () => string;
   isWalkingBassEnabled?: () => boolean;
   ensureWalkingBassGenerator?: () => Promise<unknown>;

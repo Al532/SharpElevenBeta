@@ -1,4 +1,6 @@
 
+import type { PlaybackSamplePolicy } from './playback-audio-types.js';
+
 type PlaybackProgressionSnapshot = {
   chords?: PlaybackChordSnapshot[];
   key?: number | null;
@@ -50,12 +52,20 @@ type PlaybackSamplePreloadRuntimeOptions = {
   loadSample?: (category: string, folder: string, midi: number) => Promise<PlaybackSampleLoadResult>;
   loadPianoSampleList?: (midiValues: Iterable<number>) => Promise<PlaybackSampleLoadResult>;
   loadFileSample?: (category: string, key: string, baseUrl: string) => Promise<PlaybackSampleLoadResult>;
+  purgeSampleCategory?: (category: string) => void;
   fetchArrayBufferFromUrl?: (baseUrl: string) => Promise<PlaybackSampleLoadResult>;
+  pianoSampleRange?: { low: number; high: number };
+  celloSampleRange?: { low: number; high: number };
+  violinSampleRange?: { low: number; high: number };
+  compingStyleOff?: string;
+  compingStyleStrings?: string;
+  compingStylePiano?: string;
   drumHihatSampleUrl?: string;
   drumRideSampleUrls?: string[];
   drumModeHihats24?: string;
   drumModeFullSwing?: string;
   safePreloadMeasures?: number;
+  samplePolicy?: PlaybackSamplePolicy;
 };
 
 /**
@@ -98,12 +108,20 @@ function registerSortedMidiValues(values: number[], register: (value: number) =>
  * @param {(category: string, folder: string, midi: number) => Promise<PlaybackSampleLoadResult>} [options.loadSample]
  * @param {(midiValues: Iterable<number>) => Promise<PlaybackSampleLoadResult>} [options.loadPianoSampleList]
  * @param {(category: string, key: string, baseUrl: string) => Promise<PlaybackSampleLoadResult>} [options.loadFileSample]
+ * @param {(category: string) => void} [options.purgeSampleCategory]
  * @param {(baseUrl: string) => Promise<PlaybackSampleLoadResult>} [options.fetchArrayBufferFromUrl]
+ * @param {{ low: number, high: number }} [options.pianoSampleRange]
+ * @param {{ low: number, high: number }} [options.celloSampleRange]
+ * @param {{ low: number, high: number }} [options.violinSampleRange]
+ * @param {string} [options.compingStyleOff]
+ * @param {string} [options.compingStyleStrings]
+ * @param {string} [options.compingStylePiano]
  * @param {string} [options.drumHihatSampleUrl]
  * @param {string[]} [options.drumRideSampleUrls]
  * @param {string} [options.drumModeHihats24]
  * @param {string} [options.drumModeFullSwing]
  * @param {number} [options.safePreloadMeasures]
+ * @param {PlaybackSamplePolicy} [options.samplePolicy]
  */
 export function createPlaybackSamplePreloadRuntime({
   getBassPreloadRange = () => ({ low: 0, high: -1 }),
@@ -118,16 +136,28 @@ export function createPlaybackSamplePreloadRuntime({
   loadSample = async () => null,
   loadPianoSampleList = async () => {},
   loadFileSample = async () => null,
+  purgeSampleCategory = () => {},
   fetchArrayBufferFromUrl = async () => null,
+  pianoSampleRange = { low: 0, high: -1 },
+  celloSampleRange = { low: 0, high: -1 },
+  violinSampleRange = { low: 0, high: -1 },
+  compingStyleOff = 'off',
+  compingStyleStrings = 'strings',
+  compingStylePiano = 'piano',
   drumHihatSampleUrl = '',
   drumRideSampleUrls = [],
   drumModeHihats24 = 'hihats_24',
   drumModeFullSwing = 'full_swing',
-  safePreloadMeasures = 2
+  safePreloadMeasures = 2,
+  samplePolicy
 }: PlaybackSamplePreloadRuntimeOptions = {}) {
+  const effectiveSafePreloadMeasures = samplePolicy?.nearTermMeasures ?? safePreloadMeasures;
+  const backgroundPreloadEnabled = samplePolicy?.backgroundPreload !== 'off';
+  const compressedWarmupEnabled = samplePolicy?.compressedCache !== 'none';
   let backgroundSamplePreloadPromise: Promise<PlaybackSampleLoadResult> | null = null;
   let pageSampleWarmupPromise: Promise<PlaybackSampleLoadResult> | null = null;
   let nearTermSamplePreloadPromise: Promise<PlaybackSampleLoadResult> | null = null;
+  let fullSampleSetPreloadPromise: Promise<PlaybackSampleLoadResult> | null = null;
   let startupSamplePreloadInProgress = false;
 
   async function loadSampleRange(category: string, folder: string, low: number, high: number) {
@@ -140,6 +170,59 @@ export function createPlaybackSamplePreloadRuntime({
     for (const midi of sortMidiValues(midiValues)) {
       await loadSample(category, folder, midi);
     }
+  }
+
+  function buildMidiRange(low: number, high: number) {
+    const values: number[] = [];
+    for (let midi = low; midi <= high; midi++) {
+      values.push(midi);
+    }
+    return values;
+  }
+
+  async function preloadRhythmSectionSamples() {
+    const bassRange = getBassPreloadRange();
+    await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
+    const drumPromises: Promise<PlaybackSampleLoadResult>[] = [];
+    if (drumHihatSampleUrl) {
+      drumPromises.push(loadFileSample('drums', 'hihat', drumHihatSampleUrl));
+    }
+    drumRideSampleUrls.forEach((url, index) => {
+      drumPromises.push(loadFileSample('drums', `ride_${index}`, url));
+    });
+    await Promise.all(drumPromises);
+  }
+
+  async function preloadCompingInstrumentSamples(style = getCompingStyle()) {
+    if (style === compingStyleOff) return;
+    if (style === compingStylePiano) {
+      await loadPianoSampleList(buildMidiRange(pianoSampleRange.low, pianoSampleRange.high));
+      return;
+    }
+    if (style === compingStyleStrings) {
+      await loadSampleRange('cello', 'Cellos', celloSampleRange.low, celloSampleRange.high);
+      await loadSampleRange('violin', 'Violins', violinSampleRange.low, violinSampleRange.high);
+    }
+  }
+
+  async function preloadActiveSampleSet() {
+    await preloadRhythmSectionSamples();
+    await preloadCompingInstrumentSamples(getCompingStyle());
+  }
+
+  function purgeInactiveCompingSamples(style = getCompingStyle()) {
+    if (style === compingStylePiano || style === compingStyleOff) {
+      purgeSampleCategory('cello');
+      purgeSampleCategory('violin');
+    }
+    if (style === compingStyleStrings || style === compingStyleOff) {
+      purgeSampleCategory('piano');
+    }
+  }
+
+  async function prepareCompingStyleSamples() {
+    purgeInactiveCompingSamples(getCompingStyle());
+    await preloadCompingInstrumentSamples(getCompingStyle());
   }
 
   function collectRequiredSampleNotes({
@@ -221,27 +304,13 @@ export function createPlaybackSamplePreloadRuntime({
       descriptors.push(`assets/Piano/f/${midi}.mp3`);
     });
     registerSortedMidiValues(sortMidiValues(bassNotes), (midi) => {
-      descriptors.push(`assets/MP3/Bass/${midi}.mp3`);
+      descriptors.push(`assets/OGG/Bass/${midi}.ogg`);
     });
     return descriptors;
   }
 
   async function preloadSamples() {
-    const bassRange = getBassPreloadRange();
-    const { celloNotes, violinNotes, pianoNotes } = buildAllRequiredSampleNoteSets();
-
-    await loadSampleRange('bass', 'Bass', bassRange.low, bassRange.high);
-    const drumPromises: Promise<PlaybackSampleLoadResult>[] = [];
-    if (drumHihatSampleUrl) {
-      drumPromises.push(loadFileSample('drums', 'hihat', drumHihatSampleUrl));
-    }
-    drumRideSampleUrls.forEach((url, index) => {
-      drumPromises.push(loadFileSample('drums', `ride_${index}`, url));
-    });
-    await Promise.all(drumPromises);
-    await loadSampleList('cello', 'Cellos', celloNotes);
-    await loadSampleList('violin', 'Violins', violinNotes);
-    await loadPianoSampleList(pianoNotes);
+    await preloadActiveSampleSet();
   }
 
   function buildAllRequiredSampleNoteSets() {
@@ -253,72 +322,34 @@ export function createPlaybackSamplePreloadRuntime({
   }
 
   async function preloadStartupSamples() {
-    const startupChordLimit = getChordsPerBar();
-    const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
-      includeCurrent: true,
-      includeNext: false,
-      currentChordLimit: startupChordLimit
-    });
-    await loadSampleList('bass', 'Bass', bassNotes);
-
-    const drumsMode = getDrumsMode();
-    const drumPromises: Promise<PlaybackSampleLoadResult>[] = [];
-    if ((drumsMode === drumModeHihats24 || drumsMode === drumModeFullSwing) && drumHihatSampleUrl) {
-      drumPromises.push(loadFileSample('drums', 'hihat', drumHihatSampleUrl));
-    }
-    if (drumsMode === drumModeFullSwing) {
-      const startupRideCount = Math.min(3, drumRideSampleUrls.length);
-      for (let index = 0; index < startupRideCount; index++) {
-        drumPromises.push(loadFileSample('drums', `ride_${index}`, drumRideSampleUrls[index]));
-      }
-    }
-
-    await Promise.all(drumPromises);
-    await loadSampleList('cello', 'Cellos', celloNotes);
-    await loadSampleList('violin', 'Violins', violinNotes);
-    await loadPianoSampleList(pianoNotes);
+    await preloadActiveSampleSet();
   }
 
   function getSafetyLeadChordCount() {
-    return safePreloadMeasures * getChordsPerBar();
+    return effectiveSafePreloadMeasures * getChordsPerBar();
   }
 
   async function preloadNearTermSamples() {
-    const currentProgression = getCurrentProgression();
-    const nextProgression = getNextProgression();
-    const currentChords = Array.isArray(currentProgression?.chords) ? currentProgression.chords : [];
-    const nextChords = Array.isArray(nextProgression?.chords) ? nextProgression.chords : [];
-    const targetChordCount = getSafetyLeadChordCount();
-    const currentChordLimit = Math.min(currentChords.length, targetChordCount);
-    const remainingChordCount = Math.max(0, targetChordCount - currentChordLimit);
-    const nextChordLimit = Math.min(nextChords.length, remainingChordCount);
-    const { bassNotes, celloNotes, violinNotes, pianoNotes } = collectRequiredSampleNotes({
-      includeCurrent: currentChordLimit > 0,
-      includeNext: nextChordLimit > 0,
-      currentChordLimit,
-      nextChordLimit
-    });
-
-    await loadSampleList('cello', 'Cellos', celloNotes);
-    await loadSampleList('violin', 'Violins', violinNotes);
-    await loadPianoSampleList(pianoNotes);
-    await loadSampleList('bass', 'Bass', bassNotes);
+    await preloadActiveSampleSet();
   }
 
   function ensureNearTermSamplePreload() {
-    if (nearTermSamplePreloadPromise) return nearTermSamplePreloadPromise;
+    if (fullSampleSetPreloadPromise) return fullSampleSetPreloadPromise;
 
-    nearTermSamplePreloadPromise = preloadNearTermSamples()
+    fullSampleSetPreloadPromise = preloadNearTermSamples()
       .catch(() => null)
       .finally(() => {
+        fullSampleSetPreloadPromise = null;
         nearTermSamplePreloadPromise = null;
-        ensureBackgroundSamplePreload();
       });
 
-    return nearTermSamplePreloadPromise;
+    nearTermSamplePreloadPromise = fullSampleSetPreloadPromise;
+    return fullSampleSetPreloadPromise;
   }
 
   async function warmPageSampleCache() {
+    if (!compressedWarmupEnabled) return;
+
     const descriptors = buildAllSampleFetchDescriptors();
     for (const baseUrl of descriptors) {
       if (startupSamplePreloadInProgress) {
@@ -331,6 +362,7 @@ export function createPlaybackSamplePreloadRuntime({
   }
 
   function ensurePageSampleWarmup() {
+    if (!compressedWarmupEnabled) return null;
     if (pageSampleWarmupPromise) return pageSampleWarmupPromise;
 
     pageSampleWarmupPromise = warmPageSampleCache()
@@ -340,6 +372,7 @@ export function createPlaybackSamplePreloadRuntime({
   }
 
   function ensureBackgroundSamplePreload() {
+    if (!backgroundPreloadEnabled) return null;
     if (backgroundSamplePreloadPromise) return backgroundSamplePreloadPromise;
 
     backgroundSamplePreloadPromise = preloadSamples()
@@ -357,6 +390,11 @@ export function createPlaybackSamplePreloadRuntime({
     preloadStartupSamples,
     preloadNearTermSamples,
     ensureNearTermSamplePreload,
+    preloadRhythmSectionSamples,
+    preloadCompingInstrumentSamples,
+    preloadActiveSampleSet,
+    purgeInactiveCompingSamples,
+    prepareCompingStyleSamples,
     warmPageSampleCache,
     ensurePageSampleWarmup,
     ensureBackgroundSamplePreload,

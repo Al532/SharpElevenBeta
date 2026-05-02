@@ -3,7 +3,7 @@ import { createPlaybackSamplePlaybackRuntime } from './playback-sample-playback-
 
 type PlaybackSamplePlaybackRuntimeOptions = Parameters<typeof createPlaybackSamplePlaybackRuntime>[0];
 type SamplePlaybackAudioState = Pick<NonNullable<PlaybackSamplePlaybackRuntimeOptions>, 'getAudioContext' | 'sampleBuffers'>;
-type SamplePlaybackAudioHelpers = Pick<NonNullable<PlaybackSamplePlaybackRuntimeOptions>, 'getMixerDestination' | 'trackScheduledSource' | 'loadSample' | 'getPianoFadeProfile'>;
+type SamplePlaybackAudioHelpers = Pick<NonNullable<PlaybackSamplePlaybackRuntimeOptions>, 'getMixerDestination' | 'trackScheduledSource' | 'loadSample' | 'loadPianoSample' | 'touchSampleBuffer' | 'getPianoFadeProfile'>;
 type SamplePlaybackState = Pick<NonNullable<PlaybackSamplePlaybackRuntimeOptions>, 'getActiveNoteGain' | 'setActiveNoteGain' | 'setActiveNoteFadeOut'>;
 type SamplePlaybackConstants = Pick<NonNullable<PlaybackSamplePlaybackRuntimeOptions>, 'noteFadeout' | 'bassNoteAttack' | 'bassNoteOverlap' | 'bassNoteRelease' | 'bassGainReleaseTimeConstant' | 'chordFadeBefore' | 'chordFadeDuration' | 'bassGain' | 'stringLoopStart' | 'stringLoopEnd' | 'stringLoopCrossfade'>;
 
@@ -36,6 +36,8 @@ export function createPlaybackSamplePlaybackAppContext({
     getMixerDestination: audioHelpers.getMixerDestination,
     trackScheduledSource: audioHelpers.trackScheduledSource,
     loadSample: audioHelpers.loadSample,
+    loadPianoSample: audioHelpers.loadPianoSample,
+    touchSampleBuffer: audioHelpers.touchSampleBuffer,
     getActiveNoteGain: playbackState.getActiveNoteGain,
     setActiveNoteGain: playbackState.setActiveNoteGain,
     setActiveNoteFadeOut: playbackState.setActiveNoteFadeOut,

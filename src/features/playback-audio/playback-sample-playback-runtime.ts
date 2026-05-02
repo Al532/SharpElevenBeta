@@ -31,6 +31,8 @@ type PlaybackSamplePlaybackRuntimeOptions = {
   getMixerDestination?: (channel: string) => AudioNode | null;
   trackScheduledSource?: (source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown;
   loadSample?: (category: string, folder: string, midi: number) => Promise<any>;
+  loadPianoSample?: (layer: string, midi: number) => Promise<any>;
+  touchSampleBuffer?: (category: string, key: string | number) => void;
   getActiveNoteGain?: () => GainNode | null;
   setActiveNoteGain?: (value: GainNode | null) => void;
   setActiveNoteFadeOut?: (value: number) => void;
@@ -70,6 +72,8 @@ type PlaybackPlayNoteOptions = {
   tailFadeTimeConstant?: number;
 };
 
+const missingPianoPlaybackWarnings = new Set<string>();
+
 /**
  * @param {AudioScheduledSourceNode} source
  */
@@ -88,6 +92,8 @@ function stopAudioSourceSafely(source: AudioScheduledSourceNode, stopTime: numbe
  * @param {(channel: string) => AudioNode | null} [options.getMixerDestination]
  * @param {(source: AudioScheduledSourceNode, gainNodes?: GainNode[]) => unknown} [options.trackScheduledSource]
  * @param {(category: string, folder: string, midi: number) => Promise<any>} [options.loadSample]
+ * @param {(layer: string, midi: number) => Promise<any>} [options.loadPianoSample]
+ * @param {(category: string, key: string | number) => void} [options.touchSampleBuffer]
  * @param {() => GainNode | null} [options.getActiveNoteGain]
  * @param {(value: GainNode | null) => void} [options.setActiveNoteGain]
  * @param {(value: number) => void} [options.setActiveNoteFadeOut]
@@ -110,6 +116,8 @@ export function createPlaybackSamplePlaybackRuntime({
   getMixerDestination = () => null,
   trackScheduledSource = () => null,
   loadSample = async () => null,
+  loadPianoSample = async () => null,
+  touchSampleBuffer = () => {},
   getActiveNoteGain = () => null,
   setActiveNoteGain = () => {},
   setActiveNoteFadeOut = () => {},
@@ -393,7 +401,34 @@ export function createPlaybackSamplePlaybackRuntime({
 
     const sampleKey = category === 'piano' && options.layer ? `${options.layer}:${midi}` : midi;
     const buffer = sampleBuffers[category]?.[sampleKey] || sampleBuffers[category]?.[midi];
-    if (!buffer) return null;
+    if (!buffer) {
+      if (category === 'piano') {
+        const warningKey = `${sampleKey}`;
+        if (!missingPianoPlaybackWarnings.has(warningKey)) {
+          missingPianoPlaybackWarnings.add(warningKey);
+          console.warn('[audio-sample] piano-playback-missing-buffer', {
+            midi,
+            layer: options.layer ?? null,
+            sampleKey,
+            hasMidiFallback: Boolean(sampleBuffers.piano?.[midi]),
+            loadedPianoKeyCount: Object.keys(sampleBuffers.piano || {}).length,
+            loadedPianoKeysPreview: Object.keys(sampleBuffers.piano || {}).slice(0, 24)
+          });
+        }
+        if (options.layer) {
+          loadPianoSample(options.layer, midi).catch((error) => {
+            console.warn('[audio-sample] piano-missing-buffer-reload-failed', {
+              midi,
+              layer: options.layer,
+              sampleKey,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          });
+        }
+      }
+      return null;
+    }
+    touchSampleBuffer(category, sampleBuffers[category]?.[sampleKey] ? sampleKey : midi);
 
     const naturalEndTime = time + buffer.duration;
     const isStringSample = category === 'cello' || category === 'violin';

@@ -71,6 +71,7 @@ export function createDrillUiEventBindingsRootAppAssembly({
       rebuildPreparedCompingPlans,
       getCurrentKey,
       preloadNearTermSamples,
+      prepareCompingStyleSamples,
       getCompingStyle,
       isWalkingBassEnabled,
       ensureWalkingBassGenerator,
@@ -117,12 +118,13 @@ export function createDrillUiEventBindingsRootAppAssembly({
       });
     });
     dom?.compingStyle?.addEventListener('change', () => {
+      stopPlaybackIfRunning?.();
       const audioContext = getAudioContext?.();
       if (isPlaying?.() && audioContext) {
         stopActiveChordVoices?.(audioContext.currentTime, noteFadeout);
         rebuildPreparedCompingPlans?.(getCurrentKey?.());
       }
-      preloadNearTermSamples?.()?.catch?.(() => {});
+      prepareCompingStyleSamples?.()?.catch?.(() => {});
       trackEvent?.('comping_style_changed', {
         comping_style: getCompingStyle?.()
       });
