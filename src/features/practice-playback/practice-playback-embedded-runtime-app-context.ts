@@ -1,9 +1,9 @@
-import { createEmbeddedPracticeRuntimeAppOptions } from './drill-runtime-boundary.js';
+import { createEmbeddedPracticeRuntimeAppOptions } from './practice-playback-runtime-boundary.js';
 import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
-import type { PracticePlaybackPatternUiBindings } from '../practice-playback/practice-playback-types.js';
+import type { PracticePlaybackPatternUiBindings } from './practice-playback-types.js';
 
-type DrillEmbeddedRuntimeDom = Record<string, unknown>;
-type DrillEmbeddedPatternUiBindings = {
+type PracticePlaybackEmbeddedRuntimeDom = Record<string, unknown>;
+type PracticePlaybackEmbeddedPatternUiBindings = {
   clearProgressionEditingState?: () => void;
   closeProgressionManager?: () => void;
   setCustomPatternSelection?: () => void;
@@ -30,9 +30,9 @@ type DrillEmbeddedPatternUiBindings = {
   getCurrentPatternString?: () => string;
   getCurrentPatternMode?: () => string;
 };
-type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
-type DrillEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
-type DrillEmbeddedNormalizationBindings = {
+type PracticePlaybackEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
+type PracticePlaybackEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
+type PracticePlaybackEmbeddedNormalizationBindings = {
   normalizePatternString?: (value: string) => string;
   normalizePresetName?: (value: string) => string;
   normalizePatternMode?: (value: string) => string;
@@ -41,7 +41,7 @@ type DrillEmbeddedNormalizationBindings = {
   normalizeDisplayMode?: (value: string) => string;
   normalizeHarmonyDisplayMode?: (value: string) => string;
 };
-type DrillEmbeddedPlaybackSettingsBindings = {
+type PracticePlaybackEmbeddedPlaybackSettingsBindings = {
   getSwingRatio?: () => number;
   getCompingStyle?: () => string;
   getDrumsMode?: () => string;
@@ -51,7 +51,7 @@ type DrillEmbeddedPlaybackSettingsBindings = {
   setFinitePlayback?: (enabled: boolean) => void;
   applyMixerSettings?: () => void;
 };
-type DrillEmbeddedTransportActions = {
+type PracticePlaybackEmbeddedTransportActions = {
   startPlayback?: () => Promise<void> | void;
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;
@@ -66,13 +66,13 @@ export function createEmbeddedPracticeRuntimeAppContextOptions({
   playbackRuntime = {},
   transportActions = {}
 }: {
-  dom?: DrillEmbeddedRuntimeDom;
-  patternUi?: DrillEmbeddedPatternUiBindings;
-  normalization?: DrillEmbeddedNormalizationBindings;
-  playbackSettings?: DrillEmbeddedPlaybackSettingsBindings;
-  playbackState?: Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown>;
-  playbackRuntime?: Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
-  transportActions?: DrillEmbeddedTransportActions;
+  dom?: PracticePlaybackEmbeddedRuntimeDom;
+  patternUi?: PracticePlaybackEmbeddedPatternUiBindings;
+  normalization?: PracticePlaybackEmbeddedNormalizationBindings;
+  playbackSettings?: PracticePlaybackEmbeddedPlaybackSettingsBindings;
+  playbackState?: Partial<PracticePlaybackEmbeddedPlaybackStateBindings> & Record<string, unknown>;
+  playbackRuntime?: Partial<PracticePlaybackEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
+  transportActions?: PracticePlaybackEmbeddedTransportActions;
 } = {}) {
   return createEmbeddedPracticeRuntimeAppOptions({
     dom,

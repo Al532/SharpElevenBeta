@@ -133,8 +133,8 @@
                 <button id="chart-performance-action-button" type="button" class="chart-performance-action-button" aria-haspopup="menu" aria-expanded="false">Add 'on-cue' triggers</button>
                 <div id="chart-performance-menu" class="chart-performance-menu" hidden>
                   <span class="chart-performance-menu-title">Add cue</span>
-                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="arm_coda">Coda</button>
-                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="exit_repeat">Exit repeat</button>
+                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="arm_coda">Last chorus</button>
+                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="exit_repeat">Exit vamp</button>
                   <label class="chart-performance-modulate-field">
                     <span>Modulate</span>
                     <input id="chart-performance-modulate-input" type="number" min="-12" max="12" step="1" value="1" aria-label="Modulation interval in semitones">
@@ -235,6 +235,7 @@
       <div class="chart-sheet-header">
         <div class="chart-sheet-title-row">
           <h2 id="sheet-title" class="chart-sheet-title"></h2>
+          <div id="chart-performance-cue-bar" class="chart-performance-cue-bar" hidden aria-label="Performance cues"></div>
         </div>
         <div class="chart-sheet-header-row">
           <div class="chart-sheet-style" id="sheet-style"></div>
@@ -245,7 +246,6 @@
       </div>
       <div id="sheet-grid" class="chart-sheet-grid"></div>
     </main>
-    <div id="chart-performance-cue-bar" class="chart-performance-cue-bar chart-performance-cue-bar-bottom" hidden aria-label="Performance cues"></div>
     <div class="chart-selection-menu" id="chart-selection-menu" hidden aria-hidden="true">
       <div class="chart-selection-menu-card">
         <button id="selection-loop-button" type="button" class="chart-selection-menu-button chart-selection-menu-button-primary">Loop</button>

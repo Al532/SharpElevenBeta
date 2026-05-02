@@ -42,7 +42,10 @@ import {
 import {
   DEFAULT_SWING_RATIO,
 } from './core/music/swing-utils.js';
-import { saveSharedPlaybackSettings } from './core/storage/app-state-storage.js';
+import {
+  loadChartUiSettings,
+  saveSharedPlaybackSettings
+} from './core/storage/app-state-storage.js';
 import { createPlaybackAudioRuntimeRootAppAssembly } from './features/playback-audio/playback-audio-runtime-root-app-assembly.js';
 import { createPracticeArrangementCompingEngineRootAppAssembly } from './features/practice-arrangement/practice-arrangement-comping-engine-root-app-assembly.js';
 import { createDrillDefaultProgressionsRootAppAssembly } from './features/drill/drill-default-progressions-root-app-assembly.js';
@@ -81,7 +84,10 @@ import {
   createDrillWelcomeDrillRootAppFacade
 } from './features/drill/drill-root-app-adapters.js';
 import { initializeAppShell } from './features/app/app-shell.js';
-import { createMobileBackNavigationController } from './features/app/app-mobile-back-navigation.js';
+import {
+  createMobileBackNavigationController,
+  navigateBackWithFallback
+} from './features/app/app-mobile-back-navigation.js';
 import { bindIncomingMobileIRealImports } from './features/app/app-mobile-ireal-imports.js';
 import { consumePendingPracticeSessionIntoUi } from './features/drill/drill-session-import.js';
 import { initializeSocialShareLinks } from './features/drill/drill-ui-runtime.js';
@@ -267,9 +273,46 @@ const SCHEDULE_INTERVAL = AUDIO_SCHEDULING.scheduleIntervalMs; // ms
 // ---- DOM refs ----
 
 const dom = createDrillDomRefs(document);
+const drillBackButton = document.querySelector<HTMLAnchorElement>('.app-back-button');
 
 if (dom.appVersion) {
   dom.appVersion.textContent = `Version ${APP_VERSION}`;
+}
+
+function getLastChartBackHref() {
+  const chartUiSettings = loadChartUiSettings();
+  const lastChartId = String(chartUiSettings?.lastChartId || '').trim();
+  const chartUrl = new URL('./chart/index.html', window.location.href);
+  if (lastChartId) {
+    chartUrl.searchParams.set('chart', lastChartId);
+  }
+  return `${chartUrl.pathname}${chartUrl.search}${chartUrl.hash}`;
+}
+
+function getDrillBackFallbackHref() {
+  const searchParams = new URLSearchParams(window.location.search);
+  if (searchParams.get('source') === 'chart-session') return getLastChartBackHref();
+  try {
+    const referrerUrl = new URL(document.referrer);
+    const currentUrl = new URL(window.location.href);
+    if (referrerUrl.origin === currentUrl.origin && referrerUrl.pathname.endsWith('/chart/index.html')) {
+      return getLastChartBackHref();
+    }
+  } catch {
+    // Ignore referrer parsing failures; the home fallback remains valid.
+  }
+  return './index.html';
+}
+
+if (drillBackButton) {
+  drillBackButton.href = getDrillBackFallbackHref();
+  drillBackButton.setAttribute('aria-label', 'Back to previous page');
+  drillBackButton.setAttribute('title', 'Back to previous page');
+  drillBackButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (handleDrillDismissibleBack()) return;
+    navigateBackWithFallback({ fallbackHref: getDrillBackFallbackHref() });
+  });
 }
 
 initializeAppShell({
@@ -943,7 +986,7 @@ const activeMidiPianoVoices = new Map<number, {
   volume: number;
 }>();
 const sustainedMidiNotes = new Set<number>();
-const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
+const playbackAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
   audioRuntime: {
     audioState: {
       getAudioContext: () => audioCtx
@@ -981,8 +1024,8 @@ const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
         compingEngine.collectSampleNotes(style, voicing, noteSets);
       },
       loadSample: (category, folder, midi) => loadPlaybackAudioSample(category, folder, midi),
-      loadPianoSampleList: (midiValues) => loadDrillPianoSampleList(midiValues),
-      loadFileSample: (category, key, baseUrl) => loadDrillFileSample(category, key, baseUrl),
+      loadPianoSampleList: (midiValues) => loadPlaybackPianoSampleList(midiValues),
+      loadFileSample: (category, key, baseUrl) => loadPlaybackFileSample(category, key, baseUrl),
       fetchArrayBufferFromUrl: (baseUrl) => fetchPlaybackSampleArrayBuffer(baseUrl)
     },
     constants: {
@@ -1017,7 +1060,7 @@ const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
     audioHelpers: {
       createAudioContext: () => new (window.AudioContext || window.webkitAudioContext)(),
       applyMixerSettings,
-      trackScheduledSource: (source, gainNodes) => drillAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes)
+      trackScheduledSource: (source, gainNodes) => playbackAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes)
     },
     playbackSettings: {
       getDrumsMode,
@@ -1039,8 +1082,8 @@ const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
       sampleBuffers
     },
     audioHelpers: {
-      getMixerDestination: (channel) => drillAudioRuntimeAssembly.audioStack.audioPlayback.getMixerDestination(channel),
-      trackScheduledSource: (source, gainNodes) => drillAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
+      getMixerDestination: (channel) => playbackAudioRuntimeAssembly.audioStack.audioPlayback.getMixerDestination(channel),
+      trackScheduledSource: (source, gainNodes) => playbackAudioRuntimeAssembly.audioStack.scheduledAudio.trackScheduledSource(source, gainNodes),
       loadSample: (category, folder, midi) => loadPlaybackAudioSample(category, folder, midi),
       getPianoFadeProfile
     },
@@ -1069,80 +1112,80 @@ const drillAudioRuntimeAssembly = createPlaybackAudioRuntimeRootAppAssembly({
   }
 });
 const {
-  audioStack: drillAudioStack,
-  audioFacade: drillAudioFacade,
-  audioSurface: drillAudioSurface
-} = drillAudioRuntimeAssembly;
+  audioStack: playbackAudioStack,
+  audioFacade: playbackAudioFacade,
+  audioSurface: playbackAudioSurface
+} = playbackAudioRuntimeAssembly;
 const {
   applyPlaybackAudioMixerSettings,
   loadPlaybackAudioSample,
-  loadDrillPianoSample,
-  loadDrillPianoSampleList,
-  loadDrillFileSample,
+  loadPlaybackPianoSample,
+  loadPlaybackPianoSampleList,
+  loadPlaybackFileSample,
   fetchPlaybackSampleArrayBuffer,
-  loadDrillBufferFromUrl,
+  loadPlaybackBufferFromUrl,
   resumePlaybackAudioContext,
   suspendPlaybackAudioContext,
   preloadAllPlaybackSamples,
-  preloadDrillStartupSamples,
-  preloadDrillNearTermSamples,
-  ensureDrillNearTermSamplePreload,
-  ensureDrillPageSampleWarmup,
-  ensureDrillBackgroundSamplePreload,
-  getDrillNearTermSamplePreloadPromise,
-  setDrillNearTermSamplePreloadPromise,
-  getDrillStartupSamplePreloadInProgress,
-  setDrillStartupSamplePreloadInProgress,
-  trackDrillScheduledSource,
-  clearDrillScheduledDisplays,
+  preloadPlaybackStartupSamples,
+  preloadPlaybackNearTermSamples,
+  ensurePlaybackNearTermSamplePreload,
+  ensurePlaybackPageSampleWarmup,
+  ensurePlaybackBackgroundSamplePreload,
+  getPlaybackNearTermSamplePreloadPromise,
+  setPlaybackNearTermSamplePreloadPromise,
+  getPlaybackStartupSamplePreloadInProgress,
+  setPlaybackStartupSamplePreloadInProgress,
+  trackPlaybackScheduledSource,
+  clearPlaybackScheduledDisplays,
   stopPlaybackScheduledAudio,
-  stopDrillActiveChordVoices,
-  getDrillPendingDisplayTimeouts,
+  stopPlaybackActiveChordVoices,
+  getPlaybackPendingDisplayTimeouts,
   initPlaybackAudioPlayback,
-  initDrillMixerNodes,
-  getDrillMixerDestination,
-  playDrillClick,
-  playDrillDrumSample,
-  playDrillHiHat,
-  getNextDrillRideSampleName,
-  playDrillRide,
-  scheduleDrillDrumsForBeat,
-  getDrillNearestLoadedBassSampleMidi,
-  getDrillAdaptiveBassFadeDuration,
-  scheduleDrillBassGainRelease,
-  playDrillNote,
+  initPlaybackMixerNodes,
+  getPlaybackMixerDestination,
+  playPlaybackClick,
+  playPlaybackDrumSample,
+  playPlaybackHiHat,
+  getNextPlaybackRideSampleName,
+  playPlaybackRide,
+  schedulePlaybackDrumsForBeat,
+  getPlaybackNearestLoadedBassSampleMidi,
+  getPlaybackAdaptiveBassFadeDuration,
+  schedulePlaybackBassGainRelease,
+  playPlaybackNote,
   schedulePlaybackSampleSegment,
-  playDrillLoopedStringSample,
+  playPlaybackLoopedStringSample,
   playPlaybackSample
-} = drillAudioSurface;
+} = playbackAudioSurface;
 applyPlaybackAudioMixerSettingsDelegate = applyPlaybackAudioMixerSettings;
-const trackScheduledSource = trackDrillScheduledSource;
-const clearScheduledDisplays = clearDrillScheduledDisplays;
+const trackScheduledSource = trackPlaybackScheduledSource;
+const clearScheduledDisplays = clearPlaybackScheduledDisplays;
 const stopScheduledAudio = stopPlaybackScheduledAudio;
-const stopActiveChordVoices = stopDrillActiveChordVoices;
+const stopActiveChordVoices = stopPlaybackActiveChordVoices;
 const initAudio = initPlaybackAudioPlayback;
-const initMixerNodes = initDrillMixerNodes;
-const getMixerDestination = getDrillMixerDestination;
+const initMixerNodes = initPlaybackMixerNodes;
+const getMixerDestination = getPlaybackMixerDestination;
 const preloadSamples = preloadAllPlaybackSamples;
 const loadSample = loadPlaybackAudioSample;
-const loadPianoSample = loadDrillPianoSample;
-const loadPianoSampleList = loadDrillPianoSampleList;
-const loadFileSample = loadDrillFileSample;
+const loadPianoSample = loadPlaybackPianoSample;
+const loadPianoSampleList = loadPlaybackPianoSampleList;
+const loadFileSample = loadPlaybackFileSample;
 const fetchArrayBufferFromUrl = fetchPlaybackSampleArrayBuffer;
-const loadBufferFromUrl = loadDrillBufferFromUrl;
+const loadBufferFromUrl = loadPlaybackBufferFromUrl;
 
 const CHORD_ANTICIPATION = PIANO_COMPING_CONFIG.chordAnticipationSeconds; // seconds - strings start before the beat
 const playSample = playPlaybackSample;
-const playNote = playDrillNote;
+const playNote = playPlaybackNote;
 const PIANO_COMP_DURATION_RATIO = PIANO_COMPING_CONFIG.durationRatio;
 const PIANO_COMP_MIN_DURATION = PIANO_COMPING_CONFIG.minDurationSeconds;
 const PIANO_COMP_MAX_DURATION = PIANO_COMPING_CONFIG.maxDurationSeconds;
 const PIANO_VOLUME_MULTIPLIER = PIANO_COMPING_CONFIG.volumeMultiplier;
 
 function getNextDifferentChord(
-  ...args: Parameters<typeof getNextDifferentDrillChord>
+  ...args: Parameters<typeof getNextDifferentPlaybackChord>
 ) {
-  return getNextDifferentDrillChord(...args);
+  return getNextDifferentPlaybackChord(...args);
 }
 
 function getVoicingAtIndex(
@@ -1152,9 +1195,9 @@ function getVoicingAtIndex(
 }
 
 function getPreparedNextProgression(
-  ...args: Parameters<typeof getDrillPreparedNextProgression>
+  ...args: Parameters<typeof getPlaybackPreparedNextProgression>
 ) {
-  return getDrillPreparedNextProgression(...args);
+  return getPlaybackPreparedNextProgression(...args);
 }
 
 const compingEngine = createPracticeArrangementCompingEngineRootAppAssembly({
@@ -1187,12 +1230,12 @@ const compingEngine = createPracticeArrangementCompingEngineRootAppAssembly({
   },
 });
 
-const playClick = playDrillClick;
-const playDrumSample = playDrillDrumSample;
-const playHiHat = playDrillHiHat;
-const getNextRideSampleName = getNextDrillRideSampleName;
-const playRide = playDrillRide;
-const scheduleDrumsForBeat = scheduleDrillDrumsForBeat;
+const playClick = playPlaybackClick;
+const playDrumSample = playPlaybackDrumSample;
+const playHiHat = playPlaybackHiHat;
+const getNextRideSampleName = getNextPlaybackRideSampleName;
+const playRide = playPlaybackRide;
+const scheduleDrumsForBeat = schedulePlaybackDrumsForBeat;
 
 // ---- Voicing Computation ----
 const {
@@ -1261,12 +1304,12 @@ const walkingBassGenerator = createPracticeArrangementWalkingBassRootAppAssembly
 
 const {
   playbackPreparation: {
-    getNextDifferentChord: getNextDifferentDrillChord,
+    getNextDifferentChord: getNextDifferentPlaybackChord,
     getVoicingAtIndex: getPracticeArrangementVoicingAtIndex,
-    getPreparedNextProgression: getDrillPreparedNextProgression,
-    rebuildPreparedCompingPlans: rebuildDrillPreparedCompingPlans,
+    getPreparedNextProgression: getPlaybackPreparedNextProgression,
+    rebuildPreparedCompingPlans: rebuildPlaybackPreparedCompingPlans,
     ensureWalkingBassGenerator: ensurePracticeArrangementWalkingBassGenerator,
-    buildPreparedBassPlan: buildDrillPreparedBassPlan
+    buildPreparedBassPlan: buildPlaybackPreparedBassPlan
   },
   playbackResourcesFacade: PracticePlaybackResourcesFacade
 } = createPracticePlaybackResourcesRootAppAssembly({
@@ -1304,7 +1347,7 @@ const {
     compingEngine,
     walkingBassGenerator
   },
-  audioFacade: drillAudioFacade
+  audioFacade: playbackAudioFacade
 });
 
 const {
@@ -1533,6 +1576,7 @@ let nextPreviewLeadUnit = NEXT_PREVIEW_UNIT_BARS;
 let pendingPerformanceCueJump: { type: 'coda' | 'repeat_exit'; triggerStart: number; targetStart: number } | null = null;
 let activePerformanceMap: Record<string, unknown> | null = null;
 let codaGateSatisfied = false;
+let lastChorusForced = false;
 
 function setPlaybackStartChordIndex(chordIndex: unknown) {
   const normalized = Math.max(0, Math.round(Number(chordIndex) || 0));
@@ -1542,6 +1586,7 @@ function setPlaybackStartChordIndex(chordIndex: unknown) {
 function setPlaybackPerformanceMap(performanceMap: Record<string, unknown> | null) {
   activePerformanceMap = performanceMap && typeof performanceMap === 'object' ? performanceMap : null;
   codaGateSatisfied = false;
+  lastChorusForced = false;
   pendingPerformanceCueJump = null;
 }
 
@@ -1591,9 +1636,21 @@ function queueChartPerformanceCue(cue: any, sessionSpec: any) {
     };
   }
 
+  if (cue?.status && cue.status !== 'armed') {
+    if (pendingPerformanceCueJump?.type === 'coda') pendingPerformanceCueJump = null;
+    lastChorusForced = false;
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
+  lastChorusForced = true;
+
   const codaJump = resolveCodaCueJump(cue, sessionSpec, currentChordIdx);
   if (!codaJump) {
-    console.warn('[chart-cue] runtime could not queue coda cue', {
+    console.info('[chart-cue] last chorus cue has no coda jump; forcing final playback pass', {
       cue,
       currentChordIdx,
       playbackBarCount: sessionSpec?.playback?.bars?.length || 0,
@@ -1601,8 +1658,7 @@ function queueChartPerformanceCue(cue: any, sessionSpec: any) {
       cuePoints: sessionSpec?.playback?.performanceMap?.cuePoints || []
     });
     return {
-      ok: false,
-      errorMessage: 'No coda target is available for this cue.',
+      ok: true,
       state: getEmbeddedPlaybackState?.(),
       cue
     };
@@ -2131,11 +2187,11 @@ const {
     activeNoteGain: createStateRef(() => activeNoteGain, (value) => { activeNoteGain = value; })
   },
   preloadState: {
-    getPendingDisplayTimeouts: getDrillPendingDisplayTimeouts,
-    getNearTermSamplePreloadPromise: getDrillNearTermSamplePreloadPromise,
-    setNearTermSamplePreloadPromise: setDrillNearTermSamplePreloadPromise,
-    getStartupSamplePreloadInProgress: getDrillStartupSamplePreloadInProgress,
-    setStartupSamplePreloadInProgress: setDrillStartupSamplePreloadInProgress
+    getPendingDisplayTimeouts: getPlaybackPendingDisplayTimeouts,
+    getNearTermSamplePreloadPromise: getPlaybackNearTermSamplePreloadPromise,
+    setNearTermSamplePreloadPromise: setPlaybackNearTermSamplePreloadPromise,
+    getStartupSamplePreloadInProgress: getPlaybackStartupSamplePreloadInProgress,
+    setStartupSamplePreloadInProgress: setPlaybackStartupSamplePreloadInProgress
   },
   playbackConstants: {
     scheduleAhead: SCHEDULE_AHEAD,
@@ -2169,6 +2225,7 @@ const {
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getFinitePlayback: () => finitePlayback,
+    isLastChorusForced: () => lastChorusForced,
     getPlaybackEndingCue: () => playbackEndingCue,
     getPlaybackStartChordIndex: () => playbackStartChordIndex,
     resolvePerformanceCueJump: resolveQueuedPerformanceCueJump,

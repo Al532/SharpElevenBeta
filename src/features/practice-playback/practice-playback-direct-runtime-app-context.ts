@@ -8,7 +8,7 @@ import type {
 
 import { createDirectPlaybackSessionHost } from '../../core/playback/direct-playback-session-host.js';
 
-type DrillDirectPlaybackRuntime = Pick<
+type PracticePlaybackDirectRuntime = Pick<
   DirectPlaybackControllerOptions,
   | 'ensureWalkingBassGenerator'
   | 'getAudioContext'
@@ -22,11 +22,11 @@ type DrillDirectPlaybackRuntime = Pick<
   | 'validateCustomPattern'
 >;
 
-type DrillDirectPlaybackState = {
+type PracticePlaybackDirectPlaybackState = {
   getIsPlaying?: DirectPlaybackControllerOptions['isPlaying'];
 };
 
-type DrillDirectTransportActions = {
+type PracticePlaybackDirectTransportActions = {
   startPlayback?: () => Promise<void> | void;
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;
@@ -36,12 +36,12 @@ type DirectRuntimeAppOptions = {
   applyEmbeddedPattern?: (payload: Partial<EmbeddedPatternPayload>) => PlaybackOperationResult;
   applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
   getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState> | null | undefined;
-  playbackRuntime?: DrillDirectPlaybackRuntime;
-  playbackState?: DrillDirectPlaybackState;
-  transportActions?: DrillDirectTransportActions;
+  playbackRuntime?: PracticePlaybackDirectRuntime;
+  playbackState?: PracticePlaybackDirectPlaybackState;
+  transportActions?: PracticePlaybackDirectTransportActions;
 };
 
-export function createDirectDrillRuntimeAppContextOptions({
+export function createDirectPracticePlaybackRuntimeAppContextOptions({
   applyEmbeddedPattern,
   applyEmbeddedPlaybackSettings,
   getEmbeddedPlaybackState,

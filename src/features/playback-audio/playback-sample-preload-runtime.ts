@@ -1,17 +1,17 @@
 
-type DrillProgressionSnapshot = {
-  chords?: DrillChordSnapshot[];
+type PlaybackProgressionSnapshot = {
+  chords?: PlaybackChordSnapshot[];
   key?: number | null;
   voicingPlan?: PracticeArrangementVoicingSnapshot[];
-  bassPlan?: DrillBassEventSnapshot[];
+  bassPlan?: PlaybackBassEventSnapshot[];
 };
 
-type DrillChordSnapshot = {
+type PlaybackChordSnapshot = {
   bassSemitones?: number;
   semitones?: number;
 };
 
-type DrillBassEventSnapshot = {
+type PlaybackBassEventSnapshot = {
   timeBeats?: number;
   midi?: number;
 };
@@ -26,7 +26,7 @@ type PlaybackSampleNoteSets = {
   pianoNotes: Set<number>;
 };
 
-type DrillCollectRequiredSampleNotesOptions = {
+type CollectRequiredPlaybackSampleNotesOptions = {
   includeCurrent?: boolean;
   includeNext?: boolean;
   currentChordLimit?: number | null;
@@ -40,8 +40,8 @@ type PlaybackSamplePreloadRuntimeOptions = {
   getChordsPerBar?: () => number;
   getCompingStyle?: () => string;
   getDrumsMode?: () => string;
-  getCurrentProgression?: () => DrillProgressionSnapshot;
-  getNextProgression?: () => DrillProgressionSnapshot;
+  getCurrentProgression?: () => PlaybackProgressionSnapshot;
+  getNextProgression?: () => PlaybackProgressionSnapshot;
   collectCompingSampleNotes?: (
     style: string,
     voicing: PracticeArrangementVoicingSnapshot,
@@ -92,8 +92,8 @@ function registerSortedMidiValues(values: number[], register: (value: number) =>
  * @param {() => number} [options.getChordsPerBar]
  * @param {() => string} [options.getCompingStyle]
  * @param {() => string} [options.getDrumsMode]
- * @param {() => { chords?: DrillChordSnapshot[], key?: number | null, voicingPlan?: PracticeArrangementVoicingSnapshot[], bassPlan?: DrillBassEventSnapshot[] }} [options.getCurrentProgression]
- * @param {() => { chords?: DrillChordSnapshot[], key?: number | null, voicingPlan?: PracticeArrangementVoicingSnapshot[], bassPlan?: DrillBassEventSnapshot[] }} [options.getNextProgression]
+ * @param {() => { chords?: PlaybackChordSnapshot[], key?: number | null, voicingPlan?: PracticeArrangementVoicingSnapshot[], bassPlan?: PlaybackBassEventSnapshot[] }} [options.getCurrentProgression]
+ * @param {() => { chords?: PlaybackChordSnapshot[], key?: number | null, voicingPlan?: PracticeArrangementVoicingSnapshot[], bassPlan?: PlaybackBassEventSnapshot[] }} [options.getNextProgression]
  * @param {(style: string, voicing: PracticeArrangementVoicingSnapshot, noteSets: { celloNotes: Set<number>, violinNotes: Set<number>, pianoNotes: Set<number> }) => void} [options.collectCompingSampleNotes]
  * @param {(category: string, folder: string, midi: number) => Promise<PlaybackSampleLoadResult>} [options.loadSample]
  * @param {(midiValues: Iterable<number>) => Promise<PlaybackSampleLoadResult>} [options.loadPianoSampleList]
@@ -147,7 +147,7 @@ export function createPlaybackSamplePreloadRuntime({
     includeNext = true,
     currentChordLimit = null,
     nextChordLimit = null
-  }: DrillCollectRequiredSampleNotesOptions = {}): PlaybackSampleNoteSets {
+  }: CollectRequiredPlaybackSampleNotesOptions = {}): PlaybackSampleNoteSets {
     const bassNotes = new Set<number>();
     const celloNotes = new Set<number>();
     const violinNotes = new Set<number>();
@@ -156,7 +156,7 @@ export function createPlaybackSamplePreloadRuntime({
     const beatsPerChord = getBeatsPerChord();
 
     const registerProgression = (
-      progression: DrillProgressionSnapshot,
+      progression: PlaybackProgressionSnapshot,
       chordLimit: number | null = null
     ) => {
       const chords = Array.isArray(progression?.chords) ? progression.chords : [];

@@ -3,7 +3,7 @@
 /** @import { PlaybackAudioStackLike } from './playback-audio-types.js' */
 
 /**
- * Groups the app-level bindings passed into the shared drill audio stack
+ * Groups the app-level bindings passed into the shared playback audio stack
  * assembly while live runtime state remains in `app.js`.
  *
  * @param {object} [options]

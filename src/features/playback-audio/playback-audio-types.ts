@@ -1,4 +1,4 @@
-export type DrillMixerNodes = {
+export type PlaybackMixerNodes = {
   master: GainNode;
   bass: GainNode;
   strings: GainNode;
@@ -108,8 +108,8 @@ export type PlaybackAudioFacadeLike = PlaybackAudioRuntimeLike
 export type PlaybackAudioStateContext = {
   getAudioContext?: () => AudioContext | null;
   setAudioContext?: (value: AudioContext | null) => void;
-  getMixerNodes?: () => DrillMixerNodes | null;
-  setMixerNodes?: (value: DrillMixerNodes | null) => void;
+  getMixerNodes?: () => PlaybackMixerNodes | null;
+  setMixerNodes?: (value: PlaybackMixerNodes | null) => void;
   sampleBuffers?: PlaybackSampleBuffers;
 };
 

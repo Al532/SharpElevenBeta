@@ -296,7 +296,7 @@ export function createPerformanceCueDemoCharts(): ChartDocument[] {
           flags: ['repeat_start_barline'],
           directives: [{ type: 'open_vamp' }],
           sectionLabel: 'Vamp',
-          comments: ['Add Cue > Exit repeat, then arm it inside the vamp']
+          comments: ['Add Cue > Exit vamp, then arm it inside the vamp']
         }),
         makeTestBar(2, { symbol: 'Gm7', sectionLabel: 'Vamp' }),
         makeTestBar(3, { symbol: 'Am7', sectionLabel: 'Vamp' }),
@@ -347,7 +347,7 @@ export function createPerformanceCueDemoCharts(): ChartDocument[] {
         makeTestBar(1, {
           symbol: 'Ebmaj7',
           sectionLabel: 'Intro',
-          comments: ['Try modulate at B, exit repeat at vamp, coda at tag']
+          comments: ['Try modulate at B, exit vamp at vamp, coda at tag']
         }),
         makeTestBar(2, { symbol: 'Ab7', sectionLabel: 'Intro' }),
         makeTestBar(3, { symbol: 'Gm7', flags: ['repeat_start_barline'], sectionLabel: 'A' }),

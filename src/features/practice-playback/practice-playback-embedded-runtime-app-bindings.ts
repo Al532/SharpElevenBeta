@@ -1,9 +1,9 @@
 import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
-import type { PracticePlaybackPatternUiBindings } from '../practice-playback/practice-playback-types.js';
+import type { PracticePlaybackPatternUiBindings } from './practice-playback-types.js';
 
-type DrillRuntimeBindingMap = Record<string, unknown>;
+type PracticePlaybackRuntimeBindingMap = Record<string, unknown>;
 
-type DrillEmbeddedPatternUiBindings = {
+type PracticePlaybackEmbeddedPatternUiBindings = {
   clearProgressionEditingState?: () => void;
   closeProgressionManager?: () => void;
   setCustomPatternSelection?: () => void;
@@ -31,7 +31,7 @@ type DrillEmbeddedPatternUiBindings = {
   getCurrentPatternMode?: () => string;
 };
 
-type DrillEmbeddedNormalizationBindings = {
+type PracticePlaybackEmbeddedNormalizationBindings = {
   normalizePatternString?: (value: string) => string;
   normalizePresetName?: (value: string) => string;
   normalizePatternMode?: (value: string) => string;
@@ -41,7 +41,7 @@ type DrillEmbeddedNormalizationBindings = {
   normalizeHarmonyDisplayMode?: (value: string) => string;
 };
 
-type DrillEmbeddedPlaybackSettingsBindings = {
+type PracticePlaybackEmbeddedPlaybackSettingsBindings = {
   getSwingRatio?: () => number;
   getCompingStyle?: () => string;
   getDrumsMode?: () => string;
@@ -52,24 +52,24 @@ type DrillEmbeddedPlaybackSettingsBindings = {
   applyMixerSettings?: () => void;
 };
 
-type DrillEmbeddedTransportActions = {
+type PracticePlaybackEmbeddedTransportActions = {
   startPlayback?: () => Promise<void> | void;
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;
 };
 
-type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
-type DrillEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
+type PracticePlaybackEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
+type PracticePlaybackEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
 
-function getBindingRecord(value: unknown): DrillRuntimeBindingMap {
+function getBindingRecord(value: unknown): PracticePlaybackRuntimeBindingMap {
   return value && typeof value === 'object'
-    ? (value as DrillRuntimeBindingMap)
+    ? (value as PracticePlaybackRuntimeBindingMap)
     : {};
 }
 
 export function createPracticePlaybackStateBindings(
   bindings: Record<string, unknown> = {}
-): Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown> {
+): Partial<PracticePlaybackEmbeddedPlaybackStateBindings> & Record<string, unknown> {
   return {
     isEmbeddedMode: Boolean(bindings.isEmbeddedMode),
     getIsPlaying: bindings.getIsPlaying,
@@ -79,12 +79,12 @@ export function createPracticePlaybackStateBindings(
     getCurrentChordIdx: bindings.getCurrentChordIdx,
     getPaddedChordCount: bindings.getPaddedChordCount,
     getTempo: bindings.getTempo
-  } as Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown>;
+  } as Partial<PracticePlaybackEmbeddedPlaybackStateBindings> & Record<string, unknown>;
 }
 
 export function createPracticePatternUiBindings(
   bindings: Record<string, unknown> = {}
-): DrillEmbeddedPatternUiBindings {
+): PracticePlaybackEmbeddedPatternUiBindings {
   return {
     clearProgressionEditingState: bindings.clearProgressionEditingState,
     closeProgressionManager: bindings.closeProgressionManager,
@@ -111,12 +111,12 @@ export function createPracticePatternUiBindings(
     getPatternErrorText: bindings.getPatternErrorText,
     getCurrentPatternString: bindings.getCurrentPatternString,
     getCurrentPatternMode: bindings.getCurrentPatternMode
-  } as DrillEmbeddedPatternUiBindings;
+  } as PracticePlaybackEmbeddedPatternUiBindings;
 }
 
-export function createDrillNormalizationBindings(
+export function createPracticePlaybackNormalizationBindings(
   bindings: Record<string, unknown> = {}
-): DrillEmbeddedNormalizationBindings {
+): PracticePlaybackEmbeddedNormalizationBindings {
   return {
     normalizePatternString: bindings.normalizePatternString,
     normalizePresetName: bindings.normalizePresetName,
@@ -125,12 +125,12 @@ export function createDrillNormalizationBindings(
     normalizeRepetitionsPerKey: bindings.normalizeRepetitionsPerKey,
     normalizeDisplayMode: bindings.normalizeDisplayMode,
     normalizeHarmonyDisplayMode: bindings.normalizeHarmonyDisplayMode
-  } as DrillEmbeddedNormalizationBindings;
+  } as PracticePlaybackEmbeddedNormalizationBindings;
 }
 
 export function createPracticePlaybackSettingsBindings(
   bindings: Record<string, unknown> = {}
-): DrillEmbeddedPlaybackSettingsBindings {
+): PracticePlaybackEmbeddedPlaybackSettingsBindings {
   return {
     getSwingRatio: bindings.getSwingRatio,
     getCompingStyle: bindings.getCompingStyle,
@@ -140,12 +140,12 @@ export function createPracticePlaybackSettingsBindings(
     getFinitePlayback: bindings.getFinitePlayback,
     setFinitePlayback: bindings.setFinitePlayback,
     applyMixerSettings: bindings.applyMixerSettings
-  } as DrillEmbeddedPlaybackSettingsBindings;
+  } as PracticePlaybackEmbeddedPlaybackSettingsBindings;
 }
 
 export function createPracticePlaybackRuntimeBindings(
   bindings: Record<string, unknown> = {}
-): Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown> {
+): Partial<PracticePlaybackEmbeddedPlaybackControllerBindings> & Record<string, unknown> {
   return {
     ensureWalkingBassGenerator: bindings.ensureWalkingBassGenerator,
     getAudioContext: bindings.getAudioContext,
@@ -156,27 +156,27 @@ export function createPracticePlaybackRuntimeBindings(
     getCurrentKey: bindings.getCurrentKey,
     preloadNearTermSamples: bindings.preloadNearTermSamples,
     queuePerformanceCue: bindings.queuePerformanceCue
-  } as Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
+  } as Partial<PracticePlaybackEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
 }
 
-export function createDrillTransportActionBindings(
+export function createPracticePlaybackTransportActionBindings(
   bindings: Record<string, unknown> = {}
-): DrillEmbeddedTransportActions {
+): PracticePlaybackEmbeddedTransportActions {
   return {
     startPlayback: bindings.startPlayback,
     stopPlayback: bindings.stopPlayback,
     togglePausePlayback: bindings.togglePausePlayback
-  } as DrillEmbeddedTransportActions;
+  } as PracticePlaybackEmbeddedTransportActions;
 }
 
-export function createDrillEmbeddedRuntimeContextBindings(bindings: Record<string, unknown> = {}) {
+export function createPracticePlaybackEmbeddedRuntimeContextBindings(bindings: Record<string, unknown> = {}) {
   return {
     dom: getBindingRecord(bindings.dom),
     patternUi: createPracticePatternUiBindings(getBindingRecord(bindings.patternUi)),
-    normalization: createDrillNormalizationBindings(getBindingRecord(bindings.normalization)),
+    normalization: createPracticePlaybackNormalizationBindings(getBindingRecord(bindings.normalization)),
     playbackSettings: createPracticePlaybackSettingsBindings(getBindingRecord(bindings.playbackSettings)),
     playbackState: createPracticePlaybackStateBindings(getBindingRecord(bindings.playbackState)),
     playbackRuntime: createPracticePlaybackRuntimeBindings(getBindingRecord(bindings.playbackRuntime)),
-    transportActions: createDrillTransportActionBindings(getBindingRecord(bindings.transportActions))
+    transportActions: createPracticePlaybackTransportActionBindings(getBindingRecord(bindings.transportActions))
   };
 }

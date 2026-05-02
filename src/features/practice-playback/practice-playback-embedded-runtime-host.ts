@@ -1,12 +1,12 @@
 
-type DrillEmbeddedRuntimeHostDom = {
+type PracticePlaybackEmbeddedRuntimeHostDom = {
   patternName?: { value: string };
   customPattern?: { value: string };
   patternSelect?: { value?: string | null };
   patternError?: { textContent?: string | null };
 } & Record<string, unknown>;
 
-type DrillEmbeddedRuntimeHostPatternUiBindings = {
+type PracticePlaybackEmbeddedRuntimeHostPatternUiBindings = {
   setCustomPatternSelection: () => void;
   setPatternName: (value: string) => void;
   setCustomPatternValue: (value: string) => void;
@@ -16,7 +16,7 @@ type DrillEmbeddedRuntimeHostPatternUiBindings = {
   getPatternErrorText: () => string;
 };
 
-type DrillEmbeddedRuntimeHostPlaybackStateBindings = {
+type PracticePlaybackEmbeddedRuntimeHostPlaybackStateBindings = {
   getIsPlaying: () => boolean;
   getIsPaused: () => boolean;
   getIsIntro: () => boolean;
@@ -26,19 +26,19 @@ type DrillEmbeddedRuntimeHostPlaybackStateBindings = {
   getTempo: () => number;
 };
 
-type DrillEmbeddedRuntimeHostPlaybackRuntimeBindings = {
+type PracticePlaybackEmbeddedRuntimeHostPlaybackRuntimeBindings = {
   getAudioContext: () => AudioContext | null;
   getCurrentKey: () => number;
 };
 
-type DrillEmbeddedRuntimeHostTransportBindings = {
+type PracticePlaybackEmbeddedRuntimeHostTransportBindings = {
   startPlayback: () => Promise<void>;
   stopPlayback: () => void;
   togglePausePlayback: () => void;
 };
 
-type DrillEmbeddedRuntimeHostBindingsOptions = {
-  dom?: DrillEmbeddedRuntimeHostDom;
+type PracticePlaybackEmbeddedRuntimeHostBindingsOptions = {
+  dom?: PracticePlaybackEmbeddedRuntimeHostDom;
   customPatternOptionValue?: string;
   setSuppressPatternSelectChange?: (value: boolean) => void;
   setPatternSelectValue?: (value: string) => void;
@@ -61,12 +61,12 @@ type DrillEmbeddedRuntimeHostBindingsOptions = {
 };
 
 /**
- * Creates grouped app-host bindings for the embedded Drill runtime.
+ * Creates grouped app-host bindings for the embedded practice playback runtime.
  * This keeps the DOM/setter wrappers needed by the embedded runtime out of
  * `app.js`, while preserving the current runtime behavior.
  *
  * @param {object} [options]
- * @param {DrillEmbeddedRuntimeHostDom} [options.dom]
+ * @param {PracticePlaybackEmbeddedRuntimeHostDom} [options.dom]
  * @param {string} [options.customPatternOptionValue]
  * @param {(value: boolean) => void} [options.setSuppressPatternSelectChange]
  * @param {(value: string) => void} [options.setPatternSelectValue]
@@ -87,13 +87,13 @@ type DrillEmbeddedRuntimeHostBindingsOptions = {
  * @param {() => void} [options.stopPlayback]
  * @param {() => void} [options.togglePausePlayback]
  * @returns {{
- *   patternUi: DrillEmbeddedRuntimeHostPatternUiBindings,
- *   playbackState: DrillEmbeddedRuntimeHostPlaybackStateBindings,
- *   playbackRuntime: DrillEmbeddedRuntimeHostPlaybackRuntimeBindings,
- *   transportActions: DrillEmbeddedRuntimeHostTransportBindings
+ *   patternUi: PracticePlaybackEmbeddedRuntimeHostPatternUiBindings,
+ *   playbackState: PracticePlaybackEmbeddedRuntimeHostPlaybackStateBindings,
+ *   playbackRuntime: PracticePlaybackEmbeddedRuntimeHostPlaybackRuntimeBindings,
+ *   transportActions: PracticePlaybackEmbeddedRuntimeHostTransportBindings
  * }}
  */
-export function createDrillEmbeddedRuntimeHostBindings({
+export function createPracticePlaybackEmbeddedRuntimeHostBindings({
   dom = {},
   customPatternOptionValue = '',
   setSuppressPatternSelectChange = () => {},
@@ -114,7 +114,7 @@ export function createDrillEmbeddedRuntimeHostBindings({
   startPlayback = async () => {},
   stopPlayback = () => {},
   togglePausePlayback = () => {}
-}: DrillEmbeddedRuntimeHostBindingsOptions = {}) {
+}: PracticePlaybackEmbeddedRuntimeHostBindingsOptions = {}) {
   return {
     patternUi: {
       setCustomPatternSelection() {

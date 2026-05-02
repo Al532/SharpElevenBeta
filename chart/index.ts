@@ -18,6 +18,7 @@ export {
   normalizeChartPerformancePanelMode,
   normalizeChartPerformanceRepeatMode,
   normalizeChartSimplePerformanceState,
+  resolveChartPerformanceRepeatState,
   restoreConsumedChartPerformanceCues
 } from './chart-performance.js';
 export { createChartDocumentFromIReal, createChartDocumentsFromIRealText } from './chart-import-ireal.js';
@@ -33,7 +34,9 @@ export {
   createPracticeSessionFromChartPlaybackPlan,
   createPracticeSessionFromSelectedChartDocument,
   createSelectedChartDocument,
-  createPracticeSessionFromChartSelection
+  createPracticeSessionFromChartSelection,
+  createPlayFromBarPlaybackPlan,
+  getPlaybackStartChordIndexForBarId
 } from '../src/features/chart/chart-session-builder.js';
 export {
   PRACTICE_SESSION_CONTRACT,

@@ -83,7 +83,16 @@ function simplifyCellSlot(cell) {
 }
 
 function cleanCommentText(comment) {
-  return String(comment || '')
+  const raw = String(comment || '');
+  const marker = raw.match(/^\*(\d+)\s*(.*)$/);
+  if (marker) {
+    const [, offsetCode, markedText] = marker;
+    const text = String(markedText || '').trim();
+    const yOffset = offsetCode.slice(-1);
+    if (/^x$/i.test(text) && /^[1-9]$/.test(yOffset)) return `${yOffset}x`;
+  }
+
+  return raw
     .replace(/\s+/g, ' ')
     .replace(/^\*\d+/, '')
     .trim();
@@ -236,9 +245,10 @@ function buildTextAnnotations(cellSlots = [], freeText = []) {
     for (const rawComment of cellSlot.comments || []) {
       const parsed = parseTextComment(rawComment);
       if (!parsed) continue;
+      const isPositionedRepeatHint = /^\d+x$/i.test(parsed.text);
       const remaining = remainingTextCounts.get(parsed.text) || 0;
-      if (remaining <= 0) continue;
-      remainingTextCounts.set(parsed.text, remaining - 1);
+      if (!isPositionedRepeatHint && remaining <= 0) continue;
+      if (!isPositionedRepeatHint) remainingTextCounts.set(parsed.text, remaining - 1);
       annotations.push({
         ...parsed,
         source_cell_index: sourceCellIndex,

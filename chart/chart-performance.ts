@@ -17,6 +17,7 @@ export const DEFAULT_CHART_SIMPLE_PERFORMANCE: ChartSimplePerformanceState = Obj
 });
 
 const DEFAULT_PERFORMANCE_NAME = 'Performance';
+const LAST_CHORUS_CUE_TYPES = new Set(['arm_coda', 'last_chorus']);
 
 function normalizeObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -57,6 +58,34 @@ export function getChartSimplePerformanceLabel(
   return mode === 'once' ? '1x' : '∞';
 }
 
+export function resolveChartPerformanceRepeatState({
+  activePerformance = null,
+  simplePerformance = DEFAULT_CHART_SIMPLE_PERFORMANCE
+}: {
+  activePerformance?: ChartPerformance | null;
+  simplePerformance?: ChartSimplePerformanceState | null | undefined;
+} = {}): { repeatMode: ChartPerformanceRepeatMode; repeatCount: number; infinite: boolean } {
+  if (activePerformance && activePerformance.active !== false) {
+    const repeatMode = normalizeChartPerformanceRepeatMode(activePerformance.repeatMode);
+    const repeatCount = Number.isFinite(Number(activePerformance.repeatCount))
+      ? Math.max(1, Math.min(15, Math.round(Number(activePerformance.repeatCount))))
+      : 1;
+    return {
+      repeatMode,
+      repeatCount,
+      infinite: repeatMode === 'infinite'
+    };
+  }
+
+  const normalizedSimplePerformance = normalizeChartSimplePerformanceState(simplePerformance);
+  const repeatMode = normalizedSimplePerformance.repeatMode;
+  return {
+    repeatMode,
+    repeatCount: 1,
+    infinite: repeatMode === 'infinite'
+  };
+}
+
 export function createDefaultChartPerformance(
   chartDocument: ChartDocument | null | undefined,
   options: Partial<ChartPerformance> = {}
@@ -73,9 +102,28 @@ export function createDefaultChartPerformance(
     repeatCount: Number.isFinite(Number(options.repeatCount))
       ? Math.max(1, Math.min(15, Math.round(Number(options.repeatCount))))
       : 1,
-    cues: Array.isArray(options.cues) ? JSON.parse(JSON.stringify(options.cues)) : [],
+    cues: normalizeChartPerformanceCues(options.cues),
     updatedAt: timestamp
   };
+}
+
+function normalizeChartPerformanceCues(value: unknown): ChartPerformanceCue[] {
+  if (!Array.isArray(value)) return [];
+  let hasLastChorusCue = false;
+  return value.flatMap((rawCue) => {
+    const cue = normalizeObject(rawCue) as ChartPerformanceCue;
+    if (!cue.id || !cue.type) return [];
+    if (LAST_CHORUS_CUE_TYPES.has(String(cue.type))) {
+      if (hasLastChorusCue) return [];
+      hasLastChorusCue = true;
+      return [{
+        ...JSON.parse(JSON.stringify(cue)),
+        type: 'arm_coda',
+        boundary: cue.boundary || 'next_coda_jump'
+      }];
+    }
+    return [JSON.parse(JSON.stringify(cue))];
+  });
 }
 
 export function markExecutedChartPerformanceCuesConsumed(

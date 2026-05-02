@@ -6,7 +6,7 @@ import { createPlaybackAudioRuntimeAssemblyAppContext } from './playback-audio-r
 /** @import { PlaybackAudioFacadeLike, PlaybackAudioStackLike } from './playback-audio-types.js' */
 
 /**
- * Creates the drill audio runtime assembly from live root-app bindings.
+ * Creates the playback audio runtime assembly from live root-app bindings.
  * This keeps the shared audio stack contract out of `app.js` while preserving
  * the existing runtime/app assembly layering.
  *

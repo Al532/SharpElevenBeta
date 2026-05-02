@@ -1,11 +1,11 @@
-import { createEmbeddedPracticeRuntimeAppContextOptions } from './drill-embedded-runtime-app-context.js';
-import { createDrillEmbeddedRuntimeHostBindings } from './drill-embedded-runtime-host.js';
-import { createDrillEmbeddedRuntimeContextBindings } from './drill-runtime-app-bindings.js';
+import { createEmbeddedPracticeRuntimeAppContextOptions } from './practice-playback-embedded-runtime-app-context.js';
+import { createPracticePlaybackEmbeddedRuntimeHostBindings } from './practice-playback-embedded-runtime-host.js';
+import { createPracticePlaybackEmbeddedRuntimeContextBindings } from './practice-playback-embedded-runtime-app-bindings.js';
 import type { PracticePlaybackControllerOptions, EmbeddedPracticeRuntimeOptions } from '../../core/types/contracts';
 import type { PracticePlaybackPatternUiBindings } from '../practice-playback/practice-playback-types.js';
 
-type DrillEmbeddedRuntimeDom = Record<string, unknown>;
-type DrillEmbeddedPatternUiBindings = {
+type PracticePlaybackEmbeddedRuntimeDom = Record<string, unknown>;
+type PracticePlaybackEmbeddedPatternUiBindings = {
   clearProgressionEditingState?: () => void;
   closeProgressionManager?: () => void;
   setCustomPatternSelection?: () => void;
@@ -31,9 +31,9 @@ type DrillEmbeddedPatternUiBindings = {
   getCurrentPatternString?: () => string;
   getCurrentPatternMode?: () => string;
 };
-type DrillEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
-type DrillEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
-type DrillEmbeddedNormalizationBindings = {
+type PracticePlaybackEmbeddedPlaybackStateBindings = NonNullable<EmbeddedPracticeRuntimeOptions['playbackStateOptions']>;
+type PracticePlaybackEmbeddedPlaybackControllerBindings = NonNullable<PracticePlaybackControllerOptions>;
+type PracticePlaybackEmbeddedNormalizationBindings = {
   normalizePatternString?: (value: string) => string;
   normalizePresetName?: (value: string) => string;
   normalizePatternMode?: (value: string) => string;
@@ -42,7 +42,7 @@ type DrillEmbeddedNormalizationBindings = {
   normalizeDisplayMode?: (value: string) => string;
   normalizeHarmonyDisplayMode?: (value: string) => string;
 };
-type DrillEmbeddedPlaybackSettingsBindings = {
+type PracticePlaybackEmbeddedPlaybackSettingsBindings = {
   getSwingRatio?: () => number;
   getCompingStyle?: () => string;
   getDrumsMode?: () => string;
@@ -52,13 +52,13 @@ type DrillEmbeddedPlaybackSettingsBindings = {
   setFinitePlayback?: (enabled: boolean) => void;
   applyMixerSettings?: () => void;
 };
-type DrillEmbeddedTransportActions = {
+type PracticePlaybackEmbeddedTransportActions = {
   startPlayback?: () => Promise<void> | void;
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;
 };
 
-export function createDrillEmbeddedRuntimeAppAssembly({
+export function createPracticePlaybackEmbeddedRuntimeAppAssembly({
   dom,
   host = {},
   patternUi = {},
@@ -68,22 +68,22 @@ export function createDrillEmbeddedRuntimeAppAssembly({
   playbackRuntime = {},
   transportActions = {}
 }: {
-  dom?: DrillEmbeddedRuntimeDom;
+  dom?: PracticePlaybackEmbeddedRuntimeDom;
   host?: Record<string, unknown>;
-  patternUi?: DrillEmbeddedPatternUiBindings;
-  normalization?: DrillEmbeddedNormalizationBindings;
-  playbackSettings?: DrillEmbeddedPlaybackSettingsBindings;
-  playbackState?: Partial<DrillEmbeddedPlaybackStateBindings> & Record<string, unknown>;
-  playbackRuntime?: Partial<DrillEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
-  transportActions?: DrillEmbeddedTransportActions;
+  patternUi?: PracticePlaybackEmbeddedPatternUiBindings;
+  normalization?: PracticePlaybackEmbeddedNormalizationBindings;
+  playbackSettings?: PracticePlaybackEmbeddedPlaybackSettingsBindings;
+  playbackState?: Partial<PracticePlaybackEmbeddedPlaybackStateBindings> & Record<string, unknown>;
+  playbackRuntime?: Partial<PracticePlaybackEmbeddedPlaybackControllerBindings> & Record<string, unknown>;
+  transportActions?: PracticePlaybackEmbeddedTransportActions;
 } = {}) {
-  const hostBindings = createDrillEmbeddedRuntimeHostBindings({
+  const hostBindings = createPracticePlaybackEmbeddedRuntimeHostBindings({
     dom,
     ...host
   });
 
   return createEmbeddedPracticeRuntimeAppContextOptions(
-    createDrillEmbeddedRuntimeContextBindings({
+    createPracticePlaybackEmbeddedRuntimeContextBindings({
       dom,
       patternUi: {
         ...hostBindings.patternUi,

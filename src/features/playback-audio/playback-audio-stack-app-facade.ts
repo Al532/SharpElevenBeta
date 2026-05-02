@@ -8,7 +8,7 @@ type PlaybackAudioStackAppFacadeOptions = {
 };
 
 /**
- * Creates a thin app-facing facade around the composed drill audio stack so
+ * Creates a thin app-facing facade around the composed playback audio stack so
  * callers can keep ergonomic methods and default timing behavior without
  * re-declaring lots of local wrapper functions in `app.js`.
  *

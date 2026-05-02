@@ -1,8 +1,8 @@
 
 import { createDrillDisplayRootAppFacade } from './drill-display-root-app-facade.js';
-import { createDrillDirectRuntimeAppAssembly } from './drill-direct-runtime-app-assembly.js';
-import { createDrillEmbeddedRuntimeAppAssembly } from './drill-embedded-runtime-app-assembly.js';
-import { initializeEmbeddedPracticeRuntime } from './drill-embedded-runtime.js';
+import { createPracticePlaybackDirectRuntimeAppAssembly } from '../practice-playback/practice-playback-direct-runtime-app-assembly.js';
+import { createPracticePlaybackEmbeddedRuntimeAppAssembly } from '../practice-playback/practice-playback-embedded-runtime-app-assembly.js';
+import { initializeEmbeddedPracticeRuntime } from '../practice-playback/practice-playback-embedded-runtime.js';
 import { createDrillKeysRootAppAssembly } from './drill-keys-root-app-assembly.js';
 import { createDrillNextPreviewRootAppFacade } from './drill-next-preview-root-app-facade.js';
 import { createDrillPianoMidiRuntimeRootAppAssembly } from './drill-piano-midi-runtime-root-app-assembly.js';
@@ -360,9 +360,9 @@ export function createPracticePlaybackDrillRootAppAssembly({
       dom,
       ...rootAppContext,
       adapters: {
-        createEmbeddedRuntimeAssembly: createDrillEmbeddedRuntimeAppAssembly,
+        createEmbeddedRuntimeAssembly: createPracticePlaybackEmbeddedRuntimeAppAssembly,
         initializeEmbeddedRuntime: initializeEmbeddedPracticeRuntime,
-        createDirectRuntimeAssembly: createDrillDirectRuntimeAppAssembly
+        createDirectRuntimeAssembly: createPracticePlaybackDirectRuntimeAppAssembly
       }
     } as SharedPlaybackRootAppAssemblyOptions)
   };

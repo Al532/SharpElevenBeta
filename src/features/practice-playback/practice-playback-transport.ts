@@ -52,6 +52,23 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     return Array.isArray(state.paddedChords) ? state.paddedChords : [];
   }
 
+  function resolvePlaybackStartChordIndex() {
+    const paddedChords = getPaddedChords();
+    return Math.max(
+      0,
+      Math.min(
+        Math.max(0, paddedChords.length - 1),
+        Math.round(Number(getPlaybackStartChordIndex?.() || 0))
+      )
+    );
+  }
+
+  function applyPlaybackStartChordIndex() {
+    const startChordIndex = resolvePlaybackStartChordIndex();
+    state.currentChordIdx = startChordIndex;
+    state.lastPlayedChordIdx = startChordIndex - 1;
+  }
+
   function fadeGainToSilence(gainNode, startTime, fadeDuration) {
     if (!gainNode?.gain) return;
     const fadeStart = Number.isFinite(startTime) ? startTime : 0;
@@ -134,16 +151,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     state.loopVoicingTemplate = null;
     state.nearTermSamplePreloadPromise = null;
     prepareNextProgression();
-    const paddedChords = getPaddedChords();
-    const startChordIndex = Math.max(
-      0,
-      Math.min(
-        Math.max(0, paddedChords.length - 1),
-        Math.round(Number(getPlaybackStartChordIndex?.() || 0))
-      )
-    );
-    state.currentChordIdx = startChordIndex;
-    state.lastPlayedChordIdx = startChordIndex - 1;
+    applyPlaybackStartChordIndex();
     applyDisplaySideLayout();
     dom.keyDisplay.textContent = '';
     dom.chordDisplay.textContent = '';
@@ -158,6 +166,7 @@ export function createPlaybackTransport({ dom, state, constants, helpers }) {
     }
     if (!isGenerationActive(generation)) return;
     ensureNearTermSamplePreload();
+    applyPlaybackStartChordIndex();
     if (!state.firstPlayStartTracked) {
       state.firstPlayStartTracked = true;
       const progressionProps = getProgressionAnalyticsProps();

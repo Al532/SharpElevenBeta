@@ -4,7 +4,7 @@ This catalog records the current module ownership map. Keep it practical: it
 should help future consolidation, renaming, and refactoring decisions without
 becoming a second codebase.
 
-Last reviewed: 2026-05-01.
+Last reviewed: 2026-05-02.
 
 ## Naming Baseline
 
@@ -110,12 +110,12 @@ Responsibility: the dedicated practice trainer UI and drill-specific adapters.
 Keep here:
 
 - Drill screen UI, controls, display helpers, welcome flow, key picker, settings UI, and progression selection specific to the trainer.
-- Drill-specific adapters that translate trainer UI state into practice playback contracts.
 - Legacy root-app adapters while they still translate the old `app.ts` state shape into narrower modules.
 
 Current structural pressure:
 
 - Some root-app adapters still translate the old `app.ts` state shape into narrower drill UI modules.
+- Direct and embedded playback adapters that used to live here now belong to `src/features/practice-playback`, because they compose playback contracts rather than trainer UI behavior.
 - Thin `*-assembly`, `*-bindings`, and `*-context` files should be consolidated when they only copy options or rename fields.
 
 Refactor signals:
@@ -166,6 +166,7 @@ Keep here:
 - Practice playback resources, preparation, and resource facade.
 - Runtime host, scheduler, transport, and runtime app assembly that group app state, audio, preload, constants, and helper bindings before delegating to an injected runtime adapter.
 - App-level embedded/direct playback composition through injected playback adapters.
+- Direct and embedded playback runtime adapters, runtime-boundary helpers, app bindings, and host wrappers that bridge app state into the shared playback controller contracts.
 
 Refactor signals:
 

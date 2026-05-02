@@ -30,6 +30,74 @@ function getPlaybackChordIndexForEntry(
   return bars.slice(0, safeEntryIndex).reduce((total, bar) => total + getPlaybackBarBeatCount(bar), 0);
 }
 
+function clonePlaybackEntry<T>(entry: T): T {
+  return JSON.parse(JSON.stringify(entry));
+}
+
+export function createPlayFromBarPlaybackPlan({
+  playbackPlan,
+  startBarId,
+  repeatCount = 1,
+  infinite = false
+}: {
+  playbackPlan: ChartPlaybackPlan;
+  startBarId: string;
+  repeatCount?: number;
+  infinite?: boolean;
+}): ChartPlaybackPlan | null {
+  const entries = playbackPlan?.entries || [];
+  const startEntryIndex = entries.findIndex((entry) => entry.barId === startBarId);
+  if (startEntryIndex < 0) return null;
+
+  if (infinite) {
+    const nextEntries = [
+      ...entries.slice(startEntryIndex),
+      ...entries.slice(0, startEntryIndex)
+    ].map((entry, entryIndex) => ({
+      ...clonePlaybackEntry(entry),
+      sequenceIndex: entryIndex + 1
+    }));
+
+    return {
+      ...playbackPlan,
+      entries: nextEntries
+    };
+  }
+
+  const normalizedRepeatCount = Math.max(1, Math.round(Number(repeatCount) || 1));
+  const nextEntries = Array.from({ length: normalizedRepeatCount }).flatMap((_, repeatIndex) => {
+    const sourceEntries = repeatIndex === 0
+      ? entries.slice(startEntryIndex)
+      : entries;
+    const isFinalRepeat = repeatIndex === normalizedRepeatCount - 1;
+    return sourceEntries.map((entry) => {
+      const nextEntry = clonePlaybackEntry(entry);
+      if (!isFinalRepeat) {
+        delete nextEntry.endingCue;
+      }
+      return nextEntry;
+    });
+  }).map((entry, entryIndex) => ({
+    ...entry,
+    sequenceIndex: entryIndex + 1
+  }));
+
+  return {
+    ...playbackPlan,
+    entries: nextEntries
+  };
+}
+
+export function getPlaybackStartChordIndexForBarId(
+  bars: Array<{ id?: string; beatSlots?: unknown[]; symbols?: unknown[] }> = [],
+  startBarId = ''
+): number {
+  const startPlaybackBarIndex = bars.findIndex((bar) => bar.id === startBarId);
+  return bars
+    .slice(0, Math.max(0, startPlaybackBarIndex))
+    .reduce((total, bar) => total + getPlaybackBarBeatCount(bar), 0);
+}
+
 function applyCodaGateToPerformanceMap(
   performanceMap: Record<string, unknown>,
   playbackPlan: ChartPlaybackPlan,
@@ -214,7 +282,9 @@ export function createPracticeSessionFromChartDocument(
   chartDocument: ChartDocument,
   options: { playbackPlan?: ChartPlaybackPlan; tempo?: number; transposition?: number } = {}
 ): PracticeSessionSpec {
-  const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(chartDocument) as ChartPlaybackPlan;
+  const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(chartDocument, {
+    tempo: options.tempo
+  }) as ChartPlaybackPlan;
   return createPracticeSessionFromChartDocumentWithPlaybackPlan(chartDocument, playbackPlan, options);
 }
 
@@ -229,7 +299,9 @@ export function createPracticeSessionFromSelectedChartDocument(
     origin?: PracticeSessionOrigin;
   } = {}
 ): PracticeSessionSpec {
-  const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(selectedChartDocument) as ChartPlaybackPlan;
+  const playbackPlan = options.playbackPlan || createChartPlaybackPlanFromDocument(selectedChartDocument, {
+    tempo: options.tempo
+  }) as ChartPlaybackPlan;
   const selectedBars = selectedChartDocument?.bars || [];
   const selection = createSelectionMetadata(selectedBars, options.selection || {});
   return createPracticeSessionFromChartPlaybackPlan({

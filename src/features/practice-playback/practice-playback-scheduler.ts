@@ -31,6 +31,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getRemainingBeatsUntilNextProgression,
     getRepetitionsPerKey,
     getFinitePlayback,
+    isLastChorusForced,
     getPlaybackEndingCue,
     resolvePerformanceCueJump,
     resolvePerformanceCueStop,
@@ -60,7 +61,8 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     updateBeatDots
   } = helpers;
 
-  function hasCompletedFinitePlaybackRepetitions() {
+  function shouldTreatCurrentPassAsFinal() {
+    if (typeof isLastChorusForced === 'function' && isLastChorusForced()) return true;
     const repetitions = Math.max(1, Number(getRepetitionsPerKey()) || 1);
     return getFinitePlayback?.() === true && state.currentKeyRepetition >= repetitions;
   }
@@ -68,7 +70,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
   function normalizeEndingCue() {
     const cue = typeof getPlaybackEndingCue === 'function' ? getPlaybackEndingCue() : null;
     if (!cue || typeof cue !== 'object') return null;
-    if (!hasCompletedFinitePlaybackRepetitions()) return null;
+    if (!shouldTreatCurrentPassAsFinal()) return null;
     const targetBeat = Number(cue.targetBeat ?? cue.targetChordIndex);
     if (!Number.isFinite(targetBeat)) return null;
     const style = String(cue.style || '');
@@ -602,7 +604,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
           key_repetition_index: state.currentKeyRepetition,
           played_chord_count: state.currentRawChords.length || state.paddedChords.length || 0
         });
-        if (hasCompletedFinitePlaybackRepetitions()) {
+        if (shouldTreatCurrentPassAsFinal()) {
           const stopTime = state.nextBeatTime + spb;
           scheduleDisplay(stopTime, () => {
             stopPlayback?.();

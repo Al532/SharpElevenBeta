@@ -37,6 +37,7 @@ type RenderChartSelectionStateOptions = {
   sendSelectionToPracticeButton?: HTMLButtonElement | null,
   selectedBarIds?: string[],
   hasSession?: boolean,
+  isSelectionLocked?: boolean,
   updateSelectionHighlights?: () => void
 };
 
@@ -178,6 +179,7 @@ export function renderChartSelectionState({
   sendSelectionToPracticeButton,
   selectedBarIds = [],
   hasSession = false,
+  isSelectionLocked = false,
   updateSelectionHighlights
 }: RenderChartSelectionStateOptions = {}) {
   const count = selectedBarIds.length;
@@ -187,7 +189,7 @@ export function renderChartSelectionState({
       : 'No selection';
   }
   if (clearSelectionButton) {
-    clearSelectionButton.disabled = count === 0;
+    clearSelectionButton.disabled = count === 0 || isSelectionLocked;
   }
   if (sendSelectionToPracticeButton) {
     sendSelectionToPracticeButton.disabled = !hasSession;

@@ -8,7 +8,7 @@ type PlaybackAudioStackFacadeAppBindingsOptions = {
 };
 
 /**
- * Groups the app-level bindings passed into the drill audio stack facade.
+ * Groups the app-level bindings passed into the playback audio stack facade.
  *
  * @param {object} [options]
  * @param {PlaybackAudioStackLike} [options.audioStack]

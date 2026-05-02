@@ -8,13 +8,13 @@ import { getSwingOffbeatPositionBeats } from '../../core/music/swing-utils.js';
 import { PIANO_COMPING_CONFIG } from '../../config/trainer-config.js';
 import { getShortEndingDynamicMultiplier } from '../../core/playback/playback-ending-dynamics.js';
 
-type DrillMixerNodes = Record<string, GainNode>;
+type PlaybackMixerNodes = Record<string, GainNode>;
 
 type PlaybackAudioPlaybackRuntimeOptions = {
   getAudioContext?: () => AudioContext | null;
   setAudioContext?: (value: AudioContext | null) => void;
-  getMixerNodes?: () => DrillMixerNodes | null;
-  setMixerNodes?: (value: DrillMixerNodes | null) => void;
+  getMixerNodes?: () => PlaybackMixerNodes | null;
+  setMixerNodes?: (value: PlaybackMixerNodes | null) => void;
   createAudioContext?: () => AudioContext;
   applyMixerSettings?: () => void;
   sampleBuffers?: Record<string, Record<string, AudioBuffer | undefined>>;

@@ -7,7 +7,7 @@ import { createPlaybackSamplePreloadAppContext } from './playback-sample-preload
 import { createPlaybackScheduledAudioAppContext } from './playback-scheduled-audio-app-context.js';
 
 /**
- * Creates the full audio/sample runtime stack used by the historical drill app
+ * Creates the full audio/sample runtime stack used by the practice playback host
  * from grouped app concerns. This keeps the top-level runtime section in
  * `app.js` compact while preserving the existing behavior.
  *

@@ -8,7 +8,7 @@ import { createPlaybackAudioStackFacadeAppBindings } from './playback-audio-stac
 /** @import { PlaybackAudioFacadeLike, PlaybackAudioStackLike } from './playback-audio-types.js' */
 
 /**
- * Materializes the drill audio stack, facade, and app-facing surface from grouped
+ * Materializes the playback audio stack, facade, and app-facing surface from grouped
  * app concerns so `app.js` can keep moving toward orchestration-only wiring.
  *
  * @param {{ audioStack?: PlaybackAudioStackLike, audioFacade?: Partial<Pick<import('./playback-audio-stack-app-facade.js'), never>> & { getCurrentTime?: () => number, defaultFadeDuration?: number } }} [options]

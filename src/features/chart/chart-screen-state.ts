@@ -79,6 +79,7 @@ export function renderChartSelectionUi({
   selectionSummaryElement,
   clearSelectionButton,
   sendSelectionToPracticeButton,
+  isSelectionLocked,
   updateSelectionHighlights
 }: {
   state?: Pick<ChartScreenState, 'selectionController' | 'currentChartDocument' | 'currentSelectionPracticeSession' | 'currentPracticeSession'>;
@@ -87,6 +88,7 @@ export function renderChartSelectionUi({
   selectionSummaryElement?: HTMLElement | null;
   clearSelectionButton?: HTMLButtonElement | null;
   sendSelectionToPracticeButton?: HTMLButtonElement | null;
+  isSelectionLocked?: boolean;
   updateSelectionHighlights?: () => void;
 } = {}): void {
   if (!state) return;
@@ -102,6 +104,7 @@ export function renderChartSelectionUi({
     sendSelectionToPracticeButton,
     selectedBarIds: selection.barIds,
     hasSession: Boolean(getSelectedPracticeSession(state)),
+    isSelectionLocked,
     updateSelectionHighlights
   } as any);
 }
@@ -115,8 +118,9 @@ export function handleChartBarSelection({
   selectionController?: ChartSelectionController;
   renderSelectionState?: () => void;
 } = {}): boolean {
-  const eventTarget = event?.target instanceof HTMLElement ? event.target : null;
-  const barCell = eventTarget?.closest?.('.chart-bar-cell[data-bar-id]') as HTMLElement | null | undefined;
+  const eventTarget = event?.target instanceof Element ? event.target : null;
+  const closestBarCell = eventTarget?.closest?.('.chart-bar-cell[data-bar-id]');
+  const barCell = closestBarCell instanceof HTMLElement ? closestBarCell : null;
   if (!barCell) return false;
   selectionController?.selectBar(barCell.dataset.barId || '', {
     extend: Boolean(event?.shiftKey)

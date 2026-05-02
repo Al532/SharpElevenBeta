@@ -11,7 +11,7 @@ type PatternAnalysisResult = {
   errorMessage?: string | null;
 };
 
-type ValidateDrillCustomPatternOptions = {
+type ValidatePracticePatternOptions = {
   isCustomPatternSelected?: () => boolean;
   getCustomPatternValue?: () => string;
   normalizePatternString?: (value: string) => string;
@@ -34,7 +34,7 @@ export function validatePracticeCustomPattern({
   normalizePatternString = (value) => value,
   analyzePattern = () => ({}),
   patternErrorElement
-}: ValidateDrillCustomPatternOptions = {}) {
+}: ValidatePracticePatternOptions = {}) {
   if (!isCustomPatternSelected()) {
     patternErrorElement?.classList?.add('hidden');
     return true;

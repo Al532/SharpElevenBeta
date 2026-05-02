@@ -11,7 +11,7 @@ type LoadPracticePatternHelpOptions = {
 };
 
 /**
- * Loads and renders the progression syntax help panel for the drill UI.
+ * Loads and renders the progression syntax help panel for the trainer UI.
  *
  * @param {object} [options]
  * @param {PracticePatternHelpDom} [options.dom]

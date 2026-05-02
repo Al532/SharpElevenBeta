@@ -14,8 +14,8 @@ import { createPublishedEmbeddedPlaybackAssemblyProvider } from '../../core/play
 import {
   createEmbeddedPatternAdapter,
   createEmbeddedPlaybackSettingsAdapter
-} from './drill-embedded-session.js';
-import { bootstrapEmbeddedPlaybackBridge } from './drill-embedded-bootstrap.js';
+} from './practice-playback-embedded-session.js';
+import { bootstrapEmbeddedPlaybackBridge } from './practice-playback-embedded-bootstrap.js';
 
 export function normalizeEmbeddedVolume(value: unknown): string | null {
   const parsed = Number(value);

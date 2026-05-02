@@ -44,6 +44,7 @@ type CreateChartPlaybackPlanFromDocumentOptions = {
   stopAtFine?: boolean,
   chordEnrichmentMode?: string,
   repeatCount?: number,
+  tempo?: number | string | null,
   deferCodaJumpsUntilCue?: boolean,
   endingStyleThresholds?: {
     onbeatLongMaxBpm?: number | null,
@@ -377,7 +378,7 @@ function findLastTonicEndingTarget(entries, chartDocument) {
 function applyPlaybackEndingCue(entries, chartDocument, options) {
   if (!Array.isArray(entries) || entries.length === 0) return entries;
 
-  const tempo = Number(chartDocument?.metadata?.tempo || 120);
+  const tempo = options.tempo ?? chartDocument?.metadata?.tempo ?? 120;
   const fermataIndex = entries.findIndex((entry) => (entry?.flags || []).includes('fermata'));
   const fineIndex = entries.findIndex((entry) => (entry?.flags || []).includes('fine'));
   const defaultTargetIndex = entries.length - 1;
@@ -605,6 +606,17 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
 
       if (shouldStopAtFine) break;
 
+      if (
+        (bar.flags.includes('repeat_end_barline') || bar.flags.includes('section_end_barline'))
+        && repeatContext
+        && repeatContext.endIndex === index
+        && repeatContext.pass < repeatContext.maxPass
+      ) {
+        repeatContext.pass += 1;
+        index = repeatContext.startIndex;
+        continue;
+      }
+
       if (jumpState?.jumpToCoda && navigationTargets.codaJumpIndex === index) {
         if (shouldDeferCodaJumpsUntilCue) {
           codaGateTriggerEntryIndex = entries.length - 1;
@@ -652,11 +664,6 @@ export function createChartPlaybackPlanFromDocument(chartDocument, options: Crea
       }
 
       if ((bar.flags.includes('repeat_end_barline') || bar.flags.includes('section_end_barline')) && repeatContext && repeatContext.endIndex === index) {
-        if (repeatContext.pass < repeatContext.maxPass) {
-          repeatContext.pass += 1;
-          index = repeatContext.startIndex;
-          continue;
-        }
         repeatContext = null;
       }
 

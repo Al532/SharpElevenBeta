@@ -442,7 +442,7 @@ function formatDirectiveLabel(directive) {
     case 'fade_out':
       return directive.text || 'Fade out';
     case 'repeat_hint':
-      return `Repeat x${directive.times || 2}`;
+      return `${directive.times || 2}x`;
     case 'fine':
       return directive.qualifier ? `Fine (${directive.qualifier})` : 'Fine';
     default:
@@ -457,6 +457,9 @@ function formatDirectiveLabel(directive) {
 function getBarFootPills(bar) {
   const pills = [];
   const directives = Array.isArray(bar.directives) ? bar.directives : [];
+  const textAnnotationLabels = new Set(
+    (bar.textAnnotations || []).map((annotation) => String(annotation?.text || '').trim()).filter(Boolean)
+  );
   const directiveTypes = directives.map((directive) => directive?.type).filter(Boolean);
   const hasDirectiveType = (...types) => directiveTypes.some((type) => types.includes(type));
   const hasFineDirective = hasDirectiveType('fine', 'dc_al_fine', 'ds_al_fine');
@@ -469,6 +472,7 @@ function getBarFootPills(bar) {
   if (directives.length) {
     pills.push(...directives
       .map((directive) => ({ text: formatDirectiveLabel(directive), kind: 'text' }))
+      .filter((pill) => !textAnnotationLabels.has(pill.text))
       .filter((pill) => Boolean(pill.text)));
   }
   if (bar.comments?.length && !bar.textAnnotations?.length) {

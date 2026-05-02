@@ -36,20 +36,22 @@ function isChartMenuSurfaceTarget(target: EventTarget | null): boolean {
   const element = getTargetElement(target);
   if (!(element instanceof Element)) return false;
   return Boolean(element.closest(
-    '.chart-top-overlay, .chart-bottom-overlay, .chart-popover, .chart-bottom-popover, .chart-performance-menu, .chart-selection-menu'
+    '.chart-top-overlay, .chart-bottom-overlay, .chart-popover, .chart-bottom-popover, .chart-performance-menu, .chart-performance-cue-bar, .chart-selection-menu'
   ));
 }
 
 function getBarCellFromTarget(target: EventTarget | null): HTMLElement | null {
   const element = getTargetElement(target);
-  if (!(element instanceof HTMLElement)) return null;
-  return element.closest('.chart-bar-cell[data-bar-id]');
+  if (!(element instanceof Element)) return null;
+  const barCell = element.closest('.chart-bar-cell[data-bar-id]');
+  return barCell instanceof HTMLElement ? barCell : null;
 }
 
 function getBarCellFromPoint(x: number, y: number): HTMLElement | null {
   const element = document.elementFromPoint(x, y);
-  if (!(element instanceof HTMLElement)) return null;
-  return element.closest('.chart-bar-cell[data-bar-id]');
+  if (!(element instanceof Element)) return null;
+  const barCell = element.closest('.chart-bar-cell[data-bar-id]');
+  return barCell instanceof HTMLElement ? barCell : null;
 }
 
 function isChartTapTarget(target: EventTarget | null): boolean {
@@ -77,6 +79,7 @@ export function createChartGestureController({
   selectionController,
   renderSelectionState,
   hasActiveSelection,
+  canModifySelection,
   canClearSelection,
   clearSelection,
   openOverlay,
@@ -88,6 +91,7 @@ export function createChartGestureController({
   selectionController?: ChartSelectionController;
   renderSelectionState?: () => void;
   hasActiveSelection?: () => boolean;
+  canModifySelection?: () => boolean;
   canClearSelection?: () => boolean;
   clearSelection?: () => void;
   openOverlay?: () => void;
@@ -105,8 +109,10 @@ export function createChartGestureController({
     mode: 'idle' | 'pending' | 'swiping' | 'selecting';
     moved: boolean;
     longPressTimer: number | null;
+    touchLongPressTimer: number | null;
     suppressClickUntil: number;
     suppressTapUntil: number;
+    suppressTouchTapUntil: number;
     touchStartX: number;
     touchStartY: number;
     touchMoved: boolean;
@@ -122,8 +128,10 @@ export function createChartGestureController({
     mode: 'idle',
     moved: false,
     longPressTimer: null,
+    touchLongPressTimer: null,
     suppressClickUntil: 0,
     suppressTapUntil: 0,
+    suppressTouchTapUntil: 0,
     touchStartX: 0,
     touchStartY: 0,
     touchMoved: false,
@@ -137,6 +145,12 @@ export function createChartGestureController({
     gesture.longPressTimer = null;
   }
 
+  function clearTouchLongPressTimer() {
+    if (gesture.touchLongPressTimer === null) return;
+    window.clearTimeout(gesture.touchLongPressTimer);
+    gesture.touchLongPressTimer = null;
+  }
+
   function releasePointerCapture() {
     if (!sheetGrid || gesture.pointerId === null) return;
     if (sheetGrid.hasPointerCapture?.(gesture.pointerId)) {
@@ -146,6 +160,7 @@ export function createChartGestureController({
 
   function resetGesture() {
     clearLongPressTimer();
+    clearTouchLongPressTimer();
     releasePointerCapture();
     gesture.pointerId = null;
     gesture.pointerType = '';
@@ -174,8 +189,25 @@ export function createChartGestureController({
     gesture.suppressTapUntil = Date.now() + durationMs;
   }
 
+  function suppressTouchTap(durationMs = 500) {
+    gesture.suppressTouchTapUntil = Date.now() + durationMs;
+  }
+
   function shouldClearSelectionOnTap(): boolean {
     return Boolean(hasActiveSelection?.() && canClearSelection?.() !== false);
+  }
+
+  function shouldModifySelection(): boolean {
+    return canModifySelection?.() !== false;
+  }
+
+  function blockLongPressSelection() {
+    gesture.mode = 'idle';
+    gesture.moved = true;
+    gesture.touchMoved = true;
+    suppressNextClick();
+    suppressTapFallback();
+    suppressTouchTap();
   }
 
   function closePopoversBeforeOverlay(): boolean {
@@ -184,7 +216,7 @@ export function createChartGestureController({
 
   function startSelection(barId: string): boolean {
     if (!barId) return false;
-    if (hasActiveSelection?.() && canClearSelection?.() === false) return false;
+    if (!shouldModifySelection()) return false;
     selectionController?.selectBar(barId);
     gesture.mode = 'selecting';
     gesture.lastSelectedBarId = barId;
@@ -196,7 +228,7 @@ export function createChartGestureController({
 
   function extendSelectionAtPoint(clientX: number, clientY: number) {
     if (gesture.mode !== 'selecting') return;
-    if (hasActiveSelection?.() && canClearSelection?.() === false) return;
+    if (!shouldModifySelection()) return;
     const barCell = getBarCellFromPoint(clientX, clientY);
     const barId = barCell?.dataset.barId || '';
     if (!barId || barId === gesture.lastSelectedBarId) return;
@@ -231,7 +263,13 @@ export function createChartGestureController({
       gesture.longPressTimer = window.setTimeout(() => {
         gesture.longPressTimer = null;
         if (gesture.mode !== 'pending') return;
-        startSelection(gesture.startBarId);
+        if (!gesture.startBarId || !shouldModifySelection()) {
+          blockLongPressSelection();
+          return;
+        }
+        if (!startSelection(gesture.startBarId)) {
+          blockLongPressSelection();
+        }
       }, LONG_PRESS_MS);
     });
 
@@ -352,6 +390,7 @@ export function createChartGestureController({
     }, true);
 
     document.addEventListener('touchstart', (event) => {
+      clearTouchLongPressTimer();
       const startedInOverlay = isOverlayOpenTarget(event.target) && !isInteractiveControlTarget(event.target) && !isChartMenuSurfaceTarget(event.target);
       gesture.touchStartedInChart = isChartTapTarget(event.target) || startedInOverlay;
       gesture.touchStartedInOverlay = startedInOverlay;
@@ -361,6 +400,15 @@ export function createChartGestureController({
       gesture.touchStartX = touch.clientX;
       gesture.touchStartY = touch.clientY;
       gesture.touchMoved = false;
+      if (!isEditableTarget(event.target) && !isChartMenuSurfaceTarget(event.target)) {
+        gesture.touchLongPressTimer = window.setTimeout(() => {
+          gesture.touchLongPressTimer = null;
+          gesture.touchMoved = true;
+          suppressNextClick();
+          suppressTapFallback();
+          suppressTouchTap();
+        }, LONG_PRESS_MS);
+      }
     }, { passive: true, capture: true });
 
     document.addEventListener('touchmove', (event) => {
@@ -373,6 +421,7 @@ export function createChartGestureController({
       const absY = Math.abs(deltaY);
       if (Math.max(absX, absY) > TAP_TRIGGER_DISTANCE_PX) {
         gesture.touchMoved = true;
+        clearTouchLongPressTimer();
       }
       if (gesture.touchStartedInOverlay && absX >= SWIPE_LOCK_DISTANCE_PX && absX > absY * SWIPE_DIRECTION_RATIO) {
         event.preventDefault();
@@ -380,8 +429,10 @@ export function createChartGestureController({
     }, { passive: false, capture: true });
 
     document.addEventListener('touchend', (event) => {
+      clearTouchLongPressTimer();
       if (Date.now() < gesture.suppressClickUntil && !gesture.touchStartedInOverlay) return;
       if (Date.now() < gesture.suppressTapUntil) return;
+      if (Date.now() < gesture.suppressTouchTapUntil) return;
       if (gesture.mode !== 'idle' && gesture.mode !== 'pending') return;
       if (!gesture.touchStartedInChart) return;
       const touch = getPrimaryTouch(event);
@@ -429,6 +480,13 @@ export function createChartGestureController({
       }
       suppressNextClick();
       gesture.touchStartedInChart = false;
+    }, true);
+
+    document.addEventListener('touchcancel', () => {
+      clearTouchLongPressTimer();
+      gesture.touchStartedInChart = false;
+      gesture.touchStartedInOverlay = false;
+      gesture.touchMoved = false;
     }, true);
   }
 

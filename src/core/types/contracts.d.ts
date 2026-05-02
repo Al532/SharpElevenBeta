@@ -204,6 +204,7 @@ export type ChartPerformanceRepeatMode = 'infinite' | 'finite';
 export type ChartPerformancePanelMode = 'infinite' | 'once' | 'performance';
 export type ChartPerformanceCueType =
   | 'arm_coda'
+  | 'last_chorus'
   | 'exit_repeat'
   | 'modulate'
   | 'half_time'

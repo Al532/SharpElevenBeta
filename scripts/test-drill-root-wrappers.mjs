@@ -651,6 +651,119 @@ async function testPlaybackStopCancelsPendingStartup() {
   }
 }
 
+async function testPlaybackStartOffsetSurvivesStartupPreload() {
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let intervalId = 0;
+  const activeIntervals = new Set();
+  const audioContext = {
+    currentTime: 20
+  };
+  const state = {
+    activeNoteGain: null,
+    audioCtx: audioContext,
+    currentBeat: 0,
+    currentChordIdx: 0,
+    lastPlayedChordIdx: -1,
+    displayedCurrentBeat: 0,
+    displayedCurrentChordIdx: -1,
+    displayedIsIntro: false,
+    currentKeyRepetition: 0,
+    firstPlayStartTracked: false,
+    playStopSuggestionCount: 0,
+    isIntro: false,
+    isPaused: false,
+    isPlaying: false,
+    keyPool: [],
+    loopVoicingTemplate: null,
+    nearTermSamplePreloadPromise: null,
+    nextBeatTime: 0,
+    nextKeyValue: null,
+    paddedChords: new Array(8).fill(null),
+    schedulerTimer: null,
+    startupSamplePreloadInProgress: false
+  };
+
+  globalThis.setInterval = (callback) => {
+    const id = ++intervalId;
+    activeIntervals.add({ id, callback });
+    return id;
+  };
+  globalThis.clearInterval = (id) => {
+    for (const entry of [...activeIntervals]) {
+      if (entry.id === id) activeIntervals.delete(entry);
+    }
+  };
+
+  try {
+    const transport = createPlaybackTransport({
+      dom: {
+        walkingBass: { checked: false },
+        startStop: {
+          textContent: 'Start',
+          classList: { add: () => {}, remove: () => {} }
+        },
+        pause: {
+          textContent: 'Pause',
+          classList: { add: () => {}, remove: () => {} }
+        },
+        keyDisplay: { textContent: '', innerHTML: '' },
+        chordDisplay: { textContent: '', innerHTML: '' }
+      },
+      state,
+      constants: {
+        NOTE_FADEOUT: 0.1,
+        SCHEDULE_INTERVAL: 25
+      },
+      helpers: {
+        applyDisplaySideLayout: () => {},
+        clearBeatDots: () => {},
+        clearScheduledDisplays: () => {},
+        ensureWalkingBassGenerator: async () => null,
+        ensureNearTermSamplePreload: () => {},
+        ensureSessionStarted: () => {},
+        fitHarmonyDisplay: () => {},
+        getPlaybackStartChordIndex: () => 5,
+        getPlaybackAnalyticsProps: () => ({}),
+        getProgressionAnalyticsProps: () => ({}),
+        hideNextCol: () => {},
+        initAudio: () => {},
+        resumeAudioContext: () => audioContext,
+        suspendAudioContext: () => {},
+        preloadStartupSamples: async () => {
+          state.currentChordIdx = 0;
+          state.lastPlayedChordIdx = -1;
+        },
+        prepareNextProgression: () => {},
+        registerSessionAction: () => {},
+        scheduleBeat: () => {},
+        setDisplayPlaceholderMessage: () => {},
+        setDisplayPlaceholderVisible: () => {},
+        stopActiveComping: () => {},
+        stopScheduledAudio: () => {},
+        trackEvent: () => {},
+        trackProgressionEvent: () => {}
+      }
+    });
+
+    await transport.start();
+    assert.equal(
+      state.currentChordIdx,
+      5,
+      'Playback start reapplies the requested start offset after startup preload work.'
+    );
+    assert.equal(
+      state.lastPlayedChordIdx,
+      4,
+      'Playback start keeps last-played state aligned with the requested start offset.'
+    );
+    transport.stop();
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+}
+
 function testSharedPlaybackRootContextBuildsSubcontexts() {
   const options = {
     host: { getTempo: () => 120 },
@@ -3547,6 +3660,7 @@ await testPianoMidiRuntimeRootAssemblyPreservesMidiWorkflow();
 testWalkingBassRootWrapper();
 testPlaybackRuntimeHostBindingsPreserveDom();
 await testPlaybackStopCancelsPendingStartup();
+await testPlaybackStartOffsetSurvivesStartupPreload();
 testSharedPlaybackRootContextBuildsSubcontexts();
 testSharedPlaybackRootSubcontextsPreserveGlue();
 testDisplayRuntimeRootAssemblyPreservesHelpers();

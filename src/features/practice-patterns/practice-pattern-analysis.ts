@@ -574,7 +574,7 @@ export function createPracticePatternAnalysis({
     return measures;
   }
 
-  function tokenizeDrillSegment(segment: string): string[] {
+  function tokenizePracticePatternSegment(segment: string): string[] {
     return String(segment || '')
       .split(/[\s-]+/)
       .filter(Boolean)
@@ -613,11 +613,11 @@ export function createPracticePatternAnalysis({
     };
   }
 
-  function tokenizeDrillMeasureItems(segment: string): string[][] {
+  function tokenizePracticePatternMeasureItems(segment: string): string[][] {
     const normalized = String(segment || '')
       .replace(/([()])/g, ' $1 ')
       .trim();
-    const tokens = tokenizeDrillSegment(normalized);
+    const tokens = tokenizePracticePatternSegment(normalized);
     const items: string[][] = [];
     let currentGroup: string[] | null = null;
 
@@ -687,7 +687,7 @@ export function createPracticePatternAnalysis({
 
     const timedBase = extractLeadingTimeSignature(base.body);
     const usesBarLines = timedBase.body.includes('|') || /^time\s*:/i.test(base.body);
-    const tokens = timedBase.body ? tokenizeDrillSegment(timedBase.body.replace(/\|+/g, ' ')) : [];
+    const tokens = timedBase.body ? tokenizePracticePatternSegment(timedBase.body.replace(/\|+/g, ' ')) : [];
     const chords: PracticePatternToken[] = [];
     const invalidTokens: string[] = [];
 
@@ -701,7 +701,7 @@ export function createPracticePatternAnalysis({
       measures.forEach((measure, index) => {
         const timedMeasure = extractMeasureTimeSignature(measure, activeTimeSignature);
         activeTimeSignature = timedMeasure.timeSignature;
-        const measureItems = tokenizeDrillMeasureItems(timedMeasure.body);
+        const measureItems = tokenizePracticePatternMeasureItems(timedMeasure.body);
         const parsedItems: PracticePatternToken[][] = [];
 
         for (const itemTokens of measureItems) {

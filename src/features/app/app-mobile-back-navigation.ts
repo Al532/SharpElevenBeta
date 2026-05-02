@@ -5,6 +5,26 @@ type MobileBackNavigationControllerOptions = {
   handleBack?: () => boolean | void;
 };
 
+type NavigateBackOptions = {
+  windowTarget?: Window;
+  historyTarget?: History;
+  fallbackHref?: string;
+};
+
+export function navigateBackWithFallback({
+  windowTarget = globalThis.window,
+  historyTarget = globalThis.history,
+  fallbackHref = ''
+}: NavigateBackOptions = {}) {
+  if (historyTarget?.length > 1) {
+    historyTarget.back();
+    return;
+  }
+  if (fallbackHref) {
+    windowTarget.location.assign(fallbackHref);
+  }
+}
+
 /**
  * Uses a synthetic history entry while dismissible UI is open so the browser
  * or Android back action closes that UI first.

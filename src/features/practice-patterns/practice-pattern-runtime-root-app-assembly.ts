@@ -60,7 +60,7 @@ type PracticePatternRuntimeHelpers = {
 };
 
 /**
- * Creates the app-level drill pattern runtime from live root-app bindings.
+ * Creates the app-level practice pattern runtime from live root-app bindings.
  * This keeps one-chord cycling, chords-per-bar orchestration, and loop
  * trimming helpers out of `app.js` while preserving the current behavior.
  *

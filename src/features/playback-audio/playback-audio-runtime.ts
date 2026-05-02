@@ -1,17 +1,17 @@
 
 type PlaybackSampleBufferStore = Record<string, Record<string | number, AudioBuffer | null | undefined>>;
 type PlaybackSampleLoadPromiseStore = Record<string, Map<string | number, Promise<any>>>;
-type DrillMixerSliderLike = { value: string | number };
-type DrillMixerLabelLike = { value?: string; textContent?: string | null };
-type DrillMixerDom = {
-  masterVolume?: DrillMixerSliderLike | null;
-  masterVolumeValue?: DrillMixerLabelLike | null;
-  bassVolume?: DrillMixerSliderLike | null;
-  bassVolumeValue?: DrillMixerLabelLike | null;
-  stringsVolume?: DrillMixerSliderLike | null;
-  stringsVolumeValue?: DrillMixerLabelLike | null;
-  drumsVolume?: DrillMixerSliderLike | null;
-  drumsVolumeValue?: DrillMixerLabelLike | null;
+type PlaybackMixerSliderLike = { value: string | number };
+type PlaybackMixerLabelLike = { value?: string; textContent?: string | null };
+type PlaybackMixerDom = {
+  masterVolume?: PlaybackMixerSliderLike | null;
+  masterVolumeValue?: PlaybackMixerLabelLike | null;
+  bassVolume?: PlaybackMixerSliderLike | null;
+  bassVolumeValue?: PlaybackMixerLabelLike | null;
+  stringsVolume?: PlaybackMixerSliderLike | null;
+  stringsVolumeValue?: PlaybackMixerLabelLike | null;
+  drumsVolume?: PlaybackMixerSliderLike | null;
+  drumsVolumeValue?: PlaybackMixerLabelLike | null;
 };
 
 type PlaybackAudioRuntimeOptions = {
@@ -62,7 +62,7 @@ export function createPlaybackAudioRuntime({
     sliderValueToGain,
     mixerChannelCalibration
   }: {
-    dom?: DrillMixerDom;
+    dom?: PlaybackMixerDom;
     mixerNodes?: Record<string, GainNode> | null;
     audioCtx?: AudioContext | null;
     sliderValueToGain: (slider?: any) => number;

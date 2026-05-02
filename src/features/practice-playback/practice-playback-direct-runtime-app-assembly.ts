@@ -6,9 +6,9 @@ import type {
   PlaybackSettings
 } from '../../core/types/contracts';
 
-import { createDirectDrillRuntimeAppContextOptions } from './drill-direct-runtime-app-context.js';
+import { createDirectPracticePlaybackRuntimeAppContextOptions } from './practice-playback-direct-runtime-app-context.js';
 
-type DrillDirectPlaybackRuntime = {
+type PracticePlaybackDirectRuntime = {
   ensureWalkingBassGenerator?: DirectPlaybackControllerOptions['ensureWalkingBassGenerator'];
   getAudioContext?: DirectPlaybackControllerOptions['getAudioContext'];
   noteFadeout?: DirectPlaybackControllerOptions['noteFadeout'];
@@ -21,17 +21,17 @@ type DrillDirectPlaybackRuntime = {
   validateCustomPattern?: DirectPlaybackControllerOptions['validateCustomPattern'];
 };
 
-type DrillDirectPlaybackState = {
+type PracticePlaybackDirectPlaybackState = {
   getIsPlaying?: DirectPlaybackControllerOptions['isPlaying'];
 };
 
-type DrillDirectTransportActions = {
+type PracticePlaybackDirectTransportActions = {
   startPlayback?: () => Promise<void> | void;
   stopPlayback?: () => void;
   togglePausePlayback?: () => void;
 };
 
-export function createDrillDirectRuntimeAppAssembly({
+export function createPracticePlaybackDirectRuntimeAppAssembly({
   embedded = {},
   playbackRuntime = {},
   playbackState = {},
@@ -42,11 +42,11 @@ export function createDrillDirectRuntimeAppAssembly({
     applyEmbeddedPlaybackSettings?: (settings: PlaybackSettings) => unknown;
     getEmbeddedPlaybackState?: () => Partial<PlaybackRuntimeState> | null | undefined;
   };
-  playbackRuntime?: DrillDirectPlaybackRuntime;
-  playbackState?: DrillDirectPlaybackState;
-  transportActions?: DrillDirectTransportActions;
+  playbackRuntime?: PracticePlaybackDirectRuntime;
+  playbackState?: PracticePlaybackDirectPlaybackState;
+  transportActions?: PracticePlaybackDirectTransportActions;
 } = {}): DirectPlaybackControllerOptions {
-  return createDirectDrillRuntimeAppContextOptions({
+  return createDirectPracticePlaybackRuntimeAppContextOptions({
     applyEmbeddedPattern: embedded.applyEmbeddedPattern,
     applyEmbeddedPlaybackSettings: embedded.applyEmbeddedPlaybackSettings,
     getEmbeddedPlaybackState: embedded.getEmbeddedPlaybackState,

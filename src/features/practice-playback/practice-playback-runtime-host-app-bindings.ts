@@ -12,7 +12,7 @@ type PracticePlaybackRuntimeHostAppBindingsOptions = {
 };
 
 /**
- * Groups the app-level drill runtime bindings passed into the shared playback
+ * Groups the app-level practice playback runtime bindings passed into the shared playback
  * runtime host assembly.
  *
  * @param {object} [options]
