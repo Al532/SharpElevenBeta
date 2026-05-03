@@ -12,6 +12,7 @@ import {
   mergeChartSourceRefs,
   normalizeChartLibraryDocument
 } from './chart-library.js';
+import { resetTransientChartPerformanceCueState } from '../../../chart/chart-performance.js';
 
 const CHART_LIBRARY_DB_NAME = 'jpt-chart-library-v1';
 const CHART_LIBRARY_STORE_NAME = 'libraries';
@@ -197,7 +198,11 @@ function shouldIncludeTemporaryChartFixtures({
 async function loadChartTestFixtureModule(): Promise<ChartTestFixtureModule | null> {
   const env = import.meta.env as Record<string, unknown> | undefined;
   if (env?.DEV === true || env?.VITE_INCLUDE_CHART_TEST_FIXTURES === 'true') {
-    return import('../../../chart/ireal-behavior-test-fixtures.js') as Promise<ChartTestFixtureModule>;
+    try {
+      return await import('../../../chart/ireal-behavior-test-fixtures.js') as ChartTestFixtureModule;
+    } catch (_error) {
+      return null;
+    }
   }
   return null;
 }
@@ -301,7 +306,9 @@ function normalizeChartUserSettings(value: unknown, fallbackChartId = ''): Chart
     ...(transposition !== null ? { transposition } : {}),
     ...(playbackSettings ? { playbackSettings } : {}),
     ...(settings.chartSimplePerformance ? { chartSimplePerformance: settings.chartSimplePerformance } : {}),
-    ...(settings.chartPerformance ? { chartPerformance: settings.chartPerformance } : {}),
+    ...(settings.chartPerformance ? {
+      chartPerformance: resetTransientChartPerformanceCueState(settings.chartPerformance)
+    } : {}),
     updatedAt: String(settings.updatedAt || new Date().toISOString())
   };
 }

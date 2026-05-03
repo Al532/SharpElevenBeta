@@ -30,6 +30,7 @@
         </label>
         <div class="chart-library-count" id="chart-library-count">Loading library...</div>
         <div class="chart-top-actions">
+          <button type="button" id="chart-playback-feel-toggle" class="chart-action-button chart-action-button-secondary chart-playback-feel-toggle" aria-pressed="false">Feel: Four</button>
           <div class="chart-popover-wrap" id="chart-metadata-wrap">
             <button type="button" id="chart-metadata-button" class="chart-icon-button chart-info-button" aria-label="Chart information" aria-haspopup="menu" aria-expanded="false"></button>
             <div class="chart-popover chart-metadata-popover" id="chart-metadata-popover" hidden></div>
@@ -133,13 +134,36 @@
                 <button id="chart-performance-action-button" type="button" class="chart-performance-action-button" aria-haspopup="menu" aria-expanded="false">Add 'on-cue' triggers</button>
                 <div id="chart-performance-menu" class="chart-performance-menu" hidden>
                   <span class="chart-performance-menu-title">Add cue</span>
-                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="arm_coda">Last chorus</button>
-                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="exit_repeat">Exit vamp</button>
-                  <label class="chart-performance-modulate-field">
-                    <span>Modulate</span>
-                    <input id="chart-performance-modulate-input" type="number" min="-12" max="12" step="1" value="1" aria-label="Modulation interval in semitones">
-                  </label>
-                  <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="modulate">Add modulation</button>
+                  <p class="chart-performance-menu-help">Cues let you trigger an action during the playback.</p>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="arm_coda">
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="arm_coda">Last chorus</button>
+                    <p class="chart-performance-cue-description">Triggers the ending, or the coda, at the end of the current chorus.</p>
+                  </div>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="exit_repeat">
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="exit_repeat">Exit vamp</button>
+                    <p class="chart-performance-cue-description">Leaves the vamp at the next repeat boundary and continues with the rest of the form.</p>
+                  </div>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="playback_feel_toggle">
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="playback_feel_toggle">Two-feel / four-feel</button>
+                    <div class="chart-performance-feel-boundary-field">
+                      <span>Trigger</span>
+                      <div class="chart-performance-feel-boundary-toggle" role="radiogroup" aria-label="Two/four-feel trigger boundary">
+                        <span class="chart-performance-feel-boundary-thumb" aria-hidden="true"></span>
+                        <button type="button" class="is-selected" data-chart-performance-feel-boundary="next_bar" role="radio" aria-checked="true">next bar</button>
+                        <button type="button" data-chart-performance-feel-boundary="next_section" role="radio" aria-checked="false">next section</button>
+                      </div>
+                      <input id="chart-performance-feel-boundary" type="hidden" value="next_bar">
+                    </div>
+                    <p class="chart-performance-cue-description">Toggles the two/four-feel at the selected boundary.</p>
+                  </div>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="modulate" hidden>
+                    <label class="chart-performance-modulate-field" hidden>
+                      <span>Modulate</span>
+                      <input id="chart-performance-modulate-input" type="number" min="-12" max="12" step="1" value="1" aria-label="Modulation interval in semitones">
+                    </label>
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="modulate" hidden>Add modulation</button>
+                    <p class="chart-performance-cue-description">Changes key by the selected interval when playback reaches the next section.</p>
+                  </div>
                 </div>
               </div>
             </div>

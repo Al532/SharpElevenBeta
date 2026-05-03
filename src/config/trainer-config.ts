@@ -498,7 +498,7 @@ export const AUDIO_MIXER_CONFIG = Object.freeze({
   defaultMasterVolumePercent: '50',
   mixerChannelCalibration: Object.freeze({
     master: 2,
-    bass: 0.74,
+    bass: 0.37,
     strings: 1,
     drums: 0.87
   }),

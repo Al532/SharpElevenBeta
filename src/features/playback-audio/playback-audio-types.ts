@@ -75,7 +75,7 @@ export type PlaybackAudioPlaybackLike = {
     beatIndex: number,
     spb: number,
     measureInfo?: { beatCount?: number; startBeat?: number } | null,
-    options?: { endingCue?: Record<string, unknown> | null; beatsPerBar?: number; endingAccentMultiplier?: number; endingFinalAccentMultiplier?: number; endingCrescendoLeadMeasures?: number }
+    options?: { endingCue?: Record<string, unknown> | null; beatsPerBar?: number; offbeatProbability?: number; endingAccentMultiplier?: number; endingFinalAccentMultiplier?: number; endingCrescendoLeadMeasures?: number }
   ) => void;
 };
 

@@ -33,6 +33,9 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
     getFinitePlayback,
     isLastChorusForced,
     getPlaybackEndingCue,
+    getPlaybackFeelMode,
+    applyPendingPlaybackFeelToggleForCurrentPosition,
+    applyPendingPlaybackFeelToggleForNextProgression,
     resolvePerformanceCueJump,
     resolvePerformanceCueStop,
     getSecondsPerBeat,
@@ -222,6 +225,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
 
   function prepareNextProgression() {
     scheduledEndingStopTime = null;
+    applyPendingPlaybackFeelToggleForNextProgression?.();
     const carriedBassTargetMidi = state.pendingBassTargetMidi ?? null;
     const previousKey = state.currentKey;
     const currentPlanAnticipatesNextStart = Boolean(state.currentCompingPlan?.anticipatesNextStart);
@@ -383,6 +387,7 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         });
         return;
       }
+      applyPendingPlaybackFeelToggleForCurrentPosition?.(state.currentChordIdx);
       const measureInfo = getMeasureInfo(state.currentChordIdx);
       const beatsPerMeasure = Math.max(1, Number(measureInfo?.beatCount || 4));
       const chord = state.paddedChords[state.currentChordIdx];
@@ -430,9 +435,19 @@ export function createPlaybackScheduler({ dom, state, constants, helpers }) {
         ? Math.max(windowStartBeats, endingAttackBeat)
         : windowEndBeats;
 
+      const playbackFeelMode = getPlaybackFeelMode?.();
+      const drumOffbeatProbability = playbackFeelMode === 'two' ? 0.3 : 1;
+      if (playbackFeelMode === 'two') {
+        console.info('[playback-feel] scheduling two-feel drums', {
+          beat: state.currentBeat,
+          chordIndex: state.currentChordIdx,
+          offbeatProbability: drumOffbeatProbability
+        });
+      }
       scheduleDrumsForBeat(state.nextBeatTime, state.currentBeat, spb, measureInfo, {
         endingCue,
         beatsPerBar: beatsPerMeasure,
+        offbeatProbability: drumOffbeatProbability,
         endingAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortAccentMultiplier,
         endingFinalAccentMultiplier: DEFAULT_PLAYBACK_ENDING_CONFIG.shortFinalAccentMultiplier,
         endingCrescendoLeadMeasures: DEFAULT_PLAYBACK_ENDING_CONFIG.shortCrescendoLeadMeasures

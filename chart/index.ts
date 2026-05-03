@@ -13,13 +13,17 @@ export {
   createChartPerformanceMap,
   createDefaultChartPerformance,
   getChartSimplePerformanceLabel,
+  getFirstSessionPlaybackBarIndex,
   markExecutedChartPerformanceCuesConsumed,
   normalizeChartPerformance,
   normalizeChartPerformancePanelMode,
   normalizeChartPerformanceRepeatMode,
   normalizeChartSimplePerformanceState,
   prepareArmedChartPerformanceCuesForPlayback,
+  resetTransientChartPerformanceCueState,
+  resolveChartPerformanceCueTargetBarIndexForSession,
   resolveChartPerformanceRepeatState,
+  restoreAppliedChartPerformanceCues,
   restoreConsumedChartPerformanceCues
 } from './chart-performance.js';
 export { createChartDocumentFromIReal, createChartDocumentsFromIRealText } from './chart-import-ireal.js';

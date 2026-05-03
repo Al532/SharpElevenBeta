@@ -336,6 +336,7 @@ export function createPlaybackAudioPlaybackRuntime({
     options: {
       endingCue?: Record<string, unknown> | null;
       beatsPerBar?: number;
+      offbeatProbability?: number;
       endingAccentMultiplier?: number;
       endingFinalAccentMultiplier?: number;
       endingCrescendoLeadMeasures?: number;
@@ -363,6 +364,9 @@ export function createPlaybackAudioPlaybackRuntime({
       const rideSkipGain = [0, 0.2, 0, 0.23][localBeat] || 0;
       const drumSwingRatio = typeof getDrumSwingRatio === 'function' ? getDrumSwingRatio() : getSwingRatio();
       const swingOffsetSeconds = spb * getSwingOffbeatPositionBeats(drumSwingRatio);
+      const offbeatProbability = Number.isFinite(options.offbeatProbability)
+        ? Math.max(0, Math.min(1, Number(options.offbeatProbability)))
+        : 1;
 
       const beatTimeBeats = Number.isFinite(measureInfo?.startBeat)
         ? Number(measureInfo?.startBeat) + beatIndex
@@ -376,6 +380,19 @@ export function createPlaybackAudioPlaybackRuntime({
         endingCrescendoLeadMeasures: options.endingCrescendoLeadMeasures
       });
       if (isWeakBeat) {
+        const offbeatRoll = Math.random();
+        if (offbeatProbability < 1) {
+          console.info('[playback-feel] drum offbeat roll', {
+            beatIndex,
+            offbeatProbability,
+            offbeatRoll,
+            played: offbeatRoll < offbeatProbability
+          });
+        }
+        if (offbeatRoll >= offbeatProbability) {
+          playHiHat(time, true);
+          return;
+        }
         playRide(time + swingOffsetSeconds, rideSkipGain, 0.99, {
           endingCue: options.endingCue,
           timeBeats: beatTimeBeats === null ? null : beatTimeBeats + getSwingOffbeatPositionBeats(drumSwingRatio),

@@ -6,6 +6,7 @@ import type {
   ChartPerformancePanelMode,
   ChartPerformanceRepeatMode,
   ChartSimplePerformanceState,
+  PracticeSessionSpec,
   RichChartBar
 } from '../src/core/types/contracts';
 
@@ -18,6 +19,15 @@ export const DEFAULT_CHART_SIMPLE_PERFORMANCE: ChartSimplePerformanceState = Obj
 
 const DEFAULT_PERFORMANCE_NAME = 'Performance';
 const LAST_CHORUS_CUE_TYPES = new Set(['arm_coda', 'last_chorus']);
+const PLAYBACK_FEEL_CUE_TYPES = new Set(['playback_feel_toggle', 'bass_feel_toggle']);
+const TRANSIENT_LAST_CHORUS_CUE_FIELDS = [
+  'targetBarIndex',
+  'targetOnNextProgression',
+  'armedAtBarIndex',
+  'consumedAtBarIndex',
+  'consumedAtPlaybackEntryIndex',
+  'consumedAtVampRegionId'
+] as const;
 
 function normalizeObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -110,6 +120,7 @@ export function createDefaultChartPerformance(
 function normalizeChartPerformanceCues(value: unknown): ChartPerformanceCue[] {
   if (!Array.isArray(value)) return [];
   let hasLastChorusCue = false;
+  let hasPlaybackFeelCue = false;
   return value.flatMap((rawCue) => {
     const cue = normalizeObject(rawCue) as ChartPerformanceCue;
     if (!cue.id || !cue.type) return [];
@@ -122,13 +133,53 @@ function normalizeChartPerformanceCues(value: unknown): ChartPerformanceCue[] {
         boundary: cue.boundary || 'next_coda_jump'
       }];
     }
+    if (PLAYBACK_FEEL_CUE_TYPES.has(String(cue.type))) {
+      if (hasPlaybackFeelCue) return [];
+      hasPlaybackFeelCue = true;
+    }
     return [JSON.parse(JSON.stringify(cue))];
   });
 }
 
+export function resetTransientChartPerformanceCueState(
+  performance: ChartPerformance | null | undefined
+): ChartPerformance | null {
+  if (!performance) return null;
+  let changed = false;
+  const cues = (performance.cues || []).map((cue) => {
+    if (!LAST_CHORUS_CUE_TYPES.has(String(cue.type))) return cue;
+    const nextCue = {
+      ...cue,
+      type: 'arm_coda',
+      boundary: cue.boundary || 'next_coda_jump',
+      status: 'idle'
+    };
+    TRANSIENT_LAST_CHORUS_CUE_FIELDS.forEach((field) => {
+      nextCue[field] = null;
+    });
+    if (
+      cue.type !== nextCue.type
+      || cue.boundary !== nextCue.boundary
+      || cue.status !== nextCue.status
+      || TRANSIENT_LAST_CHORUS_CUE_FIELDS.some((field) => cue[field] !== nextCue[field])
+    ) {
+      changed = true;
+      return nextCue;
+    }
+    return cue;
+  });
+  return changed
+    ? {
+        ...performance,
+        cues
+      }
+    : performance;
+}
+
 export function markExecutedChartPerformanceCuesConsumed(
   cues: ChartPerformanceCue[] = [],
-  currentBarIndex: number
+  currentBarIndex: number,
+  shouldConsumeCue: (cue: ChartPerformanceCue) => boolean = () => true
 ): { cues: ChartPerformanceCue[]; changed: boolean } {
   const playbackBarIndex = Number(currentBarIndex);
   if (!Number.isFinite(playbackBarIndex) || playbackBarIndex <= 0) {
@@ -138,6 +189,7 @@ export function markExecutedChartPerformanceCuesConsumed(
   let changed = false;
   const nextCues = cues.map((cue) => {
     if (cue.status !== 'armed') return cue;
+    if (!shouldConsumeCue(cue)) return cue;
     const targetBarIndex = Number(cue.targetBarIndex || 0);
     if (!targetBarIndex || playbackBarIndex < targetBarIndex) return cue;
     changed = true;
@@ -152,6 +204,121 @@ export function markExecutedChartPerformanceCuesConsumed(
     cues: changed ? nextCues : cues,
     changed
   };
+}
+
+function getSessionPlaybackBars(session: PracticeSessionSpec | Record<string, unknown> | null | undefined) {
+  const playback = session?.playback && typeof session.playback === 'object'
+    ? session.playback as Record<string, unknown>
+    : {};
+  return Array.isArray(playback.bars) ? playback.bars as Array<Record<string, unknown>> : [];
+}
+
+function getSessionPerformanceMap(session: PracticeSessionSpec | Record<string, unknown> | null | undefined) {
+  const playback = session?.playback && typeof session.playback === 'object'
+    ? session.playback as Record<string, unknown>
+    : {};
+  return playback.performanceMap && typeof playback.performanceMap === 'object'
+    ? playback.performanceMap as Record<string, unknown>
+    : {};
+}
+
+function getLastSessionPlaybackBarIndex(
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined,
+  fallbackLastBarIndex: number | null | undefined = null
+) {
+  const playbackBars = getSessionPlaybackBars(session);
+  const lastPlaybackBarIndex = Number(playbackBars[playbackBars.length - 1]?.index);
+  if (Number.isFinite(lastPlaybackBarIndex) && lastPlaybackBarIndex > 0) return lastPlaybackBarIndex;
+  const fallback = Number(fallbackLastBarIndex);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+function getNextCodaCueBarIndexForSession(
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined,
+  currentBarIndex: number
+) {
+  const cuePoints = getSessionPerformanceMap(session).cuePoints;
+  const codaPoint = (Array.isArray(cuePoints) ? cuePoints : [])
+    .filter((point) => point?.type === 'coda')
+    .map((point) => Number(point.barIndex))
+    .filter((barIndex) => Number.isFinite(barIndex) && barIndex >= currentBarIndex)
+    .sort((a, b) => a - b)[0];
+  return Number.isFinite(codaPoint) ? codaPoint : null;
+}
+
+function getNextRepeatBoundaryBarIndexForSession(
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined,
+  currentBarIndex: number
+) {
+  const repeatRegions = getSessionPerformanceMap(session).repeatRegions;
+  const normalizedRepeatRegions = Array.isArray(repeatRegions) ? repeatRegions : [];
+  const activeRegion = normalizedRepeatRegions.find((region) => {
+    if (region?.isVamp !== true) return false;
+    const start = Number(region.startBarIndex);
+    const end = Number(region.endBarIndex);
+    return Number.isFinite(start) && Number.isFinite(end) && currentBarIndex >= start && currentBarIndex <= end;
+  });
+  if (activeRegion) return Number(activeRegion.endBarIndex);
+  const nextRegion = normalizedRepeatRegions
+    .filter((region) => region?.isVamp === true && Number(region.endBarIndex) >= currentBarIndex)
+    .sort((a, b) => Number(a.endBarIndex) - Number(b.endBarIndex))[0];
+  return nextRegion ? Number(nextRegion.endBarIndex) : null;
+}
+
+function getNextSectionBoundaryBarIndexForSession(
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined,
+  currentBarIndex: number
+) {
+  const sectionBoundaries = getSessionPerformanceMap(session).sectionBoundaries;
+  const nextBoundary = (Array.isArray(sectionBoundaries) ? sectionBoundaries : [])
+    .map((section) => Number(section.barIndex))
+    .filter((barIndex) => Number.isFinite(barIndex) && barIndex > currentBarIndex)
+    .sort((a, b) => a - b)[0];
+  return Number.isFinite(nextBoundary) ? nextBoundary : null;
+}
+
+function getNextPlaybackBarIndexForSession(
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined,
+  currentBarIndex: number
+) {
+  const nextBarIndex = getSessionPlaybackBars(session)
+    .map((bar) => Number(bar.index))
+    .filter((barIndex) => Number.isFinite(barIndex) && barIndex > currentBarIndex)
+    .sort((a, b) => a - b)[0];
+  return Number.isFinite(nextBarIndex) ? nextBarIndex : null;
+}
+
+export function getFirstSessionPlaybackBarIndex(
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined
+) {
+  const firstPlaybackBarIndex = Number(getSessionPlaybackBars(session)[0]?.index);
+  return Number.isFinite(firstPlaybackBarIndex) && firstPlaybackBarIndex > 0 ? firstPlaybackBarIndex : 0;
+}
+
+export function resolveChartPerformanceCueTargetBarIndexForSession(
+  cue: ChartPerformanceCue,
+  session: PracticeSessionSpec | Record<string, unknown> | null | undefined,
+  currentBarIndex = getFirstSessionPlaybackBarIndex(session),
+  fallbackLastBarIndex: number | null | undefined = null
+) {
+  if (cue.boundary === 'next_coda_jump') {
+    const codaGate = getSessionPerformanceMap(session).codaGate as Record<string, unknown> | undefined;
+    if (codaGate && typeof codaGate === 'object' && codaGate.enabled === true) {
+      const triggerBarIndex = Number(codaGate.triggerBarIndex);
+      if (Number.isFinite(triggerBarIndex) && triggerBarIndex > 0) return triggerBarIndex;
+      const targetBarIndex = Number(codaGate.targetBarIndex);
+      if (Number.isFinite(targetBarIndex) && targetBarIndex > 0) return targetBarIndex;
+    }
+    return getNextCodaCueBarIndexForSession(session, currentBarIndex)
+      ?? getLastSessionPlaybackBarIndex(session, fallbackLastBarIndex);
+  }
+  if (cue.boundary === 'next_repeat_boundary') {
+    return getNextRepeatBoundaryBarIndexForSession(session, currentBarIndex);
+  }
+  if (cue.boundary === 'next_bar') {
+    return getNextPlaybackBarIndexForSession(session, currentBarIndex);
+  }
+  return getNextSectionBoundaryBarIndexForSession(session, currentBarIndex);
 }
 
 export function prepareArmedChartPerformanceCuesForPlayback(
@@ -186,6 +353,42 @@ export function prepareArmedChartPerformanceCuesForPlayback(
   };
 }
 
+export function restoreAppliedChartPerformanceCues(
+  cues: ChartPerformanceCue[] = [],
+  cueIds: Iterable<string> = []
+): { cues: ChartPerformanceCue[]; changed: boolean } {
+  const appliedCueIds = new Set(Array.from(cueIds).filter(Boolean));
+  if (appliedCueIds.size === 0) return { cues, changed: false };
+
+  let changed = false;
+  const nextCues = cues.map((cue) => {
+    if (!appliedCueIds.has(cue.id)) return cue;
+    const nextCue = {
+      ...cue,
+      status: 'idle',
+      targetBarIndex: null,
+      targetOnNextProgression: null,
+      armedAtBarIndex: null,
+      consumedAtBarIndex: null
+    };
+    if (
+      cue.status !== nextCue.status
+      || cue.targetBarIndex !== nextCue.targetBarIndex
+      || cue.armedAtBarIndex !== nextCue.armedAtBarIndex
+      || cue.consumedAtBarIndex !== nextCue.consumedAtBarIndex
+    ) {
+      changed = true;
+      return nextCue;
+    }
+    return cue;
+  });
+
+  return {
+    cues: changed ? nextCues : cues,
+    changed
+  };
+}
+
 export function restoreConsumedChartPerformanceCues(
   cues: ChartPerformanceCue[] = []
 ): { cues: ChartPerformanceCue[]; changed: boolean } {
@@ -197,6 +400,7 @@ export function restoreConsumedChartPerformanceCues(
       ...cue,
       status: 'idle',
       targetBarIndex: null,
+      targetOnNextProgression: null,
       armedAtBarIndex: null,
       consumedAtBarIndex: null
     };

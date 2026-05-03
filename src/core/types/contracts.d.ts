@@ -209,8 +209,13 @@ export type ChartPerformanceCueType =
   | 'modulate'
   | 'half_time'
   | 'double_time'
+  | 'playback_feel_toggle'
+  | 'playback_feel_set'
+  | 'bass_feel_toggle'
+  | 'bass_feel_set'
   | string;
 export type ChartPerformanceCueBoundary =
+  | 'next_bar'
   | 'next_section'
   | 'next_coda_jump'
   | 'next_repeat_boundary'

@@ -7,6 +7,7 @@ export type PracticePlaybackResourceChord = {
 export type PracticePlaybackVoicingPlan = unknown[] | null | undefined;
 export type PracticePlaybackCompingPlan = unknown;
 export type PracticePlaybackBassPlan = unknown[];
+export type PracticePlaybackFeelMode = 'four' | 'two';
 
 export type PracticePlaybackResourcesHarmonyBindings = {
   getPlayedChordQuality?: (
@@ -50,6 +51,7 @@ export type PracticePlaybackResourcesSettingsBindings = {
   getCompingStyle?: () => string;
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
+  getPlaybackFeelMode?: () => PracticePlaybackFeelMode;
   getSwingRatio?: () => number;
   getPlaybackEndingCue?: () => Record<string, unknown> | null;
 };
@@ -99,6 +101,7 @@ export type PracticePlaybackResourcesWalkingBassGenerator = {
     nextIsMinor: boolean;
     swingRatio: number;
     endingCue?: Record<string, unknown> | null;
+    bassFeel?: PracticePlaybackFeelMode;
   }) => PracticePlaybackBassPlan;
 };
 

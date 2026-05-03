@@ -16,7 +16,10 @@ import {
   markExecutedChartPerformanceCuesConsumed,
   normalizeChartSimplePerformanceState,
   prepareArmedChartPerformanceCuesForPlayback,
+  resetTransientChartPerformanceCueState,
+  resolveChartPerformanceCueTargetBarIndexForSession,
   resolveChartPerformanceRepeatState,
+  restoreAppliedChartPerformanceCues,
   restoreConsumedChartPerformanceCues,
   createPracticeSessionExportFromPlaybackPlan,
   createPracticeSessionFromChartDocument,
@@ -2346,6 +2349,24 @@ assert.ok(
   audioPlaybackEvents.some((entry) => entry === 'buffer:start:12' || entry === 'buffer:start:12.25'),
   'Playback audio playback runtime can schedule sampled swing drums through the mixer graph.'
 );
+{
+  const originalRandom = Math.random;
+  Math.random = () => 0.5;
+  try {
+    audioPlaybackEvents.length = 0;
+    audioPlaybackRuntime.scheduleDrumsForBeat(16, 1, 0.5, null, { offbeatProbability: 0.3 });
+    assert.ok(
+      audioPlaybackEvents.includes('buffer:start:16'),
+      'Playback audio playback runtime keeps the main ride beat when reducing two-feel offbeats.'
+    );
+    assert.ok(
+      !audioPlaybackEvents.includes('buffer:start:16.25'),
+      'Playback audio playback runtime skips swing offbeats above the configured two-feel probability.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+}
 let audioPlaybackAppContextMixerNodes = null;
 let audioPlaybackAppContextContext = null;
 const audioPlaybackAppContext = createPlaybackAudioPlaybackAppContext({
@@ -2651,6 +2672,7 @@ const playbackPreparationRuntime = createPracticePlaybackPreparationRuntime({
   getCompingStyle: () => 'piano',
   getTempoBpm: () => 140,
   isWalkingBassEnabled: () => true,
+  getPlaybackFeelMode: () => 'two',
   getSwingRatio: () => 1.6,
   getPlaybackEndingCue: () => preparationEndingCue,
   getCurrentBassPlan: () => preparedCurrentBassPlan,
@@ -2724,6 +2746,11 @@ assert.equal(
   walkingBassBuilds[0]?.endingCue,
   preparationEndingCue,
   'Practice playback preparation runtime forwards ending cues to the walking-bass arranger.'
+);
+assert.equal(
+  walkingBassBuilds[0]?.bassFeel,
+  'two',
+  'Practice playback preparation runtime maps the global playback feel to the walking-bass arranger.'
 );
 let preparationCurrentCompingPlan = null;
 let preparationNextCompingPlan = null;
@@ -4672,11 +4699,65 @@ assert.deepEqual(
       cues: [
         { id: 'last-chorus-1', type: 'arm_coda', boundary: 'next_coda_jump', status: 'idle' },
         { id: 'last-chorus-2', type: 'arm_coda', boundary: 'next_coda_jump', status: 'idle' },
-        { id: 'exit-repeat', type: 'exit_repeat', boundary: 'next_repeat_boundary', status: 'idle' }
+        { id: 'exit-repeat', type: 'exit_repeat', boundary: 'next_repeat_boundary', status: 'idle' },
+        { id: 'feel-toggle-1', type: 'playback_feel_toggle', boundary: 'next_bar', status: 'idle' },
+        { id: 'feel-toggle-2', type: 'playback_feel_toggle', boundary: 'next_section', status: 'idle' },
+        { id: 'legacy-feel-toggle', type: 'bass_feel_toggle', boundary: 'next_section', status: 'idle' }
       ]
     }).cues.map((cue) => cue.id),
-    ['last-chorus-1', 'exit-repeat'],
-    'Chart performances keep only one last-chorus cue.'
+    ['last-chorus-1', 'exit-repeat', 'feel-toggle-1'],
+    'Chart performances keep only one last-chorus cue and one playback-feel cue.'
+  );
+  const resetLastChorusPerformance = resetTransientChartPerformanceCueState(createDefaultChartPerformance(vampInRepeatDocument, {
+    cues: [
+      {
+        id: 'last-chorus-persisted-armed',
+        type: 'arm_coda',
+        boundary: 'next_coda_jump',
+        status: 'armed',
+        targetBarIndex: 8,
+        targetOnNextProgression: true,
+        armedAtBarIndex: 2,
+        consumedAtBarIndex: 8
+      },
+      {
+        id: 'exit-repeat-persisted-armed',
+        type: 'exit_repeat',
+        boundary: 'next_repeat_boundary',
+        status: 'armed',
+        targetBarIndex: 4,
+        armedAtBarIndex: 1
+      }
+    ]
+  }));
+  assert.deepEqual(
+    resetLastChorusPerformance.cues.map((cue) => ({
+      id: cue.id,
+      status: cue.status,
+      targetBarIndex: cue.targetBarIndex ?? null,
+      targetOnNextProgression: cue.targetOnNextProgression ?? null,
+      armedAtBarIndex: cue.armedAtBarIndex ?? null,
+      consumedAtBarIndex: cue.consumedAtBarIndex ?? null
+    })),
+    [
+      {
+        id: 'last-chorus-persisted-armed',
+        status: 'idle',
+        targetBarIndex: null,
+        targetOnNextProgression: null,
+        armedAtBarIndex: null,
+        consumedAtBarIndex: null
+      },
+      {
+        id: 'exit-repeat-persisted-armed',
+        status: 'armed',
+        targetBarIndex: 4,
+        targetOnNextProgression: null,
+        armedAtBarIndex: 1,
+        consumedAtBarIndex: null
+      }
+    ],
+    'Persisted chart performances reset last-chorus cue state without disarming other cue types.'
   );
 
   const exitRepeatVampFixture = appendIRealBehaviorTestCharts([])
@@ -4802,6 +4883,86 @@ assert.deepEqual(
       { id: 'last-chorus-prearmed', status: 'armed', targetBarIndex: 8, armedAtBarIndex: null }
     ],
     'Playback startup only requeues the prepared last chorus cue.'
+  );
+
+  const playFromBarCueSession = {
+    playback: {
+      bars: [
+        { id: 'bar-2', index: 2, beatSlots: ['G7'] },
+        { id: 'bar-3', index: 3, beatSlots: ['Cmaj7'] },
+        { id: 'bar-1', index: 1, beatSlots: ['Dm7'] },
+        { id: 'bar-2', index: 2, beatSlots: ['G7'] },
+        { id: 'bar-3', index: 3, beatSlots: ['Cmaj7'] }
+      ],
+      performanceMap: {}
+    }
+  };
+  assert.equal(
+    resolveChartPerformanceCueTargetBarIndexForSession({
+      id: 'last-chorus-play-from-bar',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed'
+    }, playFromBarCueSession),
+    3,
+    'Pre-armed last chorus cues resolve against the materialized play-from-bar session.'
+  );
+  assert.equal(
+    resolveChartPerformanceCueTargetBarIndexForSession({
+      id: 'feel-next-bar',
+      type: 'playback_feel_toggle',
+      boundary: 'next_bar',
+      status: 'armed'
+    }, playFromBarCueSession, 2),
+    3,
+    'Playback feel next-bar cues resolve to the next materialized playback bar.'
+  );
+  assert.equal(
+    resolveChartPerformanceCueTargetBarIndexForSession({
+      id: 'feel-next-bar-end',
+      type: 'playback_feel_toggle',
+      boundary: 'next_bar',
+      status: 'armed'
+    }, playFromBarCueSession, 3),
+    null,
+    'Playback feel next-bar cues fall back to caller handling when no later bar remains.'
+  );
+
+  const lateCueSessionResult = markExecutedChartPerformanceCuesConsumed([
+    {
+      id: 'late-last-chorus',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: 8
+    }
+  ], 8, (cue) => cue.type !== 'arm_coda');
+  assert.equal(lateCueSessionResult.changed, false, 'A last chorus cue that was not applied to the active session stays armed for a later pass.');
+  assert.equal(lateCueSessionResult.cues[0].status, 'armed', 'Late last chorus cues are not consumed by the visual bar threshold alone.');
+
+  const restoredAppliedCueResult = restoreAppliedChartPerformanceCues([
+    {
+      id: 'applied-last-chorus',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: 8
+    },
+    {
+      id: 'late-last-chorus',
+      type: 'arm_coda',
+      boundary: 'next_coda_jump',
+      status: 'armed',
+      targetBarIndex: 8
+    }
+  ], ['applied-last-chorus']);
+  assert.deepEqual(
+    restoredAppliedCueResult.cues.map((cue) => ({ id: cue.id, status: cue.status, targetBarIndex: cue.targetBarIndex ?? null })),
+    [
+      { id: 'applied-last-chorus', status: 'idle', targetBarIndex: null },
+      { id: 'late-last-chorus', status: 'armed', targetBarIndex: 8 }
+    ],
+    'Session cleanup disarms only last chorus cues that were actually applied to that playback session.'
   );
 }
 
@@ -6417,6 +6578,9 @@ const PracticePlaybackEngineAppContext = createPracticePlaybackEngineAppContext(
   noteFadeout: 0.05,
   scheduleInterval: 25,
   schedulerHelperBindings: {
+  getPlaybackFeelMode: () => 'two',
+  applyPendingPlaybackFeelToggleForCurrentPosition: () => {},
+  applyPendingPlaybackFeelToggleForNextProgression: () => {},
     getSecondsPerBeat: () => 0.5,
     parsePattern: () => [],
     updateBeatDots: () => {}
@@ -6441,6 +6605,16 @@ assert.equal(
   PracticePlaybackEngineAppContext.schedulerHelpers.getSecondsPerBeat(),
   0.5,
   'Practice playback engine app context materializes scheduler helpers from app bindings.'
+);
+assert.equal(
+  PracticePlaybackEngineAppContext.schedulerHelpers.getPlaybackFeelMode(),
+  'two',
+  'Practice playback engine app context forwards global playback feel mode to scheduler helpers.'
+);
+assert.equal(
+  typeof PracticePlaybackEngineAppContext.schedulerHelpers.applyPendingPlaybackFeelToggleForCurrentPosition,
+  'function',
+  'Practice playback engine app context forwards pending playback feel section toggles to scheduler helpers.'
 );
 assert.equal(
   typeof PracticePlaybackEngineAppContext.transportHelpers.initAudio,
@@ -7686,6 +7860,81 @@ const f9BassLine = walkingBassGenerator.buildLine({
   isMinor: false
 });
 assert.equal(f9BassLine.length, 4, 'Walking bass generates four beats for a sustained F9 bar.');
+const twoFeelBassLine = walkingBassGenerator.buildLine({
+  chords: Array.from({ length: 4 }, () => ({
+    semitones: 0,
+    bassSemitones: 0,
+    qualityMajor: 'maj7',
+    qualityMinor: 'maj7',
+    roman: 'I'
+  })),
+  key: 0,
+  beatsPerChord: 1,
+  beatsPerBar: 4,
+  tempoBpm: 999,
+  isMinor: false,
+  bassFeel: 'two'
+});
+assert.deepEqual(
+  twoFeelBassLine.map((event) => event.timeBeats),
+  [0, 2],
+  'Two-feel walking bass only plays the strong beats in 4/4.'
+);
+assert.ok(
+  twoFeelBassLine.every((event) => event.rank === 'rank1'),
+  'Two-feel walking bass limits minor strong beats to rank-1 chord tones.'
+);
+const twoFeelWeakBeatChangeLine = walkingBassGenerator.buildLine({
+  chords: [
+    { semitones: 0, bassSemitones: 0, qualityMajor: 'maj7', qualityMinor: 'maj7', roman: 'I' },
+    { semitones: 2, bassSemitones: 2, qualityMajor: 'm7', qualityMinor: 'm7', roman: 'II' },
+    { semitones: 2, bassSemitones: 2, qualityMajor: 'm7', qualityMinor: 'm7', roman: 'II' },
+    { semitones: 2, bassSemitones: 2, qualityMajor: 'm7', qualityMinor: 'm7', roman: 'II' }
+  ],
+  key: 0,
+  beatsPerChord: 1,
+  beatsPerBar: 4,
+  tempoBpm: 999,
+  isMinor: false,
+  bassFeel: 'two'
+});
+assert.deepEqual(
+  twoFeelWeakBeatChangeLine.map((event) => event.timeBeats),
+  [0, 1, 2],
+  'Two-feel walking bass still plays harmony changes that land on intermediate beats.'
+);
+{
+  const originalRandom = Math.random;
+  Math.random = () => 0.8;
+  try {
+    const movingTwoFeelBassLine = walkingBassGenerator.buildLine({
+      chords: Array.from({ length: 4 }, () => ({
+        semitones: 0,
+        bassSemitones: 0,
+        qualityMajor: 'maj7',
+        qualityMinor: 'maj7',
+        roman: 'I'
+      })),
+      key: 0,
+      beatsPerChord: 1,
+      beatsPerBar: 4,
+      tempoBpm: 999,
+      isMinor: false,
+      bassFeel: 'two'
+    });
+    assert.notEqual(
+      movingTwoFeelBassLine[1]?.midi % 12,
+      movingTwoFeelBassLine[0]?.midi % 12,
+      'Two-feel walking bass favors moving to another rank-1 pitch class on secondary strong beats.'
+    );
+    assert.ok(
+      Math.abs(movingTwoFeelBassLine[1]?.midi - movingTwoFeelBassLine[0]?.midi) < 12,
+      'Two-feel walking bass favors movement smaller than an octave.'
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+}
 {
   const originalRandom = Math.random;
   Math.random = () => 0.75;

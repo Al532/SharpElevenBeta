@@ -1371,6 +1371,7 @@ const {
     getCompingStyle,
     getTempoBpm: () => Number(dom.tempoSlider?.value || 120),
     isWalkingBassEnabled,
+    getPlaybackFeelMode: () => playbackFeelMode,
     getSwingRatio,
     getPlaybackEndingCue: () => playbackEndingCue
   },
@@ -1608,6 +1609,8 @@ let pendingPerformanceCueJump: { type: 'coda' | 'repeat_exit'; triggerStart: num
 let activePerformanceMap: Record<string, unknown> | null = null;
 let codaGateSatisfied = false;
 let lastChorusForced = false;
+let playbackFeelMode: 'four' | 'two' = 'four';
+let pendingPlaybackFeelToggle: { targetMode: 'four' | 'two'; targetChordIndex: number | null } | null = null;
 
 function setPlaybackStartChordIndex(chordIndex: unknown) {
   const normalized = Math.max(0, Math.round(Number(chordIndex) || 0));
@@ -1619,6 +1622,74 @@ function setPlaybackPerformanceMap(performanceMap: Record<string, unknown> | nul
   codaGateSatisfied = false;
   lastChorusForced = false;
   pendingPerformanceCueJump = null;
+  pendingPlaybackFeelToggle = null;
+}
+
+function getPlaybackBarBeatCount(bar: any) {
+  return Math.max(1, bar?.beatSlots?.length || bar?.symbols?.length || 1);
+}
+
+function getCueTargetChordIndex(cue: any, sessionSpec: any) {
+  const targetBarIndex = Number(cue?.targetBarIndex);
+  if (!Number.isFinite(targetBarIndex) || targetBarIndex <= 0) return null;
+  const playbackBars = Array.isArray(sessionSpec?.playback?.bars) ? sessionSpec.playback.bars : [];
+  const targetPlaybackIndex = playbackBars.findIndex((bar: any) => Number(bar?.index) === targetBarIndex);
+  if (targetPlaybackIndex < 0) return null;
+  return playbackBars
+    .slice(0, targetPlaybackIndex)
+    .reduce((total: number, bar: any) => total + getPlaybackBarBeatCount(bar), 0);
+}
+
+function applyPendingPlaybackFeelToggleForCurrentPosition(chordIndex: number) {
+  if (!pendingPlaybackFeelToggle) return false;
+  const targetChordIndex = pendingPlaybackFeelToggle.targetChordIndex;
+  if (targetChordIndex !== null && chordIndex < targetChordIndex) return false;
+  const previousMode = playbackFeelMode;
+  playbackFeelMode = pendingPlaybackFeelToggle.targetMode;
+  pendingPlaybackFeelToggle = null;
+  currentBassPlan = buildPreparedBassPlan();
+  console.info('[playback-feel] applied pending toggle at current position', {
+    previousMode,
+    nextMode: playbackFeelMode,
+    chordIndex,
+    bassPlanEvents: currentBassPlan.length
+  });
+  return true;
+}
+
+function applyPendingPlaybackFeelToggleForNextProgression() {
+  if (!pendingPlaybackFeelToggle || pendingPlaybackFeelToggle.targetChordIndex !== null) return false;
+  const previousMode = playbackFeelMode;
+  playbackFeelMode = pendingPlaybackFeelToggle.targetMode;
+  pendingPlaybackFeelToggle = null;
+  console.info('[playback-feel] applied pending toggle at next progression', {
+    previousMode,
+    nextMode: playbackFeelMode
+  });
+  return true;
+}
+
+function setPlaybackFeelModeImmediate(value: unknown) {
+  const previousMode = playbackFeelMode;
+  playbackFeelMode = value === 'two' ? 'two' : 'four';
+  pendingPlaybackFeelToggle = null;
+  if (isPlaying || isPaused) {
+    currentBassPlan = buildPreparedBassPlan();
+  }
+  console.info('[playback-feel] runtime immediate set', {
+    previousMode,
+    nextMode: playbackFeelMode,
+    isPlaying,
+    isPaused,
+    walkingBassChecked: dom.walkingBass?.checked === true,
+    bassPlanEvents: currentBassPlan.length,
+    firstEvents: currentBassPlan.slice(0, 8).map((event: any) => ({
+      timeBeats: event?.timeBeats,
+      midi: event?.midi,
+      rank: event?.rank,
+      source: event?.source
+    }))
+  });
 }
 
 function resolvePerformanceCueStop(chordIndex: number) {
@@ -1631,6 +1702,47 @@ function resolvePerformanceCueStop(chordIndex: number) {
 }
 
 function queueChartPerformanceCue(cue: any, sessionSpec: any) {
+  if (cue?.type === 'playback_feel_set' || cue?.type === 'bass_feel_set') {
+    console.info('[playback-feel] runtime received direct set cue', {
+      playbackFeel: cue?.playbackFeel ?? cue?.bassFeel,
+      hasSession: Boolean(sessionSpec || cue?.playbackSession),
+      currentMode: playbackFeelMode
+    });
+    setPlaybackFeelModeImmediate(cue?.playbackFeel ?? cue?.bassFeel);
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
+  if (cue?.type === 'playback_feel_toggle' || cue?.type === 'bass_feel_toggle') {
+    if (cue?.status && cue.status !== 'armed') {
+      pendingPlaybackFeelToggle = null;
+      return {
+        ok: true,
+        state: getEmbeddedPlaybackState?.(),
+        cue
+      };
+    }
+    const cueTargetMode = cue?.playbackFeel === 'four' || cue?.bassFeel === 'four'
+      ? 'four'
+      : (cue?.playbackFeel === 'two' || cue?.bassFeel === 'two'
+          ? 'two'
+          : (playbackFeelMode === 'two' ? 'four' : 'two'));
+    pendingPlaybackFeelToggle = {
+      targetMode: cueTargetMode,
+      targetChordIndex: cue?.targetOnNextProgression === true
+        ? null
+        : getCueTargetChordIndex(cue, sessionSpec)
+    };
+    return {
+      ok: true,
+      state: getEmbeddedPlaybackState?.(),
+      cue
+    };
+  }
+
   if (cue?.type === 'exit_repeat') {
     const repeatExitJump = resolveRepeatExitCueJump(cue, sessionSpec, currentChordIdx);
     if (!repeatExitJump) {
@@ -2258,6 +2370,9 @@ const {
     getFinitePlayback: () => finitePlayback,
     isLastChorusForced: () => lastChorusForced,
     getPlaybackEndingCue: () => playbackEndingCue,
+    getPlaybackFeelMode: () => playbackFeelMode,
+    applyPendingPlaybackFeelToggleForCurrentPosition,
+    applyPendingPlaybackFeelToggleForNextProgression,
     getPlaybackStartChordIndex: () => playbackStartChordIndex,
     resolvePerformanceCueJump: resolveQueuedPerformanceCueJump,
     resolvePerformanceCueStop,

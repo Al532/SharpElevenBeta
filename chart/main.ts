@@ -31,11 +31,14 @@ import {
   markExecutedChartPerformanceCuesConsumed,
   normalizeChartPerformance,
   parseNoteSymbol,
+  resolveChartPerformanceCueTargetBarIndexForSession,
   prepareArmedChartPerformanceCuesForPlayback,
+  resetTransientChartPerformanceCueState,
   normalizeChartChordDisplayLevel,
   normalizeChordEnrichmentMode,
   normalizeChartSimplePerformanceState,
   resolveChartPerformanceRepeatState,
+  restoreAppliedChartPerformanceCues,
   restoreConsumedChartPerformanceCues,
   transposeKeySymbol
 } from './index.js';
@@ -341,9 +344,12 @@ const CHART_ACTION_POINTER_CLICK_SUPPRESS_MS = 700;
 const CHART_PERFORMANCE_CUE_TYPES = Object.freeze({
   armCoda: 'arm_coda',
   exitRepeat: 'exit_repeat',
+  playbackFeelToggle: 'playback_feel_toggle',
+  legacyBassFeelToggle: 'bass_feel_toggle',
   modulate: 'modulate'
 });
 const CHART_PERFORMANCE_CUE_BOUNDARIES = Object.freeze({
+  nextBar: 'next_bar',
   nextCodaJump: 'next_coda_jump',
   nextRepeatBoundary: 'next_repeat_boundary',
   nextSection: 'next_section'
@@ -352,6 +358,21 @@ const CHART_PERFORMANCE_MODULATE_MIN = -12;
 const CHART_PERFORMANCE_MODULATE_MAX = 12;
 const chartActionFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
 const chartActionFeedbackPointerTimes = new WeakMap<HTMLButtonElement, number>();
+let chartPlaybackFeelMode: 'four' | 'two' = 'four';
+
+function getOppositePlaybackFeelMode(mode: unknown): 'four' | 'two' {
+  return mode === 'two' ? 'four' : 'two';
+}
+
+function normalizePlaybackFeelMode(value: unknown): 'four' | 'two' {
+  return value === 'four' ? 'four' : 'two';
+}
+
+function normalizePlaybackFeelCueBoundary(value: unknown) {
+  return value === CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection
+    ? CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection
+    : CHART_PERFORMANCE_CUE_BOUNDARIES.nextBar;
+}
 
 declare global {
   interface Window {
@@ -698,7 +719,7 @@ function buildCurrentChartUserSettingsPatch(): Partial<ChartUserSettings> {
     transposition: getChartTransposeSemitones(),
     playbackSettings: getPlaybackSettings(),
     chartSimplePerformance: state.chartSimplePerformance,
-    chartPerformance: getCurrentChartPerformance()
+    chartPerformance: resetTransientChartPerformanceCueState(getCurrentChartPerformance())
   };
 }
 
@@ -763,7 +784,9 @@ function applyChartUserSettingsToControls(
       state.chartSimplePerformance = { mode: 'infinite', repeatMode: 'infinite' };
     }
 
-    const normalizedPerformance = normalizeChartPerformance(settings?.chartPerformance, chartDocument);
+    const normalizedPerformance = resetTransientChartPerformanceCueState(
+      normalizeChartPerformance(settings?.chartPerformance, chartDocument)
+    );
     state.chartPerformance = normalizedPerformance;
     if (normalizedPerformance) {
       state.chartPerformances[chartDocument.metadata?.id || normalizedPerformance.chartId] = normalizedPerformance;
@@ -1002,7 +1025,9 @@ function getChartPerformanceForDocument(chartDocument: ChartDocument | null | un
   const storedPerformance = state.chartPerformances[chartId];
   if (storedPerformance?.chartId === chartId) return storedPerformance;
   if (state.chartPerformance?.chartId === chartId) return state.chartPerformance;
-  return normalizeChartPerformance(state.currentChartUserSettings?.chartPerformance, chartDocument || null);
+  return resetTransientChartPerformanceCueState(
+    normalizeChartPerformance(state.currentChartUserSettings?.chartPerformance, chartDocument || null)
+  );
 }
 
 function hasCodaPerformanceCue(chartDocument: ChartDocument | null | undefined = state.currentChartDocument) {
@@ -1064,6 +1089,13 @@ function getChartPerformanceCueLabel(cue: ChartPerformanceCue | null | undefined
   if (!cue) return '';
   if (cue.type === CHART_PERFORMANCE_CUE_TYPES.armCoda) return 'last chorus';
   if (cue.type === CHART_PERFORMANCE_CUE_TYPES.exitRepeat) return 'exit vamp';
+  if (isPlaybackFeelToggleCue(cue)) {
+    const feelLabel = normalizePlaybackFeelMode(cue.playbackFeel || cue.bassFeel) === 'two'
+      ? 'two-feel'
+      : 'four-feel';
+    const boundaryLabel = cue.boundary === CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection ? 'section' : 'bar';
+    return `${feelLabel} (${boundaryLabel})`;
+  }
   if (cue.type === CHART_PERFORMANCE_CUE_TYPES.modulate) {
     const semitones = Number(cue.semitones || 0);
     const signed = semitones > 0 ? `+${semitones}` : String(semitones);
@@ -1072,9 +1104,44 @@ function getChartPerformanceCueLabel(cue: ChartPerformanceCue | null | undefined
   return String(cue.type || 'cue').replace(/_/g, ' ');
 }
 
+function isPlaybackFeelToggleCue(cue: ChartPerformanceCue | null | undefined) {
+  return cue?.type === CHART_PERFORMANCE_CUE_TYPES.playbackFeelToggle
+    || cue?.type === CHART_PERFORMANCE_CUE_TYPES.legacyBassFeelToggle;
+}
+
+function hasPlaybackFeelPerformanceCue(performance: ChartPerformance | null | undefined) {
+  return Boolean((performance?.cues || []).some(isPlaybackFeelToggleCue));
+}
+
+function syncPlaybackFeelToggleButton() {
+  if (!dom.playbackFeelToggle) return;
+  const isTwoFeel = chartPlaybackFeelMode === 'two';
+  dom.playbackFeelToggle.textContent = isTwoFeel ? 'Feel: Two' : 'Feel: Four';
+  dom.playbackFeelToggle.setAttribute('aria-pressed', isTwoFeel ? 'true' : 'false');
+  dom.playbackFeelToggle.classList.toggle('is-active', isTwoFeel);
+}
+
+function syncPerformanceFeelBoundaryToggle(value: unknown = dom.performanceFeelBoundaryInput?.value) {
+  const boundary = normalizePlaybackFeelCueBoundary(value);
+  if (dom.performanceFeelBoundaryInput) {
+    dom.performanceFeelBoundaryInput.value = boundary;
+  }
+  document.querySelectorAll<HTMLButtonElement>('[data-chart-performance-feel-boundary]').forEach((button) => {
+    const isSelected = button.dataset.chartPerformanceFeelBoundary === boundary;
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+  });
+  document
+    .querySelector<HTMLElement>('.chart-performance-feel-boundary-toggle')
+    ?.classList.toggle('is-section-selected', boundary === CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection);
+}
+
 function getChartPerformanceCueBoundary(type: string) {
   if (type === CHART_PERFORMANCE_CUE_TYPES.armCoda) return CHART_PERFORMANCE_CUE_BOUNDARIES.nextCodaJump;
   if (type === CHART_PERFORMANCE_CUE_TYPES.exitRepeat) return CHART_PERFORMANCE_CUE_BOUNDARIES.nextRepeatBoundary;
+  if (type === CHART_PERFORMANCE_CUE_TYPES.playbackFeelToggle) {
+    return normalizePlaybackFeelCueBoundary(dom.performanceFeelBoundaryInput?.value);
+  }
   return CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection;
 }
 
@@ -1102,7 +1169,7 @@ function updateCurrentChartPerformance(
   if (persist) {
     persistCurrentChartUserSettings({
       chartSimplePerformance: state.chartSimplePerformance,
-      chartPerformance: nextPerformance
+      chartPerformance: resetTransientChartPerformanceCueState(nextPerformance)
     });
   }
 }
@@ -1117,6 +1184,10 @@ function createPerformanceCue(type: string): ChartPerformanceCue {
   };
   if (type === CHART_PERFORMANCE_CUE_TYPES.modulate) {
     cue.semitones = normalizeModulateSemitones(dom.performanceModulateInput?.value);
+  }
+  if (type === CHART_PERFORMANCE_CUE_TYPES.playbackFeelToggle) {
+    cue.boundary = normalizePlaybackFeelCueBoundary(cue.boundary);
+    cue.playbackFeel = getOppositePlaybackFeelMode(chartPlaybackFeelMode);
   }
   return cue;
 }
@@ -1151,6 +1222,7 @@ function addPerformanceCue(type: string) {
   const currentPerformance = ensureCurrentChartPerformance();
   if (!currentPerformance) return;
   if (type === CHART_PERFORMANCE_CUE_TYPES.armCoda && hasLastChorusPerformanceCue(currentPerformance)) return;
+  if (type === CHART_PERFORMANCE_CUE_TYPES.playbackFeelToggle && hasPlaybackFeelPerformanceCue(currentPerformance)) return;
   if (type === CHART_PERFORMANCE_CUE_TYPES.exitRepeat && !canShowExitVampCue()) return;
   const nextPerformance = createDefaultChartPerformance(selectedDocument, {
     ...currentPerformance,
@@ -1170,16 +1242,6 @@ function getCurrentPlaybackBarIndex() {
   return Number.isFinite(parsedActiveBarIndex) && parsedActiveBarIndex > 0 ? parsedActiveBarIndex : 0;
 }
 
-function getNextCodaCueBarIndex(currentBarIndex: number) {
-  const cuePoints = (state.currentPracticeSession?.playback?.performanceMap?.cuePoints || []) as Array<Record<string, unknown>>;
-  const codaPoint = cuePoints
-    .filter((point) => point.type === 'coda')
-    .map((point) => Number(point.barIndex))
-    .filter((barIndex) => Number.isFinite(barIndex) && barIndex >= currentBarIndex)
-    .sort((a, b) => a - b)[0];
-  return Number.isFinite(codaPoint) ? codaPoint : null;
-}
-
 function getLastPlaybackBarIndex() {
   const playbackBars = state.currentPracticeSession?.playback?.bars || [];
   const lastPlaybackBarIndex = Number(playbackBars[playbackBars.length - 1]?.index);
@@ -1189,53 +1251,123 @@ function getLastPlaybackBarIndex() {
   return Number.isFinite(lastChartBarIndex) && lastChartBarIndex > 0 ? lastChartBarIndex : null;
 }
 
-function getNextRepeatBoundaryBarIndex(currentBarIndex: number) {
-  const repeatRegions = state.currentPracticeSession?.playback?.performanceMap?.repeatRegions || [];
-  const activeRegion = repeatRegions.find((region) => {
-    if (region?.isVamp !== true) return false;
-    const start = Number(region.startBarIndex);
-    const end = Number(region.endBarIndex);
-    return Number.isFinite(start) && Number.isFinite(end) && currentBarIndex >= start && currentBarIndex <= end;
-  });
-  if (activeRegion) return Number(activeRegion.endBarIndex);
-  const nextRegion = repeatRegions
-    .filter((region) => region?.isVamp === true && Number(region.endBarIndex) >= currentBarIndex)
-    .sort((a, b) => Number(a.endBarIndex) - Number(b.endBarIndex))[0];
-  return nextRegion ? Number(nextRegion.endBarIndex) : null;
-}
-
-function getNextSectionBoundaryBarIndex(currentBarIndex: number) {
-  const sectionBoundaries = (state.currentPracticeSession?.playback?.performanceMap?.sectionBoundaries || []) as Array<Record<string, unknown>>;
-  const nextBoundary = sectionBoundaries
-    .map((section) => Number(section.barIndex))
-    .filter((barIndex) => Number.isFinite(barIndex) && barIndex > currentBarIndex)
-    .sort((a, b) => a - b)[0];
-  return Number.isFinite(nextBoundary) ? nextBoundary : null;
-}
-
 function resolvePerformanceCueTargetBarIndex(cue: ChartPerformanceCue, currentBarIndex = getCurrentPlaybackBarIndex()) {
-  if (cue.boundary === CHART_PERFORMANCE_CUE_BOUNDARIES.nextCodaJump) {
-    return getNextCodaCueBarIndex(currentBarIndex) ?? getLastPlaybackBarIndex();
-  }
-  if (cue.boundary === CHART_PERFORMANCE_CUE_BOUNDARIES.nextRepeatBoundary) return getNextRepeatBoundaryBarIndex(currentBarIndex);
-  return getNextSectionBoundaryBarIndex(currentBarIndex);
+  return resolveChartPerformanceCueTargetBarIndexForSession(
+    cue,
+    getSelectedPracticeSession(),
+    currentBarIndex,
+    getLastPlaybackBarIndex()
+  );
 }
+
+let activePlaybackPerformanceCueIds = new Set<string>();
 
 function getUpdatedCueStatus(cue: ChartPerformanceCue) {
   return cue.status === 'armed' ? 'idle' : 'armed';
 }
 
-async function queuePerformanceCue(cue: ChartPerformanceCue) {
+function rememberAppliedPerformanceCue(cue: ChartPerformanceCue) {
+  if (cue.type !== CHART_PERFORMANCE_CUE_TYPES.armCoda) return;
+  if (cue.status === 'armed') {
+    activePlaybackPerformanceCueIds.add(cue.id);
+  } else {
+    activePlaybackPerformanceCueIds.delete(cue.id);
+  }
+}
+
+function getNextIdlePlaybackFeelCue(cue: ChartPerformanceCue): ChartPerformanceCue {
+  const appliedMode = normalizePlaybackFeelMode(cue.playbackFeel || cue.bassFeel);
+  return {
+    ...cue,
+    status: 'idle',
+    playbackFeel: getOppositePlaybackFeelMode(appliedMode),
+    bassFeel: undefined,
+    targetBarIndex: null,
+    targetOnNextProgression: null,
+    armedAtBarIndex: null,
+    consumedAtBarIndex: null
+  };
+}
+
+function shouldTrackLivePerformanceCue() {
+  return Boolean(state.isPlaying || state.isPaused);
+}
+
+function canApplyPerformanceCueImmediately(cue: ChartPerformanceCue) {
+  if (cue.type !== CHART_PERFORMANCE_CUE_TYPES.armCoda || !shouldTrackLivePerformanceCue()) return true;
+  const targetBarIndex = Number(cue.targetBarIndex);
+  const currentBarIndex = getCurrentPlaybackBarIndex();
+  if (!Number.isFinite(targetBarIndex) || targetBarIndex <= 0 || !Number.isFinite(currentBarIndex) || currentBarIndex <= 0) {
+    return true;
+  }
+  return currentBarIndex < targetBarIndex;
+}
+
+async function queuePerformanceCue(
+  cue: ChartPerformanceCue,
+  playbackSession: PracticeSessionSpec | null = getSelectedPracticeSession(),
+  { trackForActiveSession = shouldTrackLivePerformanceCue() }: { trackForActiveSession?: boolean } = {}
+) {
   try {
-    const cuePlaybackSession = state.currentPracticeSession || null;
     const cuePayload = {
       ...cue,
-      playbackSession: cuePlaybackSession
+      playbackSession
     };
-    await getChartPlaybackController().queuePerformanceCue(cuePayload);
+    const result = await getChartPlaybackController().queuePerformanceCue(cuePayload);
+    if (trackForActiveSession && result?.ok !== false) {
+      rememberAppliedPerformanceCue(cue);
+    }
   } catch (error) {
     console.error('[chart-cue] queue failed', error);
     if (dom.transportStatus) dom.transportStatus.textContent = `Cue error: ${getErrorMessage(error)}`;
+  }
+}
+
+async function setPlaybackFeelModeImmediate(nextMode: 'four' | 'two') {
+  chartPlaybackFeelMode = nextMode;
+  syncPlaybackFeelToggleButton();
+  console.info('[playback-feel] chart toggle requested', {
+    nextMode,
+    walkingBassChecked: dom.walkingBassToggle?.checked === true,
+    isPlaying: state.isPlaying,
+    isPaused: state.isPaused
+  });
+  try {
+    const result = await getChartPlaybackController().queuePerformanceCue({
+      id: `chart-playback-feel-direct-${Date.now()}`,
+      type: 'playback_feel_set',
+      boundary: CHART_PERFORMANCE_CUE_BOUNDARIES.nextSection,
+      status: 'armed',
+      playbackFeel: nextMode,
+      createdAt: new Date().toISOString(),
+      playbackSession: getSelectedPracticeSession()
+    });
+    console.info('[playback-feel] chart toggle delivered', {
+      nextMode,
+      ok: result?.ok !== false,
+      state: result?.state || null
+    });
+  } catch (error) {
+    console.error('[chart-cue] playback feel toggle failed', error);
+    if (dom.transportStatus) dom.transportStatus.textContent = `Feel error: ${getErrorMessage(error)}`;
+  }
+}
+
+async function resetPlaybackFeelModeAfterStop() {
+  chartPlaybackFeelMode = 'four';
+  syncPlaybackFeelToggleButton();
+  try {
+    await getChartPlaybackController().queuePerformanceCue({
+      id: `chart-playback-feel-reset-${Date.now()}`,
+      type: 'playback_feel_set',
+      boundary: CHART_PERFORMANCE_CUE_BOUNDARIES.nextBar,
+      status: 'armed',
+      playbackFeel: 'four',
+      createdAt: new Date().toISOString(),
+      playbackSession: getSelectedPracticeSession()
+    });
+  } catch (error) {
+    console.error('[chart-cue] playback feel reset failed', error);
   }
 }
 
@@ -1247,14 +1379,27 @@ function togglePerformanceCue(cueId: string) {
   const nextCues = (currentPerformance.cues || []).map((cue) => {
     if (cue.id !== cueId) return cue;
     const status = getUpdatedCueStatus(cue);
-    const targetBarIndex = status === 'armed' ? resolvePerformanceCueTargetBarIndex(cue) : null;
+    const isPlaybackFeelCue = isPlaybackFeelToggleCue(cue);
+    const resolvedTargetBarIndex = status === 'armed' ? resolvePerformanceCueTargetBarIndex(cue) : null;
+    const useNextChorusBoundary = status === 'armed'
+      && isPlaybackFeelCue
+      && resolvedTargetBarIndex === null;
+    const targetBarIndex = useNextChorusBoundary ? getLastPlaybackBarIndex() : resolvedTargetBarIndex;
     const nextCue = {
       ...cue,
       status,
+      playbackFeel: isPlaybackFeelCue
+        ? normalizePlaybackFeelMode(cue.playbackFeel || cue.bassFeel || getOppositePlaybackFeelMode(chartPlaybackFeelMode))
+        : cue.playbackFeel,
       targetBarIndex,
+      targetOnNextProgression: useNextChorusBoundary ? true : null,
       armedAtBarIndex: status === 'armed' ? getCurrentPlaybackBarIndex() : null
     };
-    if (status === 'armed' || cue.type === CHART_PERFORMANCE_CUE_TYPES.armCoda) queuedCue = nextCue;
+    if (
+      status === 'armed'
+      || cue.type === CHART_PERFORMANCE_CUE_TYPES.armCoda
+      || isPlaybackFeelCue
+    ) queuedCue = nextCue;
     return nextCue;
   });
   updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
@@ -1262,16 +1407,21 @@ function togglePerformanceCue(cueId: string) {
     cues: nextCues,
     updatedAt: new Date().toISOString()
   }));
-  if (queuedCue) void queuePerformanceCue(queuedCue);
+  if (queuedCue && canApplyPerformanceCueImmediately(queuedCue)) void queuePerformanceCue(queuedCue);
 }
 
-function prepareArmedPerformanceCuesForPlayback() {
+function prepareArmedPerformanceCuesForPlayback(playbackSession: PracticeSessionSpec | null) {
   const selectedDocument = state.currentChartDocument;
   const currentPerformance = getCurrentChartPerformance();
   if (!selectedDocument || !currentPerformance?.cues?.length) return [];
   const result = prepareArmedChartPerformanceCuesForPlayback(
     currentPerformance.cues,
-    (cue) => resolvePerformanceCueTargetBarIndex(cue, 0)
+    (cue) => resolveChartPerformanceCueTargetBarIndexForSession(
+      cue,
+      playbackSession,
+      undefined,
+      getLastPlaybackBarIndex()
+    )
   );
   if (result.changed) {
     updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
@@ -1299,6 +1449,25 @@ function deletePerformanceCue(cueId: string) {
     cues: (currentPerformance.cues || []).filter((cue) => cue.id !== cueId),
     updatedAt: new Date().toISOString()
   }));
+  if (targetCue.type === CHART_PERFORMANCE_CUE_TYPES.armCoda) {
+    activePlaybackPerformanceCueIds.delete(targetCue.id);
+    if (targetCue.status === 'armed') {
+      void queuePerformanceCue({
+        ...targetCue,
+        status: 'idle',
+        targetBarIndex: null,
+        armedAtBarIndex: null
+      });
+    }
+  } else if (isPlaybackFeelToggleCue(targetCue) && targetCue.status === 'armed') {
+    void queuePerformanceCue({
+      ...targetCue,
+      status: 'idle',
+      targetBarIndex: null,
+      targetOnNextProgression: null,
+      armedAtBarIndex: null
+    });
+  }
 }
 
 let lastPerformanceCuePointerActivation = {
@@ -1345,11 +1514,24 @@ function consumeExecutedPerformanceCues() {
   const currentPerformance = getCurrentChartPerformance();
   if (!selectedDocument || !currentPerformance?.cues?.length) return;
   const currentPlaybackBarIndex = getCurrentPlaybackBarIndex();
-  const result = markExecutedChartPerformanceCuesConsumed(currentPerformance.cues, currentPlaybackBarIndex);
+  const result = markExecutedChartPerformanceCuesConsumed(
+    currentPerformance.cues,
+    currentPlaybackBarIndex,
+    (cue) => cue.type !== CHART_PERFORMANCE_CUE_TYPES.armCoda || activePlaybackPerformanceCueIds.has(cue.id)
+  );
   if (!result.changed) return;
   const activeVampRegion = getActiveVampRepeatRegion(currentPlaybackBarIndex);
   const nextCues = result.cues.map((cue, index) => {
     const previousCue = currentPerformance.cues[index];
+    if (
+      isPlaybackFeelToggleCue(cue)
+      && previousCue?.status === 'armed'
+      && cue.status === 'consumed'
+    ) {
+      chartPlaybackFeelMode = normalizePlaybackFeelMode(previousCue.playbackFeel || previousCue.bassFeel);
+      syncPlaybackFeelToggleButton();
+      return getNextIdlePlaybackFeelCue(cue);
+    }
     if (
       cue.type !== CHART_PERFORMANCE_CUE_TYPES.exitRepeat
       || previousCue?.status !== 'armed'
@@ -1402,15 +1584,34 @@ function refreshConsumedExitVampCuesForCurrentPosition() {
   });
 }
 
-function restoreSessionConsumedPerformanceCues({ persist = true }: { persist?: boolean } = {}) {
+function restoreSessionPerformanceCues({ persist = true }: { persist?: boolean } = {}) {
   const selectedDocument = state.currentChartDocument;
   const currentPerformance = getCurrentChartPerformance();
-  if (!selectedDocument || !currentPerformance?.cues?.length) return;
-  const result = restoreConsumedChartPerformanceCues(currentPerformance.cues);
-  if (!result.changed) return;
+  if (!selectedDocument || !currentPerformance?.cues?.length) {
+    activePlaybackPerformanceCueIds.clear();
+    return;
+  }
+  const resetPlaybackFeelCues = currentPerformance.cues.map((cue) => {
+    if (!isPlaybackFeelToggleCue(cue)) return cue;
+    return {
+      ...cue,
+      status: 'idle',
+      playbackFeel: 'two',
+      bassFeel: undefined,
+      targetBarIndex: null,
+      targetOnNextProgression: null,
+      armedAtBarIndex: null,
+      consumedAtBarIndex: null
+    };
+  });
+  const feelResetChanged = resetPlaybackFeelCues.some((cue, index) => cue !== currentPerformance.cues[index]);
+  const consumedResult = restoreConsumedChartPerformanceCues(resetPlaybackFeelCues);
+  const appliedResult = restoreAppliedChartPerformanceCues(consumedResult.cues, activePlaybackPerformanceCueIds);
+  activePlaybackPerformanceCueIds.clear();
+  if (!feelResetChanged && !consumedResult.changed && !appliedResult.changed) return;
   updateCurrentChartPerformance(createDefaultChartPerformance(selectedDocument, {
     ...currentPerformance,
-    cues: result.cues,
+    cues: appliedResult.cues,
     updatedAt: new Date().toISOString()
   }), {
     persist
@@ -1505,7 +1706,12 @@ function syncRepeatCountControls(
     const cueType = button.dataset.chartPerformanceCueType;
     const isLastChorusButton = cueType === CHART_PERFORMANCE_CUE_TYPES.armCoda;
     const isExitVampButton = cueType === CHART_PERFORMANCE_CUE_TYPES.exitRepeat;
-    button.hidden = isExitVampButton && !hasVampCueTarget;
+    const option = button.closest<HTMLElement>('[data-chart-performance-cue-option]');
+    if (isExitVampButton) {
+      const shouldHide = !hasVampCueTarget;
+      button.hidden = shouldHide;
+      if (option) option.hidden = shouldHide;
+    }
     button.disabled = isLastChorusButton && hasLastChorusCue;
   });
   renderPerformanceCueBar();
@@ -1575,6 +1781,13 @@ function isMetadataPopoverActive() {
 function bindBottomControlPopovers() {
   syncTempoControls();
   syncRepeatCountControls();
+  syncPlaybackFeelToggleButton();
+  syncPerformanceFeelBoundaryToggle();
+
+  dom.playbackFeelToggle?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    void setPlaybackFeelModeImmediate(chartPlaybackFeelMode === 'two' ? 'four' : 'two');
+  });
 
   dom.tempoButton?.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1738,6 +1951,11 @@ function bindBottomControlPopovers() {
   dom.performanceMenu?.addEventListener('click', (event) => {
     event.stopPropagation();
     const target = event.target instanceof HTMLElement ? event.target : null;
+    const boundaryButton = target?.closest<HTMLButtonElement>('[data-chart-performance-feel-boundary]');
+    if (boundaryButton) {
+      syncPerformanceFeelBoundaryToggle(boundaryButton.dataset.chartPerformanceFeelBoundary);
+      return;
+    }
     const cueButton = target?.closest<HTMLButtonElement>('[data-chart-performance-cue-type]');
     if (!cueButton) return;
     addPerformanceCue(cueButton.dataset.chartPerformanceCueType || '');
@@ -2045,7 +2263,7 @@ function applyChartPlaybackState(nextState: { isPlaying?: boolean; isPaused?: bo
     stopPlaybackPolling({
       state
     });
-    restoreSessionConsumedPerformanceCues();
+    restoreSessionPerformanceCues();
   }
   renderSelectionState();
 }
@@ -2075,7 +2293,8 @@ async function stopPlayback({ resetPosition = true, cancelSelectionLoop = true }
       allowSelectionLoopRestart: false
     });
   } finally {
-    restoreSessionConsumedPerformanceCues();
+    await resetPlaybackFeelModeAfterStop();
+    restoreSessionPerformanceCues();
   }
 }
 
@@ -2095,12 +2314,16 @@ async function startPlayback({
     state.selectionLoopPlaybackPending = true;
   }
   try {
+    activePlaybackPerformanceCueIds.clear();
     if (!practiceSessionOverride) {
       rebuildCurrentPlaybackSessionForPerformanceCues();
     }
-    const armedCues = practiceSessionOverride ? [] : prepareArmedPerformanceCuesForPlayback();
+    const playbackSession = getSelectedPracticeSession();
+    const armedCues = prepareArmedPerformanceCuesForPlayback(playbackSession);
     const nextState = await getChartPlaybackController().startPlayback();
-    await Promise.all(armedCues.map((cue) => queuePerformanceCue(cue)));
+    await Promise.all(armedCues.map((cue) => queuePerformanceCue(cue, playbackSession, {
+      trackForActiveSession: true
+    })));
     applyChartPlaybackState('isPlaying' in nextState
       ? nextState
       : { isPlaying: false, isPaused: false }, {
@@ -2483,7 +2706,9 @@ async function renderFixture() {
       applyChartUserSettingsToControls(selectedDocument, chartUserSettings, { resetTempo: true });
     }
   } else if (selectedDocument && chartUserSettings?.chartPerformance) {
-    const normalizedPerformance = normalizeChartPerformance(chartUserSettings.chartPerformance, selectedDocument);
+    const normalizedPerformance = resetTransientChartPerformanceCueState(
+      normalizeChartPerformance(chartUserSettings.chartPerformance, selectedDocument)
+    );
     state.chartPerformance = normalizedPerformance;
     if (normalizedPerformance) {
       state.chartPerformances[selectedDocument.metadata?.id || ''] = normalizedPerformance;

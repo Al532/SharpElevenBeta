@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 
-const includeChartTestFixtures = process.env.VITE_INCLUDE_CHART_TEST_FIXTURES ?? 'true';
+const includeChartTestFixtures = process.env.VITE_INCLUDE_CHART_TEST_FIXTURES ?? 'false';
 
 export default defineConfig({
   root: 'chart',

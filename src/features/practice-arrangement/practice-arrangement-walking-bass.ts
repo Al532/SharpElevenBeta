@@ -543,6 +543,8 @@ type PracticeArrangementWalkingBassConstants = {
   BASS_HIGH?: number;
 };
 
+type PracticeArrangementBassFeelMode = 'four' | 'two';
+
 function classifyResolvedRank(pools, midi) {
   const pitchClass = mod12(midi);
   if (pools.rank1.some((candidate) => candidate.pitchClass === pitchClass)) return 'rank1';
@@ -1207,6 +1209,55 @@ function buildForcedResolutionEvent(previousEvent, currentSpan, isSpanStart = fa
   }, isSpanStart, true);
 }
 
+function normalizeBassFeelMode(value): PracticeArrangementBassFeelMode {
+  return value === 'two' ? 'two' : 'four';
+}
+
+function getStrongBeatPositions(beatsPerBar = 4) {
+  return getMetricBeatStrengths(Math.max(1, Number(beatsPerBar) || 4))
+    .map((strength, beatIndex) => strength === 'strong' ? beatIndex : null)
+    .filter((beatIndex) => beatIndex !== null);
+}
+
+function twoFeelCandidateScore(candidate, previousEvent) {
+  if (!previousEvent?.midi) return 0;
+  const distance = Math.abs(candidate.midi - previousEvent.midi);
+  const samePitchClass = candidate.pitchClass === mod12(previousEvent.midi);
+  const exactRepeatPenalty = candidate.midi === previousEvent.midi ? 10 : 0;
+  const samePitchClassPenalty = samePitchClass ? 6 : 0;
+  const octaveOrWiderPenalty = distance >= 12 ? 8 + ((distance - 11) * 1.5) : 0;
+  return exactRepeatPenalty
+    + samePitchClassPenalty
+    + octaveOrWiderPenalty
+    + (distance * 0.25);
+}
+
+function getTwoFeelCandidate(span, beatPosition, previousEvent, { forceBassArrival = false } = {}) {
+  const rank1Candidates = span.pools.rank1 || [];
+  const firstStrongBeatCandidates = beatPosition === 0
+    ? rank1Candidates.filter((candidate) => candidate.source === 'bass')
+    : rank1Candidates;
+  const bassArrivalCandidates = forceBassArrival
+    ? rank1Candidates.filter((candidate) => candidate.source === 'bass')
+    : [];
+  const candidates = bassArrivalCandidates.length
+    ? bassArrivalCandidates
+    : (firstStrongBeatCandidates.length ? firstStrongBeatCandidates : rank1Candidates);
+  if (!candidates.length) return null;
+  if (!previousEvent?.midi) {
+    const preferred = beatPosition === 0
+      ? candidates.find((candidate) => candidate.source === 'bass')
+      : candidates.find((candidate) => candidate.source === 'root' || candidate.source === 'bass');
+    return preferred || candidates[0];
+  }
+  if (beatPosition !== 0) {
+    return orderCandidatesWeighted(candidates, (candidate) =>
+      twoFeelCandidateScore(candidate, previousEvent)
+    )[0] || null;
+  }
+  return chooseNearestMidi(candidates, previousEvent.midi, span.pools.bassPitchClass);
+}
+
 function isLegalForcedResolution(previousEvent, resolutionEvent, currentSpan, nextSpan, isFinalBeat, beatIndex) {
   if (previousEvent.rank !== 'approach') return true;
 
@@ -1301,6 +1352,51 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     });
   }
 
+  function appendTwoFeelSpanEventsToLine(events, span, currentTotalBeats, beatsPerBar, previousEvent) {
+    const normalizedBeatsPerBar = Math.max(1, Number(beatsPerBar) || 4);
+    const strongBeatPositions = new Set(getStrongBeatPositions(normalizedBeatsPerBar));
+    let nextPreviousEvent = previousEvent;
+    for (let beatIndex = 0; beatIndex < span.durationBeats; beatIndex += 1) {
+      const absoluteTimeBeats = span.startBeat + beatIndex;
+      if (absoluteTimeBeats >= currentTotalBeats) break;
+      const beatPosition = getMeasureBeatPosition(absoluteTimeBeats, normalizedBeatsPerBar);
+      const isHarmonyChange = beatIndex === 0;
+      if (!strongBeatPositions.has(beatPosition) && !isHarmonyChange) continue;
+      const candidate = getTwoFeelCandidate(span, beatPosition, nextPreviousEvent, {
+        forceBassArrival: isHarmonyChange && beatPosition !== 0
+      });
+      if (!candidate) continue;
+      const event = withVelocity({
+        ...candidate,
+        targetMidi: null
+      }, beatPosition === 0 || isHarmonyChange);
+      events.push({
+        timeBeats: absoluteTimeBeats,
+        durationBeats: 1,
+        midi: event.midi,
+        velocity: event.velocity,
+        rank: event.rank,
+        source: event.source,
+        targetMidi: null
+      });
+      nextPreviousEvent = event;
+    }
+    return nextPreviousEvent;
+  }
+
+  function stretchTwoFeelDurations(events, currentTotalBeats) {
+    return events.map((event, index) => {
+      const nextEvent = events[index + 1] || null;
+      const durationBeats = nextEvent
+        ? Math.max(0.1, nextEvent.timeBeats - event.timeBeats)
+        : Math.max(0.1, currentTotalBeats - event.timeBeats);
+      return {
+        ...event,
+        durationBeats
+      };
+    });
+  }
+
   function applyLineOrnaments(events, swingRatio = DEFAULT_SWING_RATIO, tempoBpm = 120, beatsPerBar = 4, endingCue = null) {
     const allowRepeatedNoteEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= REPEATED_NOTE_EFFECT_MAX_BPM + 1);
     const allowAnticipationEffect = !(Number.isFinite(tempoBpm) && tempoBpm >= ANTICIPATION_EFFECT_MAX_BPM + 1);
@@ -1329,7 +1425,8 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     nextKey = key,
     nextIsMinor = isMinor,
     swingRatio = DEFAULT_SWING_RATIO,
-    endingCue = null
+    endingCue = null,
+    bassFeel = 'four'
   } = {}) {
     const currentNoChordWindows = Array.isArray(chords)
       ? chords
@@ -1353,9 +1450,15 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
     const events = [];
     let previousEvent = null;
     let pendingTargetMidi = initialPendingTargetMidi;
+    const feelMode = normalizeBassFeelMode(bassFeel);
 
     preparedSpans.forEach((span, spanIndex) => {
       const nextSpan = preparedSpans[spanIndex + 1] || null;
+      if (feelMode === 'two') {
+        previousEvent = appendTwoFeelSpanEventsToLine(events, span, currentTotalBeats, beatsPerBar, previousEvent);
+        pendingTargetMidi = null;
+        return;
+      }
       const resolvedSpanEvents = buildSpanEvents(span, nextSpan, previousEvent, pendingTargetMidi);
       if (!resolvedSpanEvents) return;
 
@@ -1365,7 +1468,11 @@ export function createWalkingBassGenerator({ constants = {} }: { constants?: Pra
       pendingTargetMidi = previousEvent?.rank === 'approach' ? previousEvent.targetMidi : null;
     });
 
-    return applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar, endingCue)
+    const resolvedEvents = feelMode === 'two'
+      ? stretchTwoFeelDurations(events, currentTotalBeats)
+      : applyLineOrnaments(events, swingRatio, tempoBpm, beatsPerBar, endingCue);
+
+    return resolvedEvents
       .filter((event) => !currentNoChordWindows.some((window) =>
         event.timeBeats >= window.startBeat
         && event.timeBeats < window.endBeat

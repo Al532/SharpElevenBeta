@@ -1,6 +1,7 @@
 import type {
   PracticePlaybackBassPlan,
   PracticePlaybackCompingPlan,
+  PracticePlaybackFeelMode,
   PracticePlaybackResourceChord,
   PracticePlaybackResourcesCompingEngine,
   PracticePlaybackResourcesWalkingBassGenerator
@@ -38,6 +39,7 @@ type PracticePlaybackPreparationRuntimeOptions = {
   getCompingStyle?: () => string;
   getTempoBpm?: () => number;
   isWalkingBassEnabled?: () => boolean;
+  getPlaybackFeelMode?: () => PracticePlaybackFeelMode;
   getSwingRatio?: () => number;
   getPlaybackEndingCue?: () => Record<string, unknown> | null;
   getCurrentBassPlan?: () => PracticePlaybackBassPlan;
@@ -68,6 +70,7 @@ type PracticePlaybackPreparationRuntimeOptions = {
  * @param {() => string} [options.getCompingStyle]
  * @param {() => number} [options.getTempoBpm]
  * @param {() => boolean} [options.isWalkingBassEnabled]
+ * @param {() => PracticePlaybackFeelMode} [options.getPlaybackFeelMode]
  * @param {() => number} [options.getSwingRatio]
  * @param {() => Record<string, unknown> | null} [options.getPlaybackEndingCue]
  * @param {() => PracticePlaybackBassPlan | null} [options.getCurrentBassPlan]
@@ -96,6 +99,7 @@ export function createPracticePlaybackPreparationRuntime({
   getCompingStyle = () => 'off',
   getTempoBpm = () => 120,
   isWalkingBassEnabled = () => false,
+  getPlaybackFeelMode = () => 'four',
   getSwingRatio = () => 0,
   getPlaybackEndingCue = () => null,
   getCurrentBassPlan = () => [],
@@ -190,11 +194,16 @@ export function createPracticePlaybackPreparationRuntime({
   function buildPreparedBassPlan(initialPendingTargetMidi = null) {
     if (!isWalkingBassEnabled() || !walkingBassGenerator) {
       setCurrentBassPlan([]);
+      console.info('[playback-feel] skipped bass plan rebuild', {
+        walkingBassEnabled: isWalkingBassEnabled(),
+        hasGenerator: Boolean(walkingBassGenerator)
+      });
       return getCurrentBassPlan();
     }
 
     const nextKey = getNextKeyForBass();
     const nextChords = getNextPaddedChordsForBass();
+    const playbackFeel = getPlaybackFeelMode();
     const currentBassPlan = walkingBassGenerator.buildLine({
       chords: getPaddedChords(),
       key: getCurrentKey(),
@@ -207,9 +216,20 @@ export function createPracticePlaybackPreparationRuntime({
       nextKey: nextKey ?? getCurrentKey(),
       nextIsMinor: getIsMinorMode(),
       swingRatio: getSwingRatio(),
-      endingCue: getPlaybackEndingCue()
+      endingCue: getPlaybackEndingCue(),
+      bassFeel: playbackFeel
     });
     setCurrentBassPlan(currentBassPlan);
+    console.info('[playback-feel] rebuilt bass plan', {
+      playbackFeel,
+      eventCount: currentBassPlan.length,
+      firstEvents: currentBassPlan.slice(0, 8).map((event: any) => ({
+        timeBeats: event?.timeBeats,
+        midi: event?.midi,
+        rank: event?.rank,
+        source: event?.source
+      }))
+    });
     return currentBassPlan;
   }
 
