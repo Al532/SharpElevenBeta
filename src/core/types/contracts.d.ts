@@ -385,6 +385,7 @@ export interface PlaybackOperationResult {
   state?: Partial<PlaybackRuntimeState> | null;
   session?: PracticeSessionSpec | null;
   settings?: PlaybackSettings | unknown;
+  cue?: ChartPerformanceCue | null;
 }
 
 export interface PlaybackSessionSnapshot {
@@ -756,7 +757,7 @@ export interface ChartPlaybackController {
   ensurePlaybackController(): PlaybackSessionController;
   syncPlaybackState(): TransportPlaybackStatus;
   stopPlayback(options?: { resetPosition?: boolean }): Promise<TransportPlaybackStatus>;
-  startPlayback(): Promise<{ ok: boolean } | TransportPlaybackStatus>;
+  startPlayback(options?: { startupPerformanceCue?: ChartPerformanceCue | null }): Promise<{ ok: boolean } | TransportPlaybackStatus>;
   syncPlaybackSettings(): Promise<PlaybackOperationResult>;
   queuePerformanceCue(cue: ChartPerformanceCue): Promise<PlaybackOperationResult>;
   pauseToggle(): Promise<TransportPlaybackStatus>;

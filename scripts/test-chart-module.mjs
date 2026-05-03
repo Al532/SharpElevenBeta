@@ -74,6 +74,7 @@ import {
   createChartPlaybackPayloadBuilder
 } from '../src/features/chart/chart-playback-bridge.ts';
 import { createChartDirectPlaybackControllerOptions } from '../src/features/chart/chart-direct-playback-options.ts';
+import { createChartPlaybackController } from '../src/features/chart/chart-playback-controller.ts';
 import { createChartDirectPlaybackHostResolver } from '../src/features/chart/chart-direct-playback-host.ts';
 import { createChartDirectPlaybackFrameHost } from '../src/features/chart/chart-direct-playback-frame.ts';
 import { createChartDirectPlaybackWindowHost } from '../src/features/chart/chart-direct-playback-window-host.ts';
@@ -4702,11 +4703,12 @@ assert.deepEqual(
         { id: 'exit-repeat', type: 'exit_repeat', boundary: 'next_repeat_boundary', status: 'idle' },
         { id: 'feel-toggle-1', type: 'playback_feel_toggle', boundary: 'next_bar', status: 'idle' },
         { id: 'feel-toggle-2', type: 'playback_feel_toggle', boundary: 'next_section', status: 'idle' },
-        { id: 'legacy-feel-toggle', type: 'bass_feel_toggle', boundary: 'next_section', status: 'idle' }
+        { id: 'legacy-feel-toggle', type: 'bass_feel_toggle', boundary: 'next_section', status: 'idle' },
+        { id: 'feel-toggle-duplicate-bar', type: 'playback_feel_toggle', boundary: 'next_bar', status: 'idle' }
       ]
     }).cues.map((cue) => cue.id),
-    ['last-chorus-1', 'exit-repeat', 'feel-toggle-1'],
-    'Chart performances keep only one last-chorus cue and one playback-feel cue.'
+    ['last-chorus-1', 'exit-repeat', 'feel-toggle-1', 'feel-toggle-2'],
+    'Chart performances keep only one last-chorus cue and one playback-feel cue per boundary.'
   );
   const resetLastChorusPerformance = resetTransientChartPerformanceCueState(createDefaultChartPerformance(vampInRepeatDocument, {
     cues: [
@@ -7278,6 +7280,87 @@ assert.equal(
   'function',
   'Chart direct playback controller options expose direct transport controls.'
 );
+{
+  const startupCueCalls = [];
+  const startupRuntimeState = {
+    isPlaying: true,
+    isPaused: false,
+    isIntro: false,
+    currentBeat: 0,
+    currentChordIdx: 0,
+    paddedChordCount: 4,
+    sessionId: 'startup-feel-session',
+    errorMessage: null
+  };
+  const startupController = createChartPlaybackController({
+    playbackBridgeProvider: {
+      getBridge() {
+        return {
+          playbackRuntime: {
+            ensureReady: async () => true
+          },
+          playbackController: {
+            updatePlaybackSettings(settings) {
+              startupCueCalls.push({ kind: 'settings', settings });
+              return { ok: true, state: startupRuntimeState };
+            },
+            loadSession(sessionSpec) {
+              startupCueCalls.push({ kind: 'load', sessionId: sessionSpec?.id });
+              return { ok: true, state: startupRuntimeState };
+            },
+            queuePerformanceCue(cue) {
+              startupCueCalls.push({ kind: 'cue', cue });
+              return { ok: true, state: startupRuntimeState, cue };
+            },
+            start() {
+              startupCueCalls.push({ kind: 'start' });
+              return { ok: true, state: startupRuntimeState };
+            },
+            stop() {
+              return { ok: true, state: startupRuntimeState };
+            },
+            pauseToggle() {
+              return { ok: true, state: startupRuntimeState };
+            },
+            refreshRuntimeState() {
+              return startupRuntimeState;
+            },
+            getState() {
+              return { runtime: startupRuntimeState };
+            },
+            subscribe() {
+              return () => {};
+            }
+          }
+        };
+      }
+    },
+    getSelectedPracticeSession: () => satinSession,
+    getPlaybackSettings: () => ({}),
+    getTempo: () => 132,
+    setActivePlaybackPosition: () => {},
+    onTransportStatus: () => {}
+  });
+  await startupController.startPlayback({
+    startupPerformanceCue: {
+      id: 'startup-two-feel',
+      type: 'playback_feel_set',
+      boundary: 'next_bar',
+      status: 'armed',
+      playbackFeel: 'two'
+    }
+  });
+  assert.deepEqual(
+    startupCueCalls.map((call) => call.kind),
+    ['settings', 'load', 'cue', 'start'],
+    'Chart playback applies startup feel cues after loading the session but before starting audio.'
+  );
+  assert.equal(
+    startupCueCalls.find((call) => call.kind === 'cue')?.cue?.playbackFeel,
+    'two',
+    'Chart playback preserves the armed feel requested for startup.'
+  );
+}
 const chartDirectUnavailableControllerOptions = createChartDirectPlaybackControllerOptions({
   getTargetWindow: () => /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi }),
   getPreferredTargetWindow: () => /** @type {any} */ ({ __JPT_PLAYBACK_API__: embeddedApi }),

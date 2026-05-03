@@ -1632,12 +1632,86 @@ function getPlaybackBarBeatCount(bar: any) {
 function getCueTargetChordIndex(cue: any, sessionSpec: any) {
   const targetBarIndex = Number(cue?.targetBarIndex);
   if (!Number.isFinite(targetBarIndex) || targetBarIndex <= 0) return null;
+  return getCueTargetChordIndexForBarIndex(targetBarIndex, sessionSpec);
+}
+
+function getCueTargetChordIndexForBarIndex(targetBarIndex: number, sessionSpec: any) {
   const playbackBars = Array.isArray(sessionSpec?.playback?.bars) ? sessionSpec.playback.bars : [];
   const targetPlaybackIndex = playbackBars.findIndex((bar: any) => Number(bar?.index) === targetBarIndex);
   if (targetPlaybackIndex < 0) return null;
   return playbackBars
     .slice(0, targetPlaybackIndex)
     .reduce((total: number, bar: any) => total + getPlaybackBarBeatCount(bar), 0);
+}
+
+function getPlaybackBarStarts(sessionSpec: any) {
+  const playbackBars = Array.isArray(sessionSpec?.playback?.bars) ? sessionSpec.playback.bars : [];
+  let chordCursor = 0;
+  return playbackBars.map((bar: any, playbackIndex: number) => {
+    const start = {
+      bar,
+      playbackIndex,
+      barIndex: Number(bar?.index),
+      chordIndex: chordCursor
+    };
+    chordCursor += getPlaybackBarBeatCount(bar);
+    return start;
+  });
+}
+
+function getPlaybackSectionBoundaryBarIndexes(sessionSpec: any) {
+  const sectionBoundaries = sessionSpec?.playback?.performanceMap?.sectionBoundaries;
+  return new Set((Array.isArray(sectionBoundaries) ? sectionBoundaries : [])
+    .map((section: any) => Number(section?.barIndex))
+    .filter((barIndex: number) => Number.isFinite(barIndex) && barIndex > 0));
+}
+
+function resolveSafePlaybackFeelToggleTarget(cue: any, sessionSpec: any, targetChordIndex: number | null) {
+  if (targetChordIndex === null) {
+    return {
+      targetChordIndex,
+      targetBarIndex: cue?.targetBarIndex ?? null,
+      targetOnNextProgression: cue?.targetOnNextProgression === true,
+      deferred: false
+    };
+  }
+
+  const preparedChordIndex = Math.max(0, Math.round(Number(currentChordIdx) || 0));
+  if (targetChordIndex > preparedChordIndex) {
+    return {
+      targetChordIndex,
+      targetBarIndex: cue?.targetBarIndex ?? null,
+      targetOnNextProgression: false,
+      deferred: false
+    };
+  }
+
+  const playbackBarStarts = getPlaybackBarStarts(sessionSpec);
+  const nextTargets = cue?.boundary === 'next_section'
+    ? (() => {
+        const sectionBoundaryBarIndexes = getPlaybackSectionBoundaryBarIndexes(sessionSpec);
+        return playbackBarStarts.filter((start) => (
+          sectionBoundaryBarIndexes.has(start.barIndex)
+          && start.chordIndex > preparedChordIndex
+        ));
+      })()
+    : playbackBarStarts.filter((start) => start.chordIndex > preparedChordIndex);
+  const nextTarget = nextTargets.sort((a, b) => a.chordIndex - b.chordIndex)[0];
+  if (!nextTarget) {
+    return {
+      targetChordIndex: null,
+      targetBarIndex: cue?.targetBarIndex ?? null,
+      targetOnNextProgression: true,
+      deferred: true
+    };
+  }
+
+  return {
+    targetChordIndex: nextTarget.chordIndex,
+    targetBarIndex: nextTarget.barIndex,
+    targetOnNextProgression: false,
+    deferred: true
+  };
 }
 
 function applyPendingPlaybackFeelToggleForCurrentPosition(chordIndex: number) {
@@ -1730,16 +1804,36 @@ function queueChartPerformanceCue(cue: any, sessionSpec: any) {
       : (cue?.playbackFeel === 'two' || cue?.bassFeel === 'two'
           ? 'two'
           : (playbackFeelMode === 'two' ? 'four' : 'two'));
+    const sessionForCue = sessionSpec || cue?.playbackSession;
+    const initialTargetChordIndex = cue?.targetOnNextProgression === true
+      ? null
+      : getCueTargetChordIndex(cue, sessionForCue);
+    const safeTarget = resolveSafePlaybackFeelToggleTarget(cue, sessionForCue, initialTargetChordIndex);
+    const queuedCue = safeTarget.deferred
+      ? {
+          ...cue,
+          targetBarIndex: safeTarget.targetBarIndex,
+          targetOnNextProgression: safeTarget.targetOnNextProgression
+        }
+      : cue;
     pendingPlaybackFeelToggle = {
       targetMode: cueTargetMode,
-      targetChordIndex: cue?.targetOnNextProgression === true
-        ? null
-        : getCueTargetChordIndex(cue, sessionSpec)
+      targetChordIndex: safeTarget.targetChordIndex
     };
+    if (safeTarget.deferred) {
+      console.info('[playback-feel] deferred near-target toggle', {
+        requestedTargetBarIndex: cue?.targetBarIndex ?? null,
+        requestedTargetChordIndex: initialTargetChordIndex,
+        deferredTargetBarIndex: safeTarget.targetBarIndex,
+        deferredTargetChordIndex: safeTarget.targetChordIndex,
+        targetOnNextProgression: safeTarget.targetOnNextProgression,
+        currentChordIdx
+      });
+    }
     return {
       ok: true,
       state: getEmbeddedPlaybackState?.(),
-      cue
+      cue: queuedCue
     };
   }
 

@@ -120,7 +120,7 @@ export function createDefaultChartPerformance(
 function normalizeChartPerformanceCues(value: unknown): ChartPerformanceCue[] {
   if (!Array.isArray(value)) return [];
   let hasLastChorusCue = false;
-  let hasPlaybackFeelCue = false;
+  const playbackFeelCueBoundaries = new Set<string>();
   return value.flatMap((rawCue) => {
     const cue = normalizeObject(rawCue) as ChartPerformanceCue;
     if (!cue.id || !cue.type) return [];
@@ -134,8 +134,9 @@ function normalizeChartPerformanceCues(value: unknown): ChartPerformanceCue[] {
       }];
     }
     if (PLAYBACK_FEEL_CUE_TYPES.has(String(cue.type))) {
-      if (hasPlaybackFeelCue) return [];
-      hasPlaybackFeelCue = true;
+      const boundary = cue.boundary === 'next_section' ? 'next_section' : 'next_bar';
+      if (playbackFeelCueBoundaries.has(boundary)) return [];
+      playbackFeelCueBoundaries.add(boundary);
     }
     return [JSON.parse(JSON.stringify(cue))];
   });

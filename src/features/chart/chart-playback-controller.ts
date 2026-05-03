@@ -124,7 +124,11 @@ export function createChartPlaybackController({
     };
   }
 
-  async function startPlayback(): Promise<{ ok: boolean } | TransportPlaybackStatus> {
+  async function startPlayback({
+    startupPerformanceCue = null
+  }: {
+    startupPerformanceCue?: ChartPerformanceCue | null;
+  } = {}): Promise<{ ok: boolean } | TransportPlaybackStatus> {
     const practiceSession = getSelectedPracticeSession?.();
     if (!practiceSession?.playback?.enginePatternString) return { ok: false };
 
@@ -157,6 +161,13 @@ export function createChartPlaybackController({
 
     if (!applyResult?.ok) {
       throw new Error(applyResult?.errorMessage || 'Playback rejected the interpreted chart.');
+    }
+
+    if (startupPerformanceCue) {
+      const cueResult = await controller.queuePerformanceCue(startupPerformanceCue);
+      if (!cueResult?.ok) {
+        throw new Error(cueResult?.errorMessage || 'Playback rejected the startup performance cue.');
+      }
     }
 
     const startResult = await controller.start();

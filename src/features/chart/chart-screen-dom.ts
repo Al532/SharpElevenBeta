@@ -13,7 +13,6 @@ export function createChartScreenDomRefs(rootDocument: Document = document) {
     irealImportActions: rootDocument.getElementById('chart-import-native-actions'),
     irealLinkImportSection: rootDocument.getElementById('ireal-link-import-section'),
     chartImportStatus: rootDocument.getElementById('chart-import-status'),
-    playbackFeelToggle: rootDocument.getElementById('chart-playback-feel-toggle') as HTMLButtonElement | null,
     irealBackupInput: rootDocument.getElementById('ireal-backup-input') as HTMLInputElement | null,
     fixtureSelect: rootDocument.getElementById('fixture-select') as HTMLSelectElement | null,
     transposeSelect: rootDocument.getElementById('transpose-select') as HTMLSelectElement | null,
