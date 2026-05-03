@@ -1,41 +1,4 @@
-(function applyStoredSharpElevenTheme(globalScope) {
-  function isLocalLocation() {
-    var hostname = globalScope.location ? globalScope.location.hostname : '';
-    var port = globalScope.location ? globalScope.location.port : '';
-    return (
-      !hostname ||
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '::1' ||
-      !!port
-    );
-  }
-
-  function normalizeBuildRedirectTarget() {
-    var path = globalScope.location.pathname || '/';
-    if (path.indexOf('/build/') !== -1) return null;
-
-    var trailingSlashIndex = path.lastIndexOf('/') + 1;
-    var directory = path.slice(0, trailingSlashIndex);
-    var fileName = path.slice(trailingSlashIndex) || 'index.html';
-    if (!/\.html?$/.test(fileName)) {
-      fileName = 'index.html';
-    }
-
-    return directory + 'build/' + fileName + (globalScope.location.search || '') + (globalScope.location.hash || '');
-  }
-
-  function redirectToBuildOutput() {
-    if (isLocalLocation() || !globalScope.location || !globalScope.document) return;
-
-    var target = normalizeBuildRedirectTarget();
-    if (!target) return;
-
-    globalScope.location.replace(target);
-  }
-
-  redirectToBuildOutput();
-
+﻿(function applyStoredSharpElevenTheme(globalScope) {
   var storageKey = 'sharp-eleven-theme';
   var defaultPalette = 'classic-paper';
   var darkPalette = 'dark-jazz';
