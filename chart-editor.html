@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Chart editor - Sharp Eleven</title>
+  <link rel="icon" href="./assets/BkfovcRS.ico" sizes="any">
+  <link rel="icon" href="./assets/Ba5MLdR8.png" type="image/png" sizes="16x16">
+  <link rel="icon" href="./assets/8CA5PvgQ.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="./assets/DuxaSCbp.png" type="image/png" sizes="48x48">
+  <link rel="apple-touch-icon" href="./assets/CaKPFyjJ.png" sizes="180x180">
+  <link rel="manifest" href="./assets/Bv_iDeie.webmanifest">
+  <script src="./theme-bootstrap.js"></script>
+  <script type="module" crossorigin src="./assets/-CeGrtJQ.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/B2PlSRge.js">
+  <link rel="modulepreload" crossorigin href="./assets/BOwtpVlO.js">
+  <link rel="modulepreload" crossorigin href="./assets/Br7rlHDh.js">
+  <link rel="modulepreload" crossorigin href="./assets/CVWIumjP.js">
+  <link rel="modulepreload" crossorigin href="./assets/o_6Nv0hE.js">
+  <link rel="modulepreload" crossorigin href="./assets/CvmPhM1r.js">
+  <link rel="stylesheet" crossorigin href="./assets/Db-b3UNY.css">
+  <link rel="stylesheet" crossorigin href="./assets/BTs1uvhl.css">
+  <link rel="stylesheet" crossorigin href="./assets/DsRVzu9d.css">
+  <link rel="stylesheet" crossorigin href="./assets/BdySCfgq.css">
+</head>
+<body class="home-body chart-editor-body">
+  <main class="chart-editor-main" aria-label="Chart editor">
+    <section id="chart-editor-name-panel" class="chart-editor-name-panel" hidden>
+      <form id="chart-editor-name-form" class="chart-editor-name-form">
+        <label class="home-search-field chart-editor-name-field">
+          <span class="sr-only">Chart name</span>
+          <input id="chart-editor-title-input" type="text" placeholder="Chart name" autocomplete="off" required>
+        </label>
+        <div class="chart-editor-name-actions">
+          <button class="home-primary-action" type="submit">Create chart</button>
+          <button id="chart-editor-name-cancel-button" class="home-metadata-close" type="button">Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="chart-editor-shell" class="chart-editor-shell" hidden>
+      <div class="chart-editor-title-row">
+        <h1 id="chart-editor-title" class="chart-editor-title">Untitled chart</h1>
+        <div class="chart-editor-actions">
+          <button id="chart-editor-preview-button" class="home-primary-action" type="button" disabled>Preview</button>
+          <button id="chart-editor-save-button" class="home-primary-action" type="button" disabled>Save</button>
+          <button id="chart-editor-save-copy-button" class="home-primary-action chart-editor-secondary-action" type="button" hidden>Save copy</button>
+          <button id="chart-editor-cancel-button" class="home-metadata-close" type="button">Cancel</button>
+        </div>
+      </div>
+      <div class="chart-editor-insert-toolbar" role="toolbar" aria-label="Insert into chart text">
+        <label class="chart-editor-insert-field">
+          <select id="chart-editor-chord-menu" aria-label="Insert chord quality" disabled>
+            <option value="">Chord</option>
+            <option value="maj7">maj7</option>
+            <option value="6">6</option>
+            <option value="m7">m7</option>
+            <option value="m6">m6</option>
+            <option value="m7b5">m7b5</option>
+            <option value="dim7">dim7</option>
+            <option value="7">7</option>
+            <option value="7b9">7b9</option>
+            <option value="7alt">7alt</option>
+            <option value="7#11">7#11</option>
+            <option value="7#5">7#5</option>
+            <option value="7#9">7#9</option>
+            <option value="7sus">7sus</option>
+            <option value="13sus">13sus</option>
+          </select>
+        </label>
+        <button id="chart-editor-insert-bar-button" class="chart-editor-insert-button" type="button" disabled aria-label="Insert measure bar">|</button>
+        <button id="chart-editor-insert-repeat-button" class="chart-editor-insert-button" type="button" disabled aria-label="Insert repeat sign">%</button>
+        <label class="chart-editor-insert-field">
+          <select id="chart-editor-form-menu" aria-label="Insert form marker" disabled>
+            <option value="">Form</option>
+            <option value="@fine">@fine</option>
+            <option value="@coda">@coda</option>
+            <option value="@to-coda">@to-coda</option>
+            <option value="@segno">@segno</option>
+            <option value="@dc-al-fine">@dc-al-fine</option>
+            <option value="@ds-al-fine">@ds-al-fine</option>
+            <option value="@dc-al-coda">@dc-al-coda</option>
+            <option value="@ds-al-coda">@ds-al-coda</option>
+            <option value="@dc-on-cue">@dc-on-cue</option>
+          </select>
+        </label>
+      </div>
+      <textarea id="chart-editor-textarea" class="chart-editor-textarea" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="soft" placeholder="Dm7 G7 | Cmaj7" disabled></textarea>
+      <div id="chart-editor-canonical-chords" class="chart-editor-canonical-chords"></div>
+      <div id="chart-editor-diagnostics" class="chart-editor-diagnostics" role="status" aria-live="polite"></div>
+      <p class="chart-editor-desktop-hint">
+        Prefer typing on a desktop? Write your chart at <a href="https://www.sharp11.app" target="_blank" rel="noopener">sharp11.app</a>, get help correcting it with our custom GPT, then send it to your phone with a QR code.
+      </p>
+    </section>
+  </main>
+
+  <div id="chart-editor-preview" class="chart-editor-preview" hidden>
+    <div class="chart-workspace">
+      <div class="chart-sheet-header">
+        <div class="chart-sheet-title-row">
+          <h2 id="chart-editor-preview-title" class="chart-sheet-title"></h2>
+        </div>
+        <div class="chart-sheet-header-row">
+          <div id="chart-editor-preview-style" class="chart-sheet-style"></div>
+          <div id="chart-editor-preview-subtitle" class="chart-sheet-subtitle"></div>
+        </div>
+      </div>
+      <div id="chart-editor-preview-grid" class="chart-sheet-grid"></div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const key = 'sharp-eleven-chart-editor-entry-draft';
+      try {
+        const payload = JSON.parse(sessionStorage.getItem(key) || 'null');
+        const chartId = new URLSearchParams(window.location.search).get('chart') || '';
+        const payloadChartId = String(payload?.chartId || payload?.document?.metadata?.id || '');
+        const isFresh = Number.isFinite(Number(payload?.createdAt)) && Date.now() - Number(payload.createdAt) < 300000;
+        if (!payload?.document || !isFresh || (chartId && payloadChartId !== chartId)) {
+          const shell = document.getElementById('chart-editor-shell');
+          const namePanel = document.getElementById('chart-editor-name-panel');
+          if (chartId && shell) {
+            shell.hidden = false;
+          } else if (!chartId && namePanel) {
+            namePanel.hidden = false;
+          }
+          return;
+        }
+        const title = document.getElementById('chart-editor-title');
+        const textarea = document.getElementById('chart-editor-textarea');
+        const shell = document.getElementById('chart-editor-shell');
+        const namePanel = document.getElementById('chart-editor-name-panel');
+        const saveButton = document.getElementById('chart-editor-save-button');
+        const saveCopyButton = document.getElementById('chart-editor-save-copy-button');
+        const defaultChartText = '@key C\n@4/4\n\nDm7 | G7 | Cmaj7 | %\nDm7 | G7 | Cmaj7 | %';
+        const editorMode = payload.editorMode === 'create' ? 'create' : 'edit';
+        const shouldShowImportedSaveChoices = editorMode === 'edit' && !String(payload.document?.source?.type || '').startsWith('user');
+        let measureEl = null;
+        const measureTextareaContentWidth = (style) => {
+          if (!textarea) return 0;
+          if (!measureEl) {
+            measureEl = document.createElement('div');
+            measureEl.setAttribute('aria-hidden', 'true');
+            measureEl.style.position = 'absolute';
+            measureEl.style.visibility = 'hidden';
+            measureEl.style.pointerEvents = 'none';
+            measureEl.style.whiteSpace = 'pre';
+            measureEl.style.overflow = 'visible';
+            measureEl.style.width = 'auto';
+            measureEl.style.maxWidth = 'none';
+            measureEl.style.padding = '0';
+            measureEl.style.border = '0';
+            measureEl.style.inset = '0 auto auto -9999px';
+            document.body.appendChild(measureEl);
+          }
+          measureEl.style.font = style.font;
+          measureEl.style.letterSpacing = style.letterSpacing;
+          measureEl.style.tabSize = style.tabSize;
+          measureEl.textContent = textarea.value || textarea.placeholder || '';
+          return measureEl.scrollWidth;
+        };
+        const fitTextareaText = () => {
+          if (!textarea || textarea.hidden) return false;
+          textarea.style.removeProperty('--chart-editor-textarea-font-size');
+          const style = getComputedStyle(textarea);
+          const baseFontSize = Number.parseFloat(style.fontSize) || 16;
+          const paddingInline = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+          const availableWidth = textarea.clientWidth - paddingInline;
+          const contentWidth = measureTextareaContentWidth(style);
+          if (availableWidth <= 1 || contentWidth <= 1) return false;
+          const fittedFontSize = Math.max(7, Math.floor(baseFontSize * Math.min(1, availableWidth / contentWidth) * 100) / 100);
+          if (fittedFontSize < baseFontSize - 0.1) {
+            textarea.style.setProperty('--chart-editor-textarea-font-size', `${fittedFontSize}px`);
+          }
+          return true;
+        };
+        const scheduleTextareaTextFit = (retryCount = 0) => {
+          requestAnimationFrame(() => {
+            const didFit = fitTextareaText();
+            if (retryCount > 0 && (!didFit || !shell?.hidden)) {
+              scheduleTextareaTextFit(retryCount - 1);
+            }
+          });
+        };
+        if (title) title.textContent = payload.document?.metadata?.title || 'Untitled chart';
+        if (textarea) {
+          const sourceText = String(payload.sourceText || '');
+          textarea.value = editorMode === 'edit' ? sourceText : (sourceText.trim() ? sourceText : defaultChartText);
+        }
+        if (saveButton) {
+          saveButton.textContent = shouldShowImportedSaveChoices ? 'Overwrite' : 'Save';
+          saveButton.disabled = false;
+        }
+        if (saveCopyButton) saveCopyButton.hidden = !shouldShowImportedSaveChoices;
+        const previewButton = document.getElementById('chart-editor-preview-button');
+        if (previewButton) previewButton.disabled = false;
+        if (textarea) textarea.disabled = false;
+        document.getElementById('chart-editor-form-menu')?.removeAttribute('disabled');
+        document.getElementById('chart-editor-chord-menu')?.removeAttribute('disabled');
+        document.getElementById('chart-editor-insert-bar-button')?.removeAttribute('disabled');
+        document.getElementById('chart-editor-insert-repeat-button')?.removeAttribute('disabled');
+        if (namePanel) namePanel.hidden = true;
+        if (shell) shell.hidden = false;
+        scheduleTextareaTextFit(2);
+        document.fonts?.ready?.then(() => scheduleTextareaTextFit(1)).catch(() => {});
+        window.addEventListener('load', () => scheduleTextareaTextFit(1), { once: true });
+      } catch (_error) {
+        // The module script will load the editor normally.
+      }
+    })();
+  </script>
+</body>
+</html>

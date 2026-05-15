@@ -1,0 +1,31 @@
+:root,
+:root[data-theme="classic-paper"] {
+  color-scheme: light;
+
+  /* Five source colors: page, text, accent, support, danger. */
+  --c-bg: #f5f1e6;
+  --c-text: #1a1a1a;
+  --c-accent: #c19a6b;
+  --c-secondary: #dcd6c8;
+  --c-danger: #c1121f;
+}
+
+:root[data-theme="blue-note"] {
+  color-scheme: light;
+
+  --c-bg: #eef2f7;
+  --c-text: #20242c;
+  --c-accent: #0f6fae;
+  --c-secondary: #c7dff4;
+  --c-danger: #c86472;
+}
+
+:root[data-theme="dark-jazz"] {
+  color-scheme: dark;
+
+  --c-bg: #1d1f20;
+  --c-text: #f5efe4;
+  --c-accent: #d18a34;
+  --c-secondary: #2d3032;
+  --c-danger: #df6e68;
+}

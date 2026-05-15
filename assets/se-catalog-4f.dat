@@ -1,0 +1,15 @@
+# progressions-version: 4.5
+# Format:
+# pattern
+# mode | pattern
+# name | pattern
+# name | mode | pattern
+
+| both | II V I
+Standard turnaround | C A7 Dm7 G7 C
+Minor turnaround | minor | Cm Am7b5 Dm7b5 G7 Cm
+Golden Age turnaround | C Ebdim7 Dm7 G13b9 C
+Coltrane turnaround | Cmaj7 Eb7 Abmaj7 Db7 Cmaj7
+
+Static sus | G7sus
+Random chords | one:

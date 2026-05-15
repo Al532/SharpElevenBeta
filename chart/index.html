@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Charts - Sharp Eleven</title>
+  <link rel="icon" href="../assets/BkfovcRS.ico" sizes="any">
+  <link rel="icon" href="../assets/Ba5MLdR8.png" type="image/png" sizes="16x16">
+  <link rel="icon" href="../assets/8CA5PvgQ.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="../assets/DuxaSCbp.png" type="image/png" sizes="48x48">
+  <link rel="apple-touch-icon" href="../assets/CaKPFyjJ.png" sizes="180x180">
+  <link rel="manifest" href="../assets/Bv_iDeie.webmanifest">
+  <script src="../theme-bootstrap.js"></script>
+  <script type="module" crossorigin src="../assets/DOGngMqb.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/B2PlSRge.js">
+  <link rel="modulepreload" crossorigin href="../assets/BOwtpVlO.js">
+  <link rel="modulepreload" crossorigin href="../assets/Br7rlHDh.js">
+  <link rel="modulepreload" crossorigin href="../assets/CVWIumjP.js">
+  <link rel="modulepreload" crossorigin href="../assets/o_6Nv0hE.js">
+  <link rel="modulepreload" crossorigin href="../assets/DaCBfZbf.js">
+  <link rel="modulepreload" crossorigin href="../assets/BjOjz1fl.js">
+  <link rel="modulepreload" crossorigin href="../assets/BasZ8I4c.js">
+  <link rel="modulepreload" crossorigin href="../assets/SLcDXM6Z.js">
+  <link rel="modulepreload" crossorigin href="../assets/DS1Cpcux.js">
+  <link rel="stylesheet" crossorigin href="../assets/Db-b3UNY.css">
+  <link rel="stylesheet" crossorigin href="../assets/BTs1uvhl.css">
+  <link rel="stylesheet" crossorigin href="../assets/DsRVzu9d.css">
+</head>
+<body>
+  <div class="chart-app">
+    <div class="chart-mobile-backdrop" id="chart-mobile-backdrop"></div>
+    <div id="chart-count-in-indicator" class="chart-count-in-indicator" aria-hidden="true" hidden></div>
+
+    <!-- Top overlay: chart navigation -->
+    <div class="chart-top-overlay" id="chart-top-overlay" aria-hidden="true">
+      <div class="chart-top-bar">
+        <a id="chart-home-button" class="app-back-button" href="../index.html" aria-label="Back to home">
+          <span aria-hidden="true"></span>
+        </a>
+        <label class="chart-select-field chart-search-field">
+          <span>Search</span>
+          <input id="chart-search-input" type="search" placeholder="Title or composer">
+        </label>
+        <label class="chart-select-field chart-chart-select-field">
+          <span>Chart</span>
+          <select id="fixture-select" disabled>
+            <option value=""></option>
+          </select>
+        </label>
+        <div class="chart-library-count" id="chart-library-count"></div>
+        <div class="chart-top-actions">
+          <label class="chart-renderer-toggle" title="Chord symbol renderer locked to V1" hidden>
+            <input id="use-chord-symbol-v2" type="checkbox" disabled>
+            <span class="chart-renderer-toggle-track" aria-hidden="true">
+              <span>V1</span>
+              <span>V2</span>
+            </span>
+          </label>
+          <button type="button" id="chart-share-button" class="chart-icon-button chart-share-button" aria-label="Share chart" title="Share chart"></button>
+          <button type="button" id="chart-edit-button" class="chart-icon-button chart-edit-button" aria-label="Edit chart" title="Edit chart"></button>
+          <button type="button" id="chart-quick-edit-button" class="chart-icon-button chart-quick-edit-button" aria-label="Quick edit" title="Quick edit" aria-pressed="false"></button>
+          <div class="chart-popover-wrap" id="chart-metadata-wrap">
+            <button type="button" id="chart-metadata-button" class="chart-icon-button chart-info-button" aria-label="Chart information" aria-haspopup="menu" aria-expanded="false"></button>
+            <div class="chart-popover chart-metadata-popover" id="chart-metadata-popover" hidden></div>
+          </div>
+          <div class="chart-popover-wrap" id="manage-charts-wrap">
+            <button type="button" id="manage-charts-button" class="chart-action-button chart-action-button-secondary" aria-haspopup="menu" aria-expanded="false">Manage charts</button>
+            <div class="chart-popover" id="manage-charts-popover" hidden>
+              <div id="chart-import-native-actions" class="chart-import-actions">
+                <button id="import-ireal-backup-button" type="button" class="chart-action-button">Import iReal backup</button>
+                <button id="open-ireal-forum-button" type="button" class="chart-action-button chart-action-button-secondary">iReal forum charts</button>
+              </div>
+              <button id="clear-all-charts-button" type="button" class="chart-action-button chart-action-button-secondary">Remove all charts</button>
+              <div id="ireal-link-import-section" class="chart-import-link-section" hidden>
+                <div class="chart-import-copy">
+                  <strong>Paste an iReal link</strong>
+                  <span>Use this after browsing the iReal default playlists or forum charts.</span>
+                </div>
+                <div class="chart-import-inputs">
+                  <input id="ireal-link-input" type="text" placeholder="Paste irealb://… here" spellcheck="false">
+                  <button id="import-ireal-link-button" type="button" class="chart-action-button">Import</button>
+                </div>
+              </div>
+              <div id="chart-import-status" class="chart-import-status" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-popover-wrap chart-instrument-settings-wrap" id="instrument-settings-wrap">
+          <button type="button" id="instrument-settings-button" class="chart-icon-button chart-gear-button" aria-label="Settings" title="Settings" aria-haspopup="menu" aria-expanded="false"></button>
+          <div class="chart-popover chart-instrument-popover" id="instrument-settings-popover" hidden>
+            <label class="chart-select-field">
+              <span>Transposing instrument</span>
+              <select id="instrument-transpose-select">
+                <option value="0" selected>Concert pitch</option>
+                <option value="2">Bb instrument</option>
+                <option value="9">Eb instrument</option>
+                <option value="7">F instrument</option>
+              </select>
+            </label>
+            <label class="chart-select-field chart-chord-display-field" title="Light shows a simplified version of the selected reharm. Rich shows the complete version.">
+              <span>Chord display</span>
+              <select id="harmony-display-mode" aria-describedby="chord-display-help">
+                <option value="light" selected>Light</option>
+                <option value="rich">Rich</option>
+              </select>
+            </label>
+            <p id="chord-display-help" class="chart-field-help">
+              Shows a simplified version of the selected reharm.
+            </p>
+            <label class="chart-select-field chart-chord-enrichment-field">
+              <span>Reharm</span>
+              <select id="chord-enrichment-mode">
+                <option value="off">None</option>
+                <option value="mainstream-jazz" selected>Mainstream jazz</option>
+              </select>
+            </label>
+            <label class="chart-select-field">
+              <span>Comping style</span>
+              <select id="comping-style-select">
+                <option value="off">Off</option>
+                <option value="piano" selected>Piano</option>
+                <option value="strings">Strings</option>
+              </select>
+            </label>
+            <label class="chart-select-field">
+              <span>Drums</span>
+              <select id="drums-select">
+                <option value="off">Off</option>
+                <option value="metronome_2_4">Metronome 2 &amp; 4</option>
+                <option value="hihats_2_4">Hi-hat on 2 &amp; 4</option>
+                <option value="full_swing" selected>Full swing drum pattern</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- Bottom overlay: transport controls -->
+      <div class="chart-bottom-overlay" id="chart-bottom-overlay" aria-hidden="true">
+        <div class="chart-transport-controls">
+          <div class="chart-bottom-popover-wrap chart-tempo-field">
+            <input id="tempo-input" type="number" min="40" max="320" step="1" value="120" hidden>
+            <button id="tempo-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
+              <span id="tempo-button-label">120 bpm</span>
+            </button>
+            <div id="tempo-popover" class="chart-bottom-popover chart-tempo-popover" hidden>
+              <span class="chart-bottom-popover-title">Tempo</span>
+              <strong id="tempo-popover-value">120</strong>
+              <div class="chart-tempo-stepper" role="group" aria-label="Tempo">
+                <button id="tempo-decrease-button" type="button" class="chart-stepper-button chart-tempo-stepper-button" aria-label="Decrease tempo">&minus;</button>
+                <input id="tempo-range" type="range" min="40" max="320" step="1" value="120" aria-label="Tempo">
+                <button id="tempo-increase-button" type="button" class="chart-stepper-button chart-tempo-stepper-button" aria-label="Increase tempo">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="chart-bottom-popover-wrap chart-repeat-field">
+            <input id="chart-repeat-count-input" type="number" min="1" max="15" step="1" value="1" hidden>
+            <button id="chart-repeat-count-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
+              <span id="chart-repeat-count-label">∞</span>
+            </button>
+            <div id="chart-repeat-count-popover" class="chart-bottom-popover chart-repeat-popover" hidden>
+              <div class="chart-repeat-popover-header">
+                <span class="chart-bottom-popover-title">Performance</span>
+                <button id="chart-repeat-infinite-button" type="button" class="chart-performance-infinite-button chart-repeat-infinity-symbol" aria-pressed="true" aria-label="Infinite repeats">∞</button>
+              </div>
+              <strong id="chart-repeat-count-value">∞</strong>
+              <div class="chart-performance-simple-row">
+                <div class="chart-repeat-stepper" role="group" aria-label="Repeat count">
+                  <button id="chart-repeat-count-decrease" type="button" class="chart-stepper-button" aria-label="Decrease repeats">−</button>
+                  <input id="chart-repeat-count-range" type="range" min="1" max="15" step="1" value="1" aria-label="Repeat count">
+                  <button id="chart-repeat-count-increase" type="button" class="chart-stepper-button" aria-label="Increase repeats">+</button>
+                </div>
+              </div>
+              <div class="chart-performance-menu-wrap">
+                <button id="chart-performance-action-button" type="button" class="chart-performance-action-button" aria-haspopup="menu" aria-expanded="false">Add 'on-cue' triggers</button>
+                <div id="chart-performance-menu" class="chart-performance-menu" hidden>
+                  <span class="chart-performance-menu-title">Add cue</span>
+                  <p class="chart-performance-menu-help">Cues let you trigger an action during the playback.</p>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="arm_coda">
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="arm_coda">Last chorus</button>
+                    <p class="chart-performance-cue-description">Triggers the ending, or the coda, at the end of the current chorus.</p>
+                  </div>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="exit_repeat">
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="exit_repeat">Exit vamp</button>
+                    <p class="chart-performance-cue-description">Leaves the vamp at the next repeat boundary and continues with the rest of the form.</p>
+                  </div>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="playback_feel_toggle">
+                    <div class="chart-performance-feel-row">
+                      <button type="button" class="chart-performance-menu-item chart-performance-feel-menu-item" data-chart-performance-cue-type="playback_feel_toggle">Two-feel / four-feel</button>
+                      <div class="chart-performance-feel-boundary-field">
+                        <div class="chart-performance-feel-boundary-toggle" role="radiogroup" aria-label="Two/four-feel trigger boundary">
+                          <span class="chart-performance-feel-boundary-thumb" aria-hidden="true"></span>
+                          <button type="button" class="is-selected" data-chart-performance-feel-boundary="next_bar" role="radio" aria-checked="true">bar</button>
+                          <button type="button" data-chart-performance-feel-boundary="next_section" role="radio" aria-checked="false">section</button>
+                        </div>
+                        <input id="chart-performance-feel-boundary" type="hidden" value="next_bar">
+                      </div>
+                    </div>
+                    <p class="chart-performance-cue-description">Toggles the two/four-feel at the selected boundary.</p>
+                  </div>
+                  <div class="chart-performance-cue-option" data-chart-performance-cue-option="modulate" hidden>
+                    <label class="chart-performance-modulate-field" hidden>
+                      <span>Modulate</span>
+                      <input id="chart-performance-modulate-input" type="number" min="-12" max="12" step="1" value="1" aria-label="Modulation interval in semitones">
+                    </label>
+                    <button type="button" class="chart-performance-menu-item" data-chart-performance-cue-type="modulate" hidden>Add modulation</button>
+                    <p class="chart-performance-cue-description">Changes key by the selected interval when playback reaches the next section.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-bottom-popover-wrap chart-key-field">
+            <select id="transpose-select" aria-label="Chart key" hidden>
+              <option value="0" selected>C</option>
+            </select>
+            <button id="chart-key-button" type="button" class="chart-bottom-control-button" aria-haspopup="menu" aria-expanded="false">
+              <span id="chart-key-button-label">C</span>
+            </button>
+            <div id="key-popover" class="chart-bottom-popover chart-key-popover" hidden>
+              <div class="chart-bottom-popover-title-row">
+                <span class="chart-bottom-popover-title">Transposition</span>
+              </div>
+              <section id="major-key-section" class="chart-key-section" aria-label="Major keys">
+                <div id="major-key-grid" class="chart-key-grid"></div>
+              </section>
+              <section id="minor-key-section" class="chart-key-section" aria-label="Minor keys" hidden>
+                <div id="minor-key-grid" class="chart-key-grid"></div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="chart-transport-bottom-row">
+          <div class="chart-transport-meta">
+            <span id="transport-status">Ready</span>
+            <span id="transport-position">Bar 0 / 0</span>
+            <span id="selection-summary">No selection</span>
+          </div>
+          <div class="chart-transport-buttons">
+            <button id="stop-button" type="button" class="chart-transport-button">Stop</button>
+            <button id="play-button" type="button" class="chart-transport-button chart-transport-play">Start</button>
+            <div class="chart-bottom-popover-wrap chart-mixer-popover-wrap">
+              <button id="chart-mixer-button" type="button" class="chart-transport-button chart-mixer-button" aria-label="Mixer" aria-haspopup="menu" aria-expanded="false">Mixer</button>
+              <div id="mixer-popover" class="chart-bottom-popover chart-mixer-popover" hidden>
+                <span class="chart-bottom-popover-title">Mixer</span>
+                <div class="chart-mixer">
+                  <label class="chart-slider-field">
+                    <span>Master</span>
+                    <div class="chart-slider-row">
+                      <input id="master-volume" type="range" min="0" max="100" step="1" value="50">
+                      <output id="master-volume-value">50%</output>
+                    </div>
+                  </label>
+                  <label class="chart-slider-field">
+                    <span>Bass</span>
+                    <div class="chart-slider-row">
+                      <input id="bass-volume" type="range" min="0" max="100" step="1" value="100">
+                      <output id="bass-volume-value">100%</output>
+                    </div>
+                  </label>
+                  <label class="chart-slider-field">
+                    <span>Comping</span>
+                    <div class="chart-slider-row">
+                      <input id="strings-volume" type="range" min="0" max="100" step="1" value="100">
+                      <output id="strings-volume-value">100%</output>
+                    </div>
+                  </label>
+                  <label class="chart-slider-field">
+                    <span>Drums</span>
+                    <div class="chart-slider-row">
+                      <input id="drums-volume" type="range" min="0" max="100" step="1" value="100">
+                      <output id="drums-volume-value">100%</output>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <button id="clear-selection-button" type="button" class="chart-transport-button chart-clear-selection-button">Clear selection</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main chart area: always full screen, overlays float on top -->
+    <main class="chart-workspace">
+      <div class="chart-sheet-header">
+        <div class="chart-sheet-title-row">
+          <h2 id="sheet-title" class="chart-sheet-title"></h2>
+        </div>
+        <div class="chart-sheet-header-row">
+          <div class="chart-sheet-style" id="sheet-style"></div>
+          <div id="chart-performance-cue-bar" class="chart-performance-cue-bar" hidden aria-label="Performance cues"></div>
+          <div class="chart-sheet-subtitle" id="sheet-subtitle"></div>
+        </div>
+        <span id="sheet-time-signature" hidden></span>
+        <span id="sheet-key" hidden></span>
+      </div>
+      <div id="sheet-grid" class="chart-sheet-grid" aria-hidden="true"></div>
+    </main>
+    <div class="chart-selection-menu" id="chart-selection-menu" hidden aria-hidden="true">
+      <div class="chart-selection-menu-card">
+        <button id="selection-loop-button" type="button" class="chart-selection-menu-button chart-selection-menu-button-primary">Loop</button>
+        <button id="selection-play-from-bar-button" type="button" class="chart-selection-menu-button">Play from this bar</button>
+        <button id="selection-create-drill-button" type="button" class="chart-selection-menu-button">Create a drill</button>
+      </div>
+    </div>
+  </div>
+
+  <input id="ireal-backup-input" type="file" accept=".html,.htm,.txt" hidden>
+
+</body>
+</html>
